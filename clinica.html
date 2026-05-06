@@ -1,0 +1,2158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicSaúde — Clínica / Laboratório</title>
+  <style>
+    /* ============================================================ */
+    /* Reset + paleta clínica (ciano)                               */
+    /* ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                   'Helvetica Neue', Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      min-height: 100vh;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ============================================================ */
+    /* Cabeçalho                                                    */
+    /* ============================================================ */
+    .header {
+      background: #1e3a8a;
+      color: #fff;
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      border-bottom: 4px solid #009c3b;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-logo { height: 44px; width: auto; }
+    .header-title h1  { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+    .header-title h1 .pic   { color: #fff; }
+    .header-title h1 .saude { color: #fff; }
+    .header-title .modulo   {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+      color: #fff; font-weight: 600; margin-top: 3px;
+    }
+    .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .header-right-nav { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+    .header-user  { font-size: 13px; color: #cffafe; }
+    .btn-logout {
+      font-size: 12px; padding: 6px 14px; border-radius: 6px;
+      background: rgba(255,255,255,0.15); color: #fff;
+      border: 1px solid rgba(255,255,255,0.3); cursor: pointer;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+    /* ============================================================ */
+    /* Layout principal                                             */
+    /* ============================================================ */
+    .main { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+
+    /* ============================================================ */
+    /* Tela de login                                                */
+    /* ============================================================ */
+    .login-wrap {
+      max-width: 420px; margin: 60px auto 0; padding: 0 16px;
+    }
+    .login-card {
+      background: #fff; border-radius: 14px;
+      border: 1px solid #dbeafe;
+      box-shadow: 0 4px 24px rgba(0,39,118,0.1);
+      padding: 40px 36px 36px;
+    }
+    .login-logo-wrap { text-align: center; margin-bottom: 24px; }
+    .login-logo { height: 56px; width: auto; }
+    .login-card h2 {
+      font-size: 20px; font-weight: 700; color: #002776;
+      text-align: center; margin-bottom: 6px;
+    }
+    .login-card .login-sub {
+      font-size: 13px; color: #64748b; text-align: center; margin-bottom: 28px;
+    }
+    .form-group { margin-bottom: 18px; }
+    .form-label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: #475569; text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .form-input {
+      width: 100%; padding: 10px 14px; border-radius: 7px;
+      border: 1.5px solid #e2e8f0; font-size: 15px; color: #1e293b;
+      background: #f8fafc;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus { outline: none; border-color: #06b6d4; background: #fff; }
+    .btn-primary {
+      width: 100%; padding: 12px; border-radius: 8px;
+      background: #002776; color: #fff; border: none;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover  { background: #001a5e; }
+    .btn-primary:active { background: #00123f; }
+    .login-error {
+      background: #fef2f2; color: #dc2626; padding: 10px 14px;
+      border-radius: 6px; font-size: 13px; font-weight: 600;
+      margin-bottom: 16px; border: 1px solid #fca5a5;
+    }
+
+    /* ============================================================ */
+    /* Busca de pedido                                              */
+    /* ============================================================ */
+    .busca-section {
+      background: #fff; border-radius: 12px;
+      border: 1px solid #cffafe;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      padding: 24px 28px; margin-bottom: 28px;
+    }
+    .busca-section h2 {
+      font-size: 15px; font-weight: 700; color: #0e7490;
+      margin-bottom: 14px;
+    }
+    .busca-row { display: flex; gap: 10px; }
+    .busca-input {
+      flex: 1; padding: 10px 14px; border-radius: 8px;
+      border: 1.5px solid #e2e8f0; font-size: 14px;
+      font-family: 'Courier New', monospace; letter-spacing: 0.5px;
+      color: #1e293b; background: #f8fafc;
+    }
+    .busca-input:focus { outline: none; border-color: #06b6d4; background: #fff; }
+    .btn-buscar {
+      padding: 10px 22px; border-radius: 8px;
+      background: #0e7490; color: #fff; border: none;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-buscar:hover { background: #0891b2; }
+    .busca-erro { margin-top: 10px; font-size: 13px; color: #dc2626; font-weight: 600; }
+
+    /* ============================================================ */
+    /* Cards genéricos                                              */
+    /* ============================================================ */
+    .card {
+      background: #fff; border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      padding: 24px 28px; margin-bottom: 20px;
+    }
+    .card-titulo {
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #0e7490; margin-bottom: 16px;
+      padding-bottom: 10px; border-bottom: 2px solid #cffafe;
+    }
+
+    /* ============================================================ */
+    /* Grid de detalhes do pedido                                   */
+    /* ============================================================ */
+    .detail-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px; margin-bottom: 10px;
+    }
+    .detail-item .detail-label {
+      font-size: 11px; color: #94a3b8; text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .detail-item .detail-value {
+      font-size: 14px; color: #1e293b; font-weight: 600; margin-top: 3px;
+    }
+    .indicacao-bloco {
+      background: #f0fdff; border: 1px solid #cffafe; border-radius: 8px;
+      padding: 10px 14px; margin-top: 12px;
+    }
+    .indicacao-bloco .detail-label { font-size: 11px; color: #0e7490; }
+    .indicacao-bloco .detail-value { font-size: 14px; color: #1e293b; margin-top: 2px; }
+
+    /* ============================================================ */
+    /* Badges                                                       */
+    /* ============================================================ */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .badge-pendente          { background: #f1f5f9; color: #64748b; }
+    .badge-agendado          { background: #dbeafe; color: #1d4ed8; }
+    .badge-coletado          { background: #cffafe; color: #0e7490; }
+    .badge-em-analise        { background: #ede9fe; color: #6d28d9; }
+    .badge-resultado         { background: #dcfce7; color: #166534; }
+    .badge-encerrado         { background: #f1f5f9; color: #475569; }
+    .badge-cancelado         { background: #fee2e2; color: #dc2626; }
+    .badge-urgente           { background: #fee2e2; color: #dc2626; }
+    .badge-rotina            { background: #dcfce7; color: #166534; }
+    .badge-eletivo           { background: #f1f5f9; color: #64748b; }
+    .badge-criado            { background: #fef3c7; color: #92400e; }
+    .badge-confirmado        { background: #dbeafe; color: #1d4ed8; }
+    .badge-realizado         { background: #cffafe; color: #0e7490; }
+
+    /* ============================================================ */
+    /* Seção de agendamento                                         */
+    /* ============================================================ */
+    .ag-bloco {
+      background: #f0fdff; border: 1px solid #a5f3fc; border-radius: 10px;
+      padding: 16px 18px; margin-bottom: 14px;
+    }
+    .ag-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .ag-protocolo { font-size: 12px; font-family: monospace; color: #0e7490; font-weight: 700; }
+    .ag-info-grid {
+      display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px;
+    }
+    .ag-info-grid .detail-item .detail-value { font-size: 13px; }
+    .ag-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+    .btn-confirmar {
+      padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 700;
+      background: #0e7490; color: #fff;
+    }
+    .btn-confirmar:hover { background: #0891b2; }
+    .btn-cancelar-ag {
+      padding: 8px 18px; border-radius: 7px; cursor: pointer;
+      font-size: 13px; font-weight: 700;
+      background: #fff; color: #dc2626;
+      border: 1.5px solid #fca5a5;
+    }
+    .btn-cancelar-ag:hover { background: #fef2f2; }
+    .btn-realizar {
+      padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 700;
+      background: #0d9488; color: #fff;
+    }
+    .btn-realizar:hover { background: #0f766e; }
+
+    /* Form agendar */
+    .form-agendar {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 20px 22px; margin-top: 4px;
+    }
+    .form-agendar h3 { font-size: 14px; font-weight: 700; color: #0e7490; margin-bottom: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .form-row-single { margin-bottom: 14px; }
+    .form-agendar .form-label { font-size: 11px; }
+    .form-agendar .form-input { font-size: 14px; padding: 9px 12px; }
+    .btn-agendar-submit {
+      padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer;
+      background: #0e7490; color: #fff; font-size: 14px; font-weight: 700;
+    }
+    .btn-agendar-submit:hover { background: #0891b2; }
+    .btn-cancelar-form {
+      padding: 10px 18px; border-radius: 8px; cursor: pointer;
+      background: #fff; color: #64748b;
+      border: 1.5px solid #e2e8f0; font-size: 14px;
+    }
+    .btn-nova-busca {
+      padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
+      background: #e0f7fa; color: #0e7490;
+      font-size: 13px; font-weight: 600;
+    }
+    .btn-nova-busca:hover { background: #cffafe; }
+
+    /* ============================================================ */
+    /* Lista de itens / exames                                      */
+    /* ============================================================ */
+    .item-exame {
+      border: 1px solid #e2e8f0; border-radius: 10px;
+      padding: 16px 18px; margin-bottom: 12px;
+      background: #fff;
+      transition: border-color 0.15s;
+    }
+    .item-exame.status-coletado { border-left: 4px solid #06b6d4; }
+    .item-exame.status-agendado { border-left: 4px solid #3b82f6; }
+    .item-exame.status-pendente { border-left: 4px solid #cbd5e1; }
+    .item-exame.status-em-analise { border-left: 4px solid #8b5cf6; }
+    .item-exame.status-resultado  { border-left: 4px solid #22c55e; }
+    .item-exame.status-encerrado  { border-left: 4px solid #94a3b8; }
+    .item-exame.status-cancelado  { border-left: 4px solid #ef4444; opacity: 0.75; }
+
+    .item-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .item-nome { font-size: 15px; font-weight: 700; color: #1e293b; }
+    .item-meta {
+      display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px;
+    }
+    .item-meta span { font-size: 12px; color: #64748b; }
+    .item-meta strong { color: #1e293b; }
+    .item-acoes { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .btn-coletar {
+      padding: 8px 20px; border-radius: 7px; border: none; cursor: pointer;
+      background: #0e7490; color: #fff; font-size: 13px; font-weight: 700;
+      transition: background 0.15s;
+    }
+    .btn-coletar:hover { background: #0891b2; }
+    .btn-coletar:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    .laudo-aguardo {
+      font-size: 13px; color: #0e7490; font-weight: 600;
+      background: #f0fdff; padding: 6px 12px; border-radius: 6px;
+      border: 1px solid #a5f3fc;
+    }
+
+    /* ============================================================ */
+    /* Mensagens de feedback                                        */
+    /* ============================================================ */
+    .feedback-ok {
+      background: #f0fdf4; border: 1px solid #86efac; color: #166534;
+      padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .feedback-err {
+      background: #fef2f2; border: 1px solid #fca5a5; color: #dc2626;
+      padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    /* ============================================================ */
+    /* Responsividade                                               */
+    /* ============================================================ */
+    @media (max-width: 600px) {
+      .header        { padding: 12px 16px; }
+      .header-logo   { height: 36px; }
+      .header-title h1 { font-size: 18px; }
+      .header-user   { display: none; }
+      .main          { padding: 20px 14px; }
+      .busca-section { padding: 18px 16px; }
+      .card          { padding: 18px 16px; }
+      .form-row      { grid-template-columns: 1fr; }
+      .detail-grid   { grid-template-columns: 1fr 1fr; }
+    }
+
+    /* ── Contexto Institucional + CNES Modal (Ticket 43) ─────────── */
+    .ctxt-inst-card{background:#fff;border-radius:12px;border:1.5px solid #cffafe;padding:14px 22px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:background 0.2s,border-color 0.2s;}
+    .ctxt-inst-card.nao-id{background:#fffbeb;border-color:#fcd34d;}
+    .ctxt-inst-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:3px;}
+    .ctxt-inst-card.nao-id .ctxt-inst-label{color:#92400e;}
+    .ctxt-inst-valor{font-size:13px;color:#0e7490;font-weight:600;}
+    .ctxt-inst-vazio{font-size:13px;color:#92400e;font-weight:600;}
+    .btn-localizar-cnes{padding:7px 14px;border-radius:6px;border:1.5px solid #002776;color:#002776;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
+    .btn-localizar-cnes:hover{background:#eff6ff;}
+    .ctxt-inst-card.nao-id .btn-localizar-cnes{border-color:#d97706;color:#d97706;}
+    .ctxt-inst-card.nao-id .btn-localizar-cnes:hover{background:#fffbeb;}
+
+    /* Ticket 46 — Banner de risco + Modal de gate leve */
+    .banner-ctx-risco{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;font-weight:600;color:#92400e;}
+    .banner-ctx-risco.hidden{display:none!important;}
+    .banner-ctx-risco .banner-msg{display:flex;align-items:center;gap:7px;}
+    .btn-banner-corrigir{background:transparent;border:1.5px solid #d97706;color:#b45309;padding:5px 12px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+    .btn-banner-corrigir:hover{background:#fef3c7;}
+    .modal-ctx-warn{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;}
+    .modal-ctx-warn.hidden{display:none!important;}
+    .modal-ctx-warn-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
+    .modal-ctx-warn-box{position:relative;background:#fff;border-radius:14px;padding:32px 28px 24px;max-width:420px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.18);text-align:center;}
+    .modal-ctx-warn-icon{font-size:36px;margin-bottom:12px;line-height:1;}
+    .modal-ctx-warn-box h3{font-size:16px;font-weight:700;color:#92400e;margin-bottom:10px;}
+    .modal-ctx-warn-box p{font-size:13px;color:#78350f;line-height:1.65;margin-bottom:24px;}
+    .modal-ctx-warn-btns{display:flex;flex-direction:column;gap:10px;}
+    .btn-ctx-identificar{padding:11px 20px;border-radius:8px;border:none;background:#0e7490;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;}
+    .btn-ctx-identificar:hover{background:#0891b2;}
+    .btn-ctx-continuar{padding:9px 20px;border-radius:8px;border:1.5px solid #d97706;background:transparent;color:#b45309;font-size:12px;font-weight:600;cursor:pointer;}
+    .btn-ctx-continuar:hover{background:#fef3c7;}
+
+    .modal-cnes{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;}
+    .modal-cnes.hidden{display:none!important;}
+    .modal-cnes-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
+    .modal-cnes-box{position:relative;background:#fff;border-radius:14px;width:560px;max-width:95vw;max-height:82vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.22);}
+    .modal-cnes-hd{padding:20px 24px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .modal-cnes-hd h3{font-size:12px;font-weight:800;color:#0e7490;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
+    .btn-fechar-cnes{border:none;background:none;font-size:22px;color:#94a3b8;cursor:pointer;line-height:1;padding:0;flex-shrink:0;}
+    .btn-fechar-cnes:hover{color:#475569;}
+    .modal-cnes-body{padding:18px 24px 20px;}
+    .modal-cnes-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:14px;color:#1e293b;background:#f8fafc;margin-bottom:14px;}
+    .modal-cnes-input:focus{outline:none;border-color:#0e7490;background:#fff;}
+    .cnes-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:9px;}
+    .cnes-item:hover{border-color:#a5f3fc;background:#f0fdff;}
+    .cnes-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+    .cnes-item-nome{font-size:14px;font-weight:700;color:#1e293b;}
+    .cnes-item-meta{font-size:12px;color:#64748b;margin-top:3px;}
+    .cnes-badge-t{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;text-transform:uppercase;letter-spacing:0.5px;}
+    .btn-cnes-usar{padding:6px 14px;border-radius:6px;border:none;background:#0e7490;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+    .btn-cnes-usar:hover{background:#0891b2;}
+    .cnes-ul{margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;display:none;}
+    .cnes-ul.aberta{display:block;}
+    .cnes-unidade-opt{padding:8px 12px;border-radius:7px;border:1px solid #e2e8f0;margin-bottom:6px;cursor:pointer;font-size:13px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;}
+    .cnes-unidade-opt:hover{background:#f0fdff;border-color:#a5f3fc;}
+    .cnes-empty{text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;}
+    .cnes-fallback{margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;border-top:1px solid #f1f5f9;padding-top:12px;}
+
+    /* ── Circulação Diagnóstica (Ticket 57) ────────────────────────── */
+    .circ-section { background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:20px 24px; margin-bottom:20px; }
+    .circ-section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#166534; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid #bbf7d0; }
+    .circ-busca-row { display:flex; gap:10px; margin-bottom:14px; }
+    .circ-busca-input { flex:1; padding:10px 14px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:14px; font-family:'Courier New',monospace; letter-spacing:1px; color:#1e293b; background:#f8fafc; text-transform:uppercase; }
+    .circ-busca-input:focus { outline:none; border-color:#16a34a; background:#fff; }
+    .btn-circ-buscar { padding:10px 22px; border-radius:8px; background:#166534; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .btn-circ-buscar:hover { background:#14532d; }
+    .circ-card { background:#fff; border:1.5px solid #bbf7d0; border-radius:10px; padding:16px 20px; }
+    .circ-chave-display { font-family:'Courier New',monospace; font-size:22px; font-weight:800; letter-spacing:6px; color:#166534; text-align:center; padding:10px; background:#f0fdf4; border:1px dashed #16a34a; border-radius:6px; margin:8px 0 12px; }
+    .circ-status-badge { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 10px; border-radius:999px; }
+    .circ-status-badge.selecionado            { background:#f1f5f9; color:#475569; }
+    .circ-status-badge.enviado_laboratorio    { background:#dbeafe; color:#1e40af; }
+    .circ-status-badge.proposta_recebida      { background:#fef9c3; color:#854d0e; }
+    .circ-status-badge.confirmado_paciente    { background:#d1fae5; color:#065f46; }
+    .circ-status-badge.realizado              { background:#cffafe; color:#0e7490; }
+    .circ-status-badge.desmarcado_paciente,
+    .circ-status-badge.desmarcado_laboratorio { background:#fee2e2; color:#991b1b; }
+    .circ-status-badge.arquivado_laboratorio,
+    .circ-status-badge.expirado               { background:#f1f5f9; color:#64748b; }
+    .circ-privacy-note { font-size:11px; color:#166534; background:#dcfce7; border-radius:4px; padding:6px 10px; margin:10px 0; }
+    .circ-proposta-bloco { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin:10px 0; font-size:13px; color:#92400e; line-height:1.65; }
+    .circ-proposta-bloco strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; color:#78350f; }
+    .circ-acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .btn-circ-proposta  { padding:8px 18px; border-radius:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; background:#0e7490; color:#fff; }
+    .btn-circ-proposta:hover  { background:#0891b2; }
+    .btn-circ-realizar  { padding:8px 18px; border-radius:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; background:#0d9488; color:#fff; }
+    .btn-circ-realizar:hover  { background:#0f766e; }
+    .btn-circ-remarcar  { padding:8px 18px; border-radius:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; background:#f59e0b; color:#fff; }
+    .btn-circ-remarcar:hover  { background:#d97706; }
+    .btn-circ-desmarcar { padding:8px 18px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:700; background:#fff; color:#dc2626; border:1.5px solid #fca5a5; }
+    .btn-circ-desmarcar:hover { background:#fef2f2; }
+    .form-circ-proposta { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px 18px; margin-top:10px; display:none; }
+    .form-circ-proposta.aberto { display:block; }
+    .form-circ-proposta h4 { font-size:13px; font-weight:700; color:#0e7490; margin-bottom:12px; }
+    .form-circ-remarcar { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:16px 18px; margin-top:10px; display:none; }
+    .form-circ-remarcar.aberto { display:block; }
+    .form-circ-remarcar h4 { font-size:13px; font-weight:700; color:#d97706; margin-bottom:12px; }
+    .circ-item-row { display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13px; color:#1e293b; border-bottom:1px solid #f1f5f9; }
+    .circ-item-row:last-child { border-bottom:none; }
+    .circ-feedback { padding:8px 12px; border-radius:7px; font-size:13px; font-weight:600; margin-top:10px; }
+    .circ-feedback.ok  { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
+    .circ-feedback.err { background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; }
+    /* ─────────────────────────────────────────────────────────────── */
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+
+  <!-- ============================================================ -->
+  <!-- CABEÇALHO INSTITUCIONAL                                       -->
+  <!-- ============================================================ -->
+  <header class="header">
+    <div class="header-left">
+      <img src="logo-picsaude.png" alt="PicSaúde" class="header-logo"
+           onerror="this.style.display='none'">
+      <div class="header-title">
+        <h1><span class="pic">Pic</span><span class="saude">Saúde</span></h1>
+        <div class="modulo">Plataforma de Integração do Cuidado</div>
+      </div>
+    </div>
+    <div class="header-right-nav">
+      <a href="index.html" style="font-size:12px; font-weight:600; color:#fff; text-decoration:none; letter-spacing:0.3px; align-self:center;" aria-label="Voltar ao portal">← Portal</a>
+      <span class="module-tag">Módulo Laboratório</span>
+    </div>
+    <div class="header-right hidden" id="header-sessao">
+      <span class="header-user" id="header-nome-clinica"></span>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- TELA DE LOGIN                                                 -->
+  <!-- ============================================================ -->
+  <div id="tela-login">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="login-logo-wrap">
+          <img src="logo-picsaude.png" alt="PicSaúde" class="login-logo"
+               onerror="this.style.display='none'">
+        </div>
+        <h2>Acesso Laboratório</h2>
+        <p class="login-sub">Use o CNPJ e a senha da unidade para acessar.</p>
+
+        <div id="login-erro" class="login-error hidden"></div>
+
+        <form onsubmit="fazerLogin(event)">
+          <div class="form-group">
+            <label class="form-label" for="login-cnpj">CNPJ da unidade</label>
+            <input type="text" id="login-cnpj" class="form-input"
+                   placeholder="00.000.000/0000-00" autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login-senha">Senha</label>
+            <input type="password" id="login-senha" class="form-input"
+                   placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn-primary">Entrar</button>
+        </form>
+        <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid #e0f2fe;">
+          <button type="button" onclick="abrirModalCNESPreLogin()"
+            style="padding:10px 20px; border-radius:6px; border:1.5px solid #002776; background:#fff; color:#002776; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:0.3px;">
+            Localizar Cadastro Nacional (CNES)
+          </button>
+          <div id="cnes-pre-login-ok" class="hidden"
+            style="margin-top:12px; background:#dcfce7; border:1px solid #86efac; border-radius:7px; padding:7px 12px; font-size:12px; color:#166534; font-weight:600;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TELA DE ONBOARDING INSTITUCIONAL (Ticket 45)                 -->
+  <!-- ============================================================ -->
+  <div id="tela-onboarding" class="hidden">
+    <div class="login-wrap">
+      <div class="login-card" style="text-align:center; padding:40px 32px;">
+        <div style="font-size:40px; margin-bottom:16px;">🏥</div>
+        <h2 style="color:#0e7490; font-size:20px; font-weight:700; margin-bottom:12px;">Identifique seu estabelecimento</h2>
+        <p style="color:#475569; font-size:14px; line-height:1.7; margin-bottom:28px;">
+          Antes de agendar ou registrar coletas, localize sua clínica ou laboratório no Cadastro Nacional de Estabelecimentos de Saúde.
+        </p>
+        <button class="btn-primary" style="width:100%; margin-bottom:12px;" onclick="abrirModalCNESOnboarding()">
+          🔍 Localizar Cadastro Nacional (CNES)
+        </button>
+        <button class="btn-outline" style="width:100%; font-size:12px; margin-top:4px; padding:10px;" onclick="_pularOnboarding()">
+          Preencher manualmente no painel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- DASHBOARD (pós-login)                                        -->
+  <!-- ============================================================ -->
+  <div id="tela-dashboard" class="hidden">
+    <div class="main">
+
+      <!-- Ticket 46 — Banner de risco (contexto não verificado) -->
+      <div id="banner-ctx-risco" class="banner-ctx-risco hidden">
+        <span class="banner-msg">⚠ Operando com contexto não verificado no CNES</span>
+        <button class="btn-banner-corrigir" type="button" onclick="abrirModalCNESClinica()">Corrigir agora</button>
+      </div>
+
+      <!-- BUSCA -------------------------------------------------- -->
+      <div class="busca-section">
+        <h2>🔍 Buscar Pedido de Exame</h2>
+        <div class="busca-row">
+          <input type="text" id="busca-protocolo" class="busca-input"
+                 placeholder="Protocolo do pedido (ex: PE-2026-XXXXXXXX)"
+                 onkeydown="if(event.key==='Enter') buscarPedido()">
+          <button class="btn-buscar" onclick="buscarPedido()">Buscar</button>
+        </div>
+        <div id="busca-erro" class="busca-erro hidden"></div>
+      </div>
+
+      <!-- CONTEXTO INSTITUCIONAL (Tickets 43 + 45) ──────────────── -->
+      <div class="ctxt-inst-card nao-id" id="ctxt-inst-card">
+        <div>
+          <div class="ctxt-inst-label">Contexto Institucional</div>
+          <div id="ctxt-inst-texto" class="ctxt-inst-vazio">Estabelecimento não identificado</div>
+        </div>
+        <button class="btn-localizar-cnes" type="button" onclick="abrirModalCNESClinica()">
+          LOCALIZAR CADASTRO NACIONAL (CNES)
+        </button>
+      </div>
+
+      <!-- RESULTADO ---------------------------------------------- -->
+      <div id="resultado-pedido" class="hidden">
+
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+          <button class="btn-nova-busca" onclick="novaBusca()">← Nova busca</button>
+        </div>
+
+        <!-- ── DETALHES DO PEDIDO ── -->
+        <div class="card" id="card-pedido">
+          <div class="card-titulo">Pedido de Exame</div>
+          <div id="detalhes-pedido"></div>
+        </div>
+
+        <!-- ── AGENDAMENTO ── -->
+        <div class="card" id="card-agendamento">
+          <div class="card-titulo">Agendamento</div>
+          <div id="feedback-agendamento" class="hidden"></div>
+          <div id="conteudo-agendamento"></div>
+        </div>
+
+        <!-- ── EXAMES SOLICITADOS ── -->
+        <div class="card">
+          <div class="card-titulo">Exames Solicitados</div>
+          <div id="lista-itens"></div>
+        </div>
+
+      </div>
+      <!-- /resultado-pedido -->
+
+      <!-- ── Circulação Diagnóstica (Ticket 57) ──────────────────── -->
+      <div class="circ-section">
+        <div class="circ-section-title">🔬 Circulação Diagnóstica</div>
+        <div class="circ-busca-row">
+          <input type="text" id="circ-chave-input" class="circ-busca-input"
+                 placeholder="Chave de circulação (ex: A3F1C2B4E5D6)"
+                 maxlength="12"
+                 oninput="this.value=this.value.toUpperCase()"
+                 onkeydown="if(event.key==='Enter') buscarCirculacao()">
+          <button class="btn-circ-buscar" onclick="buscarCirculacao()">Consultar</button>
+        </div>
+        <div id="circ-feedback" class="hidden"></div>
+        <div id="circ-resultado" class="hidden"></div>
+      </div>
+      <!-- /circulação diagnóstica -->
+
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- JAVASCRIPT                                                   -->
+  <!-- ============================================================ -->
+  <script>
+    'use strict';
+
+    const BACKEND = BACKEND_URL;
+
+    let jwtAccessToken  = null;
+    let clinicaLogada   = null;  // { nome, cnpj }
+    let pedidoAtual     = null;
+
+    // DEV_PRESET_CONTEXT: pré-seleciona a clínica de teste automaticamente.
+    // Mude para false antes de publicar em produção.
+    const DEV_PRESET_CONTEXT = true;
+    let agendamentosAtuais = [];
+
+    // Ticket 46 — Gate leve de contexto CNES
+    let _cnesConfirmadoManual = false;
+    let _ctxWarnResolve       = null;
+
+    function _atualizarBannerRisco() {
+      const banner = document.getElementById('banner-ctx-risco');
+      if (!banner) return;
+      if (clinicaLogada?.cnes_verificado === false) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    function _confirmarContextoManual() {
+      if (clinicaLogada?.cnes_verificado !== false) return Promise.resolve(true);
+      if (_cnesConfirmadoManual) return Promise.resolve(true);
+      return new Promise(resolve => {
+        _ctxWarnResolve = resolve;
+        document.getElementById('modal-ctx-warn').classList.remove('hidden');
+      });
+    }
+
+    function _ctxWarnIdentificar() {
+      document.getElementById('modal-ctx-warn').classList.add('hidden');
+      if (_ctxWarnResolve) { _ctxWarnResolve(false); _ctxWarnResolve = null; }
+      abrirModalCNESClinica();
+    }
+
+    function _ctxWarnContinuar() {
+      _cnesConfirmadoManual = true;
+      document.getElementById('modal-ctx-warn').classList.add('hidden');
+      if (_ctxWarnResolve) { _ctxWarnResolve(true); _ctxWarnResolve = null; }
+    }
+
+    // ─────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────
+
+    function authHeaders() {
+      const h = { 'Content-Type': 'application/json' };
+      if (jwtAccessToken) h['Authorization'] = 'Bearer ' + jwtAccessToken;
+      return h;
+    }
+
+    function normalizarCnpj(v) { return v.replace(/\D/g, ''); }
+
+    function formatarData(isoStr) {
+      if (!isoStr) return '—';
+      try {
+        const d = new Date(isoStr);
+        return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+      } catch(_) { return isoStr; }
+    }
+
+    function formatarDataSimples(isoStr) {
+      if (!isoStr) return '—';
+      try {
+        const d = new Date(isoStr);
+        return d.toLocaleDateString('pt-BR');
+      } catch(_) { return isoStr; }
+    }
+
+    // ── Ticket 49 — Widget de confiança CNES ──────────────────────────────────
+    function _renderCnesDetails(v) {
+      const sim  = '<span style="color:#16a34a;font-weight:600">sim</span>';
+      const nao  = '<span style="color:#dc2626;font-weight:600">não</span>';
+      const na   = '<span style="color:#94a3b8">—</span>';
+      const bool = (x) => x === true ? sim : x === false ? nao : na;
+      const rows = [
+        `Nome CNES: <strong>${v.nome_cnes || '—'}</strong> · coincide: ${bool(v.nome_normalizado_coincide)}`,
+        `CRM: ${v.crm_declarado || '—'} · UF: ${v.uf_crm_declarado || '—'} · confirmado: ${bool(v.crm_cnes_coincide)}`,
+        `Vínculo c/ prestador: ${bool(v.vinculo_com_prestador)}`,
+      ];
+      const div = (v.divergencias || []).length
+        ? `<div style="color:#dc2626;margin-top:6px">⚠ ${v.divergencias.join(' · ')}</div>` : '';
+      return rows.map(r => `<div>${r}</div>`).join('') + div;
+    }
+
+    function _renderizarValidacaoCNES(v) {
+      if (!v || !v.nivel_validacao_cnes) return '';
+      const cores  = { forte: '#16a34a', parcial: '#f59e0b', divergente: '#dc2626', nao_encontrado: '#6b7280' };
+      const textos = { forte: 'FORTE', parcial: 'PARCIAL', divergente: 'DIVERGENTE', nao_encontrado: 'NÃO ENCONTRADO' };
+      const nivel  = v.nivel_validacao_cnes;
+      const cor    = cores[nivel] || '#6b7280';
+      const texto  = textos[nivel] || nivel.toUpperCase();
+      const detId  = 'cnes-det-' + Math.random().toString(36).slice(2, 7);
+      return `
+        <div class="no-print" style="margin-bottom:12px;padding:10px 14px;border-left:4px solid ${cor};background:#f9fafb;border-radius:0 6px 6px 0;font-size:13px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <strong style="color:${cor}">● Validação CNES: ${texto}</strong>
+            <button onclick="document.getElementById('${detId}').classList.toggle('hidden')"
+                    style="font-size:11px;color:#64748b;background:none;border:none;cursor:pointer;padding:2px 6px">
+              ver detalhes ▾
+            </button>
+          </div>
+          <div style="color:#64748b;margin-top:3px">
+            ${v.cbo ? 'CBO: ' + v.cbo + ' · ' : ''}Vínculos: ${v.vinculos_ativos ?? 0} · Base: CNES ${v.snapshot_mes || '—'}
+          </div>
+          <div id="${detId}" class="hidden" style="margin-top:8px;color:#475569;border-top:1px solid #e2e8f0;padding-top:8px">
+            ${_renderCnesDetails(v)}
+          </div>
+        </div>
+      `;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function badgePedido(status) {
+      const m = {
+        emitido:              ['badge-pendente',  'Emitido'],
+        agendado:             ['badge-agendado',  'Agendado'],
+        coletado:             ['badge-coletado',  'Coletado'],
+        em_analise:           ['badge-em-analise','Em Análise'],
+        resultado_disponivel: ['badge-resultado', 'Resultado disponível'],
+        encerrado:            ['badge-encerrado', 'Encerrado'],
+        cancelado:            ['badge-cancelado', 'Cancelado'],
+        expirado:             ['badge-cancelado', 'Expirado'],
+        encerrado_fisico:     ['badge-encerrado', 'Físico'],
+      };
+      const [cls, lbl] = m[status] || ['badge-pendente', status];
+      return `<span class="badge ${cls}">${lbl}</span>`;
+    }
+
+    function badgeItem(status) {
+      const m = {
+        pendente:             ['badge-pendente',  'Pendente'],
+        agendado:             ['badge-agendado',  'Agendado'],
+        coletado:             ['badge-coletado',  'Coletado'],
+        em_analise:           ['badge-em-analise','Em Análise'],
+        resultado_disponivel: ['badge-resultado', 'Resultado disponível'],
+        encerrado:            ['badge-encerrado', 'Encerrado'],
+        cancelado:            ['badge-cancelado', 'Cancelado'],
+        encerrado_fisico:     ['badge-encerrado', 'Físico'],
+      };
+      const [cls, lbl] = m[status] || ['badge-pendente', status];
+      return `<span class="badge ${cls}">${lbl}</span>`;
+    }
+
+    function badgePrioridade(p) {
+      const m = {
+        urgente: ['badge-urgente', 'Urgente'],
+        rotina:  ['badge-rotina',  'Rotina'],
+        eletivo: ['badge-eletivo', 'Eletivo'],
+      };
+      const [cls, lbl] = m[p] || ['badge-pendente', p];
+      return `<span class="badge ${cls}">${lbl}</span>`;
+    }
+
+    function badgeAgendamento(status) {
+      const m = {
+        criado:        ['badge-criado',     'Criado'],
+        confirmado:    ['badge-confirmado', 'Confirmado'],
+        realizado:     ['badge-realizado',  'Realizado'],
+        cancelado:     ['badge-cancelado',  'Cancelado'],
+        nao_compareceu:['badge-cancelado',  'Não compareceu'],
+      };
+      const [cls, lbl] = m[status] || ['badge-pendente', status];
+      return `<span class="badge ${cls}">${lbl}</span>`;
+    }
+
+    function mostrarFeedback(containerId, tipo, mensagem) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      el.className = tipo === 'ok' ? 'feedback-ok' : 'feedback-err';
+      el.textContent = mensagem;
+      el.classList.remove('hidden');
+      if (tipo === 'ok') setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    function itemStatusClass(status) {
+      const m = {
+        pendente: 'status-pendente', agendado: 'status-agendado',
+        coletado: 'status-coletado', em_analise: 'status-em-analise',
+        resultado_disponivel: 'status-resultado', encerrado: 'status-encerrado',
+        cancelado: 'status-cancelado', encerrado_fisico: 'status-encerrado',
+      };
+      return m[status] || 'status-pendente';
+    }
+
+    function handleUnauthorized() {
+      alert('Sessão expirada ou sem permissão. Faça login novamente.');
+      logout();
+    }
+
+    // ─────────────────────────────────────────
+    // LOGIN / LOGOUT
+    // ─────────────────────────────────────────
+
+    async function fazerLogin(e) {
+      e.preventDefault();
+      const erroEl = document.getElementById('login-erro');
+      erroEl.classList.add('hidden');
+
+      const cnpjRaw = document.getElementById('login-cnpj').value.trim();
+      const senha   = document.getElementById('login-senha').value;
+      const cnpj    = normalizarCnpj(cnpjRaw);
+
+      if (!cnpj || !senha) {
+        erroEl.textContent = 'Preencha o CNPJ e a senha.';
+        erroEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const form = new URLSearchParams();
+        form.append('username', cnpj);
+        form.append('password', senha);
+
+        const resp = await fetch(BACKEND + '/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString(),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          erroEl.textContent = 'Login inválido: ' + (err.detail || 'Verifique suas credenciais.');
+          erroEl.classList.remove('hidden');
+          return;
+        }
+
+        const data = await resp.json();
+
+        if (data.role !== 'dispensador' && data.role !== 'admin') {
+          erroEl.textContent = `Perfil "${data.role}" não tem acesso a este módulo. `
+            + 'Use o acesso de Dispensador / Clínica.';
+          erroEl.classList.remove('hidden');
+          return;
+        }
+
+        jwtAccessToken = data.access_token;
+        clinicaLogada  = { nome: data.nome || cnpjRaw, cnpj: cnpj, org_id: null, unidades: [] };
+
+        document.getElementById('login-cnpj').value = '';
+        document.getElementById('login-senha').value = '';
+
+        document.getElementById('header-nome-clinica').textContent = clinicaLogada.nome;
+        document.getElementById('header-sessao').classList.remove('hidden');
+        document.getElementById('tela-login').classList.add('hidden');
+
+        // Aplicar contexto pré-login (selecionado antes de entrar)
+        if (_pendingContext) {
+          const { prestador, unidadeId } = _pendingContext;
+          clinicaLogada.org_id          = prestador.org_id;
+          clinicaLogada.nome_prestador  = prestador.nome;
+          clinicaLogada.unidades        = prestador.unidades;
+          clinicaLogada.cnes_verificado = prestador.cnes_verificado;
+          _pendingContext = null;
+          _atualizarDisplayContexto();
+          document.getElementById('tela-dashboard').classList.remove('hidden');
+          document.getElementById('busca-protocolo')?.focus();
+        } else {
+          await _iniciarSessao(data.access_token);
+        }
+
+      } catch (_) {
+        erroEl.textContent = 'Não foi possível conectar ao servidor. Verifique se o backend está rodando em ' + BACKEND;
+        erroEl.classList.remove('hidden');
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CONTEXTO INSTITUCIONAL (Tickets 42 + 43)
+    // ─────────────────────────────────────────────────────────────
+
+    // Retorna true se encontrou org_id resolvido, false caso contrário.
+    async function _carregarContextoInstitucional(token) {
+      let contextFound = false;
+      try {
+        const resp = await fetch(BACKEND + '/auth/me/institucional', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (resp.ok) {
+          const ctx = await resp.json();
+          clinicaLogada.org_id          = ctx.org_id;
+          clinicaLogada.nome_prestador  = ctx.nome;
+          clinicaLogada.unidades        = ctx.unidades || [];
+          clinicaLogada.cnes_verificado = ctx.cnes_verificado;
+          contextFound = !!(ctx.org_id);
+        }
+      } catch (_) {}
+      _atualizarDisplayContexto();
+      return contextFound;
+    }
+
+    async function _iniciarSessao(token) {
+      const contextFound = await _carregarContextoInstitucional(token);
+      if (contextFound) {
+        document.getElementById('tela-dashboard').classList.remove('hidden');
+        document.getElementById('busca-protocolo')?.focus();
+      } else {
+        document.getElementById('tela-onboarding').classList.remove('hidden');
+      }
+    }
+
+    // Pré-login: abre modal CNES sem exigir JWT.
+    let _pendingContext = null;
+
+    function abrirModalCNESPreLogin() {
+      abrirModalCNES((prestador, unidadeId) => {
+        _pendingContext = { prestador, unidadeId };
+        const ok = document.getElementById('cnes-pre-login-ok');
+        if (ok) {
+          const verificado = prestador.cnes_verificado ? ' ✓ CNES' : ' ⚠ manual';
+          ok.textContent = prestador.nome + verificado + (unidadeId ? ' — unidade: ' + unidadeId : '');
+          ok.classList.remove('hidden');
+        }
+      }, 'cnes-bruto');
+    }
+
+    function abrirModalCNESOnboarding() {
+      abrirModalCNES((prestador, unidadeId) => {
+        clinicaLogada.org_id          = prestador.org_id;
+        clinicaLogada.nome_prestador  = prestador.nome;
+        clinicaLogada.unidades        = prestador.unidades;
+        clinicaLogada.cnes_verificado = prestador.cnes_verificado;
+        _atualizarDisplayContexto();
+        _pularOnboarding();
+      });
+    }
+
+    function _pularOnboarding() {
+      document.getElementById('tela-onboarding').classList.add('hidden');
+      document.getElementById('tela-dashboard').classList.remove('hidden');
+      document.getElementById('busca-protocolo')?.focus();
+    }
+
+    function _atualizarDisplayContexto() {
+      const el   = document.getElementById('ctxt-inst-texto');
+      const card = document.getElementById('ctxt-inst-card');
+      if (!el) return;
+      if (clinicaLogada?.org_id) {
+        const verificado = clinicaLogada.cnes_verificado !== false;
+        el.className = 'ctxt-inst-valor';
+        const uns = (clinicaLogada.unidades || []).length;
+        const aviso = verificado ? '' : ' &nbsp;<span style="color:#d97706;font-size:11px;font-weight:700">⚠ não verificado no CNES</span>';
+        el.innerHTML = esc(clinicaLogada.nome_prestador || clinicaLogada.org_id)
+          + ` &nbsp;<code style="font-size:11px;color:#64748b">${esc(clinicaLogada.org_id)}</code>`
+          + (uns > 0 ? ` &nbsp;·&nbsp; ${uns} unidade(s)` : '')
+          + aviso;
+        if (card) {
+          if (verificado) card.classList.remove('nao-id');
+          else card.classList.add('nao-id');
+        }
+      } else {
+        el.className = 'ctxt-inst-vazio';
+        el.textContent = 'Identificação pendente — localize seu estabelecimento para agendar';
+        if (card) card.classList.add('nao-id');
+      }
+      _atualizarBannerRisco();
+    }
+
+    // Aplica contexto institucional no formulário de agendamento (T42 + T43)
+    function _aplicarContextoNoForm() {
+      const uns = clinicaLogada?.unidades || [];
+      if (clinicaLogada?.org_id) {
+        const orgEl = document.getElementById('ag-org-id');
+        if (orgEl) orgEl.value = clinicaLogada.org_id;
+      }
+      if (uns.length === 1) {
+        const uEl = document.getElementById('ag-unidade-id');
+        if (uEl) uEl.value = uns[0].unidade_id;
+      } else if (uns.length > 1) {
+        const uEl = document.getElementById('ag-unidade-id');
+        if (uEl && uEl.tagName === 'INPUT') {
+          const sel = document.createElement('select');
+          sel.id        = 'ag-unidade-id';
+          sel.className = uEl.className;
+          uns.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value       = u.unidade_id;
+            opt.textContent = u.nome ? `${u.nome} (${u.unidade_id})` : u.unidade_id;
+            sel.appendChild(opt);
+          });
+          uEl.replaceWith(sel);
+        } else if (uEl && uEl.tagName === 'SELECT') {
+          uEl.innerHTML = '';
+          uns.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value       = u.unidade_id;
+            opt.textContent = u.nome ? `${u.nome} (${u.unidade_id})` : u.unidade_id;
+            uEl.appendChild(opt);
+          });
+        }
+      }
+    }
+
+    function logout() {
+      jwtAccessToken        = null;
+      clinicaLogada         = null;
+      pedidoAtual           = null;
+      agendamentosAtuais    = [];
+      _cnesConfirmadoManual = false;
+
+      document.getElementById('header-sessao').classList.add('hidden');
+      document.getElementById('tela-dashboard').classList.add('hidden');
+      document.getElementById('resultado-pedido').classList.add('hidden');
+      document.getElementById('busca-protocolo').value = '';
+      document.getElementById('tela-login').classList.remove('hidden');
+    }
+
+    // ─────────────────────────────────────────
+    // BUSCA DE PEDIDO
+    // ─────────────────────────────────────────
+
+    async function buscarPedido() {
+      const protocolo = document.getElementById('busca-protocolo').value.trim();
+      const erroEl    = document.getElementById('busca-erro');
+      erroEl.classList.add('hidden');
+
+      if (!protocolo) {
+        erroEl.textContent = 'Informe o protocolo do pedido.';
+        erroEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const resp = await fetch(BACKEND + '/pedidos-exame/' + encodeURIComponent(protocolo), {
+          headers: authHeaders(),
+        });
+
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+
+        if (resp.status === 404) {
+          erroEl.textContent = `Pedido "${protocolo}" não encontrado.`;
+          erroEl.classList.remove('hidden');
+          return;
+        }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          erroEl.textContent = 'Erro ao buscar pedido: ' + (err.detail || resp.status);
+          erroEl.classList.remove('hidden');
+          return;
+        }
+
+        pedidoAtual = await resp.json();
+        renderizarPedido(pedidoAtual);
+        document.getElementById('resultado-pedido').classList.remove('hidden');
+        await carregarAgendamentos(protocolo);
+
+      } catch (_) {
+        erroEl.textContent = 'Falha de rede. Verifique a conexão com o backend.';
+        erroEl.classList.remove('hidden');
+      }
+    }
+
+    function novaBusca() {
+      document.getElementById('resultado-pedido').classList.add('hidden');
+      pedidoAtual = null;
+      agendamentosAtuais = [];
+      document.getElementById('busca-protocolo').value = '';
+      document.getElementById('busca-protocolo').focus();
+    }
+
+    // ─────────────────────────────────────────
+    // RENDERIZAÇÃO DO PEDIDO
+    // ─────────────────────────────────────────
+
+    function renderizarPedido(p) {
+      const el = document.getElementById('detalhes-pedido');
+      const nomePaciente  = p.paciente_nome  || p.paciente?.nome  || '—';
+      const cpfPaciente   = p.cpf_paciente   || p.paciente?.cpf   || '';
+      const nomePrescritor = p.prescritor_nome || p.prescritor?.nome || '—';
+      const crm           = p.cns_prescritor  || p.prescritor?.cns || '';
+
+      el.innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Protocolo</div>
+            <div class="detail-value" style="font-family:monospace;font-size:13px">${esc(p.protocolo)}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Status</div>
+            <div class="detail-value">${badgePedido(p.status)}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Paciente</div>
+            <div class="detail-value">${esc(nomePaciente)}</div>
+          </div>
+          ${cpfPaciente ? `<div class="detail-item">
+            <div class="detail-label">CPF</div>
+            <div class="detail-value">${esc(cpfPaciente)}</div>
+          </div>` : ''}
+          <div class="detail-item">
+            <div class="detail-label">Prescritor</div>
+            <div class="detail-value">${esc(nomePrescritor)}${crm ? ' · ' + esc(crm) : ''}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Emissão</div>
+            <div class="detail-value">${formatarDataSimples(p.criado_em || p.emitido_em)}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Prioridade</div>
+            <div class="detail-value">${badgePrioridade(p.prioridade)}</div>
+          </div>
+          ${p.validade ? `<div class="detail-item">
+            <div class="detail-label">Validade</div>
+            <div class="detail-value">${formatarDataSimples(p.validade)}</div>
+          </div>` : ''}
+        </div>
+        ${(p.indicacao_clinica || p.codigo_cid) ? `
+          <div class="indicacao-bloco">
+            ${p.indicacao_clinica ? `<div class="detail-label">Indicação clínica</div>
+              <div class="detail-value">${esc(p.indicacao_clinica)}${p.codigo_cid ? ` <span class="badge badge-em-analise" style="font-size:10px">${esc(p.codigo_cid)}</span>` : ''}</div>` : ''}
+          </div>` : ''}
+      `;
+
+      // Widget de confiança CNES (graceful — null → '' sem render)
+      el.innerHTML += _renderizarValidacaoCNES(p.cnes_validacao || null);
+
+      // Renderiza itens
+      renderizarItens(p.itens || []);
+    }
+
+    // ─────────────────────────────────────────
+    // AGENDAMENTOS
+    // ─────────────────────────────────────────
+
+    async function carregarAgendamentos(protocolo) {
+      const el = document.getElementById('conteudo-agendamento');
+      el.innerHTML = '<p style="font-size:13px;color:#64748b">Carregando agendamentos…</p>';
+
+      try {
+        const resp = await fetch(
+          BACKEND + '/pedidos-exame/' + encodeURIComponent(protocolo) + '/agendamentos',
+          { headers: authHeaders() }
+        );
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        if (!resp.ok) { el.innerHTML = '<p style="font-size:13px;color:#dc2626">Erro ao carregar agendamentos.</p>'; return; }
+
+        const data = await resp.json();
+        agendamentosAtuais = data.agendamentos || data || [];
+        renderizarAgendamentos();
+
+      } catch (_) {
+        el.innerHTML = '<p style="font-size:13px;color:#dc2626">Falha de rede ao carregar agendamentos.</p>';
+      }
+    }
+
+    function renderizarAgendamentos() {
+      const el    = document.getElementById('conteudo-agendamento');
+      const ativos = agendamentosAtuais.filter(
+        a => !['cancelado', 'nao_compareceu'].includes(a.status)
+      );
+
+      let html = '';
+
+      if (ativos.length > 0) {
+        for (const ag of ativos) {
+          const terminais = ['realizado'];
+          const podeConfirmar = ag.status === 'criado';
+          const podeCancelar  = !['cancelado','nao_compareceu','realizado'].includes(ag.status);
+          const podeRealizar  = ag.status === 'confirmado';
+
+          html += `
+            <div class="ag-bloco" id="ag-bloco-${esc(ag.protocolo)}">
+              <div class="ag-header">
+                <span class="ag-protocolo">${esc(ag.protocolo)}</span>
+                ${badgeAgendamento(ag.status)}
+              </div>
+              <div class="ag-info-grid">
+                <div class="detail-item">
+                  <div class="detail-label">Data / Hora</div>
+                  <div class="detail-value">${formatarData(ag.data_hora)}</div>
+                </div>
+                ${ag.unidade_id ? `<div class="detail-item">
+                  <div class="detail-label">Unidade</div>
+                  <div class="detail-value">${esc(ag.unidade_id)}</div>
+                </div>` : ''}
+                ${ag.local_texto ? `<div class="detail-item">
+                  <div class="detail-label">Local</div>
+                  <div class="detail-value">${esc(ag.local_texto)}</div>
+                </div>` : ''}
+              </div>
+              ${!terminais.includes(ag.status) ? `<div class="ag-acoes">
+                ${podeConfirmar ? `<button class="btn-confirmar" onclick="confirmarAgendamento('${esc(ag.protocolo)}')">Confirmar presença</button>` : ''}
+                ${podeRealizar  ? `<button class="btn-realizar"  onclick="realizarAgendamento('${esc(ag.protocolo)}')">Marcar como realizado</button>` : ''}
+                ${podeCancelar  ? `<button class="btn-cancelar-ag" onclick="cancelarAgendamento('${esc(ag.protocolo)}')">Cancelar</button>` : ''}
+              </div>` : ''}
+            </div>
+          `;
+        }
+      } else {
+        html = `<p style="font-size:13px;color:#64748b;margin-bottom:12px">
+          Nenhum agendamento ativo para este pedido.
+        </p>`;
+      }
+
+      // Botão de agendar (se não há agendamento ativo não-terminal)
+      const podeAgendar = ativos.length === 0 ||
+        ativos.every(a => ['cancelado','nao_compareceu','realizado'].includes(a.status));
+
+      if (podeAgendar) {
+        html += `
+          <div id="form-agendar-wrap">
+            <button class="btn-confirmar" onclick="mostrarFormAgendar()" id="btn-abrir-form-agendar">
+              + Agendar exame
+            </button>
+            <div id="form-agendar" class="form-agendar hidden" style="margin-top:14px">
+              <h3>Novo Agendamento</h3>
+              <div class="form-row">
+                <div>
+                  <label class="form-label">Data e hora</label>
+                  <input type="datetime-local" id="ag-data-hora" class="form-input">
+                </div>
+                <div>
+                  <label class="form-label">Org ID *</label>
+                  <input type="text" id="ag-org-id" class="form-input" placeholder="ex: REDE_SAUDE">
+                </div>
+              </div>
+              <div class="form-row">
+                <div>
+                  <label class="form-label">Unidade ID *</label>
+                  <input type="text" id="ag-unidade-id" class="form-input" placeholder="ex: LAB_CENTRAL">
+                </div>
+                <div>
+                  <label class="form-label">Local (opcional)</label>
+                  <input type="text" id="ag-local" class="form-input" placeholder="Sala de coleta 2">
+                </div>
+              </div>
+              <div class="form-row-single">
+                <label class="form-label">Observação (opcional)</label>
+                <input type="text" id="ag-obs" class="form-input" placeholder="Orientações para o paciente">
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn-agendar-submit" onclick="criarAgendamento()">Confirmar agendamento</button>
+                <button class="btn-cancelar-form" onclick="ocultarFormAgendar()">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      el.innerHTML = html;
+    }
+
+    function mostrarFormAgendar() {
+      document.getElementById('form-agendar').classList.remove('hidden');
+      document.getElementById('btn-abrir-form-agendar').classList.add('hidden');
+      _aplicarContextoNoForm(); // Tickets 42 + 43
+    }
+
+    function ocultarFormAgendar() {
+      document.getElementById('form-agendar').classList.add('hidden');
+      document.getElementById('btn-abrir-form-agendar')?.classList.remove('hidden');
+    }
+
+    async function criarAgendamento() {
+      const dataHoraInput = document.getElementById('ag-data-hora').value;
+      const orgId         = document.getElementById('ag-org-id').value.trim();
+      const unidadeId     = document.getElementById('ag-unidade-id').value.trim();
+      const local         = document.getElementById('ag-local').value.trim() || null;
+      const obs           = document.getElementById('ag-obs').value.trim() || null;
+
+      if (!dataHoraInput || !orgId || !unidadeId) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Preencha data/hora, Org ID e Unidade ID.');
+        return;
+      }
+
+      // Ticket 46 — Gate leve de contexto CNES
+      const podeOperar = await _confirmarContextoManual();
+      if (!podeOperar) return;
+
+      const dataHoraISO = new Date(dataHoraInput).toISOString();
+
+      try {
+        const resp = await fetch(BACKEND + '/agendamentos', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({
+            pedido_protocolo:  pedidoAtual.protocolo,
+            data_hora:         dataHoraISO,
+            org_id:            orgId,
+            unidade_id:        unidadeId,
+            tipo_agendamento:  'exame',
+            local_texto:       local,
+            observacao:        obs,
+          }),
+        });
+
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          return;
+        }
+
+        mostrarFeedback('feedback-agendamento', 'ok', 'Agendamento criado com sucesso.');
+        await carregarAgendamentos(pedidoAtual.protocolo);
+        // Recarregar pedido para atualizar status dos itens
+        await recarregarPedido();
+
+      } catch (_) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Falha de rede ao criar agendamento.');
+      }
+    }
+
+    async function confirmarAgendamento(protocoloAg) {
+      // Ticket 46 — Gate leve de contexto CNES
+      const podeOperar = await _confirmarContextoManual();
+      if (!podeOperar) return;
+      try {
+        const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/confirmar', {
+          method: 'POST', headers: authHeaders(), body: '{}',
+        });
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          return;
+        }
+        mostrarFeedback('feedback-agendamento', 'ok', 'Presença confirmada.');
+        await carregarAgendamentos(pedidoAtual.protocolo);
+      } catch (_) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Falha de rede.');
+      }
+    }
+
+    async function cancelarAgendamento(protocoloAg) {
+      if (!confirm('Cancelar este agendamento?')) return;
+      try {
+        const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/cancelar', {
+          method: 'POST', headers: authHeaders(), body: '{}',
+        });
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          return;
+        }
+        mostrarFeedback('feedback-agendamento', 'ok', 'Agendamento cancelado.');
+        await carregarAgendamentos(pedidoAtual.protocolo);
+      } catch (_) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Falha de rede.');
+      }
+    }
+
+    async function realizarAgendamento(protocoloAg) {
+      if (!confirm('Marcar agendamento como realizado? Isso registrará a coleta de todos os itens agendados.')) return;
+      // Ticket 46 — Gate leve de contexto CNES
+      const podeOperar = await _confirmarContextoManual();
+      if (!podeOperar) return;
+      try {
+        const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/realizar', {
+          method: 'POST', headers: authHeaders(), body: '{}',
+        });
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          return;
+        }
+        mostrarFeedback('feedback-agendamento', 'ok', 'Agendamento realizado. Coletas registradas.');
+        await carregarAgendamentos(pedidoAtual.protocolo);
+        await recarregarPedido();
+      } catch (_) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Falha de rede.');
+      }
+    }
+
+    // ─────────────────────────────────────────
+    // ITENS / EXAMES
+    // ─────────────────────────────────────────
+
+    function renderizarItens(itens) {
+      const el = document.getElementById('lista-itens');
+      if (!itens || itens.length === 0) {
+        el.innerHTML = '<p style="font-size:13px;color:#64748b">Nenhum exame encontrado no pedido.</p>';
+        return;
+      }
+
+      el.innerHTML = itens.map(item => {
+        const statusCls = itemStatusClass(item.status_item);
+        const tuss = item.codigo_tuss ? `<span><strong>TUSS:</strong> ${esc(item.codigo_tuss)}</span>` : '';
+        const sigtap = item.codigo_sigtap ? `<span><strong>SIGTAP:</strong> ${esc(item.codigo_sigtap)}</span>` : '';
+
+        let acoesHtml = '';
+        if (item.status_item === 'agendado') {
+          acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}"
+            onclick="registrarColeta(${item.id})">
+            Registrar coleta
+          </button>`;
+        } else if (item.status_item === 'coletado') {
+          acoesHtml = `<span class="laudo-aguardo">Aguardando laudo</span>`;
+        } else if (['em_analise','resultado_disponivel'].includes(item.status_item)) {
+          acoesHtml = `<span class="laudo-aguardo">Laudo em andamento</span>`;
+        }
+
+        return `
+          <div class="item-exame ${statusCls}" id="item-exame-${item.id}">
+            <div class="item-header">
+              <span class="item-nome">${esc(item.nome_exame)}</span>
+              ${badgeItem(item.status_item)}
+            </div>
+            <div class="item-meta">
+              <span><strong>Qtd.:</strong> ${item.quantidade}</span>
+              ${tuss}${sigtap}
+            </div>
+            <div class="item-acoes">${acoesHtml}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ─────────────────────────────────────────
+    // REGISTRO DE COLETA
+    // ─────────────────────────────────────────
+
+    async function registrarColeta(itemId) {
+      const btn = document.getElementById('btn-coletar-' + itemId);
+      if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+
+      try {
+        const resp = await fetch(
+          BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
+          '/itens/' + itemId + '/coletar',
+          { method: 'POST', headers: authHeaders(), body: '{}' }
+        );
+
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
+          alert('Erro: ' + (err.detail || resp.status));
+          return;
+        }
+
+        const data = await resp.json();
+        atualizarStatusUI(itemId, data.status_item || 'coletado');
+
+      } catch (_) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
+        alert('Falha de rede ao registrar coleta.');
+      }
+    }
+
+    function atualizarStatusUI(itemId, novoStatus) {
+      const itemEl = document.getElementById('item-exame-' + itemId);
+      if (!itemEl) return;
+
+      // Atualizar classe de borda
+      itemEl.className = 'item-exame ' + itemStatusClass(novoStatus);
+
+      // Atualizar badge no header
+      const badgeEl = itemEl.querySelector('.badge');
+      if (badgeEl) badgeEl.outerHTML = badgeItem(novoStatus);
+
+      // Atualizar ações
+      const acoesEl = itemEl.querySelector('.item-acoes');
+      if (acoesEl) {
+        if (novoStatus === 'coletado') {
+          acoesEl.innerHTML = `<span class="laudo-aguardo">Aguardando laudo</span>`;
+        } else {
+          acoesEl.innerHTML = '';
+        }
+      }
+
+      // Atualizar pedidoAtual em memória
+      if (pedidoAtual && pedidoAtual.itens) {
+        const item = pedidoAtual.itens.find(i => i.id === itemId);
+        if (item) item.status_item = novoStatus;
+      }
+    }
+
+    // ─────────────────────────────────────────
+    // RECARGA DO PEDIDO
+    // ─────────────────────────────────────────
+
+    async function recarregarPedido() {
+      if (!pedidoAtual) return;
+      try {
+        const resp = await fetch(
+          BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo),
+          { headers: authHeaders() }
+        );
+        if (resp.ok) {
+          pedidoAtual = await resp.json();
+          renderizarPedido(pedidoAtual);
+        }
+      } catch (_) { /* falha silenciosa — UI já foi atualizada localmente */ }
+    }
+
+    // ─────────────────────────────────────────
+    // Sanitização XSS
+    // ─────────────────────────────────────────
+
+    function esc(str) {
+      if (str == null) return '—';
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CIRCULAÇÃO DIAGNÓSTICA (Ticket 57)
+    // ─────────────────────────────────────────────────────────────
+
+    const _TERMINAIS_CIRC = new Set([
+        'realizado', 'desmarcado_paciente', 'desmarcado_laboratorio',
+        'arquivado_laboratorio', 'expirado',
+    ]);
+
+    const _STATUS_CIRC_LABEL = {
+        selecionado:            'Aguardando apresentação',
+        enviado_laboratorio:    'Recebida — aguardando proposta',
+        proposta_recebida:      'Proposta registrada',
+        confirmado_paciente:    'Confirmado pelo paciente',
+        realizado:              'Realizado',
+        desmarcado_paciente:    'Desmarcado pelo paciente',
+        desmarcado_laboratorio: 'Desmarcado pelo laboratório',
+        arquivado_laboratorio:  'Arquivado',
+        expirado:               'Expirado',
+    };
+
+    let _circAtual = null; // dados da circulação consultada
+
+    function _circFeedback(tipo, msg) {
+        const el = document.getElementById('circ-feedback');
+        if (!el) return;
+        el.className = 'circ-feedback ' + tipo;
+        el.textContent = msg;
+        el.classList.remove('hidden');
+        if (tipo === 'ok') setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    async function buscarCirculacao() {
+        const chave = (document.getElementById('circ-chave-input').value || '').trim().toUpperCase();
+        const resEl = document.getElementById('circ-resultado');
+
+        if (!chave || chave.length < 4) {
+            _circFeedback('err', 'Informe a chave de circulação (mínimo 4 caracteres).');
+            return;
+        }
+
+        resEl.innerHTML = '<p style="font-size:13px;color:#64748b">Consultando…</p>';
+        resEl.classList.remove('hidden');
+        document.getElementById('circ-feedback').classList.add('hidden');
+
+        try {
+            const resp = await fetch(BACKEND + '/circulacao/' + encodeURIComponent(chave), {
+                headers: authHeaders(),
+            });
+
+            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            if (resp.status === 404) {
+                resEl.innerHTML = '';
+                resEl.classList.add('hidden');
+                _circFeedback('err', `Chave "${chave}" não encontrada.`);
+                return;
+            }
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                resEl.innerHTML = ''; resEl.classList.add('hidden');
+                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                return;
+            }
+
+            _circAtual = await resp.json();
+
+            // Se selecionado → marcar como enviado_laboratorio automaticamente
+            if (_circAtual.status === 'selecionado') {
+                await _marcarEnviadoLaboratorio(_circAtual.chave_circulacao);
+                return; // re-renderiza após chamada
+            }
+
+            renderizarCirculacao(_circAtual);
+
+        } catch (_) {
+            resEl.innerHTML = ''; resEl.classList.add('hidden');
+            _circFeedback('err', 'Falha de rede.');
+        }
+    }
+
+    async function _marcarEnviadoLaboratorio(chave) {
+        // Transição selecionado → enviado_laboratorio ao consultar a chave
+        // Usa desmarcar como laboratório NÃO — em vez disso chama endpoint dedicado se existir,
+        // mas como não há endpoint /enviado, usamos proposta para avancar o estado.
+        // Por ora: re-busca e renderiza normalmente (estado fica em selecionado até proposta).
+        // Nota: a transição selecionado→enviado_laboratorio só ocorre quando o lab registra a proposta.
+        // Exibimos a circulação com instrução clara ao operador.
+        const resp = await fetch(BACKEND + '/circulacao/' + encodeURIComponent(chave), {
+            headers: authHeaders(),
+        });
+        if (resp.ok) {
+            _circAtual = await resp.json();
+            renderizarCirculacao(_circAtual);
+        }
+    }
+
+    function renderizarCirculacao(circ) {
+        const resEl = document.getElementById('circ-resultado');
+
+        const terminal   = _TERMINAIS_CIRC.has(circ.status);
+        const statusLabel = _STATUS_CIRC_LABEL[circ.status] || circ.status;
+
+        const itensHtml = (circ.itens || []).map(it =>
+            `<div class="circ-item-row">
+                <span>● ${esc(it.nome_exame)}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}
+                ${it.codigo_tuss ? `<span style="font-size:11px;color:#64748b;margin-left:6px">TUSS: ${esc(it.codigo_tuss)}</span>` : ''}
+                ${it.codigo_sigtap ? `<span style="font-size:11px;color:#64748b;margin-left:4px">SIGTAP: ${esc(it.codigo_sigtap)}</span>` : ''}
+                </span>
+            </div>`
+        ).join('');
+
+        let propostaHtml = '';
+        if (circ.data_hora_proposta) {
+            const dtP = formatarData(circ.data_hora_proposta);
+            propostaHtml = `
+                <div class="circ-proposta-bloco">
+                    <strong>📋 Proposta registrada</strong>
+                    📅 ${dtP}
+                    ${circ.local_texto ? `<br>📍 ${esc(circ.local_texto)}` : ''}
+                    ${circ.instrucoes_preparo ? `<br>⚕️ <em>${esc(circ.instrucoes_preparo)}</em>` : ''}
+                </div>`;
+        }
+
+        // Ações disponíveis por estado
+        let acoesHtml = '';
+        if (!terminal) {
+            const podeProposta  = circ.status === 'enviado_laboratorio';
+            const podeRealizar  = circ.status === 'confirmado_paciente';
+            const podeDesmarcar = ['enviado_laboratorio','proposta_recebida','confirmado_paciente'].includes(circ.status);
+            const podeRemarcar  = ['enviado_laboratorio','proposta_recebida','confirmado_paciente'].includes(circ.status);
+
+            acoesHtml = `<div class="circ-acoes">
+                ${podeProposta  ? `<button class="btn-circ-proposta"  onclick="abrirFormCircProposta()">Registrar proposta</button>` : ''}
+                ${podeRealizar  ? `<button class="btn-circ-realizar"  onclick="realizarCirculacao()">Marcar como realizado</button>` : ''}
+                ${podeRemarcar  ? `<button class="btn-circ-remarcar"  onclick="abrirFormCircRemarcar()">Remarcar</button>` : ''}
+                ${podeDesmarcar ? `<button class="btn-circ-desmarcar" onclick="desmarcarCirculacao()">Desmarcar</button>` : ''}
+            </div>`;
+        }
+
+        // Aviso estado selecionado
+        const avisoSelecionado = circ.status === 'selecionado'
+            ? `<div class="feedback-ok" style="margin-top:8px">
+                ℹ️ O paciente gerou esta chave mas ainda não a apresentou. Registre a proposta para avançar o fluxo.
+               </div>`
+            : '';
+
+        resEl.innerHTML = `
+            <div class="circ-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+                    <div>
+                        <div style="font-size:11px;color:#64748b;margin-bottom:2px;">Chave de circulação</div>
+                        <div class="circ-chave-display">${esc(circ.chave_circulacao)}</div>
+                    </div>
+                    <span class="circ-status-badge ${esc(circ.status)}">${esc(statusLabel)}</span>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:10px;">
+                    <div class="detail-item">
+                        <div class="detail-label">Paciente</div>
+                        <div class="detail-value">${esc(circ.paciente?.nome || '—')}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Prescritor</div>
+                        <div class="detail-value">${esc(circ.prescritor?.nome || '—')}${circ.prescritor?.cns ? ` · ${esc(circ.prescritor.cns)}` : ''}</div>
+                    </div>
+                    ${circ.prioridade ? `<div class="detail-item">
+                        <div class="detail-label">Prioridade</div>
+                        <div class="detail-value">${badgePrioridade(circ.prioridade)}</div>
+                    </div>` : ''}
+                    <div class="detail-item">
+                        <div class="detail-label">Validade da chave</div>
+                        <div class="detail-value">${formatarData(circ.validade)}</div>
+                    </div>
+                </div>
+
+                <div class="circ-privacy-note">
+                    🔒 Exibindo apenas os exames deste subconjunto — não o pedido completo do paciente.
+                </div>
+
+                <div style="margin-bottom:4px;">
+                    <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;margin-bottom:4px;">Exames desta circulação</div>
+                    ${itensHtml || '<p style="font-size:12px;color:#94a3b8">Nenhum item.</p>'}
+                </div>
+
+                ${propostaHtml}
+                ${avisoSelecionado}
+                ${acoesHtml}
+
+                <!-- Formulário proposta -->
+                <div class="form-circ-proposta" id="form-circ-proposta">
+                    <h4>Registrar Proposta</h4>
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Data e hora *</label>
+                            <input type="datetime-local" id="circ-prop-data" class="form-input">
+                        </div>
+                        <div>
+                            <label class="form-label">Local (opcional)</label>
+                            <input type="text" id="circ-prop-local" class="form-input" placeholder="Sala de coleta 2">
+                        </div>
+                    </div>
+                    <div class="form-row-single">
+                        <label class="form-label">Instruções de preparo (opcional)</label>
+                        <input type="text" id="circ-prop-instrucoes" class="form-input" placeholder="Ex: jejum de 8h">
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button class="btn-agendar-submit" onclick="enviarProposta()">Confirmar proposta</button>
+                        <button class="btn-cancelar-form" onclick="fecharFormCircProposta()">Cancelar</button>
+                    </div>
+                </div>
+
+                <!-- Formulário remarcar -->
+                <div class="form-circ-remarcar" id="form-circ-remarcar">
+                    <h4>Remarcar — Nova Circulação Derivada</h4>
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Org ID *</label>
+                            <input type="text" id="circ-rem-org" class="form-input" placeholder="ex: LAB_CENTRAL">
+                        </div>
+                        <div>
+                            <label class="form-label">Unidade ID *</label>
+                            <input type="text" id="circ-rem-unidade" class="form-input" placeholder="ex: UNIDADE_01">
+                        </div>
+                    </div>
+                    <div class="form-row-single">
+                        <label class="form-label">Observação (opcional)</label>
+                        <input type="text" id="circ-rem-obs" class="form-input" placeholder="Motivo da remarcação">
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button class="btn-circ-remarcar" onclick="enviarRemarcacao()">Confirmar remarcação</button>
+                        <button class="btn-cancelar-form" onclick="fecharFormCircRemarcar()">Cancelar</button>
+                    </div>
+                </div>
+
+            </div>`;
+
+        resEl.classList.remove('hidden');
+    }
+
+    function abrirFormCircProposta() {
+        const f = document.getElementById('form-circ-proposta');
+        if (f) { f.classList.add('aberto'); f.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+    }
+    function fecharFormCircProposta() {
+        const f = document.getElementById('form-circ-proposta');
+        if (f) f.classList.remove('aberto');
+    }
+    function abrirFormCircRemarcar() {
+        const f = document.getElementById('form-circ-remarcar');
+        if (f) {
+            // Pré-preencher com contexto institucional da clínica logada
+            const orgEl = document.getElementById('circ-rem-org');
+            const uEl   = document.getElementById('circ-rem-unidade');
+            if (orgEl && clinicaLogada?.org_id) orgEl.value = clinicaLogada.org_id;
+            if (uEl   && clinicaLogada?.unidades?.[0]?.unidade_id) uEl.value = clinicaLogada.unidades[0].unidade_id;
+            f.classList.add('aberto');
+            f.scrollIntoView({ behavior:'smooth', block:'nearest' });
+        }
+    }
+    function fecharFormCircRemarcar() {
+        const f = document.getElementById('form-circ-remarcar');
+        if (f) f.classList.remove('aberto');
+    }
+
+    async function enviarProposta() {
+        if (!_circAtual) return;
+        const dataHoraInput  = document.getElementById('circ-prop-data')?.value;
+        const localTexto     = document.getElementById('circ-prop-local')?.value?.trim() || null;
+        const instrucoes     = document.getElementById('circ-prop-instrucoes')?.value?.trim() || null;
+
+        if (!dataHoraInput) { _circFeedback('err', 'Informe a data e hora da proposta.'); return; }
+
+        // Gate leve de contexto CNES (Ticket 46)
+        const podeOperar = await _confirmarContextoManual();
+        if (!podeOperar) return;
+
+        const dataHoraISO = new Date(dataHoraInput).toISOString();
+
+        try {
+            const resp = await fetch(
+                BACKEND + '/circulacao/' + encodeURIComponent(_circAtual.chave_circulacao) + '/proposta',
+                {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ data_hora_proposta: dataHoraISO, local_texto: localTexto, instrucoes_preparo: instrucoes }),
+                }
+            );
+            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                return;
+            }
+            _circFeedback('ok', 'Proposta registrada com sucesso.');
+            fecharFormCircProposta();
+            await buscarCirculacao();
+        } catch (_) {
+            _circFeedback('err', 'Falha de rede ao registrar proposta.');
+        }
+    }
+
+    async function realizarCirculacao() {
+        if (!_circAtual) return;
+        if (!confirm('Marcar esta circulação como realizada? Confirma que a coleta foi executada.')) return;
+
+        const podeOperar = await _confirmarContextoManual();
+        if (!podeOperar) return;
+
+        try {
+            const resp = await fetch(
+                BACKEND + '/circulacao/' + encodeURIComponent(_circAtual.chave_circulacao) + '/realizar',
+                { method: 'POST', headers: authHeaders(), body: '{}' }
+            );
+            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                return;
+            }
+            _circFeedback('ok', 'Circulação marcada como realizada.');
+            await buscarCirculacao();
+        } catch (_) {
+            _circFeedback('err', 'Falha de rede.');
+        }
+    }
+
+    async function desmarcarCirculacao() {
+        if (!_circAtual) return;
+        const motivo = prompt('Motivo da desmarcação (opcional):');
+        if (motivo === null) return; // cancelou
+
+        try {
+            const resp = await fetch(
+                BACKEND + '/circulacao/' + encodeURIComponent(_circAtual.chave_circulacao) + '/desmarcar',
+                {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ motivo: motivo.trim() || null }),
+                }
+            );
+            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                return;
+            }
+            _circFeedback('ok', 'Circulação desmarcada.');
+            await buscarCirculacao();
+        } catch (_) {
+            _circFeedback('err', 'Falha de rede.');
+        }
+    }
+
+    async function enviarRemarcacao() {
+        if (!_circAtual) return;
+        const orgId   = document.getElementById('circ-rem-org')?.value?.trim();
+        const unidade = document.getElementById('circ-rem-unidade')?.value?.trim();
+        const obs     = document.getElementById('circ-rem-obs')?.value?.trim() || null;
+
+        if (!orgId)   { _circFeedback('err', 'Informe o Org ID.'); return; }
+        if (!unidade) { _circFeedback('err', 'Informe o Unidade ID.'); return; }
+
+        const podeOperar = await _confirmarContextoManual();
+        if (!podeOperar) return;
+
+        try {
+            const resp = await fetch(
+                BACKEND + '/circulacao/' + encodeURIComponent(_circAtual.chave_circulacao) + '/remarcar',
+                {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ org_id: orgId, unidade_id: unidade, observacao: obs }),
+                }
+            );
+            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                return;
+            }
+            const data = await resp.json();
+            fecharFormCircRemarcar();
+            _circFeedback('ok', `Remarcado. Nova chave gerada: ${data.chave_nova}`);
+            // Atualiza campo de busca com nova chave e re-busca
+            const inputEl = document.getElementById('circ-chave-input');
+            if (inputEl) inputEl.value = data.chave_nova;
+            await buscarCirculacao();
+        } catch (_) {
+            _circFeedback('err', 'Falha de rede ao remarcar.');
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CNES Modal (Ticket 43)
+    // ─────────────────────────────────────────────────────────────
+
+    let _cnesCallback = null;
+    let _cnesDados    = [];
+    let _cnesTimer    = null;
+    let _cnesModo     = 'prestadores'; // 'prestadores' | 'cnes-bruto'
+
+    function abrirModalCNES(cb, modo = 'prestadores') {
+      _cnesCallback = cb;
+      _cnesModo     = modo;
+      _cnesDados    = [];
+      document.getElementById('cnes-input').value = '';
+      document.getElementById('cnes-resultado').innerHTML = '';
+      document.getElementById('modal-cnes').classList.remove('hidden');
+      setTimeout(() => document.getElementById('cnes-input').focus(), 80);
+    }
+
+    function fecharModalCNES() {
+      document.getElementById('modal-cnes').classList.add('hidden');
+      _cnesCallback = null;
+    }
+
+    function _cnesBuscarDebounce(q) {
+      clearTimeout(_cnesTimer);
+      _cnesTimer = setTimeout(() => _cnesExecutar(q), 280);
+    }
+
+    async function _cnesExecutar(q) {
+      const el = document.getElementById('cnes-resultado');
+      if (!q || q.length < 2) { el.innerHTML = ''; return; }
+      el.innerHTML = '<div class="cnes-empty">Buscando…</div>';
+      try {
+        const headers = jwtAccessToken
+          ? { 'Authorization': 'Bearer ' + jwtAccessToken }
+          : {};
+        const url = _cnesModo === 'cnes-bruto'
+          ? BACKEND + '/prestadores/buscar-cnes?modulo=clinica&q=' + encodeURIComponent(q)
+          : BACKEND + '/prestadores/buscar?q=' + encodeURIComponent(q);
+        const r = await fetch(url, { headers });
+        if (!r.ok) { el.innerHTML = '<div class="cnes-empty">Erro ao buscar. Verifique o servidor.</div>'; return; }
+        const d = await r.json();
+        _cnesDados = _cnesModo === 'cnes-bruto'
+          ? (d.estabelecimentos || [])
+          : (d.prestadores || []);
+        if (!_cnesDados.length) {
+          el.innerHTML = `
+            <div class="cnes-empty">Nenhum estabelecimento encontrado para "${esc(q)}".</div>
+            <div style="margin-top:12px;text-align:center;">
+              <button type="button" class="btn-cnes-usar" onclick="_cnesMostrarFormCadastro()">+ Cadastrar manualmente</button>
+            </div>
+            <div id="cnes-form-cadastro" style="display:none;margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+              <div style="font-weight:600;margin-bottom:12px;font-size:13px;color:#0f172a;">Dados do estabelecimento</div>
+              <input id="cnes-cad-nome" type="text" class="modal-cnes-input" style="margin-bottom:8px;" placeholder="Nome do estabelecimento *" />
+              <input id="cnes-cad-cnpj" type="text" class="modal-cnes-input" style="margin-bottom:8px;" placeholder="CNPJ (opcional)" />
+              <input id="cnes-cad-orgid" type="text" class="modal-cnes-input" style="margin-bottom:8px;" placeholder="org_id * (ex: hosp-central-pe)" />
+              <input id="cnes-cad-unidade" type="text" class="modal-cnes-input" style="margin-bottom:12px;" placeholder="unidade_id * (ex: farmacia-01)" />
+              <button type="button" class="btn-cnes-usar" style="width:100%;" onclick="_cnesConfirmarCadastro()">Confirmar</button>
+            </div>`;
+          return;
+        }
+        if (_cnesModo === 'cnes-bruto') {
+          el.innerHTML = _cnesDados.map((p, i) => `
+            <div class="cnes-item">
+              <div class="cnes-item-hd">
+                <div>
+                  <div class="cnes-item-nome">${esc(p.nome)}</div>
+                  <div class="cnes-item-meta">
+                    ${p.cnpj ? `CNPJ: ${p.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')} &nbsp;·&nbsp;` : ''}
+                    <span class="cnes-badge-t">${esc(p.tipo)}</span>
+                    &nbsp;·&nbsp;CNES: <code>${esc(p.co_cnes)}</code>
+                    ${p.uf ? `&nbsp;·&nbsp;${esc(p.uf)}` : ''}
+                    &nbsp;·&nbsp;<span style="color:#16a34a;font-weight:700">✓ CNES</span>
+                  </div>
+                </div>
+                <button class="btn-cnes-usar" type="button" onclick="_cnesSelecionarBruto(${i})">Usar</button>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          el.innerHTML = _cnesDados.map((p, i) => `
+            <div class="cnes-item">
+              <div class="cnes-item-hd">
+                <div>
+                  <div class="cnes-item-nome">${esc(p.nome)}</div>
+                  <div class="cnes-item-meta">
+                    ${p.cnpj ? `CNPJ: ${p.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')} &nbsp;·&nbsp;` : ''}
+                    <span class="cnes-badge-t">${esc(p.tipo)}</span>
+                    &nbsp;·&nbsp;org_id: <code>${esc(p.org_id)}</code>
+                    &nbsp;·&nbsp;${p.unidades.length} unidade(s)
+                  </div>
+                </div>
+                <button class="btn-cnes-usar" type="button"
+                  onclick="${p.unidades.length === 1
+                    ? `_cnesSelecionar(${i},'${p.unidades[0].unidade_id}')`
+                    : `_cnesExpandir(${i})`}">
+                  ${p.unidades.length === 1 ? 'Usar' : 'Selecionar ▾'}
+                </button>
+              </div>
+              ${p.unidades.length > 1 ? `
+              <div class="cnes-ul" id="cnes-ul-${i}">
+                ${p.unidades.map(u => `
+                  <div class="cnes-unidade-opt" onclick="_cnesSelecionar(${i},'${esc(u.unidade_id)}')">
+                    <span>
+                      <strong>${esc(u.nome || u.unidade_id)}</strong>
+                      <span style="color:#64748b;font-size:11px;margin-left:6px">${esc(u.unidade_id)}</span>
+                      ${u.tipo ? `<span class="cnes-badge-t" style="margin-left:4px">${esc(u.tipo)}</span>` : ''}
+                    </span>
+                    <span style="font-size:11px;color:#0e7490;font-weight:700">Usar →</span>
+                  </div>
+                `).join('')}
+              </div>` : ''}
+            </div>
+          `).join('');
+        }
+      } catch (_) {
+        el.innerHTML = '<div class="cnes-empty">Não foi possível conectar ao servidor.</div>';
+      }
+    }
+
+    function _cnesExpandir(idx) {
+      const el = document.getElementById(`cnes-ul-${idx}`);
+      if (el) el.classList.toggle('aberta');
+    }
+
+    function _cnesSelecionar(idx, unidadeId) {
+      const p = _cnesDados[idx];
+      if (p && _cnesCallback) _cnesCallback(p, unidadeId);
+      fecharModalCNES();
+    }
+
+    function _cnesSelecionarBruto(idx) {
+      const p = _cnesDados[idx];
+      const prestador = {
+        org_id: null,
+        nome: p.nome,
+        cnpj: (p.cnpj || '').replace(/\D/g, ''),
+        co_cnes: p.co_cnes,
+        tipo: p.tipo,
+        tp_unidade: p.tp_unidade,
+        uf: p.uf,
+        cnes_verificado: true,
+        unidades: [],
+      };
+      if (_cnesCallback) _cnesCallback(prestador, null);
+      fecharModalCNES();
+    }
+
+    function _cnesMostrarFormCadastro() {
+      const f = document.getElementById('cnes-form-cadastro');
+      if (f) { f.style.display = 'block'; document.getElementById('cnes-cad-nome')?.focus(); }
+    }
+
+    function _cnesConfirmarCadastro() {
+      const nome    = (document.getElementById('cnes-cad-nome')?.value  || '').trim();
+      const cnpj    = (document.getElementById('cnes-cad-cnpj')?.value  || '').replace(/\D/g, '');
+      const orgId   = (document.getElementById('cnes-cad-orgid')?.value || '').trim();
+      const unidade = (document.getElementById('cnes-cad-unidade')?.value || '').trim();
+      if (!nome || !orgId || !unidade) {
+        alert('Preencha pelo menos: Nome, org_id e unidade_id.');
+        return;
+      }
+      const prestador = {
+        nome,
+        cnpj: cnpj || null,
+        org_id: orgId,
+        tipo: 'manual',
+        cnes_verificado: false,  // cadastro manual — não verificado no CNES
+        unidades: [{ unidade_id: unidade, nome, tipo: null }],
+      };
+      if (_cnesCallback) _cnesCallback(prestador, unidade);
+      fecharModalCNES();
+    }
+
+    // Clínica-specific callback
+    function abrirModalCNESClinica() {
+      abrirModalCNES((prestador, unidadeId) => {
+        if (clinicaLogada) {
+          clinicaLogada.org_id          = prestador.org_id;
+          clinicaLogada.nome_prestador  = prestador.nome;
+          clinicaLogada.unidades        = prestador.unidades;
+          clinicaLogada.cnes_verificado = prestador.cnes_verificado;
+          // Se a unidade selecionada não é a primeira, reordena para que apareça como default
+          const selectedIdx = prestador.unidades.findIndex(u => u.unidade_id === unidadeId);
+          if (selectedIdx > 0) {
+            const [chosen] = clinicaLogada.unidades.splice(selectedIdx, 1);
+            clinicaLogada.unidades.unshift(chosen);
+          }
+        }
+        _atualizarDisplayContexto();
+        // Se o formulário de agendamento está aberto, re-aplica imediatamente
+        const formEl = document.getElementById('form-agendar');
+        if (formEl && !formEl.classList.contains('hidden')) {
+          _aplicarContextoNoForm();
+        }
+      });
+    }
+
+    // ── DEV_PRESET_CONTEXT — login automático com clínica de teste ──────────
+    // Só ativa se DEV_PRESET_CONTEXT=true e nenhuma clínica já logada.
+    // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
+    if (DEV_PRESET_CONTEXT && !clinicaLogada) {
+      const cnpjEl  = document.getElementById('login-cnpj');
+      const senhaEl = document.getElementById('login-senha');
+      if (cnpjEl && senhaEl) {
+        cnpjEl.value  = '98765432000100';   // CNPJ da clínica de teste
+        senhaEl.value = 'Teste@2024';
+        setTimeout(() => fazerLogin({ preventDefault: () => {} }), 120);
+      }
+    }
+
+  </script>
+
+  <!-- CNES Modal (Ticket 43) -->
+  <div id="modal-cnes" class="modal-cnes hidden">
+    <div class="modal-cnes-bd" onclick="fecharModalCNES()"></div>
+    <div class="modal-cnes-box">
+      <div class="modal-cnes-hd">
+        <h3>Localizar Cadastro Nacional (CNES)</h3>
+        <button class="btn-fechar-cnes" onclick="fecharModalCNES()" title="Fechar">×</button>
+      </div>
+      <div class="modal-cnes-body">
+        <input type="text" id="cnes-input" class="modal-cnes-input"
+               placeholder="Nome do estabelecimento, CNPJ ou código org_id…"
+               oninput="_cnesBuscarDebounce(this.value)">
+        <div id="cnes-resultado"></div>
+        <div class="cnes-fallback">
+          Cadastro não localizado? Preencha <strong>Org ID</strong> e <strong>Unidade ID</strong> manualmente.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticket 46 — Modal gate leve de contexto CNES -->
+  <div id="modal-ctx-warn" class="modal-ctx-warn hidden">
+    <div class="modal-ctx-warn-bd"></div>
+    <div class="modal-ctx-warn-box">
+      <div class="modal-ctx-warn-icon">⚠️</div>
+      <h3>Estabelecimento não verificado no CNES</h3>
+      <p>Você está operando com contexto manual.<br>Isso reduz a confiabilidade institucional do registro.</p>
+      <div class="modal-ctx-warn-btns">
+        <button class="btn-ctx-identificar" type="button" onclick="_ctxWarnIdentificar()">Identificar via CNES</button>
+        <button class="btn-ctx-continuar"   type="button" onclick="_ctxWarnContinuar()">Continuar assim mesmo</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

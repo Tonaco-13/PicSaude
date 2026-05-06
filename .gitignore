@@ -1,0 +1,150 @@
+# ─── Ambientes e credenciais ──────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+*.secret
+secrets/
+credentials/
+
+# ─── Banco de dados ───────────────────────────────────────────────────────────
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# ─── Backups e dumps ──────────────────────────────────────────────────────────
+*.bak
+*.bak.*
+*.backup
+*.backup.*
+*.dump
+*.sql.gz
+backups/
+dumps/
+
+# Backups de banco com sufixo de timestamp ou variantes
+# (escapa da regra *.db quando renomeado para .backup.YYYYMMDD_HHMMSS)
+*.db.backup*
+*.sqlite.backup*
+*.sqlite3.backup*
+data/*.db.backup*
+data/*.sqlite.backup*
+data/*.sqlite3.backup*
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+# pgserver log (arquivo, não diretório)
+
+# ─── PostgreSQL (pgserver) ────────────────────────────────────────────────────
+pgdata/
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ─── Uploads e PDFs gerados ───────────────────────────────────────────────────
+uploads/
+generated/
+*.pdf
+
+# ─── IDEs e SO ───────────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+
+# ─── Docker ───────────────────────────────────────────────────────────────────
+# docker-compose.override.yml  ← descomente se não quiser versionar overrides locais
+
+# ─── Snapshots e arquivos de teste ────────────────────────────────────────────
+*.bak
+test_*.db
+picsaude_test*.db
+picsaude_jules.db
+
+# ─── Sandbox local (NUNCA versionar) ──────────────────────────────────────────
+.sandbox/
+.env
+.env.*
+
+# ─── Certificados ICP-Brasil (NUNCA versionar) ────────────────────────────────
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+Certificação Digital*/
+Certificacao Digital*/
+
+# ─── pyHanko temp ─────────────────────────────────────────────────────────────
+*.sig
+
+# ─── Documentos PI sensíveis ──────────────────────────────────────────────────
+picsaude_inpi.zip
+
+# ─── PicSaúde — instance ID local ─────────────────────────────────────────────
+.instance_id
+
+# ─── Bases CNES e DATASUS (baixar localmente, NUNCA versionar) ────────────────
+# São arquivos grandes (centenas de MB) que devem ser baixados localmente
+# pelo operador. Manter `data/def_medicamentos.csv` (6KB) versionado pois é
+# referência local que o módulo de IA precisa para funcionar imediatamente.
+data/BASE_DE_DADOS_CNES_*.ZIP
+data/BASE_DE_DADOS_CNES_*.zip
+data/cnes_br_tmp/
+data/cnes_*_tmp/
+data/estabelecimentos_*.csv
+data/profissionais_*.csv
+data/relacao_prof_estab_*.csv
+data/backups/
+
+# ─── Arquivos temporários do FUSE (mount virtual no sandbox cowork) ───────────
+.fuse_hidden*
+
+# ─── Cache de plugins / outputs do agente ─────────────────────────────────────
+.claude/local-agent-mode-sessions/
+outputs/
+
+# ─── Outras configurações locais ──────────────────────────────────────────────
+*.local
+
+# ─── Relatórios gerados localmente ────────────────────────────────────────────
+reports/
+
+# ─── Config local de IDE/editor (Claude Code, VS Code, JetBrains etc.) ────────
+.claude/
+.idea/
+.vscode/
+
+# ─── Exceção: permitir que o template .env.example seja versionado ────────────
+# (a regra .env.* acima pegaria .env.example; esta exceção a desfaz)
+!.env.example
+
+# ─── Outros utilitários de teste local ────────────────────────────────────────
+debug_pydantic.py

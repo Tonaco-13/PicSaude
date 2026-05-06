@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PicSaúde — Prescrição Eletrônica de Controlados</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', sans-serif; }
+  body { background: #f8fafc; margin: 0; }
+  .fade-in { animation: fadeIn 0.4s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .pulse-dot { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .card-hover { transition: transform 0.15s, box-shadow 0.15s; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+  .check-icon { animation: checkPop 0.3s ease-out; }
+  @keyframes checkPop { from { transform: scale(0); } to { transform: scale(1); } }
+  .slide-in { animation: slideIn 0.5s ease-out; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+  .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg);
+    font-size: 18px; font-weight: 700; color: rgba(189,189,189,0.25); white-space: nowrap; pointer-events: none; }
+  textarea:focus { border-color: #1565C0 !important; box-shadow: 0 0 0 3px rgba(21,101,192,0.1); }
+  @media print { body { background: white; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ─────────────────────────────────────────────────────────
+// DADOS DO MOTOR REGULATÓRIO (espelho do backend real)
+// ─────────────────────────────────────────────────────────
+
+const MEDICAMENTOS = [
+  { id: 1, nome: "MORFINA", concentracao: "10mg", forma: "comprimidos", classe: "A1", tipo_retencao: null,
+    posologia: "1 comprimido a cada 6 horas, se dor intensa", qtd: 20, unidade: "comprimidos" },
+  { id: 2, nome: "DIAZEPAM", concentracao: "10mg", forma: "comprimidos", classe: "B1", tipo_retencao: null,
+    posologia: "1 comprimido ao deitar, por 30 dias", qtd: 30, unidade: "comprimidos" },
+  { id: 3, nome: "FENOBARBITAL", concentracao: "100mg", forma: "comprimidos", classe: "C5", tipo_retencao: null,
+    posologia: "1 comprimido 2x/dia, uso contínuo", qtd: 60, unidade: "comprimidos" },
+  { id: 4, nome: "TALIDOMIDA", concentracao: "100mg", forma: "cápsulas", classe: "D1", tipo_retencao: null,
+    posologia: "1 cápsula ao deitar, conforme protocolo", qtd: 30, unidade: "cápsulas" },
+  { id: 5, nome: "AMOXICILINA", concentracao: "500mg", forma: "cápsulas", classe: null, tipo_retencao: "antimicrobiano",
+    posologia: "1 cápsula de 8/8 horas por 7 dias", qtd: 21, unidade: "cápsulas" },
+  { id: 6, nome: "SEMAGLUTIDA", concentracao: "0.5mg", forma: "caneta preenchida", classe: null, tipo_retencao: "glp1_agonista",
+    posologia: "0.5mg subcutâneo 1x/semana", qtd: 1, unidade: "caneta" },
+  { id: 7, nome: "DIPIRONA", concentracao: "500mg", forma: "comprimidos", classe: null, tipo_retencao: null,
+    posologia: "1 comprimido a cada 6 horas, se febre ou dor", qtd: 20, unidade: "comprimidos" },
+  { id: 8, nome: "LOSARTANA", concentracao: "50mg", forma: "comprimidos", classe: null, tipo_retencao: null,
+    posologia: "1 comprimido pela manhã, uso contínuo", qtd: 30, unidade: "comprimidos" },
+];
+
+const GRUPOS = {
+  notificacao_receita_a: {
+    titulo: "NOTIFICACAO DE RECEITA A", cor: "#F9A825", corFundo: "#FFF8E1", corBorda: "#F57F17",
+    corTexto: "#4E3600", papel: "AMARELA", subtitulo: "Listas A1/A2/A3 — Portaria 344/1998",
+    vias: 3, retencao: true, sncr: true, assinatura: "Qualificada (ICP-Brasil)",
+    alerta: "Substancia sujeita a controle especial", abrev: "NRA",
+  },
+  notificacao_receita_b: {
+    titulo: "NOTIFICACAO DE RECEITA B", cor: "#1565C0", corFundo: "#E3F2FD", corBorda: "#0D47A1",
+    corTexto: "#FFFFFF", papel: "AZUL", subtitulo: "Listas B1/B2 — Portaria 344/1998",
+    vias: 2, retencao: true, sncr: true, assinatura: "Qualificada (ICP-Brasil)",
+    alerta: null, abrev: "NRB",
+  },
+  receita_controle_especial: {
+    titulo: "RECEITA DE CONTROLE ESPECIAL", cor: "#37474F", corFundo: "#ECEFF1", corBorda: "#263238",
+    corTexto: "#FFFFFF", papel: "BRANCA", subtitulo: "Lista C — Portaria 344/1998",
+    vias: 2, retencao: true, sncr: true, assinatura: "Qualificada (ICP-Brasil)",
+    alerta: null, abrev: "RCE",
+  },
+  notificacao_receita_especial: {
+    titulo: "NOTIFICACAO DE RECEITA ESPECIAL", cor: "#6A1B9A", corFundo: "#F3E5F5", corBorda: "#4A148C",
+    corTexto: "#FFFFFF", papel: "BRANCA", subtitulo: "Retinoides / Talidomida — Listas D1/D2",
+    vias: 2, retencao: true, sncr: true, assinatura: "Qualificada (ICP-Brasil)",
+    alerta: "Medicamento com risco teratogenico", abrev: "NRE",
+  },
+  receita_retencao: {
+    titulo: "RECEITA COM RETENCAO", cor: "#00695C", corFundo: "#E0F2F1", corBorda: "#004D40",
+    corTexto: "#FFFFFF", papel: "BRANCA", subtitulo: "RDC 471/2021 — antimicrobianos / GLP-1",
+    vias: 2, retencao: true, sncr: false, assinatura: "Avancada (gov.br)",
+    alerta: null, abrev: "RRT",
+  },
+  receita_simples: {
+    titulo: "RECEITA SIMPLES", cor: "#2E7D32", corFundo: "#E8F5E9", corBorda: "#1B5E20",
+    corTexto: "#FFFFFF", papel: "BRANCA", subtitulo: "Sem controle regulatorio especial",
+    vias: 1, retencao: false, sncr: false, assinatura: "Nenhuma exigencia",
+    alerta: null, abrev: "RSI",
+  },
+};
+
+const MAPA_CLASSE = { A1: "notificacao_receita_a", A2: "notificacao_receita_a", A3: "notificacao_receita_a",
+  B1: "notificacao_receita_b", B2: "notificacao_receita_b", C5: "receita_controle_especial",
+  D1: "notificacao_receita_especial", D2: "notificacao_receita_especial" };
+
+function classificar(med) {
+  if (med.classe && MAPA_CLASSE[med.classe]) return MAPA_CLASSE[med.classe];
+  if (med.tipo_retencao === "antimicrobiano" || med.tipo_retencao === "glp1_agonista") return "receita_retencao";
+  return "receita_simples";
+}
+
+const PRESCRITOR = { nome: "Dr. Fabiano Tonaco Borges", crm: "CRM-PE 22.847", cns: "704815923061348", assinatura: "ICP-Brasil (A3)" };
+const PACIENTE = { nome: "Joao Pedro da Silva Neto", cpf: "123.***.***-01", cpfReal: "12345678901" };
+
+let seqContador = {};
+function gerarNumAnvisa(tipo) {
+  const abrev = GRUPOS[tipo]?.abrev || "UNK";
+  const ano = 2026;
+  const key = `${ano}-${abrev}`;
+  seqContador[key] = (seqContador[key] || 0) + 1;
+  return `DEMO-${ano}-${abrev}-${String(seqContador[key]).padStart(9, "0")}`;
+}
+
+// ─────────────────────────────────────────────────────────
+// COMPONENTES
+// ─────────────────────────────────────────────────────────
+
+function Header() {
+  return (
+    <header style={{ background: "#1a2e44" }} className="text-white px-6 py-4 shadow-lg">
+      <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">PicSaude</h1>
+          <p className="text-xs" style={{ color: "#90a4ae" }}>Plataforma de Custodia Sanitaria Digital</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs" style={{ color: "#b0bec5" }}>Demo — dados ficticios</p>
+          <p className="text-xs" style={{ color: "#78909c" }}>RDC 1.000/2025 • Anvisa</p>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function Badge({ children, color, textColor }) {
+  return (
+    <span className="inline-block px-2 py-0.5 rounded text-xs font-semibold"
+      style={{ background: color, color: textColor || "#fff" }}>
+      {children}
+    </span>
+  );
+}
+
+function Step({ number, label, active, done }) {
+  const bg = done ? "#2E7D32" : active ? "#1565C0" : "#CFD8DC";
+  const text = done || active ? "#fff" : "#607D8B";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+        style={{ background: bg, color: text }}>
+        {done ? "✓" : number}
+      </div>
+      <span className="text-sm font-medium" style={{ color: done ? "#2E7D32" : active ? "#1565C0" : "#90A4AE" }}>{label}</span>
+    </div>
+  );
+}
+
+function Stepper({ step }) {
+  return (
+    <div className="flex items-center gap-4 justify-center py-4 flex-wrap">
+      <Step number={1} label="Prescricao" active={step===1} done={step>1} />
+      <div className="w-8 h-px" style={{ background: "#CFD8DC" }}></div>
+      <Step number={2} label="Motor Regulatorio" active={step===2} done={step>2} />
+      <div className="w-8 h-px" style={{ background: "#CFD8DC" }}></div>
+      <Step number={3} label="Receituarios" active={step===3} done={step>3} />
+      <div className="w-8 h-px" style={{ background: "#CFD8DC" }}></div>
+      <Step number={4} label="Numeração ANVISA + PDF" active={step===4} done={step>4} />
+    </div>
+  );
+}
+
+// ─── TELA 1: PRESCRICAO ────────────────────────────────
+
+function TelaPrescricao({ onGerar }) {
+  const [selecionados, setSelecionados] = useState(new Set([2, 5, 7])); // B1, antimicrobiano, simples pre-selecionados
+
+  const toggle = (id) => {
+    const s = new Set(selecionados);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setSelecionados(s);
+  };
+
+  const classeLabel = (med) => {
+    if (med.classe) return med.classe;
+    if (med.tipo_retencao === "antimicrobiano") return "ATM";
+    if (med.tipo_retencao === "glp1_agonista") return "GLP-1";
+    return "—";
+  };
+
+  const classeCor = (med) => {
+    const tipo = classificar(med);
+    return GRUPOS[tipo]?.cor || "#9E9E9E";
+  };
+
+  return (
+    <div className="fade-in max-w-5xl mx-auto px-4 py-6">
+      <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <h2 className="text-lg font-bold mb-4" style={{ color: "#1a2e44" }}>Nova Prescricao Eletronica</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="p-4 rounded-lg" style={{ background: "#F5F5F5" }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: "#78909c" }}>PRESCRITOR</p>
+            <p className="font-semibold text-sm">{PRESCRITOR.nome}</p>
+            <p className="text-xs text-gray-500">{PRESCRITOR.crm} • CNS {PRESCRITOR.cns}</p>
+            <p className="text-xs mt-1"><Badge color="#00695C">Assinatura {PRESCRITOR.assinatura}</Badge></p>
+          </div>
+          <div className="p-4 rounded-lg" style={{ background: "#F5F5F5" }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: "#78909c" }}>PACIENTE</p>
+            <p className="font-semibold text-sm">{PACIENTE.nome}</p>
+            <p className="text-xs text-gray-500">CPF: {PACIENTE.cpf}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <h3 className="text-sm font-bold mb-1" style={{ color: "#1a2e44" }}>Selecione os medicamentos</h3>
+        <p className="text-xs text-gray-400 mb-4">O motor regulatorio classifica automaticamente cada item pelo grupo normativo.</p>
+        <div className="space-y-2">
+          {MEDICAMENTOS.map(med => {
+            const sel = selecionados.has(med.id);
+            return (
+              <div key={med.id}
+                onClick={() => toggle(med.id)}
+                className="flex items-center gap-3 p-3 rounded-lg cursor-pointer card-hover border"
+                style={{ background: sel ? GRUPOS[classificar(med)].corFundo : "#FAFAFA",
+                         borderColor: sel ? GRUPOS[classificar(med)].corBorda + "40" : "#E0E0E0" }}>
+                <div className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0"
+                  style={{ borderColor: sel ? classeCor(med) : "#BDBDBD", background: sel ? classeCor(med) : "white" }}>
+                  {sel && <span className="text-white text-xs font-bold check-icon">{"✓"}</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm">{med.nome}</span>
+                    <span className="text-xs text-gray-500">{med.concentracao} — {med.forma}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 truncate">{med.posologia}</p>
+                </div>
+                <Badge color={classeCor(med)} textColor={GRUPOS[classificar(med)].corTexto}>
+                  {classeLabel(med)}
+                </Badge>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="text-center">
+        <button
+          onClick={() => selecionados.size > 0 && onGerar([...selecionados].map(id => MEDICAMENTOS.find(m => m.id === id)))}
+          disabled={selecionados.size === 0}
+          className="px-8 py-3 rounded-lg text-white font-semibold text-sm shadow-md transition-all"
+          style={{ background: selecionados.size > 0 ? "#1a2e44" : "#CFD8DC",
+                   cursor: selecionados.size > 0 ? "pointer" : "not-allowed" }}>
+          Gerar Receituarios ({selecionados.size} {selecionados.size === 1 ? "item" : "itens"})
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── TELA 2: MOTOR REGULATORIO (ANIMADA) ───────────────
+
+function TelaMotor({ itens, onConcluido }) {
+  const [etapa, setEtapa] = useState(0); // 0=classificando, 1..N=item, N+1=agrupando, N+2=pronto
+  const [classificados, setClassificados] = useState([]);
+
+  useEffect(() => {
+    if (etapa === 0) {
+      const timer = setTimeout(() => setEtapa(1), 800);
+      return () => clearTimeout(timer);
+    }
+    if (etapa >= 1 && etapa <= itens.length) {
+      const timer = setTimeout(() => {
+        const med = itens[etapa - 1];
+        const tipo = classificar(med);
+        setClassificados(prev => [...prev, { med, tipo, grupo: GRUPOS[tipo] }]);
+        setEtapa(e => e + 1);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+    if (etapa === itens.length + 1) {
+      const timer = setTimeout(() => setEtapa(e => e + 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [etapa, itens]);
+
+  const pronto = etapa > itens.length + 1;
+
+  // Agrupa
+  const agrupados = {};
+  classificados.forEach(({ med, tipo, grupo }) => {
+    if (!agrupados[tipo]) agrupados[tipo] = { grupo, itens: [] };
+    agrupados[tipo].itens.push(med);
+  });
+
+  return (
+    <div className="fade-in max-w-5xl mx-auto px-4 py-6">
+      <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "#E3F2FD" }}>
+            <span style={{ fontSize: 20 }}>{"⚙"}</span>
+          </div>
+          <div>
+            <h2 className="text-lg font-bold" style={{ color: "#1a2e44" }}>Motor Regulatorio</h2>
+            <p className="text-xs text-gray-400">Portaria 344/1998 + RDC 471/2021 + RDC 1.000/2025</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-6">
+          {itens.map((med, i) => {
+            const done = i < classificados.length;
+            const active = i === classificados.length && etapa >= 1;
+            const tipo = done ? classificar(med) : null;
+            return (
+              <div key={med.id} className={`flex items-center gap-3 p-3 rounded-lg border ${done ? 'slide-in' : ''}`}
+                style={{ background: done ? GRUPOS[tipo].corFundo : active ? "#FFF9C4" : "#FAFAFA",
+                         borderColor: done ? GRUPOS[tipo].corBorda + "30" : active ? "#FDD835" : "#EEE",
+                         opacity: !done && !active ? 0.5 : 1 }}>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ background: done ? GRUPOS[tipo].cor : active ? "#FDD835" : "#E0E0E0",
+                           color: done ? GRUPOS[tipo].corTexto : "#333" }}>
+                  {done ? "✓" : active ? <span className="pulse-dot">{"•"}</span> : (i + 1)}
+                </div>
+                <span className="font-medium text-sm flex-1">{med.nome} {med.concentracao}</span>
+                {done && <Badge color={GRUPOS[tipo].cor} textColor={GRUPOS[tipo].corTexto}>{GRUPOS[tipo].titulo}</Badge>}
+                {active && <span className="text-xs text-yellow-700 font-medium">Classificando...</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {etapa > itens.length && (
+          <div className="fade-in border-t pt-4">
+            <p className="text-sm font-semibold mb-3" style={{ color: "#1a2e44" }}>
+              Resultado: {Object.keys(agrupados).length} {Object.keys(agrupados).length === 1 ? 'receituario' : 'receituarios'} derivados
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(agrupados).map(([tipo, { grupo, itens: meds }]) => (
+                <div key={tipo} className="px-3 py-2 rounded-lg border text-xs"
+                  style={{ background: grupo.corFundo, borderColor: grupo.corBorda + "40" }}>
+                  <span className="font-bold" style={{ color: grupo.cor }}>{grupo.titulo}</span>
+                  <span className="text-gray-500 ml-1">({meds.length} {meds.length === 1 ? "item" : "itens"})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {pronto && (
+        <div className="text-center fade-in">
+          <button onClick={() => onConcluido(agrupados)}
+            className="px-8 py-3 rounded-lg text-white font-semibold text-sm shadow-md"
+            style={{ background: "#1a2e44" }}>
+            Ver Receituarios
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── TELA 3: RECEITUARIOS + NUMERAÇÃO ANVISA + PDF ─────
+
+function TelaReceituarios({ agrupados, onVoltar }) {
+  const [numerados, setNumerados] = useState({});
+  const [emitidos, setEmitidos] = useState({});
+  const [pdfAberto, setPdfAberto] = useState(null);
+  const [numerando, setNumerando] = useState(false);
+
+  const numerar = () => {
+    setNumerando(true);
+    let delay = 0;
+    const novos = {};
+    Object.entries(agrupados).forEach(([tipo, { grupo }]) => {
+      delay += 500;
+      setTimeout(() => {
+        const num = grupo.sncr ? gerarNumAnvisa(tipo) : null;
+        const status = grupo.sncr ? "numerado_demo" : "nao_requer_numeracao";
+        setNumerados(prev => ({ ...prev, [tipo]: { num, status, adapter: grupo.sncr ? "demo" : null } }));
+      }, delay);
+    });
+    setTimeout(() => setNumerando(false), delay + 300);
+  };
+
+  const emitir = (tipo) => {
+    setEmitidos(prev => ({ ...prev, [tipo]: true }));
+    setPdfAberto(tipo);
+  };
+
+  const todosNumerados = Object.keys(agrupados).every(t => numerados[t]);
+
+  return (
+    <div className="fade-in max-w-5xl mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+        <h2 className="text-lg font-bold" style={{ color: "#1a2e44" }}>Receituarios Gerados</h2>
+        <div className="flex gap-2">
+          {!todosNumerados && (
+            <button onClick={numerar} disabled={numerando}
+              className="px-4 py-2 rounded-lg text-white text-xs font-semibold shadow-sm"
+              style={{ background: numerando ? "#90A4AE" : "#1565C0" }}>
+              {numerando ? "Gerando numeração..." : "Gerar Numeração ANVISA"}
+            </button>
+          )}
+          <button onClick={onVoltar}
+            className="px-4 py-2 rounded-lg text-xs font-semibold border"
+            style={{ color: "#546e7a", borderColor: "#CFD8DC" }}>
+            Nova Prescricao
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {Object.entries(agrupados).map(([tipo, { grupo, itens: meds }]) => {
+          const n = numerados[tipo];
+          const em = emitidos[tipo];
+          return (
+            <div key={tipo} className="rounded-xl border overflow-hidden card-hover bg-white shadow-sm">
+              {/* Header colorido */}
+              <div className="p-4" style={{ background: grupo.cor }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-sm" style={{ color: grupo.corTexto }}>{grupo.titulo}</h3>
+                    <p className="text-xs mt-0.5" style={{ color: grupo.corTexto, opacity: 0.8 }}>{grupo.subtitulo}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded"
+                      style={{ background: "rgba(255,255,255,0.2)", color: grupo.corTexto }}>
+                      {grupo.abrev}
+                    </span>
+                  </div>
+                </div>
+                {grupo.alerta && (
+                  <div className="mt-2 px-2 py-1 rounded text-xs font-medium"
+                    style={{ background: "rgba(255,255,255,0.15)", color: grupo.corTexto }}>
+                    {"⚠"} {grupo.alerta}
+                  </div>
+                )}
+              </div>
+
+              {/* Corpo */}
+              <div className="p-4">
+                {/* Medicamentos */}
+                <p className="text-xs font-semibold mb-2" style={{ color: "#78909c" }}>MEDICAMENTOS</p>
+                {meds.map((med, i) => (
+                  <div key={med.id} className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-gray-400">{i + 1}.</span>
+                    <span className="text-sm font-medium">{med.nome}</span>
+                    <span className="text-xs text-gray-400">{med.concentracao}</span>
+                    {med.classe && <Badge color={grupo.cor} textColor={grupo.corTexto}>{med.classe}</Badge>}
+                    {med.tipo_retencao && <Badge color={grupo.cor} textColor={grupo.corTexto}>
+                      {med.tipo_retencao === "antimicrobiano" ? "ATM" : "GLP-1"}
+                    </Badge>}
+                  </div>
+                ))}
+
+                {/* Info regulatória */}
+                <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-gray-400">Vias:</span> <span className="font-medium">{grupo.vias}</span></div>
+                  <div><span className="text-gray-400">Retencao:</span> <span className="font-medium">{grupo.retencao ? "Sim" : "Nao"}</span></div>
+                  <div><span className="text-gray-400">Numeração ANVISA:</span> <span className="font-medium">{grupo.sncr ? "Obrigatória" : "Não se aplica"}</span></div>
+                  <div><span className="text-gray-400">Assinatura:</span> <span className="font-medium">{grupo.assinatura}</span></div>
+                </div>
+
+                {/* Numeração ANVISA */}
+                {n && (
+                  <div className="mt-3 pt-3 border-t fade-in">
+                    <p className="text-xs font-semibold mb-1" style={{ color: "#78909c" }}>NUMERACAO</p>
+                    {n.num ? (
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs px-2 py-1 rounded font-mono"
+                          style={{ background: "#FFF3E0", color: "#E65100" }}>{n.num}</code>
+                        <Badge color="#FF9800" textColor="#fff">DEMO</Badge>
+                      </div>
+                    ) : (
+                      <Badge color="#78909c">Não requer numeração</Badge>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Status: <span className="font-mono">{n.status}</span>
+                      {n.adapter && <span> • adapter: {n.adapter}</span>}
+                    </p>
+                  </div>
+                )}
+
+                {/* Botão PDF */}
+                {n && (
+                  <div className="mt-3 pt-3 border-t">
+                    <button onClick={() => emitir(tipo)}
+                      className="w-full py-2 rounded-lg text-xs font-semibold transition-all"
+                      style={{ background: em ? "#E8F5E9" : grupo.corFundo,
+                               color: em ? "#2E7D32" : grupo.cor,
+                               border: `1px solid ${em ? "#A5D6A7" : grupo.corBorda + "40"}` }}>
+                      {em ? "✓ Emitido — Ver PDF" : "Emitir PDF Anvisa V2"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Ledger */}
+      <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
+        <p className="text-xs font-semibold mb-2" style={{ color: "#78909c" }}>LEDGER DE EVENTOS (RASTREABILIDADE)</p>
+        <div className="space-y-1 font-mono text-xs">
+          <div className="flex gap-2 text-gray-500">
+            <span className="text-gray-300">14:30:01</span>
+            <Badge color="#1a2e44">receituarios_gerados</Badge>
+            <span>{Object.keys(agrupados).length} receituarios derivados de 1 prescricao</span>
+          </div>
+          {Object.entries(numerados).map(([tipo, n]) => (
+            <div key={tipo} className="flex gap-2 text-gray-500 fade-in">
+              <span className="text-gray-300">14:30:02</span>
+              <Badge color="#1565C0">receituarios_numerados</Badge>
+              <span>{GRUPOS[tipo].abrev}: {n.num || "N/A"} ({n.status})</span>
+            </div>
+          ))}
+          {Object.entries(emitidos).map(([tipo]) => (
+            <div key={tipo} className="flex gap-2 text-gray-500 fade-in">
+              <span className="text-gray-300">14:30:03</span>
+              <Badge color="#2E7D32">receituario_emitido</Badge>
+              <span>{GRUPOS[tipo].abrev}: PDF gerado, status → emitido</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* PDF Preview Modal */}
+      {pdfAberto && <PdfPreview tipo={pdfAberto} grupo={GRUPOS[pdfAberto]}
+        meds={agrupados[pdfAberto].itens} numeracao={numerados[pdfAberto]}
+        onClose={() => setPdfAberto(null)} />}
+    </div>
+  );
+}
+
+// ─── PDF PREVIEW ────────────────────────────────────────
+
+function PdfPreview({ tipo, grupo, meds, numeracao, onClose }) {
+  const isDemo = numeracao?.adapter === "demo";
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-screen overflow-auto relative"
+        onClick={e => e.stopPropagation()}>
+        {/* Watermark demo */}
+        {isDemo && <div className="watermark">DOCUMENTO SEM VALIDADE REGULATÓRIA — DEMO</div>}
+
+        {/* PDF header */}
+        <div className="p-5 rounded-t-xl" style={{ background: grupo.cor }}>
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-bold text-sm" style={{ color: grupo.corTexto }}>{grupo.titulo}</h3>
+              <p className="text-xs mt-0.5" style={{ color: grupo.corTexto, opacity: 0.8 }}>{grupo.subtitulo}</p>
+              <p className="text-xs mt-1" style={{ color: grupo.corTexto, opacity: 0.6 }}>
+                Numeração ANVISA — conforme RDC 1.000/2025
+              </p>
+            </div>
+            <span className="text-xs font-mono px-2 py-1 rounded"
+              style={{ background: "rgba(255,255,255,0.2)", color: grupo.corTexto }}>
+              Cor: {grupo.papel}
+            </span>
+          </div>
+          {grupo.alerta && (
+            <div className="mt-2 px-2 py-1 rounded text-xs"
+              style={{ background: "rgba(255,255,255,0.15)", color: grupo.corTexto }}>
+              {"⚠"} {grupo.alerta}
+            </div>
+          )}
+        </div>
+
+        {/* Numeração */}
+        {numeracao?.num && (
+          <div className="mx-5 mt-3 p-3 rounded-lg border" style={{ background: "#FFF8E1", borderColor: "#FFE082" }}>
+            <p className="text-xs text-gray-500 mb-0.5">N.º Numeração ANVISA</p>
+            <p className="font-mono font-bold text-sm" style={{ color: "#E65100" }}>{numeracao.num}</p>
+            {isDemo && <p className="text-xs mt-1" style={{ color: "#D32F2F" }}>DEMO — numeração não regulatória</p>}
+          </div>
+        )}
+
+        <div className="p-5 space-y-4 relative">
+          {/* Prescritor */}
+          <div>
+            <p className="text-xs font-semibold mb-1" style={{ color: "#78909c" }}>PRESCRITOR</p>
+            <p className="text-sm font-medium">{PRESCRITOR.nome}</p>
+            <p className="text-xs text-gray-500">{PRESCRITOR.crm} • CNS {PRESCRITOR.cns}</p>
+            <p className="text-xs text-gray-400">Assinatura: {PRESCRITOR.assinatura}</p>
+          </div>
+
+          {/* Paciente */}
+          <div>
+            <p className="text-xs font-semibold mb-1" style={{ color: "#78909c" }}>PACIENTE</p>
+            <p className="text-sm font-medium">{PACIENTE.nome}</p>
+            <p className="text-xs text-gray-500">CPF: {PACIENTE.cpf}</p>
+          </div>
+
+          {/* Medicamentos */}
+          <div>
+            <p className="text-xs font-semibold mb-2" style={{ color: "#78909c" }}>MEDICAMENTOS</p>
+            {meds.map((med, i) => (
+              <div key={med.id} className="mb-3 pl-3 border-l-2" style={{ borderColor: grupo.cor }}>
+                <p className="text-sm font-semibold" style={{ color: grupo.cor }}>
+                  {i + 1}. {med.nome} <span className="font-normal text-gray-500">{med.concentracao}</span>
+                </p>
+                <p className="text-xs text-gray-600">Qtd: {med.qtd} {med.unidade} ({med.forma})</p>
+                <p className="text-xs text-gray-500 italic">{med.posologia}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Info regulatória */}
+          <div className="grid grid-cols-2 gap-2 text-xs p-3 rounded-lg" style={{ background: "#F5F5F5" }}>
+            <div><span className="text-gray-400">Vias:</span> <strong>{grupo.vias}</strong></div>
+            <div><span className="text-gray-400">Retencao farmacia:</span> <strong>{grupo.retencao ? "Sim" : "Nao"}</strong></div>
+            <div><span className="text-gray-400">Assinatura:</span> <strong>{grupo.assinatura}</strong></div>
+            <div><span className="text-gray-400">Numeração ANVISA:</span> <strong>{grupo.sncr ? "Obrigatória" : "N/A"}</strong></div>
+          </div>
+
+          {/* Rastreabilidade */}
+          <div className="text-xs space-y-1">
+            <p className="font-semibold" style={{ color: "#78909c" }}>RASTREABILIDADE</p>
+            <p><span className="text-gray-400">Protocolo:</span> <span className="font-mono">a7f3-2026-demo-001</span></p>
+            <p><span className="text-gray-400">Data emissao:</span> 25/04/2026 as 14:30</p>
+            <p><span className="text-gray-400">Hash SHA-256:</span> <span className="font-mono text-gray-500">e3b0c44298fc1c14...9bce36047</span></p>
+            {numeracao?.adapter && <p><span className="text-gray-400">Adapter:</span> <span className="font-mono">{numeracao.adapter}</span></p>}
+          </div>
+
+          {/* QR + Assinatura */}
+          <div className="flex items-end justify-between pt-4 border-t">
+            <div className="text-center flex-1">
+              <div className="border-t border-gray-400 w-48 mx-auto mb-1 mt-8"></div>
+              <p className="text-xs text-gray-500">{PRESCRITOR.nome}</p>
+              <p className="text-xs text-gray-400">{PRESCRITOR.crm}</p>
+            </div>
+            <div className="flex-shrink-0 ml-4 p-2 border rounded"
+              style={{ background: "#FAFAFA", width: 70, height: 70 }}>
+              <div className="w-full h-full grid grid-cols-5 grid-rows-5 gap-px">
+                {Array.from({ length: 25 }).map((_, i) => (
+                  <div key={i} style={{ background: [0,1,2,4,5,6,10,12,14,18,20,22,23,24].includes(i) ? "#333" : "#fff" }}></div>
+                ))}
+              </div>
+              <p className="text-center mt-1" style={{ fontSize: 6, color: "#9E9E9E" }}>QR — Rastreabilidade PicSaude</p>
+            </div>
+          </div>
+
+          {/* Rodapé */}
+          <div className="text-center pt-3 border-t">
+            <p className="text-xs text-gray-400">Documento gerado por PicSaúde — Numeração ANVISA</p>
+            <p className="text-xs text-gray-300">Modelo Anvisa Versao 2 — Vigente a partir de 18/05/2026</p>
+            {isDemo && <p className="text-xs mt-1" style={{ color: "#D32F2F" }}>
+              {"⚠"} Numeração DEMO — apenas para demonstração
+            </p>}
+          </div>
+        </div>
+
+        <button onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-white text-lg"
+          style={{ background: "rgba(0,0,0,0.3)" }}>
+          {"×"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── APP PRINCIPAL ──────────────────────────────────────
+
+function App() {
+  const [tela, setTela] = useState(1);
+  const [itens, setItens] = useState([]);
+  const [agrupados, setAgrupados] = useState({});
+
+  const handleGerar = (meds) => {
+    setItens(meds);
+    setTela(2);
+  };
+
+  const handleMotorConcluido = (agr) => {
+    setAgrupados(agr);
+    setTela(3);
+  };
+
+  const handleVoltar = () => {
+    seqContador = {};
+    setTela(1);
+    setItens([]);
+    setAgrupados({});
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Header />
+      <Stepper step={tela === 1 ? 1 : tela === 2 ? 2 : tela === 3 ? 3 : 4} />
+      {tela === 1 && <TelaPrescricao onGerar={handleGerar} />}
+      {tela === 2 && <TelaMotor itens={itens} onConcluido={handleMotorConcluido} />}
+      {tela === 3 && <TelaReceituarios agrupados={agrupados} onVoltar={handleVoltar} />}
+      <footer className="text-center py-8 text-xs text-gray-400 space-y-1 border-t mt-8 mx-4">
+        <p className="text-gray-500 font-medium mt-4">PicSaude — Demo com dados ficticios • RDC 1.000/2025 • Anvisa</p>
+        <p>Programa de computador registrado no INPI — Processo BR 51 2026 002267-3</p>
+        <p>RPI 2883 de 07/04/2026 • Codigo 730 — Expedicao do Certificado de Registro</p>
+        <p className="text-gray-300">Titular e Criador: Fabiano Tonaco Borges • Data de criacao: 20/03/2026</p>
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>

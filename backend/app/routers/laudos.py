@@ -1,0 +1,861 @@
+"""
+routers/laudos.py
+=================
+Módulo de laudos — artefato clínico produzido pelo prestador.
+
+tipo_agregacao_status = "direto"
+O status do laudo é transitado explicitamente pelos endpoints — não derivado dos itens.
+
+ROTAS IMPLEMENTADAS (Ticket 20)
+---------------------------------
+POST /laudos                              ← emissão digital (prestador cria o laudo)
+POST /laudos/fisica                       ← emissão física (fire-and-forget)
+GET  /laudos/{proto}                      ← consulta completa (itens + eventos)
+GET  /laudos/{proto}/custodia             ← histórico de custódia
+POST /laudos/{proto}/assinar              ← responsável técnico declara assinatura
+POST /laudos/{proto}/liberar              ← laudo disponibilizado ao paciente/prescritor
+POST /laudos/{proto}/ciencia-paciente     ← paciente registra ciência
+POST /laudos/{proto}/ciencia-prescritor   ← prescritor registra ciência clínica
+POST /laudos/{proto}/cancelar             ← cancelar laudo não liberado
+POST /laudos/{proto}/encerrar             ← encerramento formal do ciclo
+
+ROTAS IMPLEMENTADAS (Ticket 21)
+---------------------------------
+GET  /laudos/{proto}/pdf                  ← PDF institucional do laudo
+GET  /laudos/{proto}/qr                   ← QR Code PNG → /public/laudos/{proto}
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import uuid
+from datetime import datetime, date, timedelta
+from typing import List, Optional
+
+import qrcode
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
+from pydantic import BaseModel, field_validator, model_validator
+
+from app.auth.dependencies import require_role
+from app.config import BASE_URL
+from app.database_tx import get_tx
+from app.domain.outbox import registrar_outbox
+from app.domain.pdf_laudo import gerar_pdf_laudo
+from app.domain.states_laudo import (
+    ESTADOS_TERMINAIS_LAUDO,
+    ESTADOS_TERMINAIS_ITEM_LAUDO,
+    transicao_valida_laudo,
+    transicao_valida_item_laudo,
+    eh_terminal_laudo,
+    eh_terminal_item_laudo,
+)
+from app.utils.helpers import normalize_cns, normalize_cpf, normalize_nome
+
+router = APIRouter(prefix="/laudos", tags=["laudos"])
+
+# ---------------------------------------------------------------------------
+# Constantes de domínio
+# ---------------------------------------------------------------------------
+
+_CPF_NAO_IDENTIFICADO  = "00000000000"
+_TIPOS_EMISSAO_VALIDOS = {"novo", "correcao"}
+_CONCLUSOES_VALIDAS    = {"normal", "alterado", "indeterminado", "inconclusivo"}
+_VALIDADE_PADRAO_DIAS  = 90
+
+
+# ---------------------------------------------------------------------------
+# Schemas de entrada
+# ---------------------------------------------------------------------------
+
+class ItemLaudoIn(BaseModel):
+    nome_exame:       str
+    codigo_tuss:      Optional[str] = None
+    resultado_resumo: Optional[str] = None
+    conclusao:        Optional[str] = None
+    valor_referencia: Optional[str] = None
+    resultado_url:    Optional[str] = None
+
+    @field_validator("nome_exame")
+    @classmethod
+    def nome_nao_vazio(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("nome_exame não pode ser vazio")
+        return v.strip().upper()
+
+    @field_validator("conclusao")
+    @classmethod
+    def conclusao_valida(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _CONCLUSOES_VALIDAS:
+            raise ValueError(
+                f"conclusao inválida: '{v}'. Valores aceitos: {sorted(_CONCLUSOES_VALIDAS)}"
+            )
+        return v
+
+
+class LaudoIn(BaseModel):
+    cns_autor:        str             # CNS do responsável técnico (patologista, bioquímico, etc.)
+    nome_autor:       Optional[str] = None
+    cpf_paciente:     str
+    nome_paciente:    str
+    pedido_protocolo: Optional[str] = None   # protocolo do pedido de exame vinculado
+    data_validade:    Optional[str] = None
+    tipo_emissao:     str = "novo"
+    origem_laudo_id:  Optional[int] = None
+    itens:            List[ItemLaudoIn] = []
+
+    @field_validator("tipo_emissao")
+    @classmethod
+    def tipo_valido(cls, v: str) -> str:
+        if v not in _TIPOS_EMISSAO_VALIDOS:
+            raise ValueError(
+                f"tipo_emissao inválido: '{v}'. Valores aceitos: {sorted(_TIPOS_EMISSAO_VALIDOS)}"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def origem_obrigatoria(self) -> "LaudoIn":
+        if self.tipo_emissao == "correcao" and self.origem_laudo_id is None:
+            raise ValueError("origem_laudo_id é obrigatório quando tipo_emissao='correcao'")
+        return self
+
+
+class FisicaLaudoIn(BaseModel):
+    cns_autor:    str
+    nome_autor:   Optional[str] = None
+    cpf_paciente: Optional[str] = None
+    nome_paciente: str
+    itens:        List[ItemLaudoIn] = []
+
+
+# ---------------------------------------------------------------------------
+# Helpers internos
+# ---------------------------------------------------------------------------
+
+def _calcular_hash(protocolo: str, cns_autor: str, cpf: str,
+                   data_emissao: str, itens: list) -> str:
+    doc = {
+        "protocolo":      protocolo,
+        "autor_cns":      cns_autor,
+        "paciente_cpf":   cpf,
+        "data_emissao":   data_emissao,
+        "itens": [
+            {
+                "nome_exame":      item.nome_exame,
+                "codigo_tuss":     item.codigo_tuss,
+                "resultado_resumo": item.resultado_resumo,
+                "conclusao":       item.conclusao,
+            }
+            for item in itens
+        ],
+        "versao_esquema": "1",
+    }
+    payload = json.dumps(doc, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _localizar_ou_criar_autor(conn, cns: str, nome_hint: Optional[str], agora: str) -> int:
+    row = conn.execute("SELECT id FROM prescritores WHERE cns = ?", (cns,)).fetchone()
+    if row:
+        return row["id"]
+    nome = normalize_nome(nome_hint or "")
+    if not nome:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Responsável técnico com CNS '{cns}' não encontrado. "
+                "Envie 'nome_autor' para registrá-lo automaticamente."
+            ),
+        )
+    cursor = conn.execute(
+        "INSERT INTO prescritores (cns, nome, ativo, created_at, updated_at) VALUES (?, ?, true, ?, ?)",
+        (cns, nome, agora, agora),
+    )
+    return cursor.lastrowid
+
+
+def _localizar_ou_criar_paciente(conn, cpf: str, nome: str, agora: str) -> int:
+    row = conn.execute("SELECT id FROM pacientes WHERE cpf = ?", (cpf,)).fetchone()
+    if row:
+        return row["id"]
+    cursor = conn.execute(
+        "INSERT INTO pacientes (cpf, nome, ativo, created_at, updated_at) VALUES (?, ?, true, ?, ?)",
+        (cpf, nome, agora, agora),
+    )
+    return cursor.lastrowid
+
+
+def _get_laudo_ou_404(conn, protocolo: str) -> dict:
+    row = conn.execute("SELECT * FROM laudos WHERE protocolo = ?", (protocolo,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Laudo '{protocolo}' não encontrado.")
+    return dict(row)
+
+
+def _get_itens_laudo(conn, laudo_id: int) -> list[dict]:
+    return [
+        dict(r) for r in conn.execute(
+            "SELECT * FROM laudo_itens WHERE laudo_id = ?", (laudo_id,)
+        ).fetchall()
+    ]
+
+
+def _evento(conn, laudo_id: int, tipo: str, dados: dict, agora: str,
+            protocolo: str | None = None) -> None:
+    """Insere evento no ledger de laudos. Nunca recebe UPDATE/DELETE.
+
+    Se protocolo for fornecido, espelha no outbox de publicação externa (G4A).
+    """
+    conn.execute(
+        """
+        INSERT INTO laudo_eventos (laudo_id, tipo_evento, dados_json, criado_em)
+        VALUES (?, ?, ?, ?)
+        """,
+        (laudo_id, tipo, json.dumps(dados, ensure_ascii=False), agora),
+    )
+    if protocolo:
+        registrar_outbox(conn, tipo, "laudo", protocolo, dados)
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos — emissão digital
+# ---------------------------------------------------------------------------
+
+@router.post("", status_code=201)
+def criar_laudo(
+    payload: LaudoIn,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Cria um laudo no estado 'em_producao'.
+
+    Fluxo completo:
+        em_producao → assinar → liberar → ciência → encerrar
+
+    O autor é o responsável técnico (cns_autor).
+    Suporte a vinculação com pedido_exame via pedido_protocolo.
+    """
+    if not payload.itens:
+        raise HTTPException(status_code=422, detail="O laudo deve conter ao menos um item.")
+
+    cns      = normalize_cns(payload.cns_autor)
+    cpf      = normalize_cpf(payload.cpf_paciente)
+    nome_pac = normalize_nome(payload.nome_paciente)
+    protocolo = str(uuid.uuid4())
+    agora    = datetime.utcnow().isoformat()
+    data_emissao  = date.today().isoformat()
+    data_validade = (
+        payload.data_validade
+        or (date.today() + timedelta(days=_VALIDADE_PADRAO_DIAS)).isoformat()
+    )
+
+    with get_tx() as conn:
+        autor_id    = _localizar_ou_criar_autor(conn, cns, payload.nome_autor, agora)
+        paciente_id = _localizar_ou_criar_paciente(conn, cpf, nome_pac, agora)
+
+        pedido_id = None
+        if payload.pedido_protocolo:
+            row = conn.execute(
+                "SELECT id FROM pedidos_exame WHERE protocolo = ?", (payload.pedido_protocolo,)
+            ).fetchone()
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Pedido de exame '{payload.pedido_protocolo}' não encontrado.",
+                )
+            pedido_id = row["id"]
+
+        if payload.origem_laudo_id is not None:
+            if not conn.execute("SELECT id FROM laudos WHERE id = ?", (payload.origem_laudo_id,)).fetchone():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Laudo de origem id={payload.origem_laudo_id} não encontrado.",
+                )
+
+        cursor = conn.execute(
+            """
+            INSERT INTO laudos
+              (protocolo, autor_id, paciente_id, pedido_id, status, tipo_emissao,
+               origem_laudo_id, data_emissao, data_validade, criado_em)
+            VALUES (?, ?, ?, ?, 'em_producao', ?, ?, ?, ?, ?)
+            """,
+            (protocolo, autor_id, paciente_id, pedido_id,
+             payload.tipo_emissao, payload.origem_laudo_id,
+             data_emissao, data_validade, agora),
+        )
+        laudo_id = cursor.lastrowid
+
+        for item in payload.itens:
+            conn.execute(
+                """
+                INSERT INTO laudo_itens
+                  (laudo_id, nome_exame, codigo_tuss, resultado_resumo,
+                   conclusao, valor_referencia, resultado_url, status_item, criado_em)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'em_producao', ?)
+                """,
+                (laudo_id, item.nome_exame, item.codigo_tuss, item.resultado_resumo,
+                 item.conclusao, item.valor_referencia, item.resultado_url, agora),
+            )
+
+        doc_hash = _calcular_hash(protocolo, cns, cpf, data_emissao, payload.itens)
+        conn.execute(
+            "UPDATE laudos SET assinatura_hash = ? WHERE id = ?",
+            (doc_hash, laudo_id),
+        )
+
+        _evento(conn, laudo_id, "laudo_criado", {
+            "tipo_emissao":    payload.tipo_emissao,
+            "origem_laudo_id": payload.origem_laudo_id,
+            "pedido_id":       pedido_id,
+            "itens_count":     len(payload.itens),
+        }, agora, protocolo=protocolo)
+
+        return {
+            "id":            laudo_id,
+            "protocolo":     protocolo,
+            "status":        "em_producao",
+            "tipo_emissao":  payload.tipo_emissao,
+            "data_emissao":  data_emissao,
+            "data_validade": data_validade,
+            "itens_count":   len(payload.itens),
+            "documento_hash": doc_hash,
+        }
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/fisica — emissão exclusivamente física
+# ---------------------------------------------------------------------------
+
+@router.post("/fisica", status_code=201)
+def criar_laudo_fisico(
+    payload: FisicaLaudoIn,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Registra laudo emitido exclusivamente em papel.
+
+    Status: encerrado_fisico (objeto + todos os itens)
+    Sem cadeia de custódia digital.
+    Dois eventos no ledger: laudo_impresso + encerrado_localmente
+    """
+    if not payload.itens:
+        raise HTTPException(status_code=422, detail="O laudo deve conter ao menos um item.")
+
+    cns      = normalize_cns(payload.cns_autor)
+    cpf      = normalize_cpf(payload.cpf_paciente) if payload.cpf_paciente else _CPF_NAO_IDENTIFICADO
+    nome_pac = normalize_nome(payload.nome_paciente)
+    protocolo = str(uuid.uuid4())
+    agora    = datetime.utcnow().isoformat()
+    data_emissao = date.today().isoformat()
+
+    with get_tx() as conn:
+        autor_id    = _localizar_ou_criar_autor(conn, cns, payload.nome_autor, agora)
+        paciente_id = _localizar_ou_criar_paciente(conn, cpf, nome_pac, agora)
+
+        cursor = conn.execute(
+            """
+            INSERT INTO laudos
+              (protocolo, autor_id, paciente_id, status, tipo_emissao,
+               data_emissao, data_validade, criado_em)
+            VALUES (?, ?, ?, 'encerrado_fisico', 'fisico', ?, NULL, ?)
+            """,
+            (protocolo, autor_id, paciente_id, data_emissao, agora),
+        )
+        laudo_id = cursor.lastrowid
+
+        for item in payload.itens:
+            conn.execute(
+                """
+                INSERT INTO laudo_itens
+                  (laudo_id, nome_exame, codigo_tuss, resultado_resumo,
+                   conclusao, valor_referencia, resultado_url, status_item, criado_em)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'encerrado_fisico', ?)
+                """,
+                (laudo_id, item.nome_exame, item.codigo_tuss, item.resultado_resumo,
+                 item.conclusao, item.valor_referencia, item.resultado_url, agora),
+            )
+
+        _evento(conn, laudo_id, "laudo_impresso", {
+            "tipo_emissao":      "fisico",
+            "itens_count":       len(payload.itens),
+            "cpf_identificado":  payload.cpf_paciente is not None,
+        }, agora)
+        _evento(conn, laudo_id, "encerrado_localmente", {
+            "status_novo":          "encerrado_fisico",
+            "motivo":               "emissao_exclusivamente_fisica",
+            "sem_custodia_digital": True,
+        }, agora)
+
+        return {
+            "protocolo":    protocolo,
+            "status":       "encerrado_fisico",
+            "tipo_emissao": "fisico",
+            "data_emissao": data_emissao,
+            "itens_count":  len(payload.itens),
+        }
+
+
+# ---------------------------------------------------------------------------
+# GET /laudos/{protocolo} — consulta completa
+# ---------------------------------------------------------------------------
+
+@router.get("/{protocolo}")
+def get_laudo(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    with get_tx() as conn:
+        laudo  = _get_laudo_ou_404(conn, protocolo)
+        itens  = _get_itens_laudo(conn, laudo["id"])
+        eventos = [
+            dict(r) for r in conn.execute(
+                "SELECT tipo_evento, dados_json, criado_em FROM laudo_eventos "
+                "WHERE laudo_id = ? ORDER BY id ASC",
+                (laudo["id"],),
+            ).fetchall()
+        ]
+        return {**laudo, "itens": itens, "eventos": eventos}
+
+
+# ---------------------------------------------------------------------------
+# GET /laudos/{protocolo}/custodia — histórico de custódia
+# ---------------------------------------------------------------------------
+
+@router.get("/{protocolo}/custodia")
+def get_custodia_laudo(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin", "paciente")),
+):
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+        registros = conn.execute(
+            "SELECT de, para, transferido_em, dados_json FROM laudo_custodia "
+            "WHERE laudo_id = ? ORDER BY id ASC",
+            (laudo["id"],),
+        ).fetchall()
+        return {"protocolo": protocolo, "custodia": [dict(r) for r in registros]}
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/assinar
+# Transição: em_producao → assinado
+# ---------------------------------------------------------------------------
+
+@router.post("/{protocolo}/assinar", status_code=200)
+def assinar_laudo(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Responsável técnico declara assinatura do laudo.
+    Transição: em_producao → assinado
+    """
+    agora = datetime.utcnow().isoformat()
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if eh_terminal_laudo(laudo["status"]):
+            raise HTTPException(status_code=422, detail=f"Laudo '{protocolo}' está em estado terminal.")
+
+        if laudo["status"] != "em_producao":
+            raise HTTPException(
+                status_code=422,
+                detail=f"Assinatura requer status 'em_producao'. Status atual: '{laudo['status']}'.",
+            )
+
+        # Transicionar itens em_producao → concluido
+        itens = _get_itens_laudo(conn, laudo["id"])
+        for item in itens:
+            if item["status_item"] == "em_producao":
+                conn.execute(
+                    "UPDATE laudo_itens SET status_item = 'concluido' WHERE id = ?",
+                    (item["id"],),
+                )
+
+        conn.execute(
+            "UPDATE laudos SET status = 'assinado' WHERE id = ?",
+            (laudo["id"],),
+        )
+
+        _evento(conn, laudo["id"], "laudo_assinado", {
+            "status_anterior": "em_producao",
+        }, agora, protocolo=laudo["protocolo"])
+
+        return {"protocolo": protocolo, "status": "assinado"}
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/liberar
+# Transição: assinado → liberado
+# Cria custódia: prestador → paciente
+# ---------------------------------------------------------------------------
+
+class LiberarIn(BaseModel):
+    cnpj_prestador: str
+    cpf_paciente:   Optional[str] = None   # para registrar custódia direcionada
+
+
+@router.post("/{protocolo}/liberar", status_code=200)
+def liberar_laudo(
+    protocolo: str,
+    payload: LiberarIn,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Libera o laudo para acesso do paciente e/ou prescritor solicitante.
+    Transição: assinado → liberado
+    Cria custódia: prestador → paciente
+    """
+    agora = datetime.utcnow().isoformat()
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if laudo["status"] != "assinado":
+            raise HTTPException(
+                status_code=422,
+                detail=f"Liberação requer status 'assinado'. Status atual: '{laudo['status']}'.",
+            )
+
+        conn.execute(
+            "UPDATE laudos SET status = 'liberado' WHERE id = ?",
+            (laudo["id"],),
+        )
+
+        conn.execute(
+            """
+            INSERT INTO laudo_custodia (laudo_id, item_id, de, para, transferido_em, dados_json)
+            VALUES (?, NULL, ?, 'paciente', ?, ?)
+            """,
+            (
+                laudo["id"],
+                payload.cnpj_prestador,
+                agora,
+                json.dumps({"cnpj_prestador": payload.cnpj_prestador}, ensure_ascii=False),
+            ),
+        )
+
+        _evento(conn, laudo["id"], "laudo_liberado", {
+            "cnpj_prestador": payload.cnpj_prestador,
+        }, agora, protocolo=laudo["protocolo"])
+
+        return {"protocolo": protocolo, "status": "liberado"}
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/ciencia-paciente
+# Transição: liberado | ciencia_prescritor → ciencia_paciente | encerrado
+# ---------------------------------------------------------------------------
+
+@router.post("/{protocolo}/ciencia-paciente", status_code=200)
+def ciencia_paciente(
+    protocolo: str,
+    usuario=Depends(require_role("paciente", "admin")),
+):
+    """
+    Paciente registra ciência do laudo.
+
+    - liberado → ciencia_paciente (prescritor ainda não deu ciência)
+    - ciencia_prescritor → encerrado (ambas as ciências registradas)
+    """
+    agora = datetime.utcnow().isoformat()
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if laudo["status"] not in ("liberado", "ciencia_prescritor"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ciência do paciente requer status 'liberado' ou 'ciencia_prescritor'. "
+                       f"Status atual: '{laudo['status']}'.",
+            )
+
+        novo_status = "encerrado" if laudo["status"] == "ciencia_prescritor" else "ciencia_paciente"
+
+        conn.execute(
+            "UPDATE laudos SET status = ? WHERE id = ?",
+            (novo_status, laudo["id"]),
+        )
+
+        _evento(conn, laudo["id"], "ciencia_paciente", {
+            "status_anterior": laudo["status"],
+            "status_novo":     novo_status,
+        }, agora, protocolo=protocolo)
+
+        if novo_status == "encerrado":
+            _evento(conn, laudo["id"], "laudo_encerrado", {
+                "motivo": "ciencia_completa",
+            }, agora, protocolo=protocolo)
+
+        return {"protocolo": protocolo, "status": novo_status}
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/ciencia-prescritor
+# Transição: liberado | ciencia_paciente → ciencia_prescritor | encerrado
+# ---------------------------------------------------------------------------
+
+@router.post("/{protocolo}/ciencia-prescritor", status_code=200)
+def ciencia_prescritor(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Prescritor solicitante registra ciência clínica do laudo.
+
+    - liberado → ciencia_prescritor (paciente ainda não deu ciência)
+    - ciencia_paciente → encerrado (ambas as ciências registradas)
+    """
+    agora = datetime.utcnow().isoformat()
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if laudo["status"] not in ("liberado", "ciencia_paciente"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ciência do prescritor requer status 'liberado' ou 'ciencia_paciente'. "
+                       f"Status atual: '{laudo['status']}'.",
+            )
+
+        novo_status = "encerrado" if laudo["status"] == "ciencia_paciente" else "ciencia_prescritor"
+
+        conn.execute(
+            "UPDATE laudos SET status = ? WHERE id = ?",
+            (novo_status, laudo["id"]),
+        )
+
+        _evento(conn, laudo["id"], "ciencia_prescritor", {
+            "status_anterior": laudo["status"],
+            "status_novo":     novo_status,
+        }, agora, protocolo=protocolo)
+
+        if novo_status == "encerrado":
+            _evento(conn, laudo["id"], "laudo_encerrado", {
+                "motivo": "ciencia_completa",
+            }, agora, protocolo=protocolo)
+
+        return {"protocolo": protocolo, "status": novo_status}
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/encerrar
+# Encerramento direto (ex: apenas uma ciência é necessária — configurável)
+# ---------------------------------------------------------------------------
+
+@router.post("/{protocolo}/encerrar", status_code=200)
+def encerrar_laudo(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Encerramento formal do laudo a partir de 'liberado', 'ciencia_paciente' ou 'ciencia_prescritor'.
+    Usado quando apenas uma ciência é suficiente (configuração institucional).
+    """
+    agora = datetime.utcnow().isoformat()
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if laudo["status"] not in ("liberado", "ciencia_paciente", "ciencia_prescritor"):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Encerramento requer status 'liberado', 'ciencia_paciente' ou "
+                       f"'ciencia_prescritor'. Status atual: '{laudo['status']}'.",
+            )
+
+        conn.execute(
+            "UPDATE laudos SET status = 'encerrado' WHERE id = ?",
+            (laudo["id"],),
+        )
+
+        _evento(conn, laudo["id"], "laudo_encerrado", {
+            "status_anterior": laudo["status"],
+            "motivo":          "encerramento_direto",
+        }, agora, protocolo=protocolo)
+
+        return {"protocolo": protocolo, "status": "encerrado"}
+
+
+# ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/cancelar
+# ---------------------------------------------------------------------------
+
+class CancelarLaudoIn(BaseModel):
+    motivo: Optional[str] = None
+
+
+@router.post("/{protocolo}/cancelar", status_code=200)
+def cancelar_laudo(
+    protocolo: str,
+    payload: CancelarLaudoIn,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """
+    Cancela um laudo que ainda não foi liberado (em_producao ou assinado).
+    """
+    agora = datetime.utcnow().isoformat()
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if eh_terminal_laudo(laudo["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Laudo '{protocolo}' já está em estado terminal ({laudo['status']}).",
+            )
+
+        if laudo["status"] == "liberado":
+            raise HTTPException(
+                status_code=422,
+                detail="Laudo já liberado não pode ser cancelado. Use /correcao para emitir laudo corrigido.",
+            )
+
+        itens = _get_itens_laudo(conn, laudo["id"])
+        for item in itens:
+            if not eh_terminal_item_laudo(item["status_item"]):
+                conn.execute(
+                    "UPDATE laudo_itens SET status_item = 'cancelado' WHERE id = ?",
+                    (item["id"],),
+                )
+
+        conn.execute(
+            "UPDATE laudos SET status = 'cancelado' WHERE id = ?",
+            (laudo["id"],),
+        )
+
+        _evento(conn, laudo["id"], "laudo_cancelado", {
+            "status_anterior": laudo["status"],
+            "motivo":          payload.motivo,
+        }, agora, protocolo=protocolo)
+
+        return {"protocolo": protocolo, "status": "cancelado"}
+
+
+# ---------------------------------------------------------------------------
+# GET /laudos/{protocolo}/pdf — PDF institucional do laudo (Ticket 21)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/{protocolo}/pdf",
+    summary="PDF institucional do laudo clínico",
+    response_class=Response,
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF do laudo"},
+        404: {"description": "Protocolo não encontrado"},
+    },
+)
+def pdf_laudo(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin", "paciente")),
+):
+    """
+    Gera e retorna o PDF institucional do laudo, com todos os resultados,
+    conclusões, identificação do documento e área de assinatura.
+
+    O PDF inclui:
+    - Responsável técnico (autor), paciente, pedido vinculado (se houver)
+    - Itens: nome do exame, conclusão (com cor por severidade), resultado resumido,
+      valor de referência
+    - Hash SHA-256 do documento canônico
+    - Área de assinatura física do responsável técnico
+    """
+    with get_tx() as conn:
+        laudo = _get_laudo_ou_404(conn, protocolo)
+        itens = _get_itens_laudo(conn, laudo["id"])
+
+        # Autor
+        autor_row = conn.execute(
+            "SELECT nome, cns FROM prescritores WHERE id = ?", (laudo["autor_id"],)
+        ).fetchone()
+        nome_autor = autor_row["nome"] if autor_row else "—"
+        cns_autor  = autor_row["cns"]  if autor_row else "—"
+
+        # Paciente
+        pac_row = conn.execute(
+            "SELECT nome, cpf FROM pacientes WHERE id = ?", (laudo["paciente_id"],)
+        ).fetchone()
+        nome_paciente = pac_row["nome"] if pac_row else "—"
+        cpf_paciente  = pac_row["cpf"]  if pac_row else "00000000000"
+
+        # Pedido vinculado (se houver)
+        pedido_protocolo = None
+        if laudo.get("pedido_id"):
+            ped_row = conn.execute(
+                "SELECT protocolo FROM pedidos_exame WHERE id = ?", (laudo["pedido_id"],)
+            ).fetchone()
+            if ped_row:
+                pedido_protocolo = ped_row["protocolo"]
+
+    pdf_bytes = gerar_pdf_laudo(
+        protocolo        = protocolo,
+        status           = laudo["status"],
+        tipo_emissao     = laudo["tipo_emissao"],
+        assinatura_hash  = laudo.get("assinatura_hash"),
+        data_emissao     = laudo["data_emissao"],
+        data_validade    = laudo.get("data_validade"),
+        nome_autor       = nome_autor,
+        cns_autor        = cns_autor,
+        nome_paciente    = nome_paciente,
+        cpf_paciente     = cpf_paciente,
+        pedido_protocolo = pedido_protocolo,
+        itens            = [dict(i) for i in itens],
+    )
+
+    return Response(
+        content      = pdf_bytes,
+        media_type   = "application/pdf",
+        headers      = {
+            "Content-Disposition": f'inline; filename="laudo-{protocolo[:8]}.pdf"'
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /laudos/{protocolo}/qr — QR Code PNG (Ticket 21)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/{protocolo}/qr",
+    summary="QR Code do protocolo de laudo",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {}}, "description": "Imagem PNG do QR Code"},
+        404: {"description": "Protocolo não encontrado"},
+    },
+)
+def qr_laudo(
+    protocolo: str,
+    _=Depends(require_role("prescritor", "admin", "paciente")),
+):
+    """
+    Gera e retorna um QR Code PNG para o protocolo do laudo.
+
+    O QR Code codifica a URL pública do laudo:
+    `{BASE_URL}/public/laudos/{protocolo}`
+
+    - Imagem gerada inteiramente em memória (sem arquivo em disco).
+    - 404 se o protocolo não existir no banco.
+    """
+    with get_tx() as conn:
+        existe = conn.execute(
+            "SELECT 1 FROM laudos WHERE protocolo = ?", (protocolo,)
+        ).fetchone()
+
+    if not existe:
+        raise HTTPException(status_code=404, detail="Protocolo não encontrado.")
+
+    url = f"{BASE_URL}/public/laudos/{protocolo}"
+    qr  = qrcode.QRCode(
+        version          = 1,
+        error_correction = qrcode.constants.ERROR_CORRECT_M,
+        box_size         = 10,
+        border           = 4,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+
+    return Response(content=buf.read(), media_type="image/png")
