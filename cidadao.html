@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicSaúde - Módulo Cidadão v27</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
+        
+        .header { background: #002776; color: white; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #009c3b; }
+        .brand-container h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px;}
+        .brand-container p { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255, 255, 255, 0.85); font-weight: 500; }
+        
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+        
+        .container { max-width: 650px; margin: 40px auto; padding: 0 16px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+        
+        h2.section-title { font-size: 18px; color: #002776; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+        
+        .form-group { margin-bottom: 20px; width: 100%; }
+        .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .form-input, .form-select { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; transition: border-color 0.2s; background-color: #fafafa; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .form-input:disabled, .form-select:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-address-1 { display: grid; grid-template-columns: 3fr 1.5fr; gap: 16px; } 
+        .grid-address-2 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; } 
+        
+        .btn { padding: 14px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; justify-content: center; align-items: center; width: 100%; }
+        .btn-primary { background: #002776; color: white; }
+        .btn-primary:hover { background: #001a4f; }
+        .btn-action { background: #009c3b; color: white; }
+        .btn-action:hover { background: #007a2e; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; transition: all 0.3s ease; }
+        .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+        .btn-small { padding: 8px 16px; font-size: 12px; border-radius: 4px; width: auto; }
+        
+        .btn-danger { background: transparent; border: 1px solid #fca5a5; color: #dc2626; padding: 10px 16px; font-size: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; text-transform: uppercase; transition: 0.2s; width: 100%; display: block; text-align: center; }
+        .btn-danger:hover { background: #fef2f2; border-color: #dc2626; }
+        
+        .btn-text { background: transparent; border: none; color: #3b82f6; cursor: pointer; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-text:hover { color: #1d4ed8; text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+        
+        .receita-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 24px; margin-bottom: 24px; background: #ffffff; border-left: 4px solid #009c3b; }
+        .receita-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; }
+        .status-badge { padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; background: #dcfce7; color: #166534; text-transform: uppercase; letter-spacing: 0.5px; }
+        .med-list { margin: 16px 0; padding-left: 20px; color: #475569; font-size: 14px; line-height: 1.6; }
+        .med-list li { margin-bottom: 12px; }
+        
+        .transfer-area { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 20px; margin-top: 20px; margin-bottom: 12px; }
+        .devolucao-area { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px; padding: 20px; margin-top: 12px; }
+        
+        .otp-display { font-size: 32px; letter-spacing: 8px; text-align: center; font-weight: bold; color: #002776; margin: 16px 0; }
+        .refresh-icon { transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .refreshing .refresh-icon { transform: rotate(360deg); }
+
+        /* ── Token de Apresentação (Ticket 25) ──────────────────────────── */
+        .token-area {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .token-area-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #002776;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 10px;
+        }
+        .token-ativo-bloco {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .token-codigo {
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 8px;
+            color: #002776;
+            text-align: center;
+            padding: 8px 0;
+            background: #ffffff;
+            border: 1px dashed #3b82f6;
+            border-radius: 4px;
+        }
+        .token-validade {
+            font-size: 11px;
+            color: #64748b;
+            text-align: center;
+        }
+        .token-acoes {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 4px;
+        }
+        .btn-token-qr {
+            background: #002776;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+        }
+        .btn-token-qr:hover { background: #001a4f; }
+        .btn-token-revogar {
+            background: transparent;
+            border: 1px solid #fca5a5;
+            color: #dc2626;
+            border-radius: 4px;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-token-revogar:hover { background: #fef2f2; }
+        .btn-gerar-token {
+            background: transparent;
+            border: 1px solid #3b82f6;
+            color: #002776;
+            border-radius: 4px;
+            padding: 9px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
+        .btn-gerar-token:hover { background: #dbeafe; }
+        .token-qr-wrapper {
+            text-align: center;
+            padding: 12px 0 4px;
+        }
+        .token-qr-wrapper img {
+            width: 180px;
+            height: 180px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        .token-qr-hint {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 6px;
+        }
+        /* ── Circulação Atomizada — item cards (Ticket 44, Fase 3) ──── */
+        .atom-banner { font-size:11px; color:#0e7490; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+        .atom-sublabel { font-size:11px; color:#64748b; margin-bottom:10px; }
+        .item-atom-card { border:1px solid #bae6fd; border-radius:6px; padding:12px 14px; margin-bottom:8px; background:#f0f9ff; }
+        .item-atom-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .item-atom-nome { font-size:13px; font-weight:600; color:#0f172a; }
+        .atom-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:12px; background:#cffafe; color:#0e7490; text-transform:uppercase; letter-spacing:0.4px; }
+        .item-atom-codigo { font-family:'Courier New',monospace; font-size:22px; font-weight:800; letter-spacing:6px; color:#0e7490; text-align:center; padding:6px; background:white; border:1px dashed #0e7490; border-radius:4px; margin-bottom:4px; }
+        .btn-atom-revogar-todos { background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; padding:7px 14px; font-size:11px; font-weight:600; cursor:pointer; width:100%; margin-top:6px; }
+        .btn-atom-revogar-todos:hover { background:#fef2f2; }
+        /* ── Pedidos de Exame / Agendamento (Ticket 29) ─────────────── */
+        .exame-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:12px; }
+        .exame-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+        .exame-badge-prioridade { font-size:11px; font-weight:700; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:#dbeafe; color:#1e40af; }
+        .exame-badge-prioridade.urgente { background:#fef3c7; color:#92400e; }
+        .exame-badge-prioridade.urgentissimo { background:#fecaca; color:#991b1b; }
+        .exame-lista { margin:8px 0; padding-left:0; list-style:none; }
+        .exame-lista li { font-size:13px; color:#0f172a; padding:3px 0; border-bottom:1px solid #f1f5f9; }
+        .exame-lista li:last-child { border-bottom:none; }
+        .agendar-area { background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:14px; margin-top:12px; }
+        .agendar-area-title { font-size:11px; font-weight:700; color:#002776; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; }
+        .agendamento-ativo { background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:10px 14px; font-size:13px; color:#002776; margin-top:10px; }
+        .agendamento-ativo strong { display:block; font-size:12px; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.4px; }
+        .btn-agendar { background:#002776; color:white; border:none; border-radius:4px; padding:8px 16px; font-size:12px; font-weight:600; cursor:pointer; width:100%; }
+        .btn-agendar:hover { background:#001a4f; }
+        .btn-cancelar-ag { background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; margin-top:8px; }
+        .btn-cancelar-ag:hover { background:#fef2f2; }
+        .form-agendar { display:none; flex-direction:column; gap:8px; margin-top:10px; }
+        .form-agendar.aberto { display:flex; }
+        .form-agendar input { font-size:13px; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; outline:none; }
+        .form-agendar input:focus { border-color:#3b82f6; }
+        /* ── Circulação Diagnóstica (Ticket 56) ─────────────────────── */
+        .circ-area { background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:14px; margin-top:12px; }
+        .circ-area-title { font-size:11px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; }
+        .circ-chave { font-family:'Courier New',monospace; font-size:20px; font-weight:800; letter-spacing:5px; color:#166534; text-align:center; padding:8px; background:white; border:1px dashed #16a34a; border-radius:4px; margin:6px 0 10px; }
+        .circ-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; padding:3px 10px; border-radius:12px; letter-spacing:0.4px; }
+        .circ-status.selecionado { background:#dcfce7; color:#166534; }
+        .circ-status.enviado_laboratorio { background:#dbeafe; color:#1e40af; }
+        .circ-status.proposta_recebida { background:#fef9c3; color:#854d0e; }
+        .circ-status.confirmado_paciente { background:#d1fae5; color:#065f46; }
+        .circ-status.desmarcado_paciente, .circ-status.desmarcado_laboratorio { background:#fee2e2; color:#991b1b; }
+        .circ-status.realizado { background:#e0e7ff; color:#3730a3; }
+        .circ-status.expirado, .circ-status.arquivado_laboratorio { background:#f1f5f9; color:#64748b; }
+        .circ-proposta { background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:10px 12px; margin:8px 0; font-size:13px; color:#92400e; line-height:1.6; }
+        .circ-proposta strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+        .circ-privacy { font-size:11px; color:#166534; background:#dcfce7; border-radius:4px; padding:6px 10px; margin-bottom:10px; }
+        .circ-item-check { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; color:#0f172a; border-bottom:1px solid #f1f5f9; }
+        .circ-item-check:last-of-type { border-bottom:none; }
+        .circ-item-check input[type=checkbox] { width:16px; height:16px; accent-color:#16a34a; cursor:pointer; flex-shrink:0; }
+        .btn-circ { background:#166534; color:white; border:none; border-radius:4px; padding:8px 16px; font-size:12px; font-weight:600; cursor:pointer; width:100%; margin-top:6px; text-transform:uppercase; letter-spacing:0.4px; }
+        .btn-circ:hover { background:#14532d; }
+        .btn-circ-outline { background:transparent; border:1px solid #86efac; color:#166534; border-radius:4px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; width:100%; margin-top:4px; text-transform:uppercase; letter-spacing:0.3px; }
+        .btn-circ-outline:hover { background:#f0fdf4; }
+        .btn-circ-desmarcar { background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; margin-top:6px; width:100%; }
+        .btn-circ-desmarcar:hover { background:#fef2f2; }
+        .form-circ { display:none; flex-direction:column; gap:8px; margin-top:10px; }
+        .form-circ.aberto { display:flex; }
+        .form-circ input { font-size:13px; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; outline:none; }
+        .form-circ input:focus { border-color:#16a34a; }
+        /* ── Ticket 58 — Histórico de circulações múltiplas ─────────── */
+        .circ-hist-section { margin-top:10px; border-top:1px dashed #86efac; padding-top:8px; }
+        .circ-hist-title { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
+        .circ-hist-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:12px; color:#64748b; border-bottom:1px solid #f0fdf4; }
+        .circ-hist-item:last-child { border-bottom:none; }
+        .circ-hist-chave { font-family:'Courier New',monospace; font-size:11px; letter-spacing:2px; color:#374151; }
+        .circ-remarcada-badge { display:inline-block; font-size:9px; font-weight:700; padding:1px 7px; border-radius:10px; background:#fef9c3; color:#854d0e; text-transform:uppercase; letter-spacing:0.4px; margin-left:6px; vertical-align:middle; }
+        /* ── Toast ──────────────────────────────────────────────────────── */
+        #picsaude-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#0f172a; color:white; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:500; box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; pointer-events:none; z-index:9999; transition:opacity .25s, transform .25s; max-width:90vw; text-align:center; }
+        #picsaude-toast.show    { opacity:1; transform:translateX(-50%) translateY(0); }
+        #picsaude-toast.success { background:#166534; }
+        #picsaude-toast.error   { background:#991b1b; }
+        #picsaude-toast.info    { background:#1e40af; }
+        /* ── Modal: desmarcar ───────────────────────────────────────────── */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9000; align-items:center; justify-content:center; }
+        .modal-overlay.aberto { display:flex; }
+        .modal-box { background:white; border-radius:10px; padding:24px; max-width:360px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,.18); }
+        .modal-box h3 { font-size:15px; font-weight:700; color:#0f172a; margin:0 0 8px; }
+        .modal-box p  { font-size:12px; color:#64748b; margin:0 0 14px; }
+        .modal-box textarea { width:100%; box-sizing:border-box; border:1px solid #d1d5db; border-radius:6px; padding:8px 10px; font-size:13px; resize:vertical; font-family:inherit; outline:none; }
+        .modal-box textarea:focus { border-color:#dc2626; }
+        .modal-footer { display:flex; gap:8px; margin-top:14px; }
+        .modal-footer button { flex:1; padding:9px 0; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
+        .btn-modal-confirmar { background:#dc2626; color:white; }
+        .btn-modal-confirmar:hover { background:#b91c1c; }
+        .btn-modal-cancelar  { background:#f1f5f9; color:#374151; }
+        .btn-modal-cancelar:hover { background:#e2e8f0; }
+        /* ── Copiar chave ───────────────────────────────────────────────── */
+        .btn-copiar-chave { background:transparent; border:1px solid #86efac; color:#166534; border-radius:4px; padding:4px 10px; font-size:11px; font-weight:600; cursor:pointer; display:block; width:100%; margin-bottom:8px; }
+        .btn-copiar-chave:hover { background:#f0fdf4; }
+        /* ─────────────────────────────────────────────────────────────── */
+    </style>
+  <script src="config.js"></script>
+</head>
+<body>
+
+    <header class="header">
+        <div class="brand-container">
+            <h1>PicSaúde</h1>
+            <p>Plataforma de Integração do Cuidado</p>
+        </div>
+        <div class="header-actions">
+            <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+            <span class="module-tag">Módulo Cidadão</span>
+            <div id="header-controls" class="hidden" style="display: flex; gap: 12px;">
+                <button onclick="abrirPerfil()" class="btn-outline btn-small" style="color: white; border-color: rgba(255,255,255,0.3);">Meu Cadastro</button>
+                <button onclick="sair()" class="btn-outline btn-small" style="color: white; border-color: transparent;">Sair</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <div id="tela-acesso" class="card">
+            <h2 class="section-title" style="text-align: center; border: none; margin-bottom: 8px;">Acesso ao Cidadão</h2>
+            <p style="text-align: center; color: #64748b; font-size: 14px; margin-bottom: 24px;">Acesse sua carteira digital de prescrições.</p>
+            <p style="text-align: center; font-size: 12px; color: #002776; margin-bottom: 24px; background: #f8fafc; padding: 10px; border-radius: 6px;">
+                Informe seu CPF para receber o código de verificação.
+            </p>
+            <form onsubmit="solicitarCodigo(event)">
+                <div class="form-group">
+                    <label class="form-label">CPF</label>
+                    <input type="text" id="acesso-cpf" class="form-input cpf-input" data-tipo="cpf" required autocomplete="username">
+                </div>
+                <button type="submit" class="btn btn-primary">Solicitar Código de Acesso</button>
+            </form>
+        </div>
+
+        <div id="tela-validacao" class="card hidden">
+            <h2 class="section-title" style="text-align: center; border: none; margin-bottom: 8px;">Validação de Segurança</h2>
+            <form onsubmit="validarCodigo(event)">
+                <div class="form-group">
+                    <input type="text" id="otp-codigo" class="form-input otp-display" placeholder="000000" required maxlength="6" autocomplete="one-time-code">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-bottom: 16px;">Autenticar Acesso</button>
+                <div style="text-align: center;">
+                    <button type="button" onclick="cancelarValidacao()" class="btn-text">Voltar e Limpar</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="tela-perfil" class="card hidden">
+            <h2 class="section-title">Dados do Cadastro Único</h2>
+            <form onsubmit="salvarPerfil(event)">
+                <div class="form-group"><label class="form-label">Nome Completo *</label><input type="text" id="perfil-nome" class="form-input" required></div>
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">CPF (Chave Principal)</label><input type="text" id="perfil-cpf" class="form-input" disabled></div>
+                    <div class="form-group"><label class="form-label">Telefone Celular</label><input type="text" id="perfil-telefone1" class="form-input" required></div>
+                </div>
+                <h3 style="font-size: 13px; color: #002776; margin-bottom: 16px; margin-top: 24px; text-transform: uppercase;">Endereço Residencial</h3>
+                <div class="grid-address-1">
+                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro *</label><input type="text" id="perfil-endereco" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Complemento</label><input type="text" id="perfil-complemento" class="form-input"></div>
+                </div>
+                <div class="grid-address-2">
+                    <div class="form-group"><label class="form-label">Cidade *</label><input type="text" id="perfil-cidade" class="form-input" required></div>
+                    <div class="form-group">
+                        <label class="form-label">UF *</label>
+                        <select id="perfil-uf" class="form-select" required>
+                            <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">CEP *</label><input type="text" id="perfil-cep" class="form-input" required></div>
+                </div>
+                <div style="display: flex; gap: 16px; margin-top: 32px;">
+                    <button type="button" onclick="fecharPerfil()" class="btn btn-outline" style="flex: 1;">Voltar</button>
+                    <button type="submit" class="btn btn-action" style="flex: 2;">Atualizar Cadastro</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="tela-carteira" class="hidden">
+            
+            <div class="card" style="background: #ffffff; border-left: 4px solid #002776; padding: 24px; margin-bottom: 32px;">
+                <p style="font-size: 12px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; font-weight: 600;">Titular da Conta (Portador)</p>
+                <h3 id="user-nome-display" style="color: #0f172a; margin-bottom: 8px; font-size: 20px;">...</h3>
+                <p style="font-size: 14px; color: #475569;">CPF: <span id="user-cpf" style="font-weight: 600; color: #0f172a;">...</span></p>
+            </div>
+
+            <div id="alertas-renovacao"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+                <h3 style="font-size: 18px; color: #002776; font-weight: 600; margin: 0;">Receitas</h3>
+                <button id="btn-refresh" onclick="atualizarCarteiraAnimado()" class="btn-outline btn-small" style="margin: 0; display: flex; align-items: center; gap: 6px; font-weight:bold;">
+                    <svg id="refresh-icon" class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.66 5.87"/></svg>
+                    <span id="refresh-text">Atualizar</span>
+                </button>
+            </div>
+
+            <div id="lista-receitas"></div>
+
+            <!-- ── Pedidos de Exame (Ticket 29) ──────────────────────── -->
+            <h3 class="section-title" style="margin-top: 48px;">Pedidos de Exame Ativos</h3>
+            <div id="lista-pedidos-exame"></div>
+
+            <h3 class="section-title" style="margin-top: 48px;">Histórico de Prescrições</h3>
+            <div id="lista-historico"></div>
+        </div>
+
+    </div>
+
+    <footer style="text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 850px; margin-left: auto; margin-right: auto;">
+        <p style="margin-bottom: 4px; font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
+        <p>Distribuído sob GNU AGPL-3.0 — software livre.</p>
+    </footer>
+
+    <script>
+        // ==========================================
+        // Configuração
+        // ==========================================
+        const API = '';  // mesmo host que servir o HTML
+
+        let sessaoAtual = { cpf: null, nome: null, token: null };
+
+        // ==========================================
+        // Utilitários
+        // ==========================================
+        function esconderTudo() {
+            ['tela-acesso', 'tela-validacao', 'tela-perfil', 'tela-carteira'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+        }
+
+        async function apiFetch(path, opts = {}) {
+            const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+            if (sessaoAtual.token) headers['Authorization'] = `Bearer ${sessaoAtual.token}`;
+            const res = await fetch(API + path, { ...opts, headers });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || res.statusText);
+            }
+            return res.json();
+        }
+
+        // ==========================================
+        // Autenticação
+        // ==========================================
+        async function solicitarCodigo(e) {
+            e.preventDefault();
+            const cpf = document.getElementById('acesso-cpf').value.replace(/\D/g, '');
+            sessaoAtual.cpf = cpf;
+
+            try {
+                await apiFetch('/auth/paciente/solicitar-codigo', {
+                    method: 'POST',
+                    body: JSON.stringify({ cpf }),
+                });
+                esconderTudo();
+                document.getElementById('tela-validacao').classList.remove('hidden');
+                // Em ambiente local, o código está no console do backend.
+                // Em produção, será enviado por SMS/e-mail.
+            } catch (err) {
+                showToast(`Erro ao solicitar código: ${err.message}`, 'error');
+            }
+        }
+
+        function cancelarValidacao() {
+            document.getElementById('otp-codigo').value = '';
+            sessaoAtual = { cpf: null, nome: null, token: null };
+            esconderTudo();
+            document.getElementById('tela-acesso').classList.remove('hidden');
+        }
+
+        async function validarCodigo(e) {
+            e.preventDefault();
+            const codigo = document.getElementById('otp-codigo').value.trim();
+
+            try {
+                const data = await apiFetch('/auth/paciente/validar-codigo', {
+                    method: 'POST',
+                    body: JSON.stringify({ cpf: sessaoAtual.cpf, codigo }),
+                });
+                sessaoAtual.token = data.access_token;
+                sessaoAtual.nome  = data.nome;
+                sessaoAtual.cpf   = data.cpf;
+                entrarNaCarteira();
+            } catch (err) {
+                showToast('Código inválido ou expirado. Tente novamente.', 'error');
+            }
+        }
+
+        function entrarNaCarteira() {
+            esconderTudo();
+            document.getElementById('tela-carteira').classList.remove('hidden');
+            document.getElementById('header-controls').classList.remove('hidden');
+            document.getElementById('user-cpf').textContent = formatarCPF(sessaoAtual.cpf);
+            document.getElementById('user-nome-display').textContent = sessaoAtual.nome;
+            carregarCarteira();
+        }
+
+        function sair() {
+            sessaoAtual = { cpf: null, nome: null, token: null };
+            esconderTudo();
+            document.getElementById('header-controls').classList.add('hidden');
+            document.getElementById('tela-acesso').classList.remove('hidden');
+        }
+
+        // ==========================================
+        // Perfil (nome do backend; endereço em localStorage)
+        // ==========================================
+        function abrirPerfil() {
+            const pref = JSON.parse(localStorage.getItem('picsaude_perfil_' + sessaoAtual.cpf) || '{}');
+            document.getElementById('perfil-nome').value      = sessaoAtual.nome || "";
+            document.getElementById('perfil-cpf').value       = formatarCPF(sessaoAtual.cpf);
+            document.getElementById('perfil-telefone1').value = pref.telefone || "";
+            document.getElementById('perfil-endereco').value  = pref.endereco || "";
+            document.getElementById('perfil-complemento').value = pref.complemento || "";
+            document.getElementById('perfil-cidade').value    = pref.cidade || "";
+            document.getElementById('perfil-uf').value        = pref.uf || "PE";
+            document.getElementById('perfil-cep').value       = pref.cep || "";
+            esconderTudo();
+            document.getElementById('tela-perfil').classList.remove('hidden');
+        }
+
+        function fecharPerfil() {
+            esconderTudo();
+            document.getElementById('tela-carteira').classList.remove('hidden');
+        }
+
+        function salvarPerfil(e) {
+            e.preventDefault();
+            const pref = {
+                telefone:    document.getElementById('perfil-telefone1').value,
+                endereco:    document.getElementById('perfil-endereco').value,
+                complemento: document.getElementById('perfil-complemento').value,
+                cidade:      document.getElementById('perfil-cidade').value,
+                uf:          document.getElementById('perfil-uf').value,
+                cep:         document.getElementById('perfil-cep').value,
+            };
+            localStorage.setItem('picsaude_perfil_' + sessaoAtual.cpf, JSON.stringify(pref));
+            showToast('Preferências salvas localmente.', 'success');
+            entrarNaCarteira();
+        }
+
+        // ==========================================
+        // Carteira
+        // ==========================================
+        function atualizarCarteiraAnimado() {
+            const btn  = document.getElementById('btn-refresh');
+            const text = document.getElementById('refresh-text');
+            btn.classList.add('refreshing');
+            text.textContent = "Atualizando...";
+            btn.style.pointerEvents = "none";
+
+            carregarCarteira().finally(() => {
+                btn.classList.remove('refreshing');
+                text.textContent = "Atualizado!";
+                btn.style.backgroundColor = "#dbeafe";
+                btn.style.borderColor = "#3b82f6";
+                btn.style.color = "#1e40af";
+                setTimeout(() => {
+                    text.textContent = "Atualizar";
+                    btn.style.backgroundColor = "transparent";
+                    btn.style.borderColor = "#cbd5e1";
+                    btn.style.color = "#475569";
+                    btn.style.pointerEvents = "auto";
+                }, 1500);
+            });
+        }
+
+        async function carregarCarteira() {
+            _tokensAtivos.clear(); // tokens são efêmeros — limpar na atualização
+            try {
+                const [dados, alertas] = await Promise.all([
+                    apiFetch('/paciente/prescricoes'),
+                    apiFetch('/paciente/prescricoes/expirando?dias=7').catch(() => []),
+                ]);
+                renderizarAlertas(alertas);
+                renderizarPosse(dados.posse || []);
+                renderizarHistorico(dados.historico || []);
+            } catch (err) {
+                document.getElementById('lista-receitas').innerHTML =
+                    `<div class="card" style="color:#dc2626;">Erro ao carregar prescrições: ${err.message}</div>`;
+            }
+            carregarPedidosExame();
+        }
+
+        // ==========================================
+        // Pedidos de Exame / Agendamento (Ticket 29)
+        // ==========================================
+        async function carregarPedidosExame() {
+            const container = document.getElementById('lista-pedidos-exame');
+            try {
+                const dados = await apiFetch('/paciente/pedidos-exame');
+                const ativos = [...(dados.posse || []), ...(dados.em_andamento || [])];
+                if (ativos.length === 0) {
+                    container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum pedido de exame ativo.</p>';
+                    return;
+                }
+                // Buscar agendamentos e circulações em paralelo por pedido
+                const [agendsPorPedido, circsPorPedido] = await Promise.all([
+                    Promise.all(
+                        ativos.map(p =>
+                            apiFetch(`/pedidos-exame/${p.protocolo}/agendamentos`)
+                                .then(r => r.agendamentos || [])
+                                .catch(() => [])
+                        )
+                    ),
+                    Promise.all(ativos.map(p => buscarCirculacaoAtiva(p.protocolo))),
+                ]);
+                renderizarPedidosExame(ativos, agendsPorPedido, circsPorPedido);
+            } catch (err) {
+                container.innerHTML = `<p style="color:#dc2626; font-size:13px;">Erro ao carregar pedidos: ${err.message}</p>`;
+            }
+        }
+
+        function renderizarPedidosExame(pedidos, agendsPorPedido, circsPorPedido = []) {
+            const container = document.getElementById('lista-pedidos-exame');
+            container.innerHTML = pedidos.map((pedido, idx) => {
+                const ags = agendsPorPedido[idx];
+                const agAtivo = ags.find(a => a.status === 'criado' || a.status === 'confirmado');
+                const badgeClass = pedido.prioridade === 'urgentissimo' ? 'urgentissimo'
+                                 : pedido.prioridade === 'urgente'       ? 'urgente' : '';
+                const itensHtml = (pedido.itens || []).map(it =>
+                    `<li>${it.nome_exame}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}</li>`
+                ).join('');
+                const emissao = pedido.data_emissao
+                    ? new Date(pedido.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')
+                    : '';
+
+                let agendarHtml;
+                if (agAtivo) {
+                    const dtAg = agAtivo.data_hora
+                        ? new Date(agAtivo.data_hora).toLocaleString('pt-BR', { dateStyle:'short', timeStyle:'short' })
+                        : '—';
+                    agendarHtml = `
+                        <div class="agendamento-ativo">
+                            <strong>Agendamento ${agAtivo.status === 'confirmado' ? '✓ Confirmado' : 'Criado'}</strong>
+                            📅 ${dtAg} — ${agAtivo.unidade_id || agAtivo.org_id || '—'}
+                        </div>
+                        <button class="btn-cancelar-ag" onclick="cancelarAgendamento('${agAtivo.protocolo}', '${pedido.protocolo}')">
+                            Cancelar agendamento
+                        </button>`;
+                } else if (pedido.status === 'emitido' || pedido.status === 'agendado') {
+                    agendarHtml = `
+                        <div class="agendar-area">
+                            <p class="agendar-area-title">Agendar exame</p>
+                            <button class="btn-agendar" onclick="abrirFormAgendar('${pedido.protocolo}')">
+                                + Agendar
+                            </button>
+                            <div class="form-agendar" id="form-ag-${pedido.protocolo}">
+                                <input type="datetime-local" id="ag-data-${pedido.protocolo}"
+                                       min="${new Date().toISOString().slice(0,16)}" />
+                                <input type="text" id="ag-org-${pedido.protocolo}" placeholder="Laboratório / organização" />
+                                <input type="text" id="ag-unidade-${pedido.protocolo}" placeholder="Unidade / endereço" />
+                                <button class="btn-agendar" onclick="criarAgendamento('${pedido.protocolo}')">Confirmar</button>
+                                <button class="btn-cancelar-ag" onclick="fecharFormAgendar('${pedido.protocolo}')">Cancelar</button>
+                            </div>
+                        </div>`;
+                } else {
+                    agendarHtml = '';
+                }
+
+                const circsData = circsPorPedido[idx] || { ativa: null, historico: [], isDerivada: false };
+                const circHtml = renderizarSecaoCirculacao(pedido, circsData);
+
+                return `
+                    <div class="exame-card">
+                        <div class="exame-card-header">
+                            <div>
+                                <p style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:4px;">${pedido.protocolo}</p>
+                                <p style="font-size:14px; font-weight:600; color:#0f172a;">${pedido.prescritor_nome || '—'}</p>
+                                <p style="font-size:12px; color:#64748b;">Emitido em ${emissao}</p>
+                            </div>
+                            <span class="exame-badge-prioridade ${badgeClass}">${pedido.prioridade || 'normal'}</span>
+                        </div>
+                        <ul class="exame-lista">${itensHtml}</ul>
+                        ${agendarHtml}
+                        ${circHtml}
+                    </div>`;
+            }).join('');
+        }
+
+        // ── Ticket 58 — Renderiza seção de circulação (múltiplas por pedido) ──
+        function renderizarSecaoCirculacao(pedido, circsData) {
+            const { ativa, historico, isDerivada } = circsData || { ativa: null, historico: [], isDerivada: false };
+            const itensPendentes = (pedido.itens || []).filter(it => it.status_item === 'pendente');
+
+            // Sem nenhuma circulação conhecida
+            if (!ativa && historico.length === 0) {
+                if (itensPendentes.length === 0) return '';
+                return `
+                    <div class="circ-area">
+                        <p class="circ-area-title">🔬 Encaminhar para laboratório</p>
+                        <button class="btn-circ-outline" id="btn-circ-abrir-${pedido.protocolo}"
+                                onclick="abrirFormCirculacao('${pedido.protocolo}')">
+                            + Selecionar exames e encaminhar
+                        </button>
+                        <div class="form-circ" id="form-circ-${pedido.protocolo}"></div>
+                    </div>`;
+            }
+
+            const STATUS_CIRC_LABEL = {
+                selecionado:            'Aguardando envio',
+                enviado_laboratorio:    'Enviado ao laboratório',
+                proposta_recebida:      'Proposta recebida',
+                confirmado_paciente:    'Confirmado',
+                realizado:              'Realizado',
+                desmarcado_paciente:    'Desmarcado por você',
+                desmarcado_laboratorio: 'Desmarcado pelo laboratório',
+                arquivado_laboratorio:  'Arquivado',
+                expirado:               'Expirado',
+            };
+
+            // ── Histórico compacto (circulações anteriores) ───────────────
+            const histHtml = historico.length > 0 ? `
+                <div class="circ-hist-section">
+                    <p class="circ-hist-title">Circulações anteriores (${historico.length})</p>
+                    ${historico.map(h => `
+                        <div class="circ-hist-item">
+                            <span class="circ-hist-chave">${h.chave_circulacao}</span>
+                            <span class="circ-status ${h.status}" style="font-size:10px;padding:2px 8px;">
+                                ${STATUS_CIRC_LABEL[h.status] || h.status}
+                            </span>
+                        </div>`).join('')}
+                </div>` : '';
+
+            // Só há histórico, sem ativa (todos terminais e sem itens pendentes)
+            if (!ativa) {
+                return `
+                    <div class="circ-area">
+                        <p class="circ-area-title">🔬 Circulação diagnóstica</p>
+                        ${histHtml}
+                    </div>`;
+            }
+
+            // ── Badge de remarcação (derivada de uma anterior) ────────────
+            // Critério primário: origem_circulacao_id presente na ativa ou em qualquer
+            // circulação já resolvida (via isDerivada). Garante exibição mesmo quando
+            // só existe uma circulação ativa sem terminais no histórico.
+            const derivadaBadge = (isDerivada || ativa.origem_circulacao_id != null)
+                ? `<span class="circ-remarcada-badge">remarcação</span>`
+                : '';
+
+            // ── Exames da circulação ativa ────────────────────────────────
+            const itensCircHtml = (ativa.itens || []).map(it =>
+                `<li style="font-size:12px;color:#374151;padding:2px 0;">${it.nome_exame}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}</li>`
+            ).join('');
+
+            // ── Proposta do laboratório ───────────────────────────────────
+            let propostaHtml = '';
+            if (ativa.data_hora_proposta &&
+                (ativa.status === 'proposta_recebida' || ativa.status === 'confirmado_paciente')) {
+                const dtProposta = new Date(ativa.data_hora_proposta)
+                    .toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                propostaHtml = `
+                    <div class="circ-proposta">
+                        <strong>📋 Proposta do laboratório</strong>
+                        📅 ${dtProposta}${ativa.local_texto ? `<br>📍 ${ativa.local_texto}` : ''}${ativa.instrucoes_preparo ? `<br>⚕️ <em>${ativa.instrucoes_preparo}</em>` : ''}
+                    </div>`;
+            }
+
+            // ── Ações sobre a circulação ativa ────────────────────────────
+            let acoesHtml = '';
+            if (!ativa._terminal) {
+                if (ativa.status === 'proposta_recebida') {
+                    acoesHtml = `
+                        <button class="btn-circ"
+                                onclick="confirmarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
+                            ✓ Confirmar agendamento
+                        </button>
+                        <button class="btn-circ-desmarcar"
+                                onclick="desmarcarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
+                            Desmarcar
+                        </button>`;
+                } else if (ativa.status === 'confirmado_paciente') {
+                    acoesHtml = `
+                        <button class="btn-circ-desmarcar"
+                                onclick="desmarcarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
+                            Cancelar confirmação
+                        </button>`;
+                } else {
+                    acoesHtml = `
+                        <button class="btn-circ-desmarcar"
+                                onclick="desmarcarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
+                            Desmarcar
+                        </button>`;
+                }
+            } else if (itensPendentes.length > 0) {
+                acoesHtml = `
+                    <button class="btn-circ-outline" style="margin-top:8px;"
+                            id="btn-circ-abrir-${pedido.protocolo}"
+                            onclick="abrirFormCirculacao('${pedido.protocolo}')">
+                        + Nova circulação
+                    </button>
+                    <div class="form-circ" id="form-circ-${pedido.protocolo}"></div>`;
+            }
+
+            return `
+                <div class="circ-area">
+                    <p class="circ-area-title">🔬 Circulação diagnóstica${derivadaBadge}</p>
+                    ${!ativa._terminal ? `
+                        <p style="font-size:11px;color:#64748b;margin-bottom:2px;">Chave para o laboratório:</p>
+                        <div class="circ-chave">${ativa.chave_circulacao}</div>
+                        <button class="btn-copiar-chave" onclick="copiarChaveCirc('${ativa.chave_circulacao}')">📋 Copiar chave</button>
+                    ` : ''}
+                    <div style="text-align:center;margin-bottom:8px;">
+                        <span class="circ-status ${ativa.status}">${STATUS_CIRC_LABEL[ativa.status] || ativa.status}</span>
+                    </div>
+                    ${itensCircHtml ? `
+                        <p style="font-size:11px;color:#064e3b;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Exames nesta circulação:</p>
+                        <ul style="padding-left:16px;margin-bottom:8px;">${itensCircHtml}</ul>
+                        <p class="circ-privacy">🔒 O laboratório vê apenas estes exames — não o pedido completo.</p>
+                    ` : ''}
+                    ${propostaHtml}
+                    ${acoesHtml}
+                    ${histHtml}
+                </div>`;
+        }
+
+        function abrirFormAgendar(proto) {
+            document.getElementById(`form-ag-${proto}`).classList.add('aberto');
+        }
+
+        function fecharFormAgendar(proto) {
+            document.getElementById(`form-ag-${proto}`).classList.remove('aberto');
+        }
+
+        async function criarAgendamento(protoPedido) {
+            const dataHora  = document.getElementById(`ag-data-${protoPedido}`).value;
+            const org       = document.getElementById(`ag-org-${protoPedido}`).value.trim();
+            const unidade   = document.getElementById(`ag-unidade-${protoPedido}`).value.trim();
+            if (!dataHora) { showToast('Informe a data e hora do agendamento.', 'error'); return; }
+            if (!org)      { showToast('Informe o laboratório / organização.', 'error'); return; }
+            if (!unidade)  { showToast('Informe a unidade / endereço.', 'error'); return; }
+            try {
+                await apiFetch('/agendamentos', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        pedido_protocolo:  protoPedido,
+                        data_hora:         dataHora,
+                        org_id:            org,
+                        unidade_id:        unidade,
+                        tipo_agendamento:  'exame',
+                    }),
+                });
+                carregarPedidosExame();
+            } catch (err) {
+                showToast(`Erro ao agendar: ${err.message}`, 'error');
+            }
+        }
+
+        async function cancelarAgendamento(protoAg, protoPedido) {
+            if (!confirm('Cancelar este agendamento?')) return;
+            try {
+                await apiFetch(`/agendamentos/${protoAg}/cancelar`, { method: 'POST' });
+                carregarPedidosExame();
+            } catch (err) {
+                showToast(`Erro ao cancelar: ${err.message}`, 'error');
+            }
+        }
+
+        // ==========================================
+        // Circulação Diagnóstica — ações (Ticket 56)
+        // ==========================================
+
+        async function abrirFormCirculacao(proto) {
+            const formDiv = document.getElementById(`form-circ-${proto}`);
+            const btn     = document.getElementById(`btn-circ-abrir-${proto}`);
+            if (!formDiv) return;
+
+            // Toggle: fechar se já aberto
+            if (formDiv.classList.contains('aberto')) {
+                formDiv.classList.remove('aberto');
+                if (btn) btn.textContent = formDiv.dataset.newCirc ? '+ Nova circulação' : '+ Selecionar exames e encaminhar';
+                return;
+            }
+
+            formDiv.innerHTML = '<p style="font-size:12px;color:#64748b;">Carregando exames…</p>';
+            formDiv.classList.add('aberto');
+            if (btn) btn.textContent = '✕ Fechar';
+
+            try {
+                const pedido = await apiFetch(`/pedidos-exame/${proto}`);
+                const itensPendentes = (pedido.itens || []).filter(it => it.status_item === 'pendente');
+
+                if (itensPendentes.length === 0) {
+                    formDiv.innerHTML = '<p style="font-size:12px;color:#dc2626;">Nenhum exame com status pendente disponível para encaminhar.</p>';
+                    return;
+                }
+
+                const checkboxes = itensPendentes.map(it => `
+                    <div class="circ-item-check">
+                        <input type="checkbox" id="circ-item-${proto}-${it.id}" value="${it.id}" checked>
+                        <label for="circ-item-${proto}-${it.id}">${it.nome_exame}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}</label>
+                    </div>`).join('');
+
+                formDiv.innerHTML = `
+                    <p class="circ-privacy">🔒 O laboratório verá apenas os exames selecionados — nunca o pedido completo.</p>
+                    <p style="font-size:12px;font-weight:600;color:#374151;margin-bottom:2px;">Selecione os exames a encaminhar:</p>
+                    ${checkboxes}
+                    <input type="text" id="circ-org-${proto}" placeholder="Laboratório / organização *"
+                           style="font-size:13px;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;outline:none;margin-top:4px;">
+                    <input type="text" id="circ-unidade-${proto}" placeholder="Unidade / endereço *"
+                           style="font-size:13px;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;outline:none;">
+                    <button class="btn-circ" onclick="emitirCirculacao('${proto}')">Encaminhar →</button>
+                    <button class="btn-circ-outline" onclick="fecharFormCirculacao('${proto}')">Cancelar</button>`;
+            } catch (err) {
+                formDiv.innerHTML = `<p style="font-size:12px;color:#dc2626;">Erro ao carregar exames: ${err.message}</p>`;
+            }
+        }
+
+        function fecharFormCirculacao(proto) {
+            const formDiv = document.getElementById(`form-circ-${proto}`);
+            const btn     = document.getElementById(`btn-circ-abrir-${proto}`);
+            if (formDiv) formDiv.classList.remove('aberto');
+            if (btn) btn.textContent = '+ Selecionar exames e encaminhar';
+        }
+
+        async function emitirCirculacao(proto) {
+            const formDiv   = document.getElementById(`form-circ-${proto}`);
+            const checkboxes = formDiv ? formDiv.querySelectorAll('input[type=checkbox]:checked') : [];
+            const itemIds   = Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
+
+            if (itemIds.length === 0) {
+                showToast('Selecione ao menos um exame para encaminhar.', 'error');
+                return;
+            }
+            const org     = document.getElementById(`circ-org-${proto}`)?.value?.trim();
+            const unidade = document.getElementById(`circ-unidade-${proto}`)?.value?.trim();
+            if (!org)     { showToast('Informe o laboratório / organização.', 'error'); return; }
+            if (!unidade) { showToast('Informe a unidade / endereço.', 'error'); return; }
+
+            try {
+                const result = await apiFetch(`/pedidos-exame/${proto}/circulacao`, {
+                    method: 'POST',
+                    body: JSON.stringify({ org_id: org, unidade_id: unidade, item_ids: itemIds }),
+                });
+                _adicionarChaveCirc(proto, result.chave_circulacao);
+                carregarPedidosExame();
+            } catch (err) {
+                showToast(`Erro ao encaminhar: ${err.message}`, 'error');
+            }
+        }
+
+        async function confirmarCirculacao(chave, protoPedido) {
+            if (!confirm('Confirmar o agendamento proposto pelo laboratório?')) return;
+            try {
+                await apiFetch(`/circulacao/${chave}/confirmar`, { method: 'POST' });
+                carregarPedidosExame();
+            } catch (err) {
+                showToast(`Erro ao confirmar: ${err.message}`, 'error');
+            }
+        }
+
+        async function desmarcarCirculacao(chave, protoPedido) {
+            abrirModalDesmarcar(chave, protoPedido);
+        }
+
+        // ── Toast ──────────────────────────────────────────────────────────
+        let _toastTimer = null;
+        function showToast(msg, type = 'info') {
+            const el = document.getElementById('picsaude-toast');
+            if (!el) { console.warn('[toast]', msg); return; }
+            el.textContent = msg;
+            el.className = `show ${type}`;
+            clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+        }
+
+        // ── Modal: desmarcar circulação ────────────────────────────────────
+        let _desmarcarCtx = { chave: null, proto: null };
+
+        function abrirModalDesmarcar(chave, proto) {
+            _desmarcarCtx = { chave, proto };
+            document.getElementById('modal-desmarcar-motivo').value = '';
+            document.getElementById('modal-desmarcar').classList.add('aberto');
+            document.getElementById('modal-desmarcar-motivo').focus();
+        }
+
+        function fecharModalDesmarcar() {
+            document.getElementById('modal-desmarcar').classList.remove('aberto');
+            _desmarcarCtx = { chave: null, proto: null };
+        }
+
+        async function confirmarDesmarcar() {
+            const { chave, proto } = _desmarcarCtx;
+            if (!chave) return;
+            const motivo = document.getElementById('modal-desmarcar-motivo').value.trim() || null;
+            fecharModalDesmarcar();
+            try {
+                await apiFetch(`/circulacao/${chave}/desmarcar`, {
+                    method: 'POST',
+                    body: JSON.stringify({ motivo }),
+                });
+                carregarPedidosExame();
+            } catch (err) {
+                showToast(`Erro ao desmarcar: ${err.message}`, 'error');
+            }
+        }
+
+        // ── Copiar chave de circulação ─────────────────────────────────────
+        function copiarChaveCirc(chave) {
+            navigator.clipboard.writeText(chave)
+                .then(() => showToast('Chave copiada!', 'success'))
+                .catch(() => showToast('Não foi possível copiar a chave.', 'error'));
+        }
+
+        function renderizarAlertas(alertas) {
+            const container = document.getElementById('alertas-renovacao');
+            if (!alertas || alertas.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const itens = alertas.map(a => {
+                const dias = a.dias_restantes;
+                let cor, fundo, label;
+                if (dias <= 2)      { cor = '#991b1b'; fundo = '#fef2f2'; label = `${dias} dia${dias !== 1 ? 's' : ''}` }
+                else if (dias <= 5) { cor = '#92400e'; fundo = '#fffbeb'; label = `${dias} dias`; }
+                else                { cor = '#1e3a5f'; fundo = '#eff6ff'; label = `${dias} dias`; }
+
+                const validade = a.data_validade
+                    ? new Date(a.data_validade + 'T12:00:00').toLocaleDateString('pt-BR')
+                    : 'N/I';
+
+                return `
+                    <div style="display:flex; justify-content:space-between; align-items:center;
+                                background:${fundo}; border:1px solid ${cor}33; border-left:4px solid ${cor};
+                                border-radius:6px; padding:12px 16px; margin-bottom:8px;">
+                        <div>
+                            <p style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:2px;">
+                                Protocolo: ${a.protocolo}
+                            </p>
+                            <p style="font-size:13px; font-weight:600; color:${cor}; margin-bottom:2px;">
+                                Validade: ${validade} — Faltam <strong>${label}</strong>
+                            </p>
+                            <p style="font-size:12px; color:#475569;">
+                                ${a.itens_dispensados} de ${a.itens_total} item(ns) dispensado(s)
+                            </p>
+                        </div>
+                        <button onclick="solicitarRenovacao('${a.protocolo}', this)"
+                                class="btn btn-outline btn-small"
+                                style="white-space:nowrap; border-color:${cor}; color:${cor};">
+                            Renovar
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div style="margin-bottom:24px;">
+                    <p style="font-size:13px; font-weight:700; color:#92400e; text-transform:uppercase;
+                               letter-spacing:0.5px; margin-bottom:12px;">
+                        ⚠ Prescrições próximas do vencimento
+                    </p>
+                    ${itens}
+                </div>
+            `;
+        }
+
+        // ==========================================
+        // Solicitação de Renovação
+        // ==========================================
+        async function solicitarRenovacao(proto, btn) {
+            const motivo = prompt('Motivo da solicitação de renovação (opcional):') ?? '';
+            if (motivo === null) return; // usuário cancelou
+
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Enviando…';
+
+            try {
+                const data = await apiFetch(
+                    `/paciente/prescricoes/${proto}/solicitar-renovacao`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ motivo: motivo.trim() || null }),
+                    }
+                );
+                btn.textContent = '✓ Solicitado';
+                btn.style.borderColor = '#1d4ed8';
+                btn.style.color = '#1d4ed8';
+                setTimeout(() => atualizarCarteiraAnimado(), 1500);
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = original;
+                showToast(`Erro ao solicitar renovação: ${err.message}`, 'error');
+            }
+        }
+
+        // ==========================================
+        // Renderização
+        // ==========================================
+        const STATUS_LABEL = {
+            transferida_paciente: 'Documento Ativo',
+            pendente:             'Documento Ativo',
+            em_custodia:          'Na Farmácia',
+            parcialmente_dispensada: 'Parcialmente Dispensada',
+            dispensada:           'Finalizada',
+            cancelada:            'Cancelada',
+            expirada:             'Expirada',
+        };
+
+        function fmtData(s) {
+            if (!s) return 'N/I';
+            try { return new Date(s).toLocaleDateString('pt-BR'); } catch { return s; }
+        }
+
+        function renderizarPosse(prescricoes) {
+            const container = document.getElementById('lista-receitas');
+            if (prescricoes.length === 0) {
+                container.innerHTML = '<div class="card" style="text-align:center; color:#64748b;">Nenhuma prescrição sob sua custódia no momento.</div>';
+                return;
+            }
+
+            container.innerHTML = prescricoes.map(r => `
+                <div class="receita-card">
+                    <div class="receita-header">
+                        <div>
+                            <p style="font-size:11px; color:#64748b; font-family:monospace;">Protocolo: ${r.protocolo}</p>
+                            <h4 style="color:#0f172a; font-size:15px; margin-top:4px;">Emitente: ${r.prescritor_nome}</h4>
+                            <p style="font-size:12px; color:#475569;">Emissão: ${fmtData(r.data_emissao)}</p>
+                        </div>
+                        <span class="status-badge">Documento Ativo</span>
+                    </div>
+
+                    <p style="font-size:12px; color:#0f172a; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Medicamentos</p>
+                    <ul class="med-list">
+                        ${(r.itens || []).map(m => `
+                            <li>
+                                <strong>${m.nome_medicamento} ${m.concentracao || ''} ${m.quantidade ? '(' + m.quantidade + ')' : ''}</strong>
+                                ${m.posologia ? `<span style="font-size:13px; display:block; margin-top:4px;">Uso: ${m.posologia}</span>` : ''}
+                            </li>`).join('')}
+                    </ul>
+
+                    <!-- Token de Apresentação (Ticket 25) -->
+                    <div class="token-area">
+                        <p class="token-area-title">📱 Apresentar na farmácia</p>
+                        <div id="token-status-${r.protocolo}"></div>
+                        <button onclick="gerarToken('${r.protocolo}')"
+                                id="btn-gerar-token-${r.protocolo}"
+                                class="btn-gerar-token">
+                            Gerar código de apresentação
+                        </button>
+                        <div id="qr-display-${r.protocolo}" class="hidden"></div>
+                    </div>
+
+                    <div class="transfer-area" style="margin-top:12px;">
+                        <p style="font-weight:600; margin-bottom:12px; font-size:13px; color:#002776; text-transform:uppercase;">Autorizar Dispensação na Farmácia</p>
+                        <div style="display:flex; gap:12px;">
+                            <input type="text" id="cnpj-farmacia-${r.protocolo}" class="form-input"
+                                   placeholder="CNPJ da farmácia (14 dígitos)" maxlength="18" style="flex:2;">
+                            <button onclick="transferirParaFarmacia('${r.protocolo}')" class="btn btn-action" style="flex:1;">Transferir Custódia</button>
+                        </div>
+                    </div>
+
+                    <button onclick="mostrarAreaDevolucao('${r.protocolo}')" class="btn-danger" id="btn-mostrar-dev-${r.protocolo}">
+                        ⚠️ Identifiquei um erro (Devolver ao Médico)
+                    </button>
+                    <div id="area-dev-${r.protocolo}" class="devolucao-area hidden">
+                        <p style="font-size:12px; font-weight:bold; color:#991b1b; margin-bottom:8px; text-transform:uppercase;">Justificativa da Devolução</p>
+                        <select id="motivo-dev-${r.protocolo}" class="form-select" style="margin-bottom:12px; border-color:#fca5a5; font-size:14px;">
+                            <option value="" disabled selected>Selecione o tipo de erro...</option>
+                            <option value="Remédio ou Apresentação Errada">Remédio ou Apresentação Errada</option>
+                            <option value="Dose/Posologia Incorreta">Dose/Posologia Incorreta</option>
+                            <option value="Dados do Paciente Incorretos">Dados do Paciente Incorretos</option>
+                            <option value="Outros Motivos">Outros Motivos</option>
+                        </select>
+                        <input type="text" id="detalhe-dev-${r.protocolo}" class="form-input"
+                               placeholder="Detalhes (Opcional)" style="margin-bottom:12px; font-size:13px;">
+                        <div style="display:flex; gap:12px;">
+                            <button onclick="esconderAreaDevolucao('${r.protocolo}')" class="btn-outline btn-small" style="flex:1;">Cancelar</button>
+                            <button onclick="confirmarDevolucaoMedico('${r.protocolo}')" class="btn-action btn-small" style="flex:1; background:#dc2626;">Confirmar Devolução</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderizarHistorico(prescricoes) {
+            const container = document.getElementById('lista-historico');
+            if (prescricoes.length === 0) {
+                container.innerHTML = '<p style="font-size:14px; color:#64748b; padding:16px; text-align:center; border:1px dashed #cbd5e1; border-radius:6px;">Nenhuma transação registrada no histórico.</p>';
+                return;
+            }
+
+            const corStatus = {
+                em_custodia:          '#eab308',
+                parcialmente_dispensada: '#3b82f6',
+                dispensada:           '#94a3b8',
+                cancelada:            '#ef4444',
+                expirada:             '#f97316',
+            };
+
+            container.innerHTML = prescricoes.map(r => `
+                <div class="receita-card" style="opacity:0.9; border-left-color:${corStatus[r.status] || '#94a3b8'}; padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <h4 style="color:#1e293b; font-size:14px;">${r.prescritor_nome}</h4>
+                            <p style="font-size:11px; color:#64748b; font-family:monospace;">Protocolo: ${r.protocolo}</p>
+                            <p style="font-size:11px; color:#64748b; margin-top:4px;">Emissão: ${fmtData(r.data_emissao)}</p>
+                        </div>
+                        <span style="font-size:11px; background:#f1f5f9; color:#475569; padding:6px 12px; border-radius:4px; font-weight:600;">
+                            ${STATUS_LABEL[r.status] || r.status}
+                        </span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ==========================================
+        // Ações sobre prescrições
+        // ==========================================
+        async function transferirParaFarmacia(proto) {
+            const cnpj = document.getElementById(`cnpj-farmacia-${proto}`).value.replace(/\D/g, '');
+            if (!cnpj || cnpj.length !== 14) {
+                showToast('Por favor, informe um CNPJ válido (14 dígitos).', 'error');
+                return;
+            }
+            if (!confirm(`Confirma a transferência da prescrição ${proto} para a farmácia CNPJ ${cnpj}?`)) return;
+
+            try {
+                await apiFetch(`/paciente/prescricoes/${proto}/transferir-farmacia`, {
+                    method: 'POST',
+                    body: JSON.stringify({ cnpj_farmacia: cnpj }),
+                });
+                showToast('Transferência realizada. O balconista já pode acessar sua receita.', 'success');
+                carregarCarteira();
+            } catch (err) {
+                showToast(`Erro na transferência: ${err.message}`, 'error');
+            }
+        }
+
+        function mostrarAreaDevolucao(proto) {
+            document.getElementById(`btn-mostrar-dev-${proto}`).classList.add('hidden');
+            document.getElementById(`area-dev-${proto}`).classList.remove('hidden');
+        }
+
+        function esconderAreaDevolucao(proto) {
+            document.getElementById(`btn-mostrar-dev-${proto}`).classList.remove('hidden');
+            document.getElementById(`area-dev-${proto}`).classList.add('hidden');
+            document.getElementById(`motivo-dev-${proto}`).value = '';
+            document.getElementById(`detalhe-dev-${proto}`).value = '';
+        }
+
+        // ==========================================
+        // Token de Apresentação (Ticket 25)
+        // ==========================================
+
+        // Mapa em memória: protocolo → { modo: 'simples'|'atomizado', ...data }
+        // NÃO persiste em localStorage — efêmero por design.
+        const _tokensAtivos = new Map();
+
+        // ==========================================
+        // Circulação Diagnóstica — Ticket 56
+        // ==========================================
+        const _TERMINAIS_CIRC = new Set([
+            'realizado', 'desmarcado_paciente', 'desmarcado_laboratorio',
+            'arquivado_laboratorio', 'expirado',
+        ]);
+
+        // ── Ticket 58 — Storage multi-circulação por pedido ─────────────
+        // Formato novo: JSON array de strings (chaves).
+        // Migração automática: se o valor salvo for string simples (formato Ticket 56),
+        // converte para array na primeira leitura.
+        function _getListaCircs(protoPedido) {
+            const raw = localStorage.getItem(`picsaude_circ_${sessaoAtual.cpf}_${protoPedido}`);
+            if (!raw) return [];
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) return parsed;          // formato novo
+            } catch (_) {
+                // Formato antigo: string simples sem JSON (ex: "ABC-123")
+                if (raw.length > 0) return [raw];
+            }
+            return [];
+        }
+
+        function _salvarListaCircs(protoPedido, lista) {
+            localStorage.setItem(
+                `picsaude_circ_${sessaoAtual.cpf}_${protoPedido}`,
+                JSON.stringify(lista)
+            );
+        }
+
+        // Adiciona chave à lista do pedido (sem duplicatas).
+        function _adicionarChaveCirc(protoPedido, chave) {
+            const lista = _getListaCircs(protoPedido);
+            if (!lista.includes(chave)) {
+                lista.push(chave);
+                _salvarListaCircs(protoPedido, lista);
+            }
+        }
+
+        // Retorna { ativa, historico, isDerivada }.
+        // ativa      — circ mais recente não-terminal; ou a mais recente terminal se todas forem terminais.
+        // historico  — demais circs resolvidas (exceto a exibida como ativa).
+        // isDerivada — true quando qualquer circ possui origem_circulacao_id != null (remarcação confirmada
+        //              pelo backend). Fallback para heurística (terminal + não-terminal coexistentes)
+        //              caso o campo não venha na resposta.
+        async function buscarCirculacaoAtiva(protoPedido) {
+            const lista = _getListaCircs(protoPedido);
+            if (lista.length === 0) return { ativa: null, historico: [], isDerivada: false };
+
+            const resultados = await Promise.all(
+                lista.map(chave =>
+                    apiFetch(`/circulacao/${chave}`)
+                        .then(c => ({ ...c, _terminal: _TERMINAIS_CIRC.has(c.status) }))
+                        .catch(() => null)
+                )
+            );
+
+            const resolvidas = resultados.filter(Boolean);
+
+            // Atualiza lista para remover chaves que não resolveram (backend offline = manter)
+            const chavesResolvidas = resolvidas.map(c => c.chave_circulacao);
+            if (chavesResolvidas.length > 0 && chavesResolvidas.length !== lista.length) {
+                _salvarListaCircs(protoPedido, chavesResolvidas);
+            }
+
+            if (resolvidas.length === 0) return { ativa: null, historico: [], isDerivada: false };
+
+            const naoTerminais = resolvidas.filter(c => !c._terminal);
+            const terminais    = resolvidas.filter(c =>  c._terminal);
+
+            // Ativa = último não-terminal; se todos terminais, o mais recente terminal
+            const ativa = naoTerminais.length > 0
+                ? naoTerminais[naoTerminais.length - 1]
+                : terminais[terminais.length - 1];
+
+            const historico  = resolvidas.filter(c => c !== ativa);
+
+            // isDerivada — usa origem_circulacao_id como critério principal; fallback heurístico
+            // (terminal + não-terminal coexistentes) quando nenhuma circulação traz o campo preenchido.
+            const isDerivada = resolvidas.some(c => c.origem_circulacao_id != null)
+                || (terminais.length > 0 && naoTerminais.length > 0);
+
+            return { ativa, historico, isDerivada };
+        }
+
+        async function gerarToken(proto) {
+            const btnGerar  = document.getElementById(`btn-gerar-token-${proto}`);
+            const statusEl  = document.getElementById(`token-status-${proto}`);
+
+            btnGerar.disabled    = true;
+            btnGerar.textContent = 'Gerando…';
+
+            // Ticket 44 — Fase 3: tentar circulação atomizada primeiro.
+            // Se elegível, cada item recebe código independente.
+            // Se inelegível (classe controlada ou outro motivo), cair para token único.
+            try {
+                const atomData = await apiFetch(`/prescricoes/${proto}/tokens/atomizar`, {
+                    method: 'POST',
+                    body: JSON.stringify({ validade_minutos: 60 }),
+                });
+                if (atomData.circulacao_atomizada && atomData.tokens?.length > 0) {
+                    _tokensAtivos.set(proto, { modo: 'atomizado', ...atomData });
+                    _renderizarTokensAtomizados(proto, atomData);
+                    return;
+                }
+            } catch (_) {
+                // Inelegível, 409 (nada circulável) ou offline — cair para token único
+            }
+
+            // Fallback: token de prescrição inteira (fluxo original, retrocompat)
+            try {
+                const data = await apiFetch('/tokens/apresentacao', {
+                    method: 'POST',
+                    body: JSON.stringify({ protocolo: proto, validade_minutos: 60 }),
+                });
+                _tokensAtivos.set(proto, { modo: 'simples', ...data });
+                _renderizarTokenAtivo(proto, data);
+            } catch (err) {
+                statusEl.innerHTML =
+                    `<p style="font-size:12px; color:#dc2626; margin-bottom:6px;">
+                        Erro ao gerar token: ${err.message}
+                     </p>`;
+                btnGerar.disabled    = false;
+                btnGerar.textContent = 'Gerar código de apresentação';
+            }
+        }
+
+        // ── Renderiza tokens por item (circulação atomizada) ─────────────
+        function _renderizarTokensAtomizados(proto, atomData) {
+            const statusEl  = document.getElementById(`token-status-${proto}`);
+            const btnGerar  = document.getElementById(`btn-gerar-token-${proto}`);
+            const qrDisplay = document.getElementById(`qr-display-${proto}`);
+
+            if (btnGerar)  btnGerar.classList.add('hidden');
+            if (qrDisplay) { qrDisplay.innerHTML = ''; qrDisplay.classList.add('hidden'); }
+
+            let expiraLabel = '';
+            if (atomData.expira_em) {
+                try {
+                    expiraLabel = new Date(atomData.expira_em)
+                        .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                } catch (_) {}
+            }
+
+            const itensHtml = atomData.tokens.map(tk => {
+                const nomeExib = [
+                    tk.nome_medicamento,
+                    tk.concentracao || '',
+                    tk.unidade_quantidade ? `(${tk.unidade_quantidade})` : '',
+                ].filter(Boolean).join(' ');
+                return `
+                    <div class="item-atom-card" id="item-atom-card-${proto}-${tk.item_id}">
+                        <div class="item-atom-header">
+                            <span class="item-atom-nome">${nomeExib || '(item)'}</span>
+                            <span class="atom-badge">Item individual</span>
+                        </div>
+                        <div id="item-atom-token-${proto}-${tk.item_id}">
+                            <div class="item-atom-codigo">${tk.codigo_curto}</div>
+                            ${expiraLabel ? `<p style="font-size:11px;color:#64748b;text-align:center;margin-bottom:6px;">Válido até ${expiraLabel}</p>` : ''}
+                            <div style="display:flex;gap:8px;justify-content:center;">
+                                <button onclick="mostrarQrTokenItem('${tk.codigo_curto}','${proto}',${tk.item_id})"
+                                        class="btn-token-qr" style="background:#0e7490;font-size:11px;padding:6px 12px;">
+                                    🔲 QR
+                                </button>
+                                <button onclick="revogarTokenItem('${tk.codigo_curto}','${proto}',${tk.item_id})"
+                                        class="btn-token-revogar" style="font-size:11px;padding:6px 10px;">
+                                    Revogar
+                                </button>
+                            </div>
+                            <div id="qr-item-${proto}-${tk.item_id}" class="hidden"></div>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            statusEl.innerHTML = `
+                <p class="atom-banner">✓ Circulação atomizada — ${atomData.total_tokens} código(s)</p>
+                <p class="atom-sublabel">Cada farmácia verá apenas o item do código apresentado.</p>
+                ${itensHtml}
+                <button onclick="revogarTodosTokensAtomizados('${proto}')"
+                        class="btn-atom-revogar-todos">
+                    Revogar todos os códigos
+                </button>`;
+        }
+
+        async function mostrarQrTokenItem(codigo, proto, itemId) {
+            const qrDisplay = document.getElementById(`qr-item-${proto}-${itemId}`);
+            if (!qrDisplay) return;
+
+            if (!qrDisplay.classList.contains('hidden')) {
+                qrDisplay.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/tokens/apresentacao/${codigo}/qr`, {
+                    headers: { 'Authorization': `Bearer ${sessaoAtual.token}` },
+                });
+                if (!resp.ok) throw new Error('QR indisponível.');
+                const blob = await resp.blob();
+                const url  = URL.createObjectURL(blob);
+                qrDisplay.innerHTML = `
+                    <div class="token-qr-wrapper">
+                        <img src="${url}" alt="QR Code do item">
+                        <p class="token-qr-hint">Código alternativo: <strong>${codigo}</strong></p>
+                    </div>`;
+                qrDisplay.classList.remove('hidden');
+            } catch (_) {
+                qrDisplay.innerHTML = `<p style="font-size:12px;color:#dc2626;text-align:center;padding:8px;">Erro ao carregar QR.</p>`;
+                qrDisplay.classList.remove('hidden');
+            }
+        }
+
+        async function revogarTokenItem(codigo, proto, itemId) {
+            try {
+                await apiFetch(`/tokens/apresentacao/${codigo}`, { method: 'DELETE' });
+            } catch (_) { /* idempotente — ignorar */ }
+
+            // Atualizar mapa em memória
+            const estado = _tokensAtivos.get(proto);
+            if (estado?.modo === 'atomizado') {
+                estado.tokens = (estado.tokens || []).filter(t => t.codigo_curto !== codigo);
+            }
+
+            const cardEl = document.getElementById(`item-atom-card-${proto}-${itemId}`);
+            if (cardEl) cardEl.innerHTML = `<p style="font-size:12px;color:#64748b;font-style:italic;padding:6px 0;">Código revogado.</p>`;
+        }
+
+        async function revogarTodosTokensAtomizados(proto) {
+            const estado = _tokensAtivos.get(proto);
+            if (estado?.modo === 'atomizado' && estado.tokens?.length) {
+                await Promise.allSettled(
+                    estado.tokens.map(tk =>
+                        apiFetch(`/tokens/apresentacao/${tk.codigo_curto}`, { method: 'DELETE' })
+                    )
+                );
+            }
+            _tokensAtivos.delete(proto);
+
+            const statusEl  = document.getElementById(`token-status-${proto}`);
+            const btnGerar  = document.getElementById(`btn-gerar-token-${proto}`);
+            const qrDisplay = document.getElementById(`qr-display-${proto}`);
+
+            if (statusEl)  statusEl.innerHTML = `<p style="font-size:12px;color:#1d4ed8;margin-bottom:8px;">✓ Todos os códigos revogados.</p>`;
+            if (qrDisplay) { qrDisplay.innerHTML = ''; qrDisplay.classList.add('hidden'); }
+            if (btnGerar)  {
+                btnGerar.disabled    = false;
+                btnGerar.textContent = 'Gerar novos códigos';
+                btnGerar.classList.remove('hidden');
+            }
+        }
+
+        function _renderizarTokenAtivo(proto, token) {
+            const statusEl  = document.getElementById(`token-status-${proto}`);
+            const btnGerar  = document.getElementById(`btn-gerar-token-${proto}`);
+            const qrDisplay = document.getElementById(`qr-display-${proto}`);
+
+            // Ocultar botão "Gerar"
+            if (btnGerar) btnGerar.classList.add('hidden');
+            if (qrDisplay) { qrDisplay.innerHTML = ''; qrDisplay.classList.add('hidden'); }
+
+            // Formatar validade
+            let expiraLabel = '';
+            if (token.expira_em) {
+                try {
+                    expiraLabel = new Date(token.expira_em)
+                        .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                } catch (_) { expiraLabel = ''; }
+            }
+
+            statusEl.innerHTML = `
+                <div class="token-ativo-bloco">
+                    <p class="token-codigo" id="token-codigo-${proto}">${token.codigo_curto}</p>
+                    ${expiraLabel ? `<p class="token-validade">Válido até ${expiraLabel}</p>` : ''}
+                    <div class="token-acoes">
+                        <button onclick="mostrarQrToken('${token.codigo_curto}','${proto}')"
+                                class="btn-token-qr" id="btn-qr-${proto}">
+                            🔲 Ver QR Code
+                        </button>
+                        <button onclick="revogarToken('${token.codigo_curto}','${proto}')"
+                                class="btn-token-revogar">
+                            Revogar
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function mostrarQrToken(codigo, proto) {
+            const qrDisplay = document.getElementById(`qr-display-${proto}`);
+            if (!qrDisplay) return;
+
+            // Toggle — se já visível, esconder
+            if (!qrDisplay.classList.contains('hidden')) {
+                qrDisplay.classList.add('hidden');
+                const btnQr = document.getElementById(`btn-qr-${proto}`);
+                if (btnQr) btnQr.textContent = '🔲 Ver QR Code';
+                return;
+            }
+
+            // Buscar QR como blob (apiFetch não serve para binário)
+            try {
+                const resp = await fetch(`/tokens/apresentacao/${codigo}/qr`, {
+                    headers: { 'Authorization': `Bearer ${sessaoAtual.token}` },
+                });
+                if (!resp.ok) throw new Error('QR indisponível.');
+
+                const blob = await resp.blob();
+                const url  = URL.createObjectURL(blob);
+
+                qrDisplay.innerHTML = `
+                    <div class="token-qr-wrapper">
+                        <img src="${url}" alt="QR Code do token de apresentação">
+                        <p class="token-qr-hint">
+                            Mostre este QR ao farmacêutico.<br>
+                            Código alternativo: <strong>${codigo}</strong>
+                        </p>
+                    </div>
+                `;
+                qrDisplay.classList.remove('hidden');
+
+                const btnQr = document.getElementById(`btn-qr-${proto}`);
+                if (btnQr) btnQr.textContent = '🔲 Ocultar QR';
+
+            } catch (err) {
+                qrDisplay.innerHTML =
+                    `<p style="font-size:12px; color:#dc2626; text-align:center; padding:8px;">
+                        Erro ao carregar QR Code.
+                     </p>`;
+                qrDisplay.classList.remove('hidden');
+            }
+        }
+
+        async function revogarToken(codigo, proto) {
+            try {
+                await apiFetch(`/tokens/apresentacao/${codigo}`, { method: 'DELETE' });
+            } catch (_) {
+                // Revogar é idempotente — ignorar erros silenciosamente
+            }
+
+            _tokensAtivos.delete(proto);
+
+            // Restaurar UI ao estado inicial
+            const statusEl  = document.getElementById(`token-status-${proto}`);
+            const btnGerar  = document.getElementById(`btn-gerar-token-${proto}`);
+            const qrDisplay = document.getElementById(`qr-display-${proto}`);
+
+            if (statusEl)  statusEl.innerHTML  =
+                `<p style="font-size:12px; color:#1d4ed8; margin-bottom:8px;">✓ Token revogado.</p>`;
+            if (qrDisplay) { qrDisplay.innerHTML = ''; qrDisplay.classList.add('hidden'); }
+            if (btnGerar)  {
+                btnGerar.disabled    = false;
+                btnGerar.textContent = 'Gerar novo código';
+                btnGerar.classList.remove('hidden');
+            }
+        }
+
+        async function confirmarDevolucaoMedico(proto) {
+            const motivoSelect  = document.getElementById(`motivo-dev-${proto}`).value;
+            const motivoDetalhe = document.getElementById(`detalhe-dev-${proto}`).value.trim();
+            if (!motivoSelect) { showToast('Por favor, selecione o tipo de erro antes de devolver.', 'error'); return; }
+
+            const motivo = motivoDetalhe ? `${motivoSelect} - ${motivoDetalhe}` : motivoSelect;
+            if (!confirm(`Confirma a devolução ao prescritor?\n\nMotivo: ${motivo}`)) return;
+
+            try {
+                await apiFetch(`/paciente/prescricoes/${proto}/devolver-prescritor`, {
+                    method: 'POST',
+                    body: JSON.stringify({ motivo }),
+                });
+                showToast('Documento devolvido ao prescritor.', 'success');
+                carregarCarteira();
+            } catch (err) {
+                showToast(`Erro na devolução: ${err.message}`, 'error');
+            }
+        }
+    </script>
+
+    <!-- Toast ─────────────────────────────────────────────── -->
+    <div id="picsaude-toast" role="status" aria-live="polite"></div>
+
+    <!-- Modal: desmarcar circulação ─────────────────────────── -->
+    <div id="modal-desmarcar" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-box">
+            <h3>Desmarcar circulação</h3>
+            <p>Informe o motivo (opcional). Essa ação não pode ser desfeita.</p>
+            <textarea id="modal-desmarcar-motivo" rows="3" maxlength="300"
+                      placeholder="Motivo da desmarcação…"></textarea>
+            <div class="modal-footer">
+                <button class="btn-modal-cancelar"  onclick="fecharModalDesmarcar()">Cancelar</button>
+                <button class="btn-modal-confirmar" onclick="confirmarDesmarcar()">Desmarcar</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

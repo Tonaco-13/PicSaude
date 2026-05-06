@@ -1,0 +1,2868 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicSaúde - Módulo Prescritor v27</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
+        
+        .header { background: #002776; color: white; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #009c3b; }
+        .brand-container h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px;}
+        .brand-container p { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255, 255, 255, 0.85); font-weight: 500; }
+        
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+        
+        .container { max-width: 850px; margin: 40px auto; padding: 0 16px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+        
+        h2.section-title { font-size: 18px; color: #002776; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+        
+        .form-group { margin-bottom: 20px; width: 100%; }
+        .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .form-input, .form-select { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; transition: border-color 0.2s; background-color: #fafafa; }
+        .form-select, .form-select option { list-style-type: none !important; margin: 0; padding: 0; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .form-input:disabled, .form-select:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
+        /* Med-card: nome | concentração | qtd (estreito) | unidade */
+        .grid-4 { display: grid; grid-template-columns: 2.5fr 1.4fr 90px 1.5fr; gap: 10px; align-items: start; }
+        .grid-address-1 { display: grid; grid-template-columns: 3fr 1.5fr; gap: 16px; } 
+        .grid-address-2 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; } 
+        
+        .grid-conselho { display: grid; grid-template-columns: 110px 90px 200px auto; gap: 12px; align-items: center; margin-bottom: 12px; }
+        
+        .btn { padding: 14px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; justify-content: center; align-items: center; width: 100%; }
+        .btn-primary { background: #002776; color: white; }
+        .btn-primary:hover { background: #001a4f; }
+        .btn-action { background: #009c3b; color: white; }
+        .btn-action:hover { background: #007a2e; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
+        .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+        .btn-small { padding: 8px 16px; font-size: 12px; border-radius: 4px; width: auto; }
+        .btn-text { background: transparent; border: none; color: #3b82f6; cursor: pointer; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn-text:hover { color: #1d4ed8; text-decoration: underline; }
+        
+        .hidden { display: none !important; }
+        
+        .med-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 16px; background: #ffffff; border-left: 4px solid #009c3b; }
+        .med-card-header { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .med-card-title { color: #002776; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+        
+        .result-list { max-height: 300px; overflow-y: auto; margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .result-item { padding: 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; background: #ffffff; border-left: 4px solid transparent; }
+        .result-item:hover { background: #f0f9ff; border-color: #3b82f6; border-left-color: #002776; transform: translateX(4px); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .result-item.disabled:hover { background: #f8fafc; border-color: #e2e8f0; border-left-color: transparent; transform: none; cursor: not-allowed; }
+        
+        .result-name { font-weight: 700; color: #002776; font-size: 15px; margin-bottom: 4px; }
+        .result-details { font-size: 13px; color: #64748b; }
+
+        .correcao-card { border: 1px solid #fca5a5; background: #fef2f2; padding: 20px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #dc2626; }
+        
+        .historico-item { padding: 16px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 12px; background: #fff; display: flex; justify-content: space-between; align-items: center;}
+        .badge-digital { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase;}
+        .badge-fisica { background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase;}
+
+        /* Nivel formal — badges na tela de sucesso */
+        .nivel-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; border: 1px solid transparent; margin-top: 10px; }
+        .nivel-badge-cfm       { background: #dcfce7; color: #166534; border-color: #86efac; }
+        .nivel-badge-govbr     { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+        .nivel-badge-operac    { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+        .nivel-badge-fisica    { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+        /* Mensagens inline no formulário */
+        .msg-inline           { font-size: 12px; margin-top: 5px; padding: 8px 10px; border-radius: 4px; }
+        .msg-inline-error     { color: #dc2626; background: #fef2f2; border: 1px solid #fca5a5; }
+        .msg-inline-warn      { color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; }
+        .msg-inline-success   { color: #166534; background: #dcfce7; border: 1px solid #86efac; }
+        /* Mensagem de status no topo do formulário */
+        #form-status-msg { margin-bottom: 16px; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-weight: 500; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; font-family: 'Courier New', Courier, monospace; color: #000; }
+            .no-print { display: none !important; }
+            body { background: white; }
+        }
+
+        /* IA Farmacêutica v1 — blocos de sugestão por card de medicamento */
+        .ia-container { margin-top: 10px; }
+        .ia-bloco { border-radius: 6px; font-size: 12px; }
+        .ia-bloco + .ia-bloco { margin-top: 6px; }
+        .ia-bloco-sugestao { background: #f0fdf4; border: 1px solid #86efac; padding: 10px 14px; }
+        .ia-bloco-alerta   { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; }
+        .ia-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #166534; margin-bottom: 7px; }
+        .ia-chips  { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .ia-chip   { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .ia-meta   { font-size: 10px; color: #64748b; margin-top: 5px; }
+        .ia-btn-aplicar { background: none; border: 1px solid #16a34a; color: #16a34a; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 10px; border-radius: 4px; margin-left: auto; transition: background 0.15s; }
+        .ia-btn-aplicar:hover { background: #dcfce7; }
+        .ia-alerta-item { font-size: 12px; color: #92400e; font-weight: 600; padding: 2px 0; }
+        .ia-alerta-item + .ia-alerta-item { margin-top: 3px; }
+        .ia-loading { font-size: 11px; color: #94a3b8; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+
+        /* IA Exames v1 — normalização diagnóstica assistida (Ticket 32) */
+        .ia-exame-container { margin-top: 10px; }
+        .ia-exame-bloco { border-radius: 6px; font-size: 12px; }
+        .ia-exame-bloco + .ia-exame-bloco { margin-top: 6px; }
+        .ia-exame-bloco-norm   { background: #eff6ff; border: 1px solid #93c5fd; padding: 10px 14px; }
+        .ia-exame-bloco-alerta { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; }
+        .ia-exame-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #1d4ed8; margin-bottom: 7px; }
+        .ia-exame-chips  { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .ia-exame-chip   { background: #dbeafe; color: #1e40af; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .ia-exame-meta   { font-size: 10px; color: #64748b; margin-top: 5px; }
+        .ia-exame-aviso  { font-size: 10px; color: #94a3b8; margin-top: 4px; font-style: italic; }
+        .ia-exame-btn-usar { background: none; border: 1px solid #1d4ed8; color: #1d4ed8; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 10px; border-radius: 4px; margin-left: auto; transition: background 0.15s; }
+        .ia-exame-btn-usar:hover { background: #dbeafe; }
+        .ia-exame-alerta-item { font-size: 12px; color: #92400e; font-weight: 600; padding: 2px 0; }
+        .ia-exame-alerta-item + .ia-exame-alerta-item { margin-top: 3px; }
+
+        /* Card de item de exame */
+        .exame-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 16px; background: #ffffff; border-left: 4px solid #3b82f6; }
+        .exame-card-header { display: flex; justify-content: space-between; margin-bottom: 12px; align-items: center; }
+        .exame-card-title  { color: #1d4ed8; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+
+        /* IA CID v1 — normalização do contexto clínico (Ticket 34) — paleta roxa */
+        .ia-cid-container    { margin-top: 10px; }
+        .ia-cid-bloco        { border-radius: 6px; font-size: 12px; }
+        .ia-cid-bloco + .ia-cid-bloco { margin-top: 6px; }
+        .ia-cid-bloco-norm   { background: #f5f3ff; border: 1px solid #c4b5fd; padding: 10px 14px; }
+        .ia-cid-bloco-alerta { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; }
+        .ia-cid-header       { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6d28d9; margin-bottom: 6px; }
+        .ia-cid-texto-norm   { font-size: 11px; color: #5b21b6; margin-bottom: 8px; }
+        .ia-cid-lista        { display: flex; flex-direction: column; gap: 5px; }
+        .ia-cid-item         { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 5px 8px; background: #ede9fe; border-radius: 4px; }
+        .ia-cid-codigo       { font-size: 11px; font-weight: 700; color: #4c1d95; background: #ddd6fe; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
+        .ia-cid-descricao    { font-size: 12px; color: #374151; flex: 1; }
+        .ia-cid-meta         { font-size: 10px; color: #7c3aed; white-space: nowrap; }
+        .ia-cid-btn-usar     { background: none; border: 1px solid #7c3aed; color: #7c3aed; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 10px; border-radius: 4px; white-space: nowrap; transition: background 0.15s; }
+        .ia-cid-btn-usar:hover { background: #ede9fe; }
+        .ia-cid-selecionado  { background: #ddd6fe; border-radius: 4px; padding: 6px 10px; font-size: 11px; color: #4c1d95; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .ia-cid-aviso        { font-size: 10px; color: #94a3b8; margin-top: 5px; font-style: italic; }
+        .ia-cid-alerta-item  { font-size: 12px; color: #92400e; font-weight: 600; padding: 2px 0; }
+        .ia-cid-alerta-item + .ia-cid-alerta-item { margin-top: 3px; }
+
+        /* IA Documental v1 — Atestado Assistido (Ticket 39) — paleta cinza institucional */
+        /* Distinta de: verde=farmacêutica · azul=exames · roxo=CID                       */
+        .ia-doc-intro      { font-size: 12px; color: #64748b; margin-bottom: 16px; line-height: 1.6; }
+        .ia-doc-acoes      { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 20px; }
+        .ia-doc-btn-contexto {
+            background: none; border: 1px solid #94a3b8; color: #475569;
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            padding: 5px 12px; border-radius: 4px; margin-bottom: 16px;
+            transition: background 0.15s;
+        }
+        .ia-doc-btn-contexto:hover { background: #f1f5f9; }
+        /* Blocos de resultado */
+        .ia-doc-bloco         { border-radius: 6px; padding: 10px 14px; margin-bottom: 10px; font-size: 13px; }
+        .ia-doc-bloco-ok      { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+        .ia-doc-bloco-faltantes  { background: #fef2f2; border: 1px solid #fca5a5; }
+        .ia-doc-bloco-alertas    { background: #fffbeb; border: 1px solid #fcd34d; }
+        .ia-doc-bloco-sugestoes  { background: #f8fafc; border: 1px solid #cbd5e1; }
+        .ia-doc-bloco-aviso      { background: #f1f5f9; border: 1px solid #e2e8f0; color: #94a3b8; font-size: 11px; font-style: italic; padding: 8px 14px; }
+        .ia-doc-bloco-titulo     { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 7px; }
+        .ia-doc-bloco-faltantes .ia-doc-bloco-titulo  { color: #dc2626; }
+        .ia-doc-bloco-alertas   .ia-doc-bloco-titulo  { color: #92400e; }
+        .ia-doc-bloco-sugestoes .ia-doc-bloco-titulo  { color: #475569; }
+        .ia-doc-lista     { padding-left: 4px; list-style: none; }
+        .ia-doc-lista li  { font-size: 12px; margin-bottom: 4px; padding-left: 12px; position: relative; }
+        .ia-doc-lista li::before { content: "›"; position: absolute; left: 0; font-weight: 700; }
+        .ia-doc-bloco-faltantes .ia-doc-lista li  { color: #991b1b; }
+        .ia-doc-bloco-alertas   .ia-doc-lista li  { color: #92400e; }
+        .ia-doc-bloco-sugestoes .ia-doc-lista li  { color: #334155; }
+        /* Preview do documento — aspecto formal */
+        .ia-doc-preview-wrap  { margin-top: 8px; }
+        .ia-doc-preview-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                                letter-spacing: 0.8px; color: #475569; margin-bottom: 8px; }
+        .ia-doc-preview {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 32px 36px;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 14px;
+            line-height: 1.9;
+            color: #1e293b;
+            white-space: pre-wrap;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+        }
+        .ia-doc-print-acoes { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* ── Navegação de submódulos (abas) ────────────────────────────── */
+        .submod-nav {
+            display: flex;
+            gap: 4px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 28px;
+        }
+        .submod-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            background: transparent;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .submod-btn:hover { background: #e2e8f0; color: #334155; }
+        .submod-btn.ativo {
+            background: #ffffff;
+            color: #002776;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+        }
+    </style>
+  <script src="config.js"></script>
+</head>
+<body>
+
+    <header class="header no-print">
+        <div class="brand-container">
+            <h1>PicSaúde</h1>
+            <p>Plataforma de Integração do Cuidado</p>
+        </div>
+        <div class="header-actions">
+            <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+            <span id="dev-mode-badge" style="display: none; font-size: 11px; font-weight: 600; padding: 4px 10px; background: #fef08a; color: #713f12; border-radius: 4px; letter-spacing: 0.5px;">Ambiente de desenvolvimento</span>
+            <span class="module-tag">Módulo Prescritor</span>
+            <div id="header-controls" class="hidden" style="display: flex; gap: 12px;">
+                <button onclick="abrirPerfil()" class="btn-outline btn-small" style="color: white; border-color: rgba(255,255,255,0.3);">Perfil de Acesso</button>
+                <button onclick="sair()" class="btn-outline btn-small" style="color: white; border-color: transparent;">Sair</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <div id="tela-acesso" class="card no-print" style="max-width: 500px; margin: 0 auto;">
+            <h2 class="section-title" style="text-align: center; border: none; margin-bottom: 8px;">Acesso Restrito</h2>
+            <p style="text-align: center; color: #64748b; font-size: 14px; margin-bottom: 32px;">Informe suas credenciais para acessar o painel.</p>
+            <button type="button" style="width: 100%; padding: 14px; background: #1351b4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 24px;">Entrar com gov.br</button>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+                <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+                <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">OU</span>
+                <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+            </div>
+            <form onsubmit="fazerLoginDireto(event)">
+                <div class="form-group">
+                    <label class="form-label">CNS ou E-mail</label>
+                    <input type="text" id="acesso-identificador" class="form-input" placeholder="CNS (15 dígitos) ou e-mail" maxlength="100" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Senha</label>
+                    <input type="password" id="acesso-senha" class="form-input" placeholder="Sua senha" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Entrar</button>
+                <div id="msg-login-erro" class="msg-inline msg-inline-error hidden" style="margin-top: 12px;"></div>
+            </form>
+            <div style="text-align: center; margin: 32px 0; border-top: 1px solid #e2e8f0; padding-top: 24px;">
+                <button type="button" class="btn btn-outline" onclick="iniciarBusca()">Localizar Cadastro Nacional (CNES)</button>
+            </div>
+        </div>
+
+        <div id="tela-busca" class="card hidden no-print" style="max-width: 600px; margin: 0 auto;">
+            <h2 class="section-title">Busca de Profissional (CNES)</h2>
+            <form onsubmit="buscarNome(event)">
+                <div class="form-group">
+                    <label class="form-label">Nome Completo do Profissional</label>
+                    <div style="display: flex; gap: 12px;">
+                        <input type="text" id="busca-input" class="form-input" placeholder="Mínimo de 3 caracteres" required minlength="3">
+                        <button type="submit" class="btn btn-primary" style="width: auto;">Pesquisar</button>
+                    </div>
+                </div>
+            </form>
+            <div id="lista-resultados" class="result-list hidden"></div>
+            <div style="margin-top: 24px; text-align: left;"><button type="button" class="btn-text" onclick="voltarInicio()">Voltar ao Login</button></div>
+        </div>
+
+        <div id="tela-vincular" class="card hidden no-print">
+            <h2 class="section-title">Validação de Identidade e Endereço</h2>
+            <div style="background: #f8fafc; padding: 20px; border-radius: 6px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+                <p style="font-weight: 700; font-size: 16px; color: #002776;" id="vinc-nome"></p>
+                <p style="font-size: 14px; color: #475569; margin-top: 4px;">CNS: <span id="vinc-cns"></span> | Lotação: <span id="vinc-cnes"></span></p>
+            </div>
+            <form onsubmit="solicitarCodigoVinculo(event)">
+                <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 16px; text-transform: uppercase;">1. Dados de Contato</h3>
+                <div class="form-group">
+                    <label class="form-label">Telefone Celular (Chave de Acesso) *</label>
+                    <input type="text" id="vinc-telefone" class="form-input" placeholder="DDD + Número" required>
+                </div>
+                <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 16px; margin-top: 32px; text-transform: uppercase;">2. Registros Profissionais</h3>
+                <div class="form-group" style="background: #f1f5f9; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <label class="form-label" style="margin: 0;">Conselhos Ativos *</label>
+                        <button type="button" onclick="adicionarConselhoEdicao('vinc')" class="btn-text">Adicionar Registro</button>
+                    </div>
+                    <div id="vinc-conselhos-container"></div>
+                </div>
+                <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 16px; margin-top: 32px; text-transform: uppercase;">3. Endereço Profissional e Contato</h3>
+                
+                <div class="grid-address-1">
+                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro *</label><input type="text" id="vinc-endereco" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Complemento</label><input type="text" id="vinc-complemento" class="form-input" placeholder="Sala, Andar, Bloco"></div>
+                </div>
+                <div class="grid-address-2">
+                    <div class="form-group"><label class="form-label">Cidade *</label><input type="text" id="vinc-cidade" class="form-input" required></div>
+                    <div class="form-group">
+                        <label class="form-label">Estado (UF) *</label>
+                        <select id="vinc-uf" class="form-select" required>
+                            <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">CEP *</label><input type="text" id="vinc-cep" class="form-input" placeholder="00000-000" required></div>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Email</label><input type="email" id="vinc-email" class="form-input" placeholder="contato@clinica.com"></div>
+                    <div class="form-group"><label class="form-label">Telefone Comercial</label><input type="text" id="vinc-tel-comercial" class="form-input" placeholder="DDD + Número"></div>
+                </div>
+                
+                <div style="display: flex; gap: 16px; margin-top: 40px;">
+                    <button type="button" class="btn btn-outline" style="flex: 1;" onclick="iniciarBusca()">Cancelar</button>
+                    <button type="submit" class="btn btn-action" style="flex: 2;">Validar e Concluir</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="tela-validacao" class="card hidden no-print" style="max-width: 450px; margin: 0 auto;">
+            <h2 class="section-title" style="text-align: center; border: none;">Verificação de Duas Etapas</h2>
+            <form onsubmit="validarCodigo(event)">
+                <div id="dev-otp-display" class="msg-inline msg-inline-warn hidden" style="margin-bottom: 16px; text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: bold;"></div>
+                <div class="form-group"><input type="text" id="otp-codigo" class="form-input" placeholder="000000" required maxlength="6" style="font-size: 32px; letter-spacing: 8px; text-align: center; font-weight: bold; color: #002776;"></div>
+                <button type="submit" class="btn btn-primary" style="margin-bottom: 12px;">Confirmar Identidade</button>
+                <div id="msg-otp-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 12px;"></div>
+                <div style="text-align: center;">
+                    <button type="button" onclick="cancelarValidacao()" class="btn-text">Voltar e Limpar</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="tela-perfil" class="card hidden no-print">
+            <h2 class="section-title">Configurações do Profissional</h2>
+            <form onsubmit="salvarPerfil(event)">
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Nome Completo</label><input type="text" id="perfil-nome" class="form-input" disabled></div>
+                    <div class="form-group"><label class="form-label">CNS</label><input type="text" id="perfil-cns" class="form-input" disabled></div>
+                </div>
+                <div class="form-group" style="background: #f8fafc; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <label class="form-label" style="margin: 0;">Registros Profissionais</label>
+                        <button type="button" onclick="adicionarConselhoEdicao('perfil')" class="btn-text">Adicionar Registro</button>
+                    </div>
+                    <div id="perfil-conselhos-container"></div>
+                </div>
+                <div class="grid-address-1">
+                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro *</label><input type="text" id="perfil-endereco" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Complemento</label><input type="text" id="perfil-complemento" class="form-input"></div>
+                </div>
+                <div class="grid-address-2">
+                    <div class="form-group"><label class="form-label">Cidade *</label><input type="text" id="perfil-cidade" class="form-input" required></div>
+                    <div class="form-group">
+                        <label class="form-label">Estado (UF) *</label>
+                        <select id="perfil-uf" class="form-select" required>
+                            <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label class="form-label">CEP *</label><input type="text" id="perfil-cep" class="form-input" required></div>
+                </div>
+                
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Email</label><input type="email" id="perfil-email" class="form-input"></div>
+                    <div class="form-group"><label class="form-label">Telefone Comercial</label><input type="text" id="perfil-tel-comercial" class="form-input"></div>
+                </div>
+
+                <div id="msg-perfil-msg" class="msg-inline hidden" style="margin-top: 16px;"></div>
+                <div style="display: flex; gap: 16px; margin-top: 16px;">
+                    <button type="button" onclick="fecharPerfil()" class="btn btn-outline" style="flex: 1;">Voltar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 2;">Salvar Configurações</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="tela-dashboard" class="hidden">
+            
+            <div class="card no-print" style="background: #ffffff; border-left: 4px solid #1e3a8a; padding: 24px; margin-bottom: 24px;">
+                <h3 id="prof-nome" style="color: #1e3a8a; margin-bottom: 8px; font-size: 20px;">...</h3>
+                <p style="font-size: 14px; color: #475569;">Registros: <span id="prof-registro" style="font-weight: 600; color: #0f172a;">...</span> | CNS: <span id="prof-cns">...</span></p>
+                <button onclick="atualizarPainel()" class="btn-outline btn-small" style="margin-top: 12px; font-weight:bold;">🔄 Atualizar Painel</button>
+            </div>
+
+            <div id="caixa-renovacao" class="hidden no-print" style="margin-bottom: 32px;">
+                <h3 style="font-size: 15px; color: #1d4ed8; text-transform: uppercase; margin-bottom: 12px; font-weight: 700;">🔁 Solicitações de Renovação</h3>
+                <div id="lista-renovacao"></div>
+            </div>
+
+            <div id="caixa-correcao" class="hidden no-print" style="margin-bottom: 32px;">
+                <h3 style="font-size: 15px; color: #dc2626; text-transform: uppercase; margin-bottom: 12px; font-weight: 700;">⚠️ Receitas Devolvidas para Correção</h3>
+                <div id="lista-devolvidas"></div>
+            </div>
+
+            <!-- ── Navegação de submódulos ──────────────────────────────── -->
+            <nav class="submod-nav no-print" aria-label="Submódulos do prescritor">
+                <button class="submod-btn ativo" id="btn-submod-receita"  onclick="mostrarSubmodulo('receita')">Receita</button>
+                <button class="submod-btn"        id="btn-submod-exames"  onclick="mostrarSubmodulo('exames')">Exames</button>
+                <button class="submod-btn"        id="btn-submod-atestado" onclick="mostrarSubmodulo('atestado')">Atestado</button>
+            </nav>
+
+            <div id="form-receita" class="no-print">
+                <h2 class="section-title" id="titulo-formulario" style="margin-bottom: 8px;">Prescrição Médica — Emissão Documentada</h2>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Para validade legal conforme Res. CFM 2.299/2021, utilize a emissão digital com assinatura ICP-Brasil.</p>
+                <div id="form-status-msg" class="hidden"></div>
+                <form id="main-prescription-form" onsubmit="emitirReceitaDigital(event)">
+                    <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px; color: #002776; font-size: 15px; text-transform: uppercase;">Dados Clínicos do Paciente</h4>
+                        <div class="grid-3" style="margin-bottom: 16px;">
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="pac-nome" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Idade *</label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Telefone</label><input type="text" id="pac-telefone" class="form-input" placeholder="DDD + Número"></div>
+                        </div>
+                        <div class="grid-address-1" style="margin-bottom: 16px;">
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Logradouro, Número e Bairro *</label><input type="text" id="pac-endereco" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Complemento</label><input type="text" id="pac-complemento" class="form-input" placeholder="Apto, Bloco"></div>
+                        </div>
+                        <div class="grid-address-2">
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Cidade *</label><input type="text" id="pac-cidade" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label">UF *</label>
+                                <select id="pac-uf" class="form-select" required>
+                                    <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">CEP *</label><input type="text" id="pac-cep" class="form-input" required></div>
+                        </div>
+
+                        <!-- Indicação Clínica — IA CID v1 (Ticket 34) + backend (Ticket 36).
+                             indicacao_clinica e codigo_cid são enviados ao backend quando presentes.
+                             Campos opcionais — a emissão não é bloqueada pela ausência deles. -->
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
+                            <label class="form-label" style="color: #6d28d9;">Indicação Clínica
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — assistida por IA CID)</span>
+                            </label>
+                            <textarea id="prescricao-indicacao" class="form-input" style="height: 56px; resize: none; font-size: 13px;" placeholder="Hipótese diagnóstica, CID ou motivo da prescrição"></textarea>
+                            <input type="hidden" id="prescricao-cid-escolhido" value="">
+                            <div class="ia-cid-container" id="ia-cid-prescricao"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 24px; padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px;">
+                            <h4 style="color: #002776; font-size: 15px; text-transform: uppercase; margin:0;">Prescrição Terapêutica</h4>
+                            <button type="button" onclick="adicionarMedicamento()" class="btn-outline btn-small">+ Adicionar Fármaco</button>
+                        </div>
+                        <div id="lista-medicamentos"></div>
+                    </div>
+
+                    <div style="background: #e0f2fe; padding: 24px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 32px;">
+                        <h4 style="color: #002776; font-size: 15px; text-transform: uppercase; margin-bottom: 4px;">Modo de Emissão</h4>
+                        <p style="font-size: 12px; color: #0369a1; margin-bottom: 20px;">A emissão digital com assinatura ICP-Brasil garante validade legal plena conforme Res. CFM 2.299/2021.</p>
+
+                        <!-- CPF do Paciente + verificação de carteira digital (Ticket 63) -->
+                        <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
+                            <div class="form-group" style="margin: 0; flex: 1; min-width: 260px;">
+                                <label class="form-label" style="color: #0c4a6e;">CPF do Paciente <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0;">(obrigatório para emissão digital)</span></label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="text" id="pac-chave" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00" style="flex: 1;">
+                                    <button type="button" onclick="verificarCarteiraPaciente()" class="btn-outline btn-small" style="white-space: nowrap; font-size: 11px; padding: 6px 10px;">Verificar Carteira</button>
+                                </div>
+                                <div id="msg-cpf-erro" class="msg-inline msg-inline-error hidden"></div>
+                                <div id="carteira-status-rec" style="display:none; margin-top: 6px; font-size: 12px; padding: 6px 10px; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Bloco primário: ICP-Brasil -->
+                        <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 18px; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <span style="background: #16a34a; color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">✓ Validade CFM</span>
+                                <span style="font-size: 13px; font-weight: 600; color: #166534;">Emissão Digital — Assinatura ICP-Brasil</span>
+                            </div>
+                            <p style="font-size: 12px; color: #15803d; margin-bottom: 14px; line-height: 1.5;">Prescrição com força legal plena. Protocolo rastreável, hash de integridade e cadeia de custódia registrados no PicSaúde.</p>
+                            <button type="submit" id="btn-emitir" class="btn btn-action" style="font-size: 15px; padding: 15px;" onclick="assinaturaModo = 'icp_brasil_local'">🔐 Assinar e Emitir com Certificado Local (A1/A3 — ICP-Brasil)</button>
+                        </div>
+
+                        <!-- Bloco secundário: gov.br -->
+                        <div style="background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 18px; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <span style="background: #1d4ed8; color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Em Implantação</span>
+                                <span style="font-size: 13px; font-weight: 600; color: #1e40af;">Emissão Digital — Assinatura gov.br (Nuvem)</span>
+                            </div>
+                            <p style="font-size: 12px; color: #1d4ed8; margin-bottom: 14px; line-height: 1.5;">Integração gov.br em desenvolvimento. Funcionalidade disponível em breve.</p>
+                            <button type="submit" class="btn" style="font-size: 15px; padding: 15px; background: #1351b4; color: white;" onclick="assinaturaModo = 'gov_br_nuvem'">☁️ Assinar em Nuvem (gov.br)</button>
+                        </div>
+
+                        <div id="msg-modo-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 4px;"></div>
+
+                        <!-- Separador: emissão física (terciário) -->
+                        <div style="border-top: 1px dashed #7dd3fc; margin: 20px 0 0; padding-top: 18px;">
+                            <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+                                <span style="font-size: 18px; line-height: 1.3; flex-shrink: 0;">⚠️</span>
+                                <div>
+                                    <p style="font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 3px;">Emissão Física — Sem Custódia Digital</p>
+                                    <p style="font-size: 12px; color: #78350f; line-height: 1.5;">Esta opção não gera protocolo rastreável no PicSaúde, não registra custódia digital e não atende à Res. CFM 2.299/2021. Requer assinatura à caneta e carimbo físico para ter validade legal.</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="imprimirDireto()" class="btn btn-outline" style="background: white; border-color: #94a3b8; color: #475569;">🖨️ Apenas Imprimir Físico (sem envio digital)</button>
+                        </div>
+
+                        <button type="button" id="btn-cancelar-edicao" class="btn btn-text hidden" onclick="novaReceita()" style="margin-top: 16px; width: 100%; text-align:center;">Cancelar Edição</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ============================================================
+                 PEDIDO DE EXAME — Ticket 32
+                 IA Exames v1 integrada por item (normalização assistida)
+                 ============================================================ -->
+            <div id="form-pedido-exame" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
+                <h2 class="section-title" style="margin-bottom: 8px;">Pedido de Exame</h2>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 20px;">Solicitação diagnóstica com normalização assistida por IA. Cada exame é consultado individualmente — sem bloquear a emissão.</p>
+                <div id="pedido-exame-status-msg" class="hidden" style="margin-bottom: 16px; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-weight: 500;"></div>
+
+                <form id="form-pedido-exame-main" onsubmit="emitirPedidoExame(event)">
+
+                    <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
+                        <h4 style="margin-bottom: 16px; color: #002776; font-size: 15px; text-transform: uppercase;">Dados do Paciente</h4>
+                        <div class="grid-3" style="margin-bottom: 16px;">
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="exam-pac-nome" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">CPF *</label><input type="text" id="exam-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00"></div>
+                            <div class="form-group" style="margin: 0;">
+                                <label class="form-label">Prioridade</label>
+                                <select id="exam-prioridade" class="form-select">
+                                    <option value="rotina">Rotina</option>
+                                    <option value="urgente">Urgente</option>
+                                    <option value="urgentissimo">Urgentíssimo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label" style="color: #6d28d9;">Indicação Clínica
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(assistida por IA CID)</span>
+                            </label>
+                            <textarea id="exam-indicacao" class="form-input" style="height: 60px; resize: none;" placeholder="CID, hipótese diagnóstica ou motivo da solicitação"></textarea>
+                            <input type="hidden" id="exam-cid-escolhido" value="">
+                            <div class="ia-cid-container" id="ia-cid-exame"></div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 24px; padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px;">
+                            <h4 style="color: #002776; font-size: 15px; text-transform: uppercase; margin:0;">Exames Solicitados</h4>
+                            <button type="button" onclick="adicionarExame()" class="btn-outline btn-small">+ Adicionar Exame</button>
+                        </div>
+                        <div id="lista-exames"></div>
+                    </div>
+
+                    <div style="background: #eff6ff; padding: 24px; border-radius: 6px; border: 1px solid #bfdbfe; margin-bottom: 32px;">
+                        <h4 style="color: #1e40af; font-size: 15px; text-transform: uppercase; margin-bottom: 16px;">Emissão do Pedido</h4>
+                        <div id="msg-exam-cpf-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 12px;"></div>
+                        <div id="carteira-status-exam" style="display:none; margin-bottom: 12px; font-size: 12px; padding: 6px 10px; border-radius: 4px;"></div>
+                        <button type="submit" class="btn btn-primary" style="font-size: 15px; padding: 15px;">📋 Emitir Pedido de Exame Digital</button>
+                        <div style="border-top: 1px dashed #93c5fd; margin: 20px 0 0; padding-top: 18px;">
+                            <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
+                                <span style="font-size: 18px; line-height: 1.3; flex-shrink: 0;">⚠️</span>
+                                <div>
+                                    <p style="font-size: 12px; font-weight: 700; color: #92400e; margin-bottom: 3px;">Emissão Física — Sem Custódia Digital</p>
+                                    <p style="font-size: 12px; color: #78350f; line-height: 1.5;">Esta opção não gera protocolo rastreável. O pedido é impresso e registrado localmente.</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="imprimirPedidoFisico()" class="btn btn-outline" style="background: white; border-color: #94a3b8; color: #475569;">🖨️ Apenas Imprimir Físico (sem envio digital)</button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- fim PEDIDO DE EXAME -->
+
+            <!-- ============================================================
+                 ATESTADO ASSISTIDO — Ticket 39 / IA Documental v1
+                 Paleta: cinza institucional (distinta de verde, azul, roxo)
+                 Princípio: a IA não escreve — ela garante que esteja correto.
+                 ============================================================ -->
+            <div id="form-atestado" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
+                <h2 class="section-title" style="margin-bottom: 8px;">Atestado Assistido</h2>
+                <p class="ia-doc-intro">
+                    Preencha os campos e use a IA Documental para validar a estrutura antes de usar o documento.
+                    <strong>A IA não escreve o atestado — ela garante que esteja correto.</strong>
+                    A responsabilidade clínica e legal permanece com o profissional.
+                </p>
+
+                <button type="button" class="ia-doc-btn-contexto" onclick="usarContextoClinicoAtestado()">
+                    ↗ Preencher com dados da prescrição atual
+                </button>
+
+                <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+
+                    <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Nome do Paciente *</label>
+                            <input type="text" id="atestado-paciente" class="form-input"
+                                   placeholder="Nome completo do paciente">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Indicação Clínica *</label>
+                            <input type="text" id="atestado-indicacao" class="form-input"
+                                   placeholder="Hipótese diagnóstica ou quadro clínico">
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">CID *</label>
+                            <input type="text" id="atestado-cid" class="form-input"
+                                   placeholder="ex: I10" style="text-transform: uppercase;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Dias de Afastamento *</label>
+                            <input type="number" id="atestado-dias" class="form-input"
+                                   min="1" placeholder="ex: 3">
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Data do Documento *</label>
+                            <input type="date" id="atestado-data" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Nome do Profissional *</label>
+                            <input type="text" id="atestado-profissional" class="form-input"
+                                   placeholder="Nome completo do profissional responsável">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin: 0;">
+                        <label class="form-label">Registro Profissional *
+                            <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(ex: CRM-PE 12345)</span>
+                        </label>
+                        <input type="text" id="atestado-registro" class="form-input"
+                               placeholder="CRM-UF 00000">
+                    </div>
+                </div>
+
+                <div class="ia-doc-acoes">
+                    <button type="button" class="btn btn-primary" onclick="validarAtestado()"
+                            style="padding: 10px 24px; font-size: 14px;">
+                        Validar atestado
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="limparAtestado()"
+                            style="padding: 10px 20px; font-size: 14px;">
+                        Limpar
+                    </button>
+                </div>
+
+                <!-- Resultado da IA Documental -->
+                <div id="ia-atestado-container" class="hidden"></div>
+
+            </div>
+            <!-- fim ATESTADO ASSISTIDO -->
+
+            <div id="historico-medico-container" class="no-print" style="margin-top: 48px; border-top: 2px solid #e2e8f0; padding-top: 32px;">
+                <h3 class="section-title">Histórico de Emissões</h3>
+                <div id="lista-historico-medico"></div>
+            </div>
+
+        </div> 
+
+        <div id="tela-sucesso" class="card hidden">
+            <div class="no-print" style="text-align: center; margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid #e2e8f0;">
+                <div id="sucesso-icone" style="width: 64px; height: 64px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px;">✓</div>
+                <h2 id="sucesso-titulo" style="color: #0f172a; margin-bottom: 8px;">Prescrição Transmitida</h2>
+                <div id="sucesso-nivel-container" style="display: flex; justify-content: center; margin-bottom: 12px;">
+                    <span id="sucesso-nivel-badge" class="nivel-badge nivel-badge-cfm" style="display: none;"></span>
+                </div>
+                <p id="sucesso-msg" style="color: #475569; font-size: 15px;">A custódia foi enviada com sucesso para o CPF: <strong id="sucesso-chave">...</strong></p>
+                <p id="sucesso-modo-assinatura" style="display: none; color: #64748b; font-size: 13px; margin-top: 6px;"></p>
+                <div id="sucesso-cnes-validacao" class="no-print" style="max-width:480px;margin:0 auto;text-align:left"></div>
+                <div id="sucesso-carteira-info" class="no-print" style="display:none; max-width:480px; margin:8px auto 0; text-align:left;"></div>
+                <div style="display: flex; gap: 16px; justify-content: center; margin-top: 32px; flex-wrap: wrap;">
+                    <button onclick="window.print()" class="btn btn-outline" style="width: auto;">🖨️ Imprimir 2ª Via / Físico</button>
+                    <button onclick="novaReceita()" class="btn btn-primary" style="width: auto;">Nova Prescrição</button>
+                    <button onclick="irParaDashboard()" class="btn btn-outline" style="width: auto;">Minhas Prescrições</button>
+                </div>
+            </div>
+
+            <div id="print-area">
+                <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
+                    <h2 style="font-size: 22px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Receituário Médico</h2>
+                    <p style="font-size: 12px; color: #333;">PIX SAÚDE - TRANSFERÊNCIA ELETRÔNICA DE DADOS</p>
+                    <p style="font-size: 12px; margin-top: 5px;">Protocolo: <span id="print-protocolo" style="font-weight: bold;">...</span></p>
+                </div>
+                <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #000;">
+                    <p style="font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Identificação do Emitente</p>
+                    <p style="font-size: 14px; font-weight: bold;" id="print-medico-nome">...</p>
+                    <p style="font-size: 12px;" id="print-medico-registros">...</p>
+                    <p style="font-size: 12px; margin-top: 4px;">Endereço: <span id="print-medico-endereco">...</span> | CEP: <span id="print-medico-cep">...</span> | Tel: <span id="print-medico-tel">...</span></p>
+                </div>
+                <div style="margin-bottom: 30px; padding: 10px; border: 1px solid #000;">
+                    <p style="font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Identificação do Paciente</p>
+                    <div style="display: flex; justify-content: space-between;">
+                        <p style="font-size: 16px; font-weight: bold;" id="print-paciente">...</p>
+                        <p style="font-size: 14px;">Idade: <span id="print-idade" style="font-weight: bold;">...</span></p>
+                    </div>
+                    <p style="font-size: 12px; margin-top: 4px;">Tel: <span id="print-telefone">...</span></p>
+                    <p style="font-size: 12px; margin-top: 4px;">Endereço: <span id="print-paciente-endereco">...</span> | CEP: <span id="print-paciente-cep">...</span></p>
+                </div>
+                <div style="min-height: 250px;">
+                    <p style="font-size: 12px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Prescrição Terapêutica</p>
+                    <div id="print-medicamentos" style="font-size: 14px; line-height: 1.6;"></div>
+                </div>
+                <div style="margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div>
+                        <p style="font-size: 12px;">Local e Data da Emissão:</p>
+                        <p style="font-size: 14px; font-weight: bold;" id="print-local-data">...</p>
+                    </div>
+                    <div style="width: 350px; text-align: center;">
+                        <div style="border-top: 1px solid #000; padding-top: 8px;">
+                            <p style="font-size: 14px; font-weight: bold;" id="print-ass-nome">...</p>
+                            <p style="font-size: 12px; margin-bottom: 8px;" id="print-ass-registro">...</p>
+                            <div id="print-ass-digital-tag" style="background: #f0fdf4; padding: 6px; border: 1px dashed #86efac; border-radius: 4px;">
+                                <p style="font-size: 10px; color: #166534; font-weight: bold; text-transform: uppercase;">Documento Emitido com Assinatura Digital</p>
+                                <p id="print-ass-nivel" style="font-size: 10px; color: #15803d; font-weight: 600; margin-top: 2px;"></p>
+                                <p style="font-size: 10px; color: #475569; font-family: monospace; margin-top: 2px;">Protocolo: <span id="print-ass-id">...</span></p>
+                                <p id="print-ass-modo" style="font-size: 10px; color: #475569; margin-top: 2px;"></p>
+                            </div>
+                            <div id="print-ass-fisica-tag" class="hidden" style="margin-top: 8px; background: #fffbeb; padding: 6px; border: 1px dashed #fcd34d; border-radius: 4px;">
+                                <p style="font-size: 10px; color: #92400e; font-weight: bold; text-transform: uppercase;">⚠️ Emissão Física — Sem Custódia Digital</p>
+                                <p style="font-size: 10px; color: #78350f; margin-top: 2px;">Requer assinatura à caneta e carimbo físico para ter validade. Sem protocolo rastreável no PicSaúde.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="no-print" style="text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 850px; margin-left: auto; margin-right: auto;">
+        <p style="margin-bottom: 4px; font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
+        <p>Distribuído sob GNU AGPL-3.0 — software livre.</p>
+    </footer>
+
+    <script>
+      const BACKEND = BACKEND_URL;
+
+        const DEV_MODE = true;
+        // DEV_PRESET_CONTEXT: pré-seleciona o prescritor de teste automaticamente.
+        // Mude para false antes de publicar em produção.
+        const DEV_PRESET_CONTEXT = true;
+        let assinaturaModo = null;
+        let carteiraDigitalStatus = null; // Ticket 63: null=não verificado, true/false=resultado
+        let jwtAccessToken = null;  // Bearer token em memória (não persiste em localStorage)
+
+        // ── Navegação de submódulos ──────────────────────────────────────
+        function mostrarSubmodulo(qual) {
+            const mapa = {
+                receita:  'form-receita',
+                exames:   'form-pedido-exame',
+                atestado: 'form-atestado',
+            };
+            Object.entries(mapa).forEach(([key, id]) => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = (key === qual) ? '' : 'none';
+                const btn = document.getElementById('btn-submod-' + key);
+                if (btn) btn.classList.toggle('ativo', key === qual);
+            });
+        }
+
+        // Retorna headers JSON + Authorization quando há token ativo
+        function authHeaders() {
+            const h = { 'Content-Type': 'application/json' };
+            if (jwtAccessToken && jwtAccessToken !== 'DEV_TOKEN') {
+                h['Authorization'] = 'Bearer ' + jwtAccessToken;
+            }
+            return h;
+        }
+
+        if (DEV_MODE) document.getElementById('dev-mode-badge').style.display = 'inline-block';
+
+        function labelAssinaturaModo(modo) {
+            if (modo === 'icp_brasil_local') return 'Certificado Local (ICP-Brasil)';
+            if (modo === 'gov_br_nuvem') return 'Assinatura em Nuvem (gov.br - em implantação)';
+            return 'Não informado';
+        }
+
+        /**
+         * Calcula o nível formal no frontend com base no modo de assinatura e tipo de emissão.
+         * Espelha a lógica de calcular_nivel_formal() do backend.
+         */
+        function calcularNivelFormalFrontend(assinaturaModo, tipoEmissao) {
+            if (tipoEmissao === 'fisica' || tipoEmissao === 'encerrada_localmente') return 'fisica';
+            if (!assinaturaModo) return 'operacional';
+            if (assinaturaModo === 'icp_brasil_local') return 'cfm_pendente';
+            if (assinaturaModo === 'gov_br_nuvem')     return 'cfm_gov_br_pendente';
+            return 'operacional';
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Ticket 49 — Widget de confiança CNES do prescritor
+        // ─────────────────────────────────────────────────────────────
+
+        function _renderCnesDetails(v) {
+            const sim  = '<span style="color:#16a34a;font-weight:600">sim</span>';
+            const nao  = '<span style="color:#dc2626;font-weight:600">não</span>';
+            const na   = '<span style="color:#94a3b8">—</span>';
+            const bool = (x) => x === true ? sim : x === false ? nao : na;
+            const rows = [
+                `Nome CNES: <strong>${v.nome_cnes || '—'}</strong> · coincide: ${bool(v.nome_normalizado_coincide)}`,
+                `CRM: ${v.crm_declarado || '—'} · UF: ${v.uf_crm_declarado || '—'} · confirmado: ${bool(v.crm_cnes_coincide)}`,
+                `Vínculo c/ prestador: ${bool(v.vinculo_com_prestador)}`,
+            ];
+            const div  = (v.divergencias || []).length
+                ? `<div style="color:#dc2626;margin-top:6px">⚠ ${v.divergencias.join(' · ')}</div>` : '';
+            return rows.map(r => `<div>${r}</div>`).join('') + div;
+        }
+
+        function _renderizarValidacaoCNES(v) {
+            if (!v || !v.nivel_validacao_cnes) return '';
+            const cores  = { forte: '#16a34a', parcial: '#f59e0b', divergente: '#dc2626', nao_encontrado: '#6b7280' };
+            const textos = { forte: 'FORTE', parcial: 'PARCIAL', divergente: 'DIVERGENTE', nao_encontrado: 'NÃO ENCONTRADO' };
+            const nivel  = v.nivel_validacao_cnes;
+            const cor    = cores[nivel] || '#6b7280';
+            const texto  = textos[nivel] || nivel.toUpperCase();
+            const detId  = 'cnes-det-' + Math.random().toString(36).slice(2, 7);
+            return `
+                <div class="cnes-widget no-print" style="margin-top:12px;padding:10px 14px;border-left:4px solid ${cor};background:#f9fafb;border-radius:0 6px 6px 0;font-size:13px">
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                        <strong style="color:${cor}">● Validação CNES: ${texto}</strong>
+                        <button onclick="document.getElementById('${detId}').classList.toggle('hidden')"
+                                style="font-size:11px;color:#64748b;background:none;border:none;cursor:pointer;padding:2px 6px">
+                            ver detalhes ▾
+                        </button>
+                    </div>
+                    <div style="color:#64748b;margin-top:3px">
+                        ${v.cbo ? 'CBO: ' + v.cbo + ' · ' : ''}Vínculos: ${v.vinculos_ativos ?? 0} · Base: CNES ${v.snapshot_mes || '—'}
+                    </div>
+                    <div id="${detId}" class="hidden" style="margin-top:8px;color:#475569;border-top:1px solid #e2e8f0;padding-top:8px">
+                        ${_renderCnesDetails(v)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Ticket 50 — Badge discreto de Score de Confiança do Cuidado
+        function _renderizarScoreConfianca(s) {
+            if (!s || !s.nivel) return '';
+            const cores = { alto: '#16a34a', medio: '#f59e0b', baixo: '#ea580c', critico: '#dc2626' };
+            const cor   = cores[s.nivel] || '#6b7280';
+            return `<div class="no-print" style="margin-top:10px;text-align:center">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;background:${cor}18;border:1px solid ${cor}40;font-size:12px;font-weight:700;color:${cor}">
+                    ● Confiança do cuidado: ${s.nivel.toUpperCase()}
+                </span>
+                <div style="font-size:11px;color:#64748b;margin-top:4px">${s.resumo || ''}</div>
+            </div>`;
+        }
+
+        /**
+         * Retorna a configuração visual (texto, classe CSS) para exibição do nível formal.
+         */
+        function labelNivelFormal(nivel) {
+            const mapa = {
+                'fisica':              { texto: '⚠️ Impressão Física — Sem Custódia Digital',    cls: 'nivel-badge-fisica'  },
+                'operacional':         { texto: '📄 Digital Operacional (sem modo CFM)',           cls: 'nivel-badge-operac'  },
+                'cfm_pendente':        { texto: '✓ Digital — Validade CFM (ICP-Brasil)',           cls: 'nivel-badge-cfm'     },
+                'cfm_gov_br_pendente': { texto: '✓ Digital — Validade CFM (gov.br)',               cls: 'nivel-badge-govbr'   },
+                'valido_cfm_completo': { texto: '✓ Digital — Validade CFM Completa',               cls: 'nivel-badge-cfm'     },
+            };
+            return mapa[nivel] || { texto: nivel || 'Nível desconhecido', cls: 'nivel-badge-operac' };
+        }
+
+        /**
+         * Exibe uma mensagem de status no topo do formulário.
+         * tipo: 'error' | 'warn' | 'success'
+         */
+        function mostrarMensagemFormulario(msg, tipo) {
+            const el = document.getElementById('form-status-msg');
+            if (!el) return;
+            el.className = 'msg-inline msg-inline-' + (tipo === 'error' ? 'error' : tipo === 'warn' ? 'warn' : 'success');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function limparMensagemFormulario() {
+            const el = document.getElementById('form-status-msg');
+            if (el) { el.classList.add('hidden'); el.textContent = ''; }
+        }
+
+        const BASE_CNES_MOCK = [
+            { cns: "980001112223336", nome: "DRA. DEMO MARINA SOUZA", cnes_nome: "USF DEMONSTRACAO" },
+            { cns: "708901234567890", nome: "DR. CARLOS EDUARDO SILVA SANTOS", cnes_nome: "USF SÃO SEBASTIÃO" }
+        ];
+
+        // APONTANDO PARA A V27 COM MIGRAÇÃO INTELIGENTE
+        function initBancoLocal() {
+            try {
+                let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+                if (!db) {
+                    const oldDB = JSON.parse(localStorage.getItem('pix_saude_db_v26')) || JSON.parse(localStorage.getItem('pix_saude_db_v25')) || JSON.parse(localStorage.getItem('pix_saude_db_v24'));
+                    const mockDB = oldDB || { profissionais_cadastrados: [], receitas: [], farmacias_cadastradas: [], pacientes: [] };
+                    localStorage.setItem('pix_saude_db_v27', JSON.stringify(mockDB));
+                }
+            } catch (error) {
+                console.error("Erro ao puxar banco local.", error);
+                const mockDB = { profissionais_cadastrados: [], receitas: [], farmacias_cadastradas: [], pacientes: [] };
+                localStorage.setItem('pix_saude_db_v27', JSON.stringify(mockDB));
+            }
+        }
+
+        let medicoLogado = null;
+        let sessaoAtual = { fluxo: null, telefoneTemp: null, codigoGerado: null, cnsDescoberto: null };
+        let conselhosEdicao = []; 
+        let medCount = 0;
+        let receitaEmEdicaoId = null;
+
+        const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+        const TIPOS_CONSELHO = ["CRM", "CRO", "COREN", "CRF", "RMS"];
+
+        function getDataFormatada() {
+            const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+            const hoje = new Date();
+            return `${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`;
+        }
+
+        function adicionarConselhoEdicao(tela) {
+            conselhosEdicao.push({ tipo: 'CRM', uf: 'PE', numero: '' });
+            renderizarConselhos(tela);
+        }
+
+        function removerConselhoEdicao(index, tela) {
+            if (conselhosEdicao.length > 1) { conselhosEdicao.splice(index, 1); renderizarConselhos(tela); }
+        }
+
+        function renderizarConselhos(tela) {
+            const containerId = tela === 'vinc' ? 'vinc-conselhos-container' : 'perfil-conselhos-container';
+            const container = document.getElementById(containerId);
+            let html = '';
+            conselhosEdicao.forEach((c, index) => {
+                html += `<div class="grid-conselho">
+                    <select class="form-select" onchange="conselhosEdicao[${index}].tipo = this.value" required>`;
+                        TIPOS_CONSELHO.forEach(t => { html += `<option value="${t}" ${c.tipo === t ? 'selected' : ''}>${t}</option>`; });
+                html += `</select>
+                    <select class="form-select" onchange="conselhosEdicao[${index}].uf = this.value" required>`;
+                        UFS.forEach(u => { html += `<option value="${u}" ${c.uf === u ? 'selected' : ''}>${u}</option>`; });
+                html += `</select>
+                    <input type="text" class="form-input" placeholder="Número" value="${c.numero}" onchange="conselhosEdicao[${index}].numero = this.value" required>
+                    ${conselhosEdicao.length > 1 ? `<button type="button" onclick="removerConselhoEdicao(${index}, '${tela}')" class="btn-text" style="color:#dc2626;">Remover</button>` : '<div style="width:16px;"></div>'}
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function formatarConselhosDisplay(arrayConselhos) {
+            if (!arrayConselhos || arrayConselhos.length === 0) return "Registro não informado";
+            return arrayConselhos.map(c => `${c.tipo}-${c.uf} ${c.numero}`).join(' | ');
+        }
+
+        function esconderTudo() {
+            const blocos = ['tela-acesso', 'tela-busca', 'tela-vincular', 'tela-validacao', 'tela-dashboard', 'tela-perfil', 'tela-sucesso'];
+            blocos.forEach(id => {
+                const elemento = document.getElementById(id);
+                if (elemento) elemento.classList.add('hidden');
+            });
+        }
+
+        function voltarInicio() { esconderTudo(); document.getElementById('tela-acesso').classList.remove('hidden'); }
+        
+        function iniciarBusca() { 
+            esconderTudo(); 
+            document.getElementById('busca-input').value = ''; 
+            document.getElementById('lista-resultados').classList.add('hidden'); 
+            document.getElementById('tela-busca').classList.remove('hidden'); 
+        }
+
+        function buscarNome(e) {
+            e.preventDefault();
+            const termo = document.getElementById('busca-input').value.toUpperCase();
+            const container = document.getElementById('lista-resultados');
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27')) || { profissionais_cadastrados: [] };
+            const cadastrados = db.profissionais_cadastrados ? db.profissionais_cadastrados.map(p => p.cns) : [];
+            const resultados = BASE_CNES_MOCK.filter(p => p.nome.includes(termo));
+
+            if (resultados.length === 0) {
+                container.innerHTML = '<p style="padding: 16px; color: #475569; text-align: center;">Nenhum profissional localizado.</p>';
+            } else {
+                let html = '';
+                resultados.forEach(p => {
+                    if (cadastrados.includes(p.cns)) {
+                        html += `<div class="result-item disabled"><p class="result-name" style="color:#64748b;">${p.nome}</p><p class="result-details">CNS: ${p.cns} | ${p.cnes_nome}</p><p style="font-size: 11px; margin-top:4px; color:#94a3b8;">Já cadastrado neste dispositivo.</p></div>`;
+                    } else {
+                        html += `<div class="result-item" onclick="selecionarParaVincular('${p.cns}')"><p class="result-name">${p.nome}</p><p class="result-details">CNS: ${p.cns} | ${p.cnes_nome}</p><p style="font-size: 12px; color: #002776; margin-top: 8px; font-weight:bold;">👉 Clicar para Selecionar e Cadastrar</p></div>`;
+                    }
+                });
+                container.innerHTML = html;
+            }
+            container.classList.remove('hidden');
+        }
+
+        function selecionarParaVincular(cns) {
+            const profissional = BASE_CNES_MOCK.find(p => p.cns === cns);
+            sessaoAtual.fluxo = 'VINCULAR_APARELHO';
+            sessaoAtual.cnsDescoberto = cns;
+            document.getElementById('vinc-nome').textContent = profissional.nome;
+            document.getElementById('vinc-cns').textContent = profissional.cns;
+            document.getElementById('vinc-cnes').textContent = profissional.cnes_nome;
+            conselhosEdicao = [{ tipo: 'CRM', uf: 'PE', numero: '' }];
+            renderizarConselhos('vinc');
+            esconderTudo();
+            document.getElementById('tela-vincular').classList.remove('hidden');
+        }
+
+        function solicitarCodigoVinculo(e) {
+            e.preventDefault();
+            sessaoAtual.telefoneTemp = document.getElementById('vinc-telefone').value.replace(/\D/g, '');
+            sessaoAtual.codigoGerado = Math.floor(100000 + Math.random() * 900000).toString();
+            esconderTudo(); document.getElementById('tela-validacao').classList.remove('hidden');
+            if (DEV_MODE) { const d = document.getElementById('dev-otp-display'); if (d) { d.textContent = '🔑 DEV: ' + sessaoAtual.codigoGerado; d.classList.remove('hidden'); } }
+        }
+
+        function solicitarCodigoRapido(e) {
+            e.preventDefault();
+            const telefone = document.getElementById('acesso-telefone').value.replace(/\D/g, '');
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27')) || { profissionais_cadastrados: [] };
+            const profissional = db.profissionais_cadastrados ? db.profissionais_cadastrados.find(p => p.telefone_vinculado === telefone) : null;
+            
+            if (profissional) {
+                sessaoAtual.fluxo = 'ACESSO_RAPIDO'; sessaoAtual.telefoneTemp = telefone; sessaoAtual.cnsDescoberto = profissional.cns;
+                sessaoAtual.codigoGerado = Math.floor(100000 + Math.random() * 900000).toString();
+                esconderTudo(); document.getElementById('tela-validacao').classList.remove('hidden');
+                if (DEV_MODE) { const d = document.getElementById('dev-otp-display'); if (d) { d.textContent = '🔑 DEV: ' + sessaoAtual.codigoGerado; d.classList.remove('hidden'); } }
+            } else {
+                const elAcesso = document.getElementById('msg-login-erro');
+                if (elAcesso) { elAcesso.textContent = 'Credencial não localizada. Verifique o telefone cadastrado.'; elAcesso.classList.remove('hidden'); }
+            }
+        }
+
+        // Entrada no dashboard após autenticação bem-sucedida (JWT ou DEV_MODE)
+        function _entrarNoDashboard() {
+            document.getElementById('prof-nome').textContent = medicoLogado.nome;
+            document.getElementById('prof-cns').textContent = medicoLogado.cns;
+            document.getElementById('prof-registro').textContent = formatarConselhosDisplay(medicoLogado.conselhos);
+            document.getElementById('header-controls').classList.remove('hidden');
+            novaReceita();
+            atualizarPainel();
+        }
+
+        async function fazerLoginDireto(e) {
+            e.preventDefault();
+            _limparLoginErro();
+            const identificador = document.getElementById('acesso-identificador').value.trim();
+            const senha = document.getElementById('acesso-senha').value;
+
+            // Atalho DEV_MODE: sem backend para testes rápidos de UI
+            if (DEV_MODE && identificador === '11111111111' && senha === '123') {
+                jwtAccessToken = 'DEV_TOKEN';
+                medicoLogado = {
+                    nome: 'Dr. Fabiano Tonaco Borges',
+                    cns: '700000000000001',
+                    conselhos: [{ tipo: 'CRM', uf: 'PE', numero: '9999' }]
+                };
+                _entrarNoDashboard();
+                return;
+            }
+
+            // Login real via JWT — POST /auth/token (OAuth2 form)
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', identificador);
+                formData.append('password', senha);
+
+                const resp = await fetch(BACKEND + '/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    _mostrarLoginErro('Login inválido: ' + (err.detail || 'Verifique suas credenciais.'));
+                    return;
+                }
+
+                const data = await resp.json();
+
+                // Este módulo é exclusivo de prescritor/admin
+                if (data.role !== 'prescritor' && data.role !== 'admin') {
+                    _mostrarLoginErro('Acesso restrito ao Módulo Prescritor. Perfil recebido: ' + data.role + '. Utilize o módulo correto para o seu perfil.');
+                    return;
+                }
+
+                jwtAccessToken = data.access_token;
+                medicoLogado = {
+                    nome: data.nome,
+                    cns: identificador,   // sub = identificador normalizado (CNS para prescritor)
+                    conselhos: []         // perfil mínimo — sem conselhos no JWT
+                };
+
+                _entrarNoDashboard();
+
+            } catch (err) {
+                console.error('Erro ao conectar ao backend:', err);
+                _mostrarLoginErro('Não foi possível conectar ao servidor. Verifique se o backend está rodando em ' + BACKEND);
+            }
+        }
+
+        function _mostrarLoginErro(msg) {
+            const el = document.getElementById('msg-login-erro');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+        function _limparLoginErro() {
+            const el = document.getElementById('msg-login-erro');
+            if (el) { el.textContent = ''; el.classList.add('hidden'); }
+        }
+
+        // NOVA FUNÇÃO: VOLTAR E LIMPAR NA TELA DE CÓDIGO
+        function cancelarValidacao() {
+            document.getElementById('otp-codigo').value = '';
+            sessaoAtual = { fluxo: null, telefoneTemp: null, codigoGerado: null, cnsDescoberto: null };
+            const d = document.getElementById('dev-otp-display'); if (d) { d.textContent=''; d.classList.add('hidden'); }
+            const e = document.getElementById('msg-otp-erro'); if (e) { e.textContent=''; e.classList.add('hidden'); }
+            esconderTudo();
+            document.getElementById('tela-acesso').classList.remove('hidden');
+        }
+
+        function validarCodigo(e) {
+            e.preventDefault();
+            if (document.getElementById('otp-codigo').value === sessaoAtual.codigoGerado) {
+                let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+                if(!db.profissionais_cadastrados) db.profissionais_cadastrados = [];
+
+                if (sessaoAtual.fluxo === 'VINCULAR_APARELHO') {
+                    const profBase = BASE_CNES_MOCK.find(p => p.cns === sessaoAtual.cnsDescoberto);
+                    const novoCadastro = {
+                        cns: profBase.cns, nome: profBase.nome, conselhos: JSON.parse(JSON.stringify(conselhosEdicao)), 
+                        endereco: document.getElementById('vinc-endereco').value, 
+                        complemento: document.getElementById('vinc-complemento').value,
+                        cep: document.getElementById('vinc-cep').value,
+                        cidade: document.getElementById('vinc-cidade').value, uf_cidade: document.getElementById('vinc-uf').value,
+                        telefone_vinculado: sessaoAtual.telefoneTemp, 
+                        email: document.getElementById('vinc-email').value,
+                        telefone_comercial: document.getElementById('vinc-tel-comercial').value
+                    };
+                    db.profissionais_cadastrados.push(novoCadastro); localStorage.setItem('pix_saude_db_v27', JSON.stringify(db));
+                    medicoLogado = novoCadastro;
+                } else { medicoLogado = db.profissionais_cadastrados.find(p => p.cns === sessaoAtual.cnsDescoberto); }
+
+                document.getElementById('prof-nome').textContent = medicoLogado.nome;
+                document.getElementById('prof-cns').textContent = medicoLogado.cns;
+                document.getElementById('prof-registro').textContent = formatarConselhosDisplay(medicoLogado.conselhos);
+                document.getElementById('header-controls').classList.remove('hidden');
+                
+                novaReceita(); 
+                atualizarPainel();
+            } else {
+                const elOtp = document.getElementById('msg-otp-erro');
+                if (elOtp) { elOtp.textContent = 'Código inválido ou expirado. Tente novamente.'; elOtp.classList.remove('hidden'); }
+            }
+        }
+
+        function sair() {
+            medicoLogado = null;
+            jwtAccessToken = null;
+            voltarInicio();
+            document.getElementById('header-controls').classList.add('hidden');
+        }
+
+        function abrirPerfil() {
+            document.getElementById('perfil-nome').value = medicoLogado.nome;
+            document.getElementById('perfil-cns').value = medicoLogado.cns;
+            document.getElementById('perfil-endereco').value = medicoLogado.endereco || "";
+            document.getElementById('perfil-complemento').value = medicoLogado.complemento || "";
+            document.getElementById('perfil-cep').value = medicoLogado.cep || "";
+            document.getElementById('perfil-cidade').value = medicoLogado.cidade || "";
+            document.getElementById('perfil-uf').value = medicoLogado.uf_cidade || "PE";
+            document.getElementById('perfil-email').value = medicoLogado.email || "";
+            document.getElementById('perfil-tel-comercial').value = medicoLogado.telefone_comercial || "";
+            conselhosEdicao = JSON.parse(JSON.stringify(medicoLogado.conselhos));
+            renderizarConselhos('perfil');
+            esconderTudo(); document.getElementById('tela-perfil').classList.remove('hidden');
+        }
+
+        function fecharPerfil() { 
+            esconderTudo(); 
+            document.getElementById('tela-dashboard').classList.remove('hidden'); 
+            atualizarPainel();
+        }
+
+        function salvarPerfil(e) {
+            e.preventDefault();
+            const invalidos = conselhosEdicao.filter(c => c.numero.trim() === '');
+            if (invalidos.length > 0) {
+                const el = document.getElementById('msg-perfil-msg');
+                if (el) { el.textContent = 'Preencha o número de todos os registros profissionais.'; el.className = 'msg-inline msg-inline-error'; el.classList.remove('hidden'); }
+                return;
+            }
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+            const index = db.profissionais_cadastrados.findIndex(p => p.cns === medicoLogado.cns);
+            if(index !== -1) {
+                db.profissionais_cadastrados[index].endereco = document.getElementById('perfil-endereco').value;
+                db.profissionais_cadastrados[index].complemento = document.getElementById('perfil-complemento').value;
+                db.profissionais_cadastrados[index].cep = document.getElementById('perfil-cep').value;
+                db.profissionais_cadastrados[index].cidade = document.getElementById('perfil-cidade').value;
+                db.profissionais_cadastrados[index].uf_cidade = document.getElementById('perfil-uf').value;
+                db.profissionais_cadastrados[index].email = document.getElementById('perfil-email').value;
+                db.profissionais_cadastrados[index].telefone_comercial = document.getElementById('perfil-tel-comercial').value;
+                db.profissionais_cadastrados[index].conselhos = JSON.parse(JSON.stringify(conselhosEdicao));
+                localStorage.setItem('pix_saude_db_v27', JSON.stringify(db));
+                medicoLogado = db.profissionais_cadastrados[index];
+                document.getElementById('prof-registro').textContent = formatarConselhosDisplay(medicoLogado.conselhos);
+                const el = document.getElementById('msg-perfil-msg');
+                if (el) { el.textContent = '✓ Configurações atualizadas com sucesso.'; el.className = 'msg-inline msg-inline-success'; el.classList.remove('hidden'); }
+                setTimeout(() => fecharPerfil(), 800);
+                return;
+            }
+            fecharPerfil();
+        }
+
+        function atualizarPainel() {
+            carregarSolicitacoesRenovacao();
+            carregarCaixaDeCorrecoes();
+            renderizarHistoricoMedico();
+        }
+
+        async function carregarSolicitacoesRenovacao() {
+            const container = document.getElementById('caixa-renovacao');
+            const lista     = document.getElementById('lista-renovacao');
+            if (!jwtAccessToken) { container.classList.add('hidden'); return; }
+
+            try {
+                const res = await fetch('/prescritor/solicitacoes-renovacao', {
+                    headers: authHeaders(),
+                });
+                if (!res.ok) { container.classList.add('hidden'); return; }
+                const data = await res.json();
+                const pendentes = data.pendentes || [];
+
+                if (pendentes.length === 0) {
+                    container.classList.add('hidden');
+                    return;
+                }
+
+                container.classList.remove('hidden');
+                lista.innerHTML = pendentes.map(s => `
+                    <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:16px; margin-bottom:12px;">
+                        <p style="font-size:12px; font-family:monospace; color:#1d4ed8; font-weight:bold; margin-bottom:4px;">
+                            Protocolo: ${s.protocolo_prescricao}
+                        </p>
+                        <p style="font-weight:700; color:#1e293b; margin-bottom:4px;">
+                            Paciente: ${s.paciente_nome}
+                        </p>
+                        ${s.motivo ? `<p style="font-size:13px; color:#374151; background:white; padding:8px; border-radius:4px; border:1px solid #bfdbfe; margin-bottom:8px;"><strong>Motivo:</strong> "${s.motivo}"</p>` : ''}
+                        <p style="font-size:11px; color:#64748b; margin-bottom:12px;">
+                            Solicitado em: ${new Date(s.criado_em).toLocaleString('pt-BR')}
+                        </p>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button onclick="responderRenovacao(${s.id}, 'atender')"
+                                    class="btn-action"
+                                    style="background:#15803d; padding:8px 16px; font-size:13px; width:auto;">
+                                Atender
+                            </button>
+                            <button onclick="responderRenovacao(${s.id}, 'recusar')"
+                                    class="btn-action"
+                                    style="background:#dc2626; padding:8px 16px; font-size:13px; width:auto;">
+                                Recusar
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                container.classList.add('hidden');
+            }
+        }
+
+        async function responderRenovacao(id, decisao) {
+            let observacao = '';
+            let nova_proto = null;
+
+            if (decisao === 'recusar') {
+                observacao = prompt('Justificativa para recusa (opcional):') ?? '';
+                if (observacao === null) return;
+            } else {
+                nova_proto = prompt('Informe o protocolo da nova prescrição emitida:');
+                if (!nova_proto || !nova_proto.trim()) {
+                    alert('É necessário informar o protocolo da nova prescrição para atender.');
+                    return;
+                }
+                nova_proto = nova_proto.trim();
+            }
+
+            try {
+                const res = await fetch(`/prescritor/solicitacoes-renovacao/${id}/responder`, {
+                    method: 'POST',
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        decisao,
+                        observacao: observacao.trim() || null,
+                        nova_prescricao_protocolo: nova_proto,
+                    }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || res.statusText);
+                }
+                atualizarPainel();
+            } catch (err) {
+                alert(`Erro ao responder solicitação: ${err.message}`);
+            }
+        }
+
+        function carregarCaixaDeCorrecoes() {
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+            const devolvidas = db.receitas ? db.receitas.filter(r => r.medico_cns === medicoLogado.cns && r.status === 'devolvida_medico') : [];
+            const container = document.getElementById('caixa-correcao');
+            const lista = document.getElementById('lista-devolvidas');
+            
+            if(devolvidas.length > 0) {
+                container.classList.remove('hidden');
+                let html = '';
+                devolvidas.forEach(r => {
+                    html += `
+                        <div class="correcao-card">
+                            <p style="font-size: 12px; font-family: monospace; color: #dc2626; font-weight:bold; margin-bottom:4px;">Protocolo: ${r.id}</p>
+                            <p style="font-weight: 700; color:#1e293b;">Paciente: ${r.paciente_nome}</p>
+                            <p style="font-size: 14px; color: #7f1d1d; margin-top: 8px; background:white; padding:8px; border-radius:4px; border:1px solid #fca5a5;"><strong>Motivo da recusa:</strong> "${r.motivo_devolucao}"</p>
+                            <button type="button" onclick="carregarParaEdicao('${r.id}')" class="btn-action" style="margin-top: 12px; width: auto; padding: 10px 20px; font-size: 13px;">Corrigir e Reemitir</button>
+                        </div>
+                    `;
+                });
+                lista.innerHTML = html;
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+
+        function carregarParaEdicao(id) {
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+            const r = db.receitas.find(rec => rec.id === id);
+            
+            if(r) {
+                receitaEmEdicaoId = id;
+                esconderTudo();
+                document.getElementById('tela-dashboard').classList.remove('hidden');
+                mostrarSubmodulo('receita');
+
+                document.getElementById('titulo-formulario').textContent = "Corrigir Prescrição Devolvida";
+                document.getElementById('pac-nome').value = r.paciente_nome;
+                document.getElementById('pac-idade').value = r.paciente_idade || '';
+                document.getElementById('pac-telefone').value = r.paciente_telefone || '';
+                document.getElementById('pac-chave').value = r.paciente_chave;
+                
+                let enderecoSplit = r.paciente_endereco ? r.paciente_endereco.split(' | Comp: ') : ['', ''];
+                document.getElementById('pac-endereco').value = enderecoSplit[0] || '';
+                document.getElementById('pac-complemento').value = enderecoSplit[1] || '';
+                
+                document.getElementById('pac-cep').value = r.paciente_cep || '';
+                let cidadeUfSplit = r.paciente_cidade_uf ? r.paciente_cidade_uf.split(' - ') : ['', 'PE'];
+                document.getElementById('pac-cidade').value = cidadeUfSplit[0] || '';
+                document.getElementById('pac-uf').value = cidadeUfSplit[1] || 'PE';
+
+                const medContainer = document.getElementById('lista-medicamentos');
+                medContainer.innerHTML = '';
+                medCount = 0;
+                r.medicamentos.forEach(m => {
+                    adicionarMedicamento(m.nome, m.concentracao, m.forma, m.quantidade, m.posologia, m.validade, m.unidade || '');
+                });
+                
+                assinaturaModo = null;
+            document.getElementById('btn-emitir').textContent = "Salvar Correções e Transferir";
+                document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
+                document.getElementById('form-receita').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function adicionarMedicamento(nome='', conc='', forma='', qtd='', posologia='', validade='30 dias', unidade='') {
+            medCount++;
+            const container = document.getElementById('lista-medicamentos');
+            const div = document.createElement('div');
+            div.className = 'med-card'; div.id = `med-item-${medCount}`;
+            div.innerHTML = `
+                <div class="med-card-header">
+                    <span class="med-card-title">Fármaco ${medCount}</span>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <select class="form-select med-validade" style="width: auto; padding: 4px 8px; font-size:12px; background:#f8fafc; border-color:#cbd5e1; font-weight:bold; color:#002776;">
+                            <option value="10 dias" ${validade === '10 dias' ? 'selected' : ''}>Validade: 10 dias</option>
+                            <option value="30 dias" ${validade === '30 dias' || validade === '' ? 'selected' : ''}>Validade: 30 dias</option>
+                            <option value="6 meses" ${validade === '6 meses' ? 'selected' : ''}>Validade: 6 meses</option>
+                        </select>
+                        ${medCount > 1 ? `<button type="button" class="btn-text" style="color: #dc2626;" onclick="removerMedicamento(${medCount})">X Remover</button>` : ''}
+                    </div>
+                </div>
+                <div class="grid-4">
+                    <input type="text" class="form-input med-nome" placeholder="Princípio Ativo / Nome *" value="${nome}" required>
+                    <input type="text" class="form-input med-conc" placeholder="Concentração *" value="${conc}" required>
+                    <input type="number" class="form-input med-qtd" placeholder="Qtd. *" min="1" value="${qtd}" required style="max-width:90px;">
+                    <select class="form-select med-unidade" required>
+                        <option value="">Unidade *</option>
+                        <option value="ampola" ${unidade==='ampola'?'selected':''}>Ampola</option>
+                        <option value="bisnaga" ${unidade==='bisnaga'?'selected':''}>Bisnaga</option>
+                        <option value="caixa" ${unidade==='caixa'?'selected':''}>Caixa</option>
+                        <option value="cápsula" ${unidade==='cápsula'?'selected':''}>Cápsula</option>
+                        <option value="comprimido" ${unidade==='comprimido'?'selected':''}>Comprimido</option>
+                        <option value="drágea" ${unidade==='drágea'?'selected':''}>Drágea</option>
+                        <option value="envelope" ${unidade==='envelope'?'selected':''}>Envelope</option>
+                        <option value="frasco" ${unidade==='frasco'?'selected':''}>Frasco</option>
+                        <option value="frasco-ampola" ${unidade==='frasco-ampola'?'selected':''}>Frasco-Ampola</option>
+                        <option value="pastilha" ${unidade==='pastilha'?'selected':''}>Pastilha</option>
+                        <option value="sachê" ${unidade==='sachê'?'selected':''}>Sachê</option>
+                        <option value="supositório" ${unidade==='supositório'?'selected':''}>Supositório</option>
+                        <option value="unidade" ${unidade==='unidade'?'selected':''}>Unidade</option>
+                    </select>
+                </div>
+                <input type="text" class="form-input med-forma" placeholder="Apresentação comercial (ex: 1 caixa c/ 30 cápsulas)" value="${forma}" style="margin-top:8px;">
+                <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required>${posologia}</textarea>
+                <div class="ia-container"></div>
+            `;
+            container.appendChild(div);
+
+            // IA Farmacêutica — debounce no campo de nome do medicamento
+            const _nomeInputIA = div.querySelector('.med-nome');
+            if (_nomeInputIA) {
+                const _nIA = medCount; // captura snapshot do índice deste card
+                _nomeInputIA.addEventListener('input', function() {
+                    clearTimeout(_iaTimers[_nIA]);
+                    _iaTimers[_nIA] = setTimeout(() => _consultarIa(_nIA), 500);
+                });
+            }
+        }
+
+        function removerMedicamento(id) { document.getElementById(`med-item-${id}`).remove(); }
+
+        function novaReceita() {
+            receitaEmEdicaoId = null;
+            assinaturaModo = null;
+            carteiraDigitalStatus = null;
+            const _csEl = document.getElementById('carteira-status-rec');
+            if (_csEl) _csEl.style.display = 'none';
+            document.getElementById('titulo-formulario').textContent = "Formulário de Prescrição Digital";
+            
+            esconderTudo();
+            document.getElementById('tela-dashboard').classList.remove('hidden');
+            mostrarSubmodulo('receita');
+            
+            document.getElementById('main-prescription-form').reset();
+            document.getElementById('lista-medicamentos').innerHTML = '';
+            document.getElementById('btn-emitir').textContent = "Assinar Digitalmente e Emitir";
+            document.getElementById('btn-cancelar-edicao').classList.add('hidden');
+            medCount = 0; adicionarMedicamento();
+
+            // Limpa IA CID da prescrição
+            const _cPrescr = document.getElementById('ia-cid-prescricao');
+            if (_cPrescr) _cPrescr.innerHTML = '';
+            const _hPrescr = document.getElementById('prescricao-cid-escolhido');
+            if (_hPrescr) _hPrescr.value = '';
+
+            // Inicializa a lista de exames com um card vazio (se ainda estiver vazia)
+            if (document.getElementById('lista-exames').children.length === 0) {
+                exameCount = 0; adicionarExame();
+            }
+        }
+
+        function gerarObjetoReceita() {
+            const medicamentos = [];
+            document.querySelectorAll('.med-card').forEach(card => {
+                medicamentos.push({
+                    nome: card.querySelector('.med-nome').value,
+                    concentracao: card.querySelector('.med-conc').value,
+                    quantidade: card.querySelector('.med-qtd').value,
+                    unidade: card.querySelector('.med-unidade').value,
+                    forma: card.querySelector('.med-forma').value,
+                    posologia: card.querySelector('.med-posologia').value,
+                    validade: card.querySelector('.med-validade').value
+                });
+            });
+
+            const compPac = document.getElementById('pac-complemento').value;
+            const endPacFull = compPac ? `${document.getElementById('pac-endereco').value} | Comp: ${compPac}` : document.getElementById('pac-endereco').value;
+            
+            const compMed = medicoLogado.complemento;
+            const endMedFull = compMed ? `${medicoLogado.endereco} | Comp: ${compMed}` : medicoLogado.endereco;
+
+            return {
+                id: receitaEmEdicaoId || ("REC-" + new Date().getFullYear() + "-" + Math.floor(100000 + Math.random() * 900000)),
+                paciente_chave: document.getElementById('pac-chave').value.replace(/\D/g, ''), 
+                paciente_nome: document.getElementById('pac-nome').value.toUpperCase(),
+                paciente_idade: document.getElementById('pac-idade').value,
+                paciente_telefone: document.getElementById('pac-telefone').value, 
+                paciente_endereco: endPacFull, 
+                paciente_cidade_uf: `${document.getElementById('pac-cidade').value} - ${document.getElementById('pac-uf').value}`,
+                paciente_cep: document.getElementById('pac-cep').value,
+                medico_nome: medicoLogado.nome, medico_conselhos: medicoLogado.conselhos, 
+                medico_cns: medicoLogado.cns, medico_endereco: endMedFull,
+                medico_cidade: medicoLogado.cidade, medico_uf: medicoLogado.uf_cidade, medico_cep: medicoLogado.cep,
+                medico_telefone: medicoLogado.telefone_comercial,
+                data_emissao: new Date().toISOString(),
+                medicamentos: medicamentos,
+                motivo_devolucao: null
+            };
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Ticket 63 — Verificação de carteira digital
+        // Consulta GET /pacientes/{cpf}/carteira e atualiza o indicador visual.
+        // ─────────────────────────────────────────────────────────────────────
+
+        async function verificarCarteiraPaciente() {
+            const cpf = document.getElementById('pac-chave').value.replace(/\D/g, '');
+            const el  = document.getElementById('carteira-status-rec');
+            if (!el) return;
+            if (cpf.length !== 11) {
+                el.style.display = 'none';
+                carteiraDigitalStatus = null;
+                return;
+            }
+            try {
+                const resp = await fetch(`${BACKEND}/pacientes/${cpf}/carteira`, { headers: authHeaders() });
+                if (!resp.ok) { el.style.display = 'none'; return; }
+                const data = await resp.json();
+                carteiraDigitalStatus = data.tem_carteira;
+                if (data.tem_carteira) {
+                    el.textContent = '✓ Carteira digital encontrada — receita será entregue diretamente ao paciente.';
+                    el.style.background = '#dcfce7'; el.style.color = '#166534'; el.style.border = '1px solid #86efac';
+                } else {
+                    el.textContent = '⚠ Paciente sem conta no PicSaúde — receita ficará disponível por link de acesso.';
+                    el.style.background = '#fffbeb'; el.style.color = '#92400e'; el.style.border = '1px solid #fcd34d';
+                }
+                el.style.display = 'block';
+            } catch (err) {
+                el.style.display = 'none';
+            }
+        }
+
+        async function _verificarCarteiraExame(cpf) {
+            if (!cpf || cpf.length !== 11) return null;
+            try {
+                const resp = await fetch(`${BACKEND}/pacientes/${cpf}/carteira`, { headers: authHeaders() });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                return data.tem_carteira;
+            } catch (e) { return null; }
+        }
+
+        async function emitirReceitaDigital(e) {
+            if(e) e.preventDefault();
+            limparMensagemFormulario();
+
+            // Limpar mensagens de campo
+            const msgCpf  = document.getElementById('msg-cpf-erro');
+            const msgModo = document.getElementById('msg-modo-erro');
+            if (msgCpf)  { msgCpf.classList.add('hidden');  msgCpf.textContent  = ''; }
+            if (msgModo) { msgModo.classList.add('hidden'); msgModo.textContent = ''; }
+
+            const form = document.getElementById('main-prescription-form');
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+
+            const chave = document.getElementById('pac-chave').value.replace(/\D/g, '');
+            if (!chave) {
+                if (msgCpf) { msgCpf.textContent = 'O CPF do Paciente é obrigatório para a emissão digital.'; msgCpf.classList.remove('hidden'); }
+                document.getElementById('pac-chave').focus();
+                return;
+            }
+            // Ticket 63 — Validação rígida de CPF (11 dígitos)
+            // Sem essa validação, CPF de 10 dígitos cria paciente fantasma e
+            // a entrega à carteira digital é silenciosamente cancelada
+            // (porque paciente novo não tem carteira ativa).
+            if (chave.length !== 11) {
+                if (msgCpf) { msgCpf.textContent = 'CPF inválido: deve ter exatamente 11 dígitos. Você digitou ' + chave.length + ' dígitos.'; msgCpf.classList.remove('hidden'); }
+                document.getElementById('pac-chave').focus();
+                return;
+            }
+
+            const modosValidos = ['icp_brasil_local', 'gov_br_nuvem'];
+            if (!assinaturaModo || !modosValidos.includes(assinaturaModo)) {
+                if (msgModo) { msgModo.textContent = 'Selecione um modo de assinatura digital (ICP-Brasil ou gov.br).'; msgModo.classList.remove('hidden'); }
+                return;
+            }
+
+            const novaReceitaObj = gerarObjetoReceita();
+            novaReceitaObj.assinatura_modo = assinaturaModo;
+            assinaturaModo = null;
+            novaReceitaObj.status = "transferida_paciente";
+
+            // -----------------------------------------------------------------
+            // Gravar prescrição no backend
+            // -----------------------------------------------------------------
+            // Ticket 36: ler contexto clínico dos campos de IA CID (opcionais)
+            const _indicacaoEl = document.getElementById('prescricao-indicacao');
+            const _cidEl       = document.getElementById('prescricao-cid-escolhido');
+            const _indicacao   = _indicacaoEl ? (_indicacaoEl.value.trim() || null) : null;
+            const _cidEscolhido = _cidEl ? (_cidEl.value.trim() || null) : null;
+
+            const payload = {
+                cns_prescritor: medicoLogado.cns,
+                nome_prescritor: medicoLogado.nome,
+                cpf_paciente: novaReceitaObj.paciente_chave,
+                nome_paciente: novaReceitaObj.paciente_nome,
+                assinatura_modo: novaReceitaObj.assinatura_modo,
+                tipo_emissao: receitaEmEdicaoId ? "correcao" : "nova",
+                origem_prescricao_id: null,
+                // Ticket 36 — contexto clínico (enviados somente se presentes)
+                ...(  _indicacao   ? { indicacao_clinica: _indicacao }    : {}),
+                ...(_cidEscolhido  ? { codigo_cid: _cidEscolhido }        : {}),
+                // Ticket 63 — solicitar entrega à carteira digital do paciente
+                enviar_ao_paciente: true,
+                itens: novaReceitaObj.medicamentos.map(i => ({
+                    nome_medicamento: i.nome,
+                    concentracao: i.concentracao || null,
+                    quantidade: i.quantidade ? parseInt(i.quantidade, 10) : null,
+                    unidade_quantidade: i.unidade || null,
+                    forma_farmaceutica: i.forma || null,
+                    posologia: i.posologia || null
+                }))
+            };
+
+            try {
+                const resp = await fetch(BACKEND + '/prescricoes', {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    if (resp.status === 401 || resp.status === 403) {
+                        mostrarMensagemFormulario('Sessão expirada ou sem permissão. Faça login novamente.', 'error');
+                        sair();
+                        return;
+                    }
+                    const errData = await resp.json().catch(() => ({}));
+                    mostrarMensagemFormulario('Erro ao registrar prescrição: ' + (errData.detail || resp.statusText), 'error');
+                    return;
+                }
+
+                const data = await resp.json();
+                console.log("Prescrição registrada:", data);
+                // Substituir ID local pelo protocolo oficial do backend
+                novaReceitaObj.id = data.protocolo;
+                novaReceitaObj.protocolo_backend = data.protocolo;
+                novaReceitaObj.cnes_validacao   = data.cnes_validacao   || null;
+                novaReceitaObj.score_confianca  = data.score_confianca  || null;
+                // Ticket 63 — resultado da entrega à carteira digital
+                novaReceitaObj.entregue_carteira = data.entregue_carteira === true;
+            } catch (err) {
+                console.error("Falha ao conectar ao backend:", err);
+                mostrarMensagemFormulario('Não foi possível conectar ao servidor. Verifique se o backend está rodando em ' + BACKEND + '.', 'error');
+                return;
+            }
+
+            // Atualizar histórico em memória (para exibição na tela de sucesso)
+            if (receitaEmEdicaoId) {
+                novaReceitaObj.historico = [{ acao: "CORRECAO_E_REEMISSAO", data: new Date().toISOString() }];
+            } else {
+                novaReceitaObj.historico = [{ acao: "EMISSAO_E_TRANSFERENCIA", de: `CNS:${medicoLogado.cns}`, para: `Chave:${chave}`, data: new Date().toISOString() }];
+            }
+            // -----------------------------------------------------------------
+
+            const nivelFormal = calcularNivelFormalFrontend(novaReceitaObj.assinatura_modo, 'nova');
+            exibirSucessoEImpressao(novaReceitaObj, true, nivelFormal);
+        }
+
+        async function imprimirDireto() {
+            const form = document.getElementById('main-prescription-form');
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+            const novaReceitaObj = gerarObjetoReceita();
+            novaReceitaObj.status = "encerrada_localmente";
+
+            novaReceitaObj.historico = [{ acao: "EMISSAO_APENAS_FISICA", de: `CNS:${medicoLogado.cns}`, data: new Date().toISOString() }];
+            if(!db.receitas) db.receitas = [];
+            db.receitas.push(novaReceitaObj);
+            localStorage.setItem('pix_saude_db_v27', JSON.stringify(db));
+
+            // ----------------------------------------------------------------
+            // Registrar emissão física no backend (fire-and-forget).
+            //
+            // TRADE-OFF EXPLÍCITO:
+            //   A impressão física não depende do backend estar online.
+            //   Se o backend falhar, a prescrição é impressa e registrada
+            //   apenas no localStorage — sem persistência central.
+            //
+            //   Consequência aceita: pode haver impressões concluídas sem
+            //   registro no banco. Para rastreabilidade completa, o backend
+            //   deve estar acessível no momento da emissão física.
+            // ----------------------------------------------------------------
+            const payload = {
+                cns_prescritor:  medicoLogado.cns,
+                nome_prescritor: medicoLogado.nome,
+                cpf_paciente:    novaReceitaObj.paciente_chave || null,
+                nome_paciente:   novaReceitaObj.paciente_nome,
+                itens: novaReceitaObj.medicamentos.map(i => ({
+                    nome_medicamento: i.nome,
+                    concentracao: i.concentracao || null,
+                    quantidade: i.quantidade ? parseInt(i.quantidade, 10) : null,
+                    unidade_quantidade: i.unidade || null,
+                    forma_farmaceutica: i.forma || null,
+                    posologia: i.posologia || null
+                }))
+            };
+
+            fetch(BACKEND + '/prescricoes/fisica', {
+                method: "POST",
+                headers: authHeaders(),
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                novaReceitaObj.protocolo_backend = data.protocolo;
+                console.log("Emissão física registrada:", data);
+            })
+            .catch(err => console.warn("Backend indisponível, emissão física registrada apenas localmente:", err));
+            // ----------------------------------------------------------------
+
+            exibirSucessoEImpressao(novaReceitaObj, false, 'fisica');
+            setTimeout(() => { window.print(); }, 500);
+        }
+
+        function exibirSucessoEImpressao(rec, isDigital, nivelFormal) {
+            esconderTudo();
+            document.getElementById('tela-sucesso').classList.remove('hidden');
+
+            // — Ícone de confirmação (verde = digital, âmbar = física)
+            const icone = document.getElementById('sucesso-icone');
+            if (nivelFormal === 'fisica') {
+                icone.style.background = '#fffbeb';
+                icone.style.color      = '#d97706';
+                icone.textContent      = '🖨️';
+            } else {
+                icone.style.background = '#dcfce7';
+                icone.style.color      = '#16a34a';
+                icone.textContent      = '✓';
+            }
+
+            // — Badge de nível formal
+            const badge = document.getElementById('sucesso-nivel-badge');
+            if (nivelFormal && badge) {
+                const cfg = labelNivelFormal(nivelFormal);
+                badge.textContent = cfg.texto;
+                badge.className   = 'nivel-badge ' + cfg.cls;
+                badge.style.display = 'inline-flex';
+            }
+
+            if (isDigital) {
+                document.getElementById('sucesso-titulo').textContent = "Prescrição Digital Transmitida";
+                document.getElementById('sucesso-msg').innerHTML = `A custódia foi enviada com sucesso para o CPF: <strong>${formatarCPF(rec.paciente_chave)}</strong>`;
+                const elModo = document.getElementById('sucesso-modo-assinatura');
+                elModo.textContent = `Modo de assinatura: ${labelAssinaturaModo(rec.assinatura_modo)}`;
+                elModo.style.display = 'block';
+            } else {
+                document.getElementById('sucesso-titulo').textContent = "Prescrição Física Registrada";
+                document.getElementById('sucesso-msg').textContent = "O documento foi registrado no histórico local. Não foi transmitido ao aplicativo do paciente — sem custódia digital.";
+                document.getElementById('sucesso-modo-assinatura').style.display = 'none';
+            }
+
+            // Ticket 63 — indicador de entrega à carteira digital
+            const _carteiraEl = document.getElementById('sucesso-carteira-info');
+            if (_carteiraEl) {
+                if (isDigital && rec.protocolo_backend) {
+                    if (rec.entregue_carteira) {
+                        _carteiraEl.innerHTML = '<div style="background:#dcfce7;border:1px solid #86efac;border-radius:4px;padding:8px 12px;font-size:12px;color:#166534;">✓ Entregue diretamente à carteira digital do paciente.</div>';
+                        _carteiraEl.style.display = 'block';
+                    } else {
+                        const _link = `cidadao.html?protocolo=${rec.protocolo_backend}`;
+                        _carteiraEl.innerHTML = `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;padding:8px 12px;font-size:12px;color:#92400e;">⚠ Paciente sem conta no PicSaúde — compartilhe o link de acesso:<br><a href="${_link}" target="_blank" style="color:#1d4ed8;text-decoration:underline;font-weight:600;word-break:break-all;">${_link}</a></div>`;
+                        _carteiraEl.style.display = 'block';
+                    }
+                } else {
+                    _carteiraEl.style.display = 'none';
+                }
+            }
+
+            // Ticket 49 — injetar widget de confiança CNES
+            // Ticket 50 — badge de score de confiança do cuidado
+            const _cnesEl = document.getElementById('sucesso-cnes-validacao');
+            if (_cnesEl) _cnesEl.innerHTML =
+                _renderizarValidacaoCNES(rec.cnes_validacao || null) +
+                _renderizarScoreConfianca(rec.score_confianca || null);
+
+            document.getElementById('print-protocolo').textContent = rec.id;
+            document.getElementById('print-medico-nome').textContent = rec.medico_nome;
+            document.getElementById('print-medico-registros').textContent = formatarConselhosDisplay(rec.medico_conselhos);
+            document.getElementById('print-medico-endereco').textContent = rec.medico_endereco;
+            document.getElementById('print-medico-cep').textContent = rec.medico_cep;
+            document.getElementById('print-medico-tel').textContent = rec.medico_telefone || 'N/I';
+            document.getElementById('print-paciente').textContent = rec.paciente_nome;
+            document.getElementById('print-idade').textContent = rec.paciente_idade;
+            document.getElementById('print-telefone').textContent = rec.paciente_telefone || 'Não informado';
+            document.getElementById('print-paciente-endereco').textContent = rec.paciente_endereco;
+            document.getElementById('print-paciente-cep').textContent = rec.paciente_cep;
+            document.getElementById('print-local-data').textContent = `${rec.medico_cidade} - ${rec.medico_uf}, ${getDataFormatada()}`;
+            
+            document.getElementById('print-ass-nome').textContent = rec.medico_nome;
+            document.getElementById('print-ass-registro').textContent = formatarConselhosDisplay(rec.medico_conselhos);
+            
+            if (isDigital) {
+                document.getElementById('print-ass-digital-tag').classList.remove('hidden');
+                document.getElementById('print-ass-fisica-tag').classList.add('hidden');
+                document.getElementById('print-ass-id').textContent = rec.id;
+                const nivelCfg = labelNivelFormal(nivelFormal);
+                document.getElementById('print-ass-nivel').textContent = nivelCfg.texto;
+                document.getElementById('print-ass-modo').textContent = `Assinatura: ${labelAssinaturaModo(rec.assinatura_modo)}`;
+            } else {
+                document.getElementById('print-ass-digital-tag').classList.add('hidden');
+                document.getElementById('print-ass-fisica-tag').classList.remove('hidden');
+                document.getElementById('print-ass-nivel').textContent = '';
+                document.getElementById('print-ass-modo').textContent = '';
+            }
+            
+            let htmlMeds = "";
+            rec.medicamentos.forEach((m, index) => {
+                htmlMeds += `
+                <div style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <p style="font-weight: bold; margin-bottom: 4px;">${index + 1}. ${m.nome} ${m.concentracao} .................... ${m.quantidade}${m.unidade ? ' ' + m.unidade : ''}</p>
+                        <p style="font-size: 11px; font-weight:bold; color:#002776;">Validade: ${m.validade}</p>
+                    </div>
+                    <p style="font-size: 12px; margin-bottom: 4px;">Apresentação: ${m.forma}</p>
+                    <p style="font-size: 13px;">Uso: ${m.posologia}</p>
+                </div>`;
+            });
+            document.getElementById('print-medicamentos').innerHTML = htmlMeds;
+            
+            atualizarPainel();
+        }
+
+        function renderizarHistoricoMedico() {
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+            const receitasDoMedico = db.receitas ? db.receitas.filter(r => r.medico_cns === medicoLogado.cns).reverse() : []; 
+            const container = document.getElementById('lista-historico-medico');
+
+            if(receitasDoMedico.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; padding:20px; border:1px dashed #cbd5e1; border-radius:6px;">Nenhuma prescrição gerada por este usuário.</p>';
+                return;
+            }
+
+            let html = '';
+            receitasDoMedico.forEach(r => {
+                const data = new Date(r.data_emissao).toLocaleDateString('pt-BR');
+                let badge = '';
+                
+                if (r.status === 'emitida_fisica') {
+                    badge = '<span class="badge-fisica">Impressão Física</span>';
+                } else if (r.status === 'devolvida_medico') {
+                    badge = '<span class="badge-digital" style="background:#fef2f2; color:#dc2626;">Devolvida</span>';
+                } else {
+                    badge = '<span class="badge-digital">Envio Digital</span>';
+                }
+
+                html += `
+                    <div class="historico-item">
+                        <div>
+                            <p style="font-weight:bold; color:#002776; font-size:14px;">${r.paciente_nome}</p>
+                            <p style="font-size:12px; color:#64748b; margin-top:4px;">${data} • Prot: ${r.id}</p>
+                            <p style="font-size:12px; color:#475569; margin-top:2px;">${r.medicamentos.length} fármaco(s) prescrito(s)</p>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+                            ${badge}
+                            <button onclick="renovarReceita('${r.id}')" class="btn-text" style="font-size:11px; color:#002776;">↻ Renovar Receita</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function irParaDashboard() {
+            receitaEmEdicaoId = null;
+            esconderTudo();
+            document.getElementById('main-prescription-form').reset();
+            document.getElementById('lista-medicamentos').innerHTML = '';
+            document.getElementById('btn-cancelar-edicao').classList.add('hidden');
+            document.getElementById('titulo-formulario').textContent = "Prescrição Médica — Emissão Documentada";
+            medCount = 0;
+            document.getElementById('tela-dashboard').classList.remove('hidden');
+            renderizarHistoricoMedico();
+        }
+
+        function renovarReceita(id) {
+            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+            const r = db.receitas.find(rec => rec.id === id);
+            if (!r) return;
+
+            receitaEmEdicaoId = null;
+            esconderTudo();
+            document.getElementById('tela-dashboard').classList.remove('hidden');
+            mostrarSubmodulo('receita');
+
+            document.getElementById('titulo-formulario').textContent = "Renovação de Prescrição";
+            document.getElementById('pac-nome').value = r.paciente_nome;
+            document.getElementById('pac-idade').value = r.paciente_idade || '';
+            document.getElementById('pac-telefone').value = r.paciente_telefone || '';
+            document.getElementById('pac-chave').value = r.paciente_chave;
+
+            const enderecoSplit = r.paciente_endereco ? r.paciente_endereco.split(' | Comp: ') : ['', ''];
+            document.getElementById('pac-endereco').value = enderecoSplit[0] || '';
+            document.getElementById('pac-complemento').value = enderecoSplit[1] || '';
+            document.getElementById('pac-cep').value = r.paciente_cep || '';
+
+            const cidadeUfSplit = r.paciente_cidade_uf ? r.paciente_cidade_uf.split(' - ') : ['', 'PE'];
+            document.getElementById('pac-cidade').value = cidadeUfSplit[0] || '';
+            document.getElementById('pac-uf').value = cidadeUfSplit[1] || 'PE';
+
+            const medContainer = document.getElementById('lista-medicamentos');
+            medContainer.innerHTML = '';
+            medCount = 0;
+            r.medicamentos.forEach(m => {
+                adicionarMedicamento(m.nome, m.concentracao, m.forma, m.quantidade, m.posologia, m.validade, m.unidade || '');
+            });
+
+            document.getElementById('btn-emitir').textContent = "Assinar Digitalmente e Emitir";
+            document.getElementById('btn-cancelar-edicao').classList.add('hidden');
+            document.getElementById('form-receita').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // =====================================================================
+        // IA FARMACÊUTICA v1 — lookup + regras, stateless, não bloqueante
+        // POST /ia/medicamentos/sugerir (apenas consulta, sem gravação)
+        // =====================================================================
+
+        const _iaTimers = {}; // debounce timers por card (chave = medCount do card)
+
+        /** Normaliza texto removendo acentos para comparação de opções do select. */
+        function _iaNormSimples(s) {
+            return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
+
+        /**
+         * Consulta a IA para o card de índice `n`.
+         * Dispara com debounce de 500ms a partir do evento input no med-nome.
+         * Silencia qualquer erro — a IA é acessória, nunca bloqueia o formulário.
+         */
+        function _consultarIa(n) {
+            // IA requer JWT real — não disponível em DEV_MODE (retornaria 401)
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
+
+            const card = document.getElementById('med-item-' + n);
+            if (!card) return;
+
+            const nomeEl    = card.querySelector('.med-nome');
+            const formaEl   = card.querySelector('.med-forma');
+            const unidadeEl = card.querySelector('.med-unidade');
+            const container = card.querySelector('.ia-container');
+            if (!nomeEl || !container) return;
+
+            const nome = (nomeEl.value || '').trim();
+            if (nome.length < 3) { container.innerHTML = ''; return; }
+
+            container.innerHTML = '<div class="ia-loading">Consultando base farmacêutica...</div>';
+
+            const payload = {
+                nome_medicamento:   nome,
+                forma_farmaceutica: formaEl   ? (formaEl.value.trim()   || null) : null,
+                unidade_quantidade: unidadeEl ? (unidadeEl.value        || null) : null,
+                contexto:           'prescricao'
+            };
+
+            fetch(BACKEND + '/ia/medicamentos/sugerir', {
+                method:  'POST',
+                headers: authHeaders(),
+                body:    JSON.stringify(payload)
+            })
+            .then(r => { if (!r.ok) throw new Error('ia_err'); return r.json(); })
+            .then(data => _renderizarSugestaoIA(n, data))
+            .catch(() => { const c = card.querySelector('.ia-container'); if (c) c.innerHTML = ''; });
+        }
+
+        /**
+         * Aplica sugestões da IA nos campos que estiverem vazios.
+         * Nunca sobrescreve campo já preenchido pelo usuário.
+         * Após aplicar, dispara nova consulta (sem debounce) para re-renderizar.
+         */
+        function _aplicarSugestaoIA(n, forma, unidade) {
+            const card = document.getElementById('med-item-' + n);
+            if (!card) return;
+
+            const formaEl   = card.querySelector('.med-forma');
+            const unidadeEl = card.querySelector('.med-unidade');
+
+            if (forma && formaEl && !formaEl.value.trim()) {
+                formaEl.value = forma;
+            }
+
+            if (unidade && unidadeEl && !unidadeEl.value) {
+                // Localiza opção correspondente ignorando acentos
+                const opts = unidadeEl.options;
+                for (let i = 0; i < opts.length; i++) {
+                    if (_iaNormSimples(opts[i].value) === _iaNormSimples(unidade)) {
+                        unidadeEl.value = opts[i].value;
+                        break;
+                    }
+                }
+            }
+
+            // Re-consulta para atualizar o bloco (botão "Aplicar" some quando campos já estão preenchidos)
+            clearTimeout(_iaTimers[n]);
+            _iaTimers[n] = setTimeout(() => _consultarIa(n), 100);
+        }
+
+        /**
+         * Renderiza o bloco de sugestão e alertas no card do medicamento.
+         * Regras de exibição:
+         *   - Sugestão (verde): mostra forma e unidade sugeridas
+         *   - Botão "Aplicar": aparece apenas se campo estiver vazio
+         *   - Alerta (âmbar): incoerências clínicas, sem bloquear emissão
+         *   - Nada a mostrar: limpa o container silenciosamente
+         */
+        function _renderizarSugestaoIA(n, data) {
+            const card = document.getElementById('med-item-' + n);
+            if (!card) return;
+            const container = card.querySelector('.ia-container');
+            if (!container) return;
+
+            const forma    = data.forma_farmaceutica_sugerida;
+            const unidade  = data.unidade_quantidade_sugerida;
+            const alertas  = data.alertas || [];
+            const matchTipo = data.match_tipo || 'nenhum';
+            const score    = typeof data.score === 'number' ? data.score : 0;
+            const fonte    = data.fonte || '';
+
+            // Sem nada útil → limpar silenciosamente
+            if (!forma && !unidade && alertas.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // — Bloco de sugestão positiva (verde)
+            if (forma || unidade) {
+                const formaEl    = card.querySelector('.med-forma');
+                const unidadeEl  = card.querySelector('.med-unidade');
+                const formaAtual = formaEl   ? formaEl.value.trim()   : '';
+                const unidAtual  = unidadeEl ? unidadeEl.value        : '';
+
+                // Botão "Aplicar" só aparece se pelo menos um campo está vazio
+                const podeAplicar = (!formaAtual && forma) || (!unidAtual && unidade);
+
+                const confianca = score >= 0.9 ? 'Alta' : score >= 0.7 ? 'Média' : 'Baixa';
+                const labelMatch = {
+                    exato:      'Correspondência exata',
+                    alias:      'Nome comercial reconhecido',
+                    aproximado: 'Correspondência aproximada',
+                    regra:      'Sugestão por regra',
+                }[matchTipo] || null;
+
+                // Escapar valores para uso seguro em atributos onclick
+                const formaEsc  = (forma   || '').replace(/'/g, "\\'");
+                const unidEsc   = (unidade || '').replace(/'/g, "\\'");
+
+                html += `<div class="ia-bloco ia-bloco-sugestao">`;
+                html += `<div class="ia-header">Sugestão farmacêutica</div>`;
+                html += `<div class="ia-chips">`;
+                if (forma)    html += `<span class="ia-chip">Forma: ${forma}</span>`;
+                if (unidade)  html += `<span class="ia-chip">Unidade: ${unidade}</span>`;
+                if (podeAplicar) {
+                    html += `<button type="button" class="ia-btn-aplicar" onclick="_aplicarSugestaoIA(${n},'${formaEsc}','${unidEsc}')">Aplicar nos campos vazios</button>`;
+                }
+                html += `</div>`;
+
+                const metaParts = [];
+                if (fonte)      metaParts.push('Fonte: ' + fonte);
+                if (labelMatch) metaParts.push(labelMatch);
+                if (score > 0)  metaParts.push('Confiança: ' + confianca);
+                if (metaParts.length > 0) html += `<div class="ia-meta">${metaParts.join(' · ')}</div>`;
+
+                html += `</div>`;
+            }
+
+            // — Bloco de alertas (âmbar) — não bloqueante
+            if (alertas.length > 0) {
+                html += `<div class="ia-bloco ia-bloco-alerta">`;
+                alertas.forEach(a => { html += `<div class="ia-alerta-item">&#9888; ${a}</div>`; });
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // =====================================================================
+
+        // =====================================================================
+        // IA CID v1 — normalização do contexto clínico (Ticket 34)
+        // POST /ia/cid/buscar  (apenas consulta, sem gravação)
+        //
+        // Integrado em DOIS formulários:
+        //   1. Prescrição    — #prescricao-indicacao  (UI-only; backend ainda não suporta)
+        //   2. Pedido Exame  — #exam-indicacao        (enviado via indicacao_clinica)
+        //
+        // Paleta roxa — distinta do verde (IA farmacêutica) e azul (IA exames).
+        // =====================================================================
+
+        const _iaCidTimers = {};  // debounce por contexto de formulário
+
+        /**
+         * Consulta a IA CID para o texto digitado no campo de indicação clínica.
+         * Debounce 500ms. Falha silenciosa — nunca bloqueia o formulário.
+         *
+         * @param {string} contexto    - "pedido_exame" | "prescricao"
+         * @param {string} texto       - conteúdo do textarea
+         * @param {string} containerId - id do div ia-cid-container
+         * @param {string} hiddenId    - id do input[type=hidden] que guarda o CID escolhido
+         */
+        function _consultarIaCid(contexto, texto, containerId, hiddenId) {
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
+
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const t = (texto || '').trim();
+            if (t.length < 3) { container.innerHTML = ''; return; }
+
+            container.innerHTML = '<div class="ia-loading">Consultando base CID...</div>';
+
+            fetch(BACKEND + '/ia/cid/buscar', {
+                method:  'POST',
+                headers: authHeaders(),
+                body:    JSON.stringify({ texto_clinico: t, contexto: contexto })
+            })
+            .then(r => { if (!r.ok) throw new Error('ia_cid_err'); return r.json(); })
+            .then(data => _renderizarSugestoesCid(containerId, hiddenId, data))
+            .catch(() => { const c = document.getElementById(containerId); if (c) c.innerHTML = ''; });
+        }
+
+        /**
+         * Aplica o CID escolhido pelo profissional.
+         * - Grava o código no campo hidden (disponível para payload futuro).
+         * - Substitui o bloco de sugestões por confirmação visual.
+         * - NÃO altera o texto de indicacao_clinica — ação puramente aditiva.
+         */
+        function _usarCid(containerId, hiddenId, codigo, descricao) {
+            const hiddenEl = document.getElementById(hiddenId);
+            if (hiddenEl) hiddenEl.value = codigo;
+
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const descEsc = descricao.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            container.innerHTML = `
+                <div class="ia-cid-bloco ia-cid-bloco-norm">
+                    <div class="ia-cid-selecionado">
+                        <span>✓ CID escolhido: <strong>${codigo}</strong> — ${descEsc}</span>
+                        <button type="button" class="ia-cid-btn-usar"
+                            style="border-color:#dc2626; color:#dc2626;"
+                            onclick="document.getElementById('${hiddenId}').value=''; document.getElementById('${containerId}').innerHTML='';">
+                            Remover
+                        </button>
+                    </div>
+                    <div class="ia-cid-aviso">Sugestões de CID baseadas no texto informado. A escolha clínica permanece com o profissional.</div>
+                </div>
+            `;
+        }
+
+        /**
+         * Renderiza a lista de sugestões CID (até 5) no container.
+         * Bloco principal (roxo): texto normalizado + sugestões com botão "Usar este CID".
+         * Bloco de alertas (âmbar): nunca bloqueante.
+         * Aviso fixo obrigatório.
+         */
+        function _renderizarSugestoesCid(containerId, hiddenId, data) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const textoNorm = data.texto_normalizado || '';
+            const sugestoes = (data.cid_sugeridos   || []).slice(0, 5);
+            const alertas   = data.alertas           || [];
+            const aviso     = data.aviso             || '';
+            const fonte     = data.fonte             || '';
+            const versao    = data.versao_base       || '';
+
+            if (sugestoes.length === 0 && alertas.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // — Bloco principal (roxo)
+            if (sugestoes.length > 0) {
+                html += `<div class="ia-cid-bloco ia-cid-bloco-norm">`;
+                html += `<div class="ia-cid-header">Sugestões de CID — Normalização Diagnóstica Assistida</div>`;
+                if (textoNorm) {
+                    html += `<div class="ia-cid-texto-norm">Texto interpretado: <em>${textoNorm}</em></div>`;
+                }
+                html += `<div class="ia-cid-lista">`;
+                sugestoes.forEach(s => {
+                    const confianca  = s.score >= 0.9 ? 'Alta' : 'Média';
+                    const labelMatch = { exato: 'Exata', alias: 'Alias', aproximado: 'Aproximada' }[s.match_tipo] || '';
+                    const descEsc    = (s.descricao || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const codigoEsc  = (s.codigo    || '').replace(/'/g, "\\'");
+                    const descSafe   = (s.descricao || '').replace(/'/g, "\\'").replace(/[<>]/g, '');
+
+                    html += `<div class="ia-cid-item">`;
+                    html += `<span class="ia-cid-codigo">${s.codigo}</span>`;
+                    html += `<span class="ia-cid-descricao">${descEsc}</span>`;
+                    html += `<span class="ia-cid-meta">${labelMatch} · ${confianca}</span>`;
+                    html += `<button type="button" class="ia-cid-btn-usar"
+                        onclick="_usarCid('${containerId}','${hiddenId}','${codigoEsc}','${descSafe}')">Usar este CID</button>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+
+                const metaParts = [];
+                if (fonte)  metaParts.push('Fonte: ' + fonte);
+                if (versao) metaParts.push('Base: '  + versao);
+                if (metaParts.length > 0) html += `<div class="ia-cid-aviso" style="margin-top:6px;">${metaParts.join(' · ')}</div>`;
+                if (aviso) html += `<div class="ia-cid-aviso">${aviso}</div>`;
+                html += `</div>`;
+            }
+
+            // — Bloco de alertas (âmbar) — nunca bloqueante
+            if (alertas.length > 0) {
+                html += `<div class="ia-cid-bloco ia-cid-bloco-alerta">`;
+                alertas.forEach(a => { html += `<div class="ia-cid-alerta-item">&#9888; ${a}</div>`; });
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // ── Wire-up: indicacao_clinica do pedido de exame ─────────────────────
+        // O texto é enviado ao backend via #exam-indicacao → indicacao_clinica.
+        // O CID escolhido fica em #exam-cid-escolhido (hidden).
+        // ⚠️  PedidoExameIn não tem campo codigo_cid no nível do pedido — hidden
+        //     disponível para quando o backend suportar.
+        (function _wireExameIndicacao() {
+            const el = document.getElementById('exam-indicacao');
+            if (!el) return;
+            el.addEventListener('input', function() {
+                clearTimeout(_iaCidTimers['exame']);
+                _iaCidTimers['exame'] = setTimeout(() => {
+                    _consultarIaCid('pedido_exame', this.value, 'ia-cid-exame', 'exam-cid-escolhido');
+                }, 500);
+            });
+        })();
+
+        // ── Wire-up: indicacao_clinica da prescrição ──────────────────────────
+        // Ticket 36: backend agora suporta indicacao_clinica + codigo_cid.
+        // Os valores são lidos diretamente em emitirReceitaDigital() via
+        //   #prescricao-indicacao  e  #prescricao-cid-escolhido.
+        (function _wirePrescricaoIndicacao() {
+            const el = document.getElementById('prescricao-indicacao');
+            if (!el) return;
+            el.addEventListener('input', function() {
+                clearTimeout(_iaCidTimers['prescricao']);
+                _iaCidTimers['prescricao'] = setTimeout(() => {
+                    _consultarIaCid('prescricao', this.value, 'ia-cid-prescricao', 'prescricao-cid-escolhido');
+                }, 500);
+            });
+        })();
+
+        // =====================================================================
+        // PEDIDO DE EXAME + IA EXAMES v1 — normalização diagnóstica assistida
+        // POST /pedidos-exame (digital) · POST /pedidos-exame/fisica (físico)
+        // POST /ia/exames/normalizar   (apenas consulta, sem gravação)
+        // Ticket 32
+        // =====================================================================
+
+        let exameCount = 0;
+        const _iaExameTimers = {}; // debounce timers por card (chave = exameCount do card)
+
+        /**
+         * Adiciona um card de exame à lista.
+         * Cada card mantém seu próprio debounce e estado de IA — independente dos demais.
+         */
+        function adicionarExame(nome = '', qtd = 1, codigoTuss = '') {
+            exameCount++;
+            const container = document.getElementById('lista-exames');
+            const div = document.createElement('div');
+            div.className = 'exame-card'; div.id = `exame-item-${exameCount}`;
+            div.innerHTML = `
+                <div class="exame-card-header">
+                    <span class="exame-card-title">Exame ${exameCount}</span>
+                    ${exameCount > 1 ? `<button type="button" class="btn-text" style="color: #dc2626;" onclick="removerExame(${exameCount})">X Remover</button>` : ''}
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 80px; gap: 12px; align-items: start;">
+                    <input type="text" class="form-input exame-nome" placeholder="Nome do Exame *" value="${nome}" required>
+                    <input type="number" class="form-input exame-qtd" placeholder="Qtd." min="1" value="${qtd}">
+                </div>
+                <input type="hidden" class="exame-codigo-tuss" value="${codigoTuss}">
+                <div class="ia-exame-container"></div>
+            `;
+            container.appendChild(div);
+
+            // Debounce por card — cada item é independente
+            const nomeEl = div.querySelector('.exame-nome');
+            if (nomeEl) {
+                const _n = exameCount;
+                nomeEl.addEventListener('input', function() {
+                    // Limpa código TUSS ao editar manualmente
+                    const tussEl = div.querySelector('.exame-codigo-tuss');
+                    if (tussEl) tussEl.value = '';
+                    clearTimeout(_iaExameTimers[_n]);
+                    _iaExameTimers[_n] = setTimeout(() => _consultarIaExame(_n), 500);
+                });
+            }
+        }
+
+        function removerExame(id) { document.getElementById(`exame-item-${id}`).remove(); }
+
+        /**
+         * Consulta a IA para o card de índice `n`.
+         * Dispara com debounce 500 ms; mínimo 3 caracteres.
+         * Falha silenciosa — nunca bloqueia o formulário.
+         */
+        function _consultarIaExame(n) {
+            // IA requer JWT real — não disponível em DEV_MODE
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
+
+            const card = document.getElementById('exame-item-' + n);
+            if (!card) return;
+
+            const nomeEl    = card.querySelector('.exame-nome');
+            const container = card.querySelector('.ia-exame-container');
+            if (!nomeEl || !container) return;
+
+            const nome = (nomeEl.value || '').trim();
+            if (nome.length < 3) { container.innerHTML = ''; return; }
+
+            container.innerHTML = '<div class="ia-loading">Consultando base diagnóstica...</div>';
+
+            fetch(BACKEND + '/ia/exames/normalizar', {
+                method:  'POST',
+                headers: authHeaders(),
+                body:    JSON.stringify({ nome_exame: nome, contexto: 'pedido_exame' })
+            })
+            .then(r => { if (!r.ok) throw new Error('ia_exame_err'); return r.json(); })
+            .then(data => _renderizarNormalizacaoExame(n, data))
+            .catch(() => { const c = document.querySelector(`#exame-item-${n} .ia-exame-container`); if (c) c.innerHTML = ''; });
+        }
+
+        /**
+         * Aplica o nome padronizado e o código TUSS no card.
+         * Ação explícita do usuário — nunca automática.
+         * O botão some após aplicar (nome já igual ao padronizado).
+         */
+        function _usarNomePadronizado(n, nomePadronizado, codigoTuss) {
+            const card = document.getElementById('exame-item-' + n);
+            if (!card) return;
+
+            const nomeEl = card.querySelector('.exame-nome');
+            const tussEl = card.querySelector('.exame-codigo-tuss');
+
+            if (nomeEl) nomeEl.value = nomePadronizado;
+            if (tussEl) tussEl.value = codigoTuss || '';
+
+            // Re-consulta para atualizar o bloco (botão some quando já igual)
+            clearTimeout(_iaExameTimers[n]);
+            _iaExameTimers[n] = setTimeout(() => _consultarIaExame(n), 100);
+        }
+
+        /**
+         * Renderiza o bloco de normalização e alertas no card do exame.
+         * Regras:
+         *   - match_tipo='nenhum' sem alertas → limpa silenciosamente
+         *   - Bloco azul: nome padronizado, TUSS, categoria, preparo, metadados
+         *   - Botão "Usar nome padronizado": só aparece se nome for diferente do atual
+         *   - Bloco âmbar: alertas clínicos — sem bloquear emissão
+         *   - Aviso obrigatório: decisão clínica permanece com o profissional
+         */
+        function _renderizarNormalizacaoExame(n, data) {
+            const card = document.getElementById('exame-item-' + n);
+            if (!card) return;
+            const container = card.querySelector('.ia-exame-container');
+            if (!container) return;
+
+            const nomePadronizado = data.nome_padronizado || '';
+            const codigoTuss      = data.codigo_tuss      || '';
+            const categoria       = data.categoria        || '';
+            const preparo         = data.preparo_sugerido || '';
+            const matchTipo       = data.match_tipo        || 'nenhum';
+            const score           = typeof data.score === 'number' ? data.score : 0;
+            const fonte           = data.fonte             || '';
+            const versaoBase      = data.versao_base       || '';
+            const alertas         = data.alertas           || [];
+            const aviso           = data.aviso             || '';
+
+            // Sem match útil e sem alertas → limpar silenciosamente
+            if (matchTipo === 'nenhum' && alertas.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const nomeEl    = card.querySelector('.exame-nome');
+            const nomeAtual = nomeEl ? (nomeEl.value || '').trim().toLowerCase() : '';
+            const podeSugerir = nomePadronizado && nomePadronizado.toLowerCase() !== nomeAtual;
+
+            let html = '';
+
+            // — Bloco principal (azul)
+            if (matchTipo !== 'nenhum') {
+                const confianca  = score >= 0.9 ? 'Alta' : score >= 0.7 ? 'Média' : 'Baixa';
+                const labelMatch = {
+                    exato:      'Correspondência exata',
+                    alias:      'Alias reconhecido',
+                    aproximado: 'Correspondência aproximada',
+                }[matchTipo] || null;
+
+                const nomePadEsc = nomePadronizado.replace(/'/g, "\\'");
+                const tussEsc    = codigoTuss.replace(/'/g, "\\'");
+
+                html += `<div class="ia-exame-bloco ia-exame-bloco-norm">`;
+                html += `<div class="ia-exame-header">Normalização diagnóstica assistida</div>`;
+                html += `<div class="ia-exame-chips">`;
+                if (nomePadronizado) html += `<span class="ia-exame-chip">📋 ${nomePadronizado}</span>`;
+                if (codigoTuss)      html += `<span class="ia-exame-chip">TUSS ${codigoTuss}</span>`;
+                if (categoria)       html += `<span class="ia-exame-chip">${categoria}</span>`;
+                if (podeSugerir) {
+                    html += `<button type="button" class="ia-exame-btn-usar" onclick="_usarNomePadronizado(${n},'${nomePadEsc}','${tussEsc}')">Usar nome padronizado</button>`;
+                }
+                html += `</div>`;
+
+                if (preparo) html += `<div class="ia-exame-meta" style="margin-top:6px;"><strong>Preparo:</strong> ${preparo}</div>`;
+
+                const metaParts = [];
+                if (labelMatch) metaParts.push(labelMatch);
+                if (score > 0)  metaParts.push('Confiança: ' + confianca);
+                if (fonte)      metaParts.push('Fonte: ' + fonte);
+                if (versaoBase) metaParts.push('Base: ' + versaoBase);
+                if (metaParts.length > 0) html += `<div class="ia-exame-meta">${metaParts.join(' · ')}</div>`;
+
+                if (aviso) html += `<div class="ia-exame-aviso">${aviso}</div>`;
+                html += `</div>`;
+            }
+
+            // — Bloco de alertas (âmbar) — nunca bloqueante
+            if (alertas.length > 0) {
+                html += `<div class="ia-exame-bloco ia-exame-bloco-alerta">`;
+                alertas.forEach(a => { html += `<div class="ia-exame-alerta-item">&#9888; ${a}</div>`; });
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        /**
+         * Emite o pedido de exame digital via POST /pedidos-exame.
+         * Não envia metadados de IA — apenas os campos que o usuário preencheu.
+         * Se o usuário clicou em "Usar nome padronizado", o código TUSS vai junto.
+         */
+        async function emitirPedidoExame(e) {
+            if (e) e.preventDefault();
+
+            const statusEl = document.getElementById('pedido-exame-status-msg');
+            const _mostrar = (msg, tipo) => {
+                if (!statusEl) return;
+                statusEl.textContent = msg;
+                statusEl.className = `msg-inline msg-inline-${tipo}`;
+                statusEl.classList.remove('hidden');
+            };
+            if (statusEl) statusEl.classList.add('hidden');
+
+            const nomePac = (document.getElementById('exam-pac-nome').value || '').trim();
+            const cpfPac  = (document.getElementById('exam-pac-cpf').value  || '').replace(/\D/g, '');
+            const priorid = document.getElementById('exam-prioridade').value;
+            const indicac = (document.getElementById('exam-indicacao').value || '').trim();
+
+            const errCpfEl = document.getElementById('msg-exam-cpf-erro');
+            if (!cpfPac) {
+                if (errCpfEl) { errCpfEl.textContent = 'O CPF do Paciente é obrigatório para emissão digital.'; errCpfEl.classList.remove('hidden'); }
+                return;
+            }
+            if (errCpfEl) errCpfEl.classList.add('hidden');
+
+            const itens = [];
+            document.querySelectorAll('.exame-card').forEach(card => {
+                const nomeEl = card.querySelector('.exame-nome');
+                const qtdEl  = card.querySelector('.exame-qtd');
+                const tussEl = card.querySelector('.exame-codigo-tuss');
+                if (nomeEl && nomeEl.value.trim()) {
+                    itens.push({
+                        nome_exame:  nomeEl.value.trim(),
+                        codigo_tuss: (tussEl && tussEl.value) ? tussEl.value : null,
+                        quantidade:  qtdEl ? (parseInt(qtdEl.value, 10) || 1) : 1
+                    });
+                }
+            });
+
+            if (itens.length === 0) { _mostrar('Adicione ao menos um exame ao pedido.', 'error'); return; }
+
+            // Ticket 63 — verificar carteira antes de emitir
+            const _temCarteiraExame = await _verificarCarteiraExame(cpfPac);
+            const _examCarteiraEl   = document.getElementById('carteira-status-exam');
+            if (_examCarteiraEl) {
+                if (_temCarteiraExame === true) {
+                    _examCarteiraEl.textContent = '✓ Carteira digital encontrada — pedido será entregue diretamente.';
+                    _examCarteiraEl.style.cssText = 'display:block;background:#dcfce7;color:#166534;border:1px solid #86efac;';
+                } else if (_temCarteiraExame === false) {
+                    _examCarteiraEl.textContent = '⚠ Paciente sem conta — pedido ficará disponível por link de acesso.';
+                    _examCarteiraEl.style.cssText = 'display:block;background:#fffbeb;color:#92400e;border:1px solid #fcd34d;';
+                }
+            }
+
+            const payload = {
+                cns_prescritor:    medicoLogado.cns,
+                nome_prescritor:   medicoLogado.nome,
+                cpf_paciente:      cpfPac,
+                nome_paciente:     nomePac.toUpperCase(),
+                prioridade:        priorid,
+                indicacao_clinica: indicac || null,
+                tipo_emissao:      'novo',
+                // Ticket 63 — solicitar entrega à carteira digital do paciente
+                enviar_ao_paciente: true,
+                itens:             itens
+            };
+
+            try {
+                const resp = await fetch(BACKEND + '/pedidos-exame', {
+                    method:  'POST',
+                    headers: authHeaders(),
+                    body:    JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    if (resp.status === 401 || resp.status === 403) { _mostrar('Sessão expirada ou sem permissão. Faça login novamente.', 'error'); sair(); return; }
+                    const errData = await resp.json().catch(() => ({}));
+                    _mostrar('Erro ao emitir pedido: ' + (errData.detail || resp.statusText), 'error');
+                    return;
+                }
+
+                const data = await resp.json();
+                let _msgSucesso = `Pedido emitido com sucesso! Protocolo: ${data.protocolo}`;
+                if (data.entregue_carteira) {
+                    _msgSucesso += ' — entregue à carteira digital.';
+                } else {
+                    _msgSucesso += ` — compartilhe: cidadao.html?protocolo=${data.protocolo}`;
+                }
+                _mostrar(_msgSucesso, 'success');
+
+                // Limpa o formulário e reinicia com um card vazio
+                document.getElementById('lista-exames').innerHTML = '';
+                exameCount = 0;
+                adicionarExame();
+                document.getElementById('exam-pac-nome').value = '';
+                document.getElementById('exam-pac-cpf').value  = '';
+                document.getElementById('exam-indicacao').value = '';
+                document.getElementById('exam-prioridade').value = 'rotina';
+                const _cExame = document.getElementById('ia-cid-exame');
+                if (_cExame) _cExame.innerHTML = '';
+                const _hExame = document.getElementById('exam-cid-escolhido');
+                if (_hExame) _hExame.value = '';
+
+            } catch (err) {
+                console.error('Falha ao conectar ao backend:', err);
+                _mostrar('Não foi possível conectar ao servidor. Verifique se o backend está rodando em ' + BACKEND + '.', 'error');
+            }
+        }
+
+        /**
+         * Emissão física do pedido de exame — fire-and-forget.
+         * Mesmo trade-off da prescrição física: impressão não depende do backend.
+         * Se o backend estiver offline, o pedido é impresso sem persistência central.
+         */
+        function imprimirPedidoFisico() {
+            const nomePac = (document.getElementById('exam-pac-nome').value || '').trim();
+            const cpfPac  = (document.getElementById('exam-pac-cpf').value  || '').replace(/\D/g, '');
+            const priorid = document.getElementById('exam-prioridade').value;
+            const indicac = (document.getElementById('exam-indicacao').value || '').trim();
+
+            const itens = [];
+            document.querySelectorAll('.exame-card').forEach(card => {
+                const nomeEl = card.querySelector('.exame-nome');
+                const qtdEl  = card.querySelector('.exame-qtd');
+                const tussEl = card.querySelector('.exame-codigo-tuss');
+                if (nomeEl && nomeEl.value.trim()) {
+                    itens.push({
+                        nome_exame:  nomeEl.value.trim(),
+                        codigo_tuss: (tussEl && tussEl.value) ? tussEl.value : null,
+                        quantidade:  qtdEl ? (parseInt(qtdEl.value, 10) || 1) : 1
+                    });
+                }
+            });
+
+            // Fire-and-forget — não aguarda resposta do backend
+            fetch(BACKEND + '/pedidos-exame/fisica', {
+                method:  'POST',
+                headers: authHeaders(),
+                body:    JSON.stringify({
+                    cns_prescritor:    medicoLogado.cns,
+                    nome_prescritor:   medicoLogado.nome,
+                    cpf_paciente:      cpfPac || null,
+                    nome_paciente:     (nomePac.toUpperCase()) || 'PACIENTE NÃO IDENTIFICADO',
+                    prioridade:        priorid,
+                    indicacao_clinica: indicac || null,
+                    itens:             itens
+                })
+            }).catch(() => {}); // silencioso: impressão não depende do backend
+
+            window.print();
+        }
+
+        // =====================================================================
+        // IA Documental v1 — Atestado Assistido (Ticket 39)
+        // =====================================================================
+
+        /** Data de hoje no formato YYYY-MM-DD (compatível com input[type=date]). */
+        function _hojeISO() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        /**
+         * Preenche os campos do atestado com dados já disponíveis no contexto:
+         *   — paciente_nome   ← #pac-nome
+         *   — indicacao_clinica ← #prescricao-indicacao
+         *   — codigo_cid      ← #prescricao-cid-escolhido
+         *   — profissional    ← medicoLogado.nome
+         *   — registro        ← medicoLogado.conselhos
+         *   — data            ← hoje (se ainda vazio)
+         * Nunca sobrescreve campo já preenchido pelo usuário.
+         */
+        function usarContextoClinicoAtestado() {
+            // Paciente
+            const nomePac = document.getElementById('pac-nome');
+            const atPac   = document.getElementById('atestado-paciente');
+            if (nomePac && atPac && nomePac.value.trim()) {
+                atPac.value = nomePac.value.trim();
+            }
+
+            // Indicação clínica (campo UI-only da prescrição)
+            const indicEl  = document.getElementById('prescricao-indicacao');
+            const atIndic  = document.getElementById('atestado-indicacao');
+            if (indicEl && atIndic && indicEl.value.trim()) {
+                atIndic.value = indicEl.value.trim();
+            }
+
+            // CID escolhido via IA CID (campo hidden)
+            const cidEl  = document.getElementById('prescricao-cid-escolhido');
+            const atCid  = document.getElementById('atestado-cid');
+            if (cidEl && atCid && cidEl.value.trim()) {
+                atCid.value = cidEl.value.trim().toUpperCase();
+            }
+
+            // Profissional e registro
+            if (medicoLogado) {
+                const atProf = document.getElementById('atestado-profissional');
+                const atReg  = document.getElementById('atestado-registro');
+                if (atProf) atProf.value = medicoLogado.nome || '';
+                if (atReg && medicoLogado.conselhos && medicoLogado.conselhos.length) {
+                    atReg.value = formatarConselhosDisplay(medicoLogado.conselhos);
+                }
+            }
+
+            // Data: hoje (só preenche se vazio)
+            const atData = document.getElementById('atestado-data');
+            if (atData && !atData.value) atData.value = _hojeISO();
+        }
+
+        /**
+         * Chama POST /ia/documentos/atestado/validar com os dados do formulário
+         * e renderiza o resultado (faltantes, alertas, sugestões, preview).
+         * Stateless — não grava nada.
+         */
+        async function validarAtestado() {
+            const container = document.getElementById('ia-atestado-container');
+
+            const paciente  = (document.getElementById('atestado-paciente').value    || '').trim();
+            const indicacao = (document.getElementById('atestado-indicacao').value   || '').trim();
+            const cid       = (document.getElementById('atestado-cid').value         || '').trim().toUpperCase();
+            const diasRaw   = (document.getElementById('atestado-dias').value        || '').trim();
+            const dataDoc   = (document.getElementById('atestado-data').value        || '').trim();
+            const prof      = (document.getElementById('atestado-profissional').value || '').trim();
+            const registro  = (document.getElementById('atestado-registro').value    || '').trim();
+
+            const dias = diasRaw ? parseInt(diasRaw, 10) : null;
+
+            container.classList.remove('hidden');
+            container.innerHTML = '<p style="font-size:12px;color:#64748b;padding:8px 0;">Consultando IA Documental…</p>';
+
+            // DEV_TOKEN: IA indisponível — mostra aviso sem chamar backend
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') {
+                container.innerHTML = _renderizarResultadoAtestado({
+                    ok: false, faltantes: [], alertas: [], sugestoes: [],
+                    documento_base: null,
+                    aviso: 'IA Documental requer autenticação. Faça login para usar a validação completa.',
+                });
+                return;
+            }
+
+            try {
+                const resp = await fetch(BACKEND + '/ia/documentos/atestado/validar', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        paciente_nome:         paciente  || null,
+                        indicacao_clinica:     indicacao || null,
+                        codigo_cid:            cid       || null,
+                        dias_afastamento:      dias,
+                        data_documento:        dataDoc   || null,
+                        nome_profissional:     prof      || null,
+                        registro_profissional: registro  || null,
+                    }),
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    container.innerHTML = `<p style="font-size:12px;color:#dc2626;padding:8px 0;">
+                        Erro na validação: ${_escDoc(err.detail || String(resp.status))}</p>`;
+                    return;
+                }
+
+                const resultado = await resp.json();
+                container.innerHTML = _renderizarResultadoAtestado(resultado);
+
+            } catch (_) {
+                container.innerHTML = '<p style="font-size:12px;color:#dc2626;padding:8px 0;">Falha de rede ao consultar a IA Documental. Verifique se o backend está rodando.</p>';
+            }
+        }
+
+        /**
+         * Renderiza o resultado da IA Documental como HTML.
+         * Produz: bloco ok/erro + faltantes + alertas + sugestões + preview + aviso.
+         */
+        function _renderizarResultadoAtestado(data) {
+            const nomesCampos = {
+                paciente_nome:         'Nome do paciente',
+                indicacao_clinica:     'Indicação clínica',
+                codigo_cid:            'CID',
+                dias_afastamento:      'Dias de afastamento',
+                data_documento:        'Data do documento',
+                nome_profissional:     'Nome do profissional',
+                registro_profissional: 'Registro profissional',
+            };
+            let html = '';
+
+            // — OK badge —
+            if (data.ok) {
+                html += `<div class="ia-doc-bloco ia-doc-bloco-ok">
+                    ✓ Estrutura válida — atestado pronto para revisão e uso pelo profissional.
+                </div>`;
+            }
+
+            // — Faltantes (bloqueiam ok) —
+            if (data.faltantes && data.faltantes.length > 0) {
+                html += `<div class="ia-doc-bloco ia-doc-bloco-faltantes">
+                    <div class="ia-doc-bloco-titulo">Campos obrigatórios ausentes ou inválidos</div>
+                    <ul class="ia-doc-lista">
+                        ${data.faltantes.map(f => `<li>${_escDoc(nomesCampos[f] || f)}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
+            // — Alertas (não bloqueantes) —
+            if (data.alertas && data.alertas.length > 0) {
+                html += `<div class="ia-doc-bloco ia-doc-bloco-alertas">
+                    <div class="ia-doc-bloco-titulo">⚠ Alertas de qualidade clínica</div>
+                    <ul class="ia-doc-lista">
+                        ${data.alertas.map(a => `<li>${_escDoc(a)}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
+            // — Sugestões de redação —
+            if (data.sugestoes && data.sugestoes.length > 0) {
+                html += `<div class="ia-doc-bloco ia-doc-bloco-sugestoes">
+                    <div class="ia-doc-bloco-titulo">Sugestões de redação</div>
+                    <ul class="ia-doc-lista">
+                        ${data.sugestoes.map(s => `<li>${_escDoc(s)}</li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
+            // — Preview do documento (somente quando ok=true) —
+            if (data.documento_base) {
+                html += `<div class="ia-doc-preview-wrap">
+                    <div class="ia-doc-preview-label">Pré-visualização do atestado</div>
+                    <div class="ia-doc-preview" id="atestado-preview-texto">${_escDoc(data.documento_base)}</div>
+                    <div class="ia-doc-print-acoes">
+                        <button type="button" class="btn btn-outline btn-small"
+                                onclick="imprimirAtestado()"
+                                style="font-size: 12px;">
+                            🖨️ Imprimir / Usar
+                        </button>
+                    </div>
+                </div>`;
+            }
+
+            // — Aviso fixo obrigatório —
+            if (data.aviso) {
+                html += `<div class="ia-doc-bloco ia-doc-bloco-aviso">
+                    ${_escDoc(data.aviso)}
+                </div>`;
+            }
+
+            return html;
+        }
+
+        /**
+         * Abre uma janela nova com o preview do atestado e dispara impressão.
+         * Não grava nada — apenas apresenta o documento para o usuário.
+         */
+        function imprimirAtestado() {
+            const el = document.getElementById('atestado-preview-texto');
+            if (!el) return;
+            const texto = el.innerText || el.textContent || '';
+            const win = window.open('', '_blank', 'width=720,height=560');
+            if (!win) return;
+            win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Atestado Médico — PicSaúde</title>
+  <style>
+    body  { font-family: Georgia, 'Times New Roman', serif; font-size: 14px;
+            line-height: 1.9; margin: 60px 80px; color: #1e293b; }
+    pre   { white-space: pre-wrap; font-family: inherit; font-size: inherit; }
+    .aviso{ font-size: 10px; color: #94a3b8; font-style: italic;
+            margin-top: 48px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <pre>${texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+  <div class="aviso">
+    Documento assistido por validação estrutural (PicSaúde / IA Documental v1).
+    A responsabilidade clínica e legal permanece com o profissional.
+  </div>
+  <script>window.onload = function() { window.print(); };<\/script>
+</body>
+</html>`);
+            win.document.close();
+        }
+
+        /** Limpa todos os campos e o resultado da IA do formulário de atestado. */
+        function limparAtestado() {
+            ['atestado-paciente','atestado-indicacao','atestado-cid',
+             'atestado-dias','atestado-data','atestado-profissional','atestado-registro']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const container = document.getElementById('ia-atestado-container');
+            if (container) { container.innerHTML = ''; container.classList.add('hidden'); }
+        }
+
+        /** Escape HTML simples para saída segura no DOM (usado só no módulo documental). */
+        function _escDoc(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // =====================================================================
+
+        initBancoLocal();
+
+        // ── DEV_PRESET_CONTEXT — login automático com prescritor de teste ──────
+        // Só ativa se DEV_PRESET_CONTEXT=true e nenhum médico já estiver logado.
+        // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
+        if (DEV_PRESET_CONTEXT && !medicoLogado) {
+            const idEl    = document.getElementById('acesso-identificador');
+            const senhaEl = document.getElementById('acesso-senha');
+            if (idEl && senhaEl) {
+                idEl.value    = '123456789012345';   // CNS do prescritor de teste
+                senhaEl.value = 'Teste@2024';   // sincronizada com seed_dev.py (senha real no DB de dev)
+                setTimeout(() => fazerLoginDireto({ preventDefault: () => {} }), 120);
+            }
+        }
+    </script>
+</body>
+</html>

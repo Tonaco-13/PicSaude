@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicSaúde — Verificar Prescrição</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+           background: #f0fdf4; min-height: 100vh; color: #1e293b; }
+
+    .header { background: #14532d; color: white; padding: 20px 32px;
+              display: flex; justify-content: space-between; align-items: center;
+              border-bottom: 4px solid #4ade80; }
+    .brand h1  { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+    .brand p   { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+                 color: #bbf7d0; font-weight: 600; margin-top: 3px; }
+    .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px;
+                  background: rgba(255,255,255,0.15); border-radius: 4px;
+                  text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+
+    .container { max-width: 680px; margin: 40px auto; padding: 0 16px; }
+
+    .card { background: white; border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            padding: 32px; margin-bottom: 24px;
+            border: 1px solid #e2e8f0; }
+
+    .section-title { font-size: 18px; color: #14532d; margin-bottom: 20px;
+                     font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+
+    .form-label { display: block; font-weight: 600; margin-bottom: 8px;
+                  font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-input { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1;
+                  border-radius: 6px; font-size: 15px; background: #fafafa;
+                  transition: border-color 0.2s; font-family: monospace; letter-spacing: 1px; }
+    .form-input:focus { outline: none; border-color: #16a34a; background: #fff;
+                        box-shadow: 0 0 0 3px rgba(22,163,74,0.1); }
+
+    .btn { padding: 14px 24px; border: none; border-radius: 6px; font-size: 14px;
+           font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase;
+           letter-spacing: 0.5px; display: inline-flex; justify-content: center;
+           align-items: center; gap: 8px; }
+    .btn-primary { background: #14532d; color: white; width: 100%; margin-top: 16px; }
+    .btn-primary:hover { background: #052e16; }
+    .btn-copy   { background: transparent; border: 1px solid #cbd5e1; color: #475569;
+                  padding: 8px 14px; font-size: 12px; border-radius: 4px; cursor: pointer;
+                  font-weight: 600; transition: 0.2s; }
+    .btn-copy:hover { background: #f8fafc; }
+
+    .hidden { display: none !important; }
+
+    /* ---- Status badges ---- */
+    .badge { display: inline-block; padding: 5px 12px; border-radius: 4px;
+             font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-pendente             { background: #fef9c3; color: #854d0e; }
+    .badge-transferida_paciente { background: #dbeafe; color: #1e40af; }
+    .badge-em_custodia          { background: #ede9fe; color: #5b21b6; }
+    .badge-parcialmente_dispensada { background: #ffedd5; color: #9a3412; }
+    .badge-dispensada           { background: #dcfce7; color: #166534; }
+    .badge-cancelada            { background: #fee2e2; color: #991b1b; }
+    .badge-expirada             { background: #f1f5f9; color: #475569; }
+    .badge-encerrada_localmente { background: #f1f5f9; color: #475569; }
+    .badge-encerrado_fisico     { background: #f1f5f9; color: #475569; }
+    .badge-dispensado           { background: #dcfce7; color: #166534; }
+    .badge-devolvido_paciente   { background: #fef9c3; color: #854d0e; }
+    .badge-devolvido_prescritor { background: #fee2e2; color: #991b1b; }
+    .badge-estornado            { background: #fee2e2; color: #991b1b; }
+    .badge-cancelado            { background: #fee2e2; color: #991b1b; }
+    .badge-em_custodia_item     { background: #ede9fe; color: #5b21b6; }
+    .badge-pendente_item        { background: #fef9c3; color: #854d0e; }
+
+    /* ---- Prescription result card ---- */
+    .pres-header { display: flex; justify-content: space-between; align-items: flex-start;
+                   flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+                   padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+    .pres-proto { font-size: 12px; color: #64748b; font-weight: 600;
+                  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .pres-proto-val { font-family: monospace; font-size: 13px; color: #0f172a;
+                      word-break: break-all; }
+
+    .emissao-tag { font-size: 11px; font-weight: 700; padding: 4px 10px;
+                   border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .emissao-digital  { background: #dbeafe; color: #1e40af; }
+    .emissao-fisica   { background: #f1f5f9; color: #475569; }
+
+    .item-row { display: flex; justify-content: space-between; align-items: center;
+                padding: 14px 0; border-bottom: 1px solid #f1f5f9; gap: 12px; }
+    .item-row:last-child { border-bottom: none; }
+    .item-nome { font-weight: 600; color: #0f172a; font-size: 15px; }
+    .item-dose { font-size: 13px; color: #64748b; margin-top: 3px; }
+
+    /* ---- QR section ---- */
+    .qr-wrap { text-align: center; padding: 24px 0; }
+    .qr-wrap img { border: 4px solid #e2e8f0; border-radius: 8px;
+                   max-width: 200px; margin-bottom: 12px; }
+    .qr-wrap p { font-size: 12px; color: #64748b; }
+
+    /* ---- Share link ---- */
+    .share-row { display: flex; align-items: center; gap: 8px;
+                 background: #f8fafc; border: 1px solid #e2e8f0;
+                 border-radius: 6px; padding: 10px 14px; }
+    .share-url { flex: 1; font-family: monospace; font-size: 12px;
+                 color: #475569; white-space: nowrap; overflow: hidden;
+                 text-overflow: ellipsis; }
+
+    /* ---- Info / error ---- */
+    .msg { padding: 14px 18px; border-radius: 6px; font-size: 14px;
+           font-weight: 500; margin-bottom: 16px; }
+    .msg-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .msg-info  { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+
+    /* ---- Loading spinner ---- */
+    .spinner { display: inline-block; width: 20px; height: 20px;
+               border: 3px solid rgba(255,255,255,0.3);
+               border-top-color: white; border-radius: 50%;
+               animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer { text-align: center; padding: 24px; font-size: 12px; color: #64748b;
+             margin-top: 40px; border-top: 1px solid #e2e8f0; }
+
+    /* ---- Status labels legíveis ---- */
+    .status-label { font-size: 13px; color: #475569; margin-left: 8px; font-style: italic; }
+  </style>
+  <script src="config.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <h1>PicSaúde</h1>
+    <p>Plataforma de Integração do Cuidado</p>
+  </div>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+    <span class="module-tag">Verificar Prescrição</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Busca -->
+  <div class="card" id="card-busca">
+    <h2 class="section-title">Verificar autenticidade de prescrição</h2>
+    <p style="color:#64748b; font-size:14px; margin-bottom:24px; line-height:1.6;">
+      Digite o código de protocolo impresso ou colado do QR Code da receita
+      para consultar sua validade e status atual.
+    </p>
+    <div id="msg-busca"></div>
+    <label class="form-label" for="input-proto">Código de Protocolo</label>
+    <input type="text" id="input-proto" class="form-input"
+           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+           autocomplete="off" spellcheck="false">
+    <button class="btn btn-primary" onclick="buscar()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Verificar
+    </button>
+  </div>
+
+  <!-- Resultado -->
+  <div id="card-resultado" class="hidden">
+
+    <div class="card" id="card-pres">
+      <div class="pres-header">
+        <div>
+          <div class="pres-proto">Protocolo</div>
+          <div class="pres-proto-val" id="r-protocolo"></div>
+        </div>
+        <div style="text-align:right;">
+          <div id="r-emissao-tag"></div>
+          <div style="margin-top:8px;">
+            <span id="r-status-badge" class="badge"></span>
+            <span id="r-status-label" class="status-label"></span>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size:13px; text-transform:uppercase; letter-spacing:0.5px;
+                 color:#475569; margin-bottom:12px; font-weight:600;">Medicamentos</h3>
+      <div id="r-itens"></div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="card" id="card-qr">
+      <h2 class="section-title">QR Code da Prescrição</h2>
+      <div class="qr-wrap">
+        <img id="r-qr" src="" alt="QR Code">
+        <p>Escaneie para verificar novamente ou compartilhe com a farmácia.</p>
+      </div>
+      <div class="share-row">
+        <span class="share-url" id="r-share-url"></span>
+        <button class="btn-copy" onclick="copiarLink()">Copiar link</button>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-bottom:32px;">
+      <button class="btn btn-primary" style="width:auto; padding:12px 32px;"
+              onclick="limpar()">↩ Nova consulta</button>
+    </div>
+
+  </div>
+
+</div>
+
+<footer>
+  <p style="font-weight:600; color:#475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
+  <p>Distribuído sob GNU AGPL-3.0 — software livre.</p>
+</footer>
+
+<script>
+  const API = BACKEND_URL;
+
+  // ------------------------------------------------------------------
+  // Labels amigáveis
+  // ------------------------------------------------------------------
+  const STATUS_PRES_LABEL = {
+    pendente:                'Aguardando retirada',
+    transferida_paciente:    'Em posse do paciente',
+    em_custodia:             'Retida na farmácia',
+    parcialmente_dispensada: 'Parcialmente dispensada',
+    dispensada:              'Dispensada (concluída)',
+    cancelada:               'Cancelada',
+    expirada:                'Expirada',
+    encerrada_localmente:    'Emissão física',
+  };
+
+  const STATUS_ITEM_LABEL = {
+    pendente:             'Pendente',
+    em_custodia:          'Na farmácia',
+    dispensado:           'Entregue',
+    devolvido_paciente:   'Devolvido (abandono)',
+    devolvido_prescritor: 'Devolvido ao médico',
+    cancelado:            'Cancelado',
+    estornado:            'Estornado',
+    encerrado_fisico:     'Emissão física',
+  };
+
+  function badgeClass(status, prefixo) {
+    // item badges reutilizam as mesmas classes com fallback
+    return 'badge badge-' + status;
+  }
+
+  // ------------------------------------------------------------------
+  // Auto-load por URL param  ?p=PROTOCOLO
+  // ------------------------------------------------------------------
+  (function autoload() {
+    const params = new URLSearchParams(window.location.search);
+    const p = params.get('p') || params.get('protocolo');
+    if (p) {
+      document.getElementById('input-proto').value = p.trim();
+      buscar();
+    }
+  })();
+
+  // ------------------------------------------------------------------
+  // Busca
+  // ------------------------------------------------------------------
+  async function buscar() {
+    const proto = document.getElementById('input-proto').value.trim();
+    const msgEl = document.getElementById('msg-busca');
+    msgEl.innerHTML = '';
+
+    if (!proto) {
+      msgEl.innerHTML = '<div class="msg msg-error">Informe o código de protocolo.</div>';
+      return;
+    }
+
+    // Spinner no botão
+    const btn = document.querySelector('#card-busca .btn-primary');
+    btn.innerHTML = '<span class="spinner"></span> Consultando…';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`${API}/public/prescricoes/${encodeURIComponent(proto)}`);
+      if (res.status === 404) {
+        throw new Error('Protocolo não encontrado. Verifique o código e tente novamente.');
+      }
+      if (!res.ok) {
+        throw new Error(`Erro na consulta (HTTP ${res.status}).`);
+      }
+      const data = await res.json();
+      renderResultado(data);
+    } catch (e) {
+      msgEl.innerHTML = `<div class="msg msg-error">${e.message}</div>`;
+    } finally {
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Verificar';
+      btn.disabled = false;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Renderiza resultado
+  // ------------------------------------------------------------------
+  function renderResultado(data) {
+    const proto = data.protocolo;
+
+    // Protocolo
+    document.getElementById('r-protocolo').textContent = proto;
+
+    // Emissão tag
+    const emissaoEl = document.getElementById('r-emissao-tag');
+    const isDigital = data.tipo_emissao !== 'fisica';
+    emissaoEl.className = 'emissao-tag ' + (isDigital ? 'emissao-digital' : 'emissao-fisica');
+    emissaoEl.textContent = isDigital ? '⬡ Digital' : '◻ Física';
+
+    // Status
+    const statusBadge = document.getElementById('r-status-badge');
+    statusBadge.className = 'badge badge-' + data.status_prescricao;
+    statusBadge.textContent = data.status_prescricao.replace(/_/g, ' ');
+    document.getElementById('r-status-label').textContent =
+      STATUS_PRES_LABEL[data.status_prescricao] || '';
+
+    // Itens
+    const itensEl = document.getElementById('r-itens');
+    if (!data.itens || data.itens.length === 0) {
+      itensEl.innerHTML = '<p style="color:#64748b;font-size:14px;">Nenhum item encontrado.</p>';
+    } else {
+      itensEl.innerHTML = data.itens.map(it => `
+        <div class="item-row">
+          <div>
+            <div class="item-nome">${it.ordem}. ${esc(it.medicamento)}</div>
+            ${it.dose ? `<div class="item-dose">${esc(it.dose)}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0;">
+            <span class="badge badge-${it.status_item}">
+              ${STATUS_ITEM_LABEL[it.status_item] || it.status_item}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // QR Code
+    const qrUrl = `${API}/prescricoes/${encodeURIComponent(proto)}/qr`;
+    document.getElementById('r-qr').src = qrUrl;
+
+    // Share URL
+    const shareUrl = `${window.location.origin}${window.location.pathname}?p=${encodeURIComponent(proto)}`;
+    document.getElementById('r-share-url').textContent = shareUrl;
+    document.getElementById('r-share-url').dataset.url = shareUrl;
+
+    // Mostra resultado, esconde busca
+    document.getElementById('card-resultado').classList.remove('hidden');
+    document.getElementById('card-busca').classList.add('hidden');
+  }
+
+  // ------------------------------------------------------------------
+  // Copiar link
+  // ------------------------------------------------------------------
+  function copiarLink() {
+    const url = document.getElementById('r-share-url').dataset.url;
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.querySelector('.btn-copy');
+      btn.textContent = '✓ Copiado';
+      setTimeout(() => { btn.textContent = 'Copiar link'; }, 2000);
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Nova consulta
+  // ------------------------------------------------------------------
+  function limpar() {
+    document.getElementById('card-resultado').classList.add('hidden');
+    document.getElementById('card-busca').classList.remove('hidden');
+    document.getElementById('input-proto').value = '';
+    document.getElementById('msg-busca').innerHTML = '';
+    // Remove param da URL sem reload
+    window.history.replaceState({}, '', window.location.pathname);
+    document.getElementById('input-proto').focus();
+  }
+
+  // ------------------------------------------------------------------
+  // Helper escape
+  // ------------------------------------------------------------------
+  function esc(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Enter no campo dispara busca
+  document.getElementById('input-proto')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+</script>
+</body>
+</html>

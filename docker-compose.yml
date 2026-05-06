@@ -1,0 +1,41 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PicSaúde — Stack local mínima (G5-impl)
+# Uso: docker-compose --env-file .env up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  picsaude-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: picsaude/backend:${PICSAUDE_VERSION:-latest}
+    container_name: picsaude-backend
+    ports:
+      - "${PICSAUDE_PORT:-8080}:8000"
+    volumes:
+      # Banco persistente — mantido no host, nunca dentro da imagem
+      - picsaude_data:/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request, sys; r = urllib.request.urlopen('http://localhost:8000/health', timeout=4); sys.exit(0 if r.status == 200 else 1)"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+volumes:
+  picsaude_data:
+    # Para bind mount explícito em produção local, descomente e ajuste:
+    # driver: local
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /srv/picsaude/data

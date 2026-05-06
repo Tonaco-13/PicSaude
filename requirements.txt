@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PicSaúde — Backend dependencies
+#
+# Política de versionamento:
+#   - Libs críticas de regulatório/segurança (assinatura, criptografia): pin exato
+#   - Libs estáveis (FastAPI, SQLAlchemy, Reportlab): pin exato (vers. validada)
+#   - Libs auxiliares: faixa permissiva com upper bound major
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Web framework ────────────────────────────────────────────────────────────
+fastapi==0.128.8
+uvicorn[standard]==0.39.0
+python-multipart==0.0.20
+pydantic>=2.0,<3        # API v2 explícita (field_validator, model_validator)
+
+# ── Auth ─────────────────────────────────────────────────────────────────────
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+argon2-cffi>=23.1       # Backend argon2 para passlib (app/auth/jwt.py usa
+                        # CryptContext(schemes=["argon2"]). Sem isso, qualquer
+                        # hash_senha/verificar_senha quebra com 500. Faltava.
+
+# ── Banco e ORM ──────────────────────────────────────────────────────────────
+sqlalchemy==2.0.41
+alembic>=1.13.0
+psycopg2-binary>=2.9.9  # PostgreSQL (produção); SQLite usa sqlite3 stdlib
+
+# ── HTTP client (testes integração + futuras chamadas externas) ──────────────
+httpx>=0.27.0
+
+# ── PDF: geração e assinatura ICP-Brasil ─────────────────────────────────────
+reportlab==4.4.10
+qrcode[pil]==8.2
+pillow==11.3.0
+pyhanko==0.34.1         # Assinatura PAdES-B (T21) — pin exato p/ regulatório
+cryptography==44.0.0    # Pin exato p/ ICP-Brasil (RT-001 review): mudanças de
+                        # parsing PKCS#12 já quebraram fluxos no passado, e
+                        # estamos assinando documento regulatório.
+
+# ── IA farmacêutica e normalização de catálogos ──────────────────────────────
+rapidfuzz>=3.5,<4       # Busca fuzzy TUSS/CID/DEF — usado em ai/lookup_def.py

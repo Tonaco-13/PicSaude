@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicSaúde - Módulo Dispensador</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
+
+        .header { background: #002776; color: white; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #009c3b; }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .header-logo { height: 44px; width: auto; }
+        .header-title h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+        .header-title h1 .pic   { color: #fff; }
+        .header-title h1 .saude { color: #fff; }
+        .header-title .modulo   { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #fff; font-weight: 600; margin-top: 3px; }
+        .login-wrap { max-width: 420px; margin: 60px auto 0; padding: 0 16px 40px; }
+        .login-card { background: #fff; border-radius: 14px; border: 1px solid #dbeafe; box-shadow: 0 4px 24px rgba(0,39,118,0.1); padding: 40px 36px 36px; }
+        .login-logo-wrap { text-align: center; margin-bottom: 24px; }
+        .login-logo { height: 56px; width: auto; }
+        .login-card h2 { font-size: 20px; font-weight: 700; color: #002776; text-align: center; margin-bottom: 6px; }
+        .login-card .login-sub { font-size: 13px; color: #64748b; text-align: center; margin-bottom: 28px; }
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+
+        .container { max-width: 800px; margin: 40px auto; padding: 0 16px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+
+        h2.section-title { font-size: 18px; color: #002776; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-input { width: 100%; padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; transition: border-color 0.2s; background-color: #fafafa; }
+        .form-input:focus { outline: none; border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+
+        .btn { padding: 12px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; justify-content: center; align-items: center; }
+        .btn-primary { background: #002776; color: white; width: 100%; padding: 14px; }
+        .btn-primary:hover { background: #001a4f; }
+        .btn-action { background: #009c3b; color: white; }
+        .btn-action:hover { background: #007a2e; }
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
+        .btn-outline:hover { background: #f8fafc; }
+        .btn-danger { background: transparent; border: 1px solid #fca5a5; color: #dc2626; }
+        .btn-danger:hover { background: #fef2f2; }
+        .btn-sm { padding: 8px 14px; font-size: 12px; }
+        .btn-logout { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 12px; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+        .btn-logout:hover { background: rgba(255,255,255,0.1); }
+
+        .hidden { display: none !important; }
+
+        .search-row { display: flex; gap: 12px; }
+        .search-row .form-input { flex: 1; }
+        .search-row .btn { white-space: nowrap; }
+
+        .resultado-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .protocolo-text { font-family: monospace; font-size: 13px; color: #002776; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
+        .tipo-emissao { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .item-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 12px; background: #ffffff; border-left: 4px solid #94a3b8; }
+        .item-card.ativo { border-left-color: #009c3b; }
+        .item-card.terminal { border-left-color: #e2e8f0; background: #f8fafc; }
+        .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .item-numero { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+        .item-medicamento { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+        .item-dose { font-size: 13px; color: #64748b; margin-bottom: 4px; }
+        .item-terminal-msg { font-size: 13px; color: #94a3b8; font-style: italic; margin-top: 8px; }
+
+        .item-acoes { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+        .dispensar-group { display: flex; gap: 8px; align-items: center; }
+        .dispensar-group .form-input { width: 72px; padding: 8px 10px; text-align: center; font-size: 14px; }
+        .motivo-section { width: 100%; margin-top: 8px; padding: 14px; background: #fef2f2; border-radius: 6px; border: 1px solid #fca5a5; }
+        .motivo-section .form-input { border-color: #fca5a5; margin-bottom: 8px; }
+        .motivo-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .msg-inline { margin-top: 10px; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+        .msg-inline.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .msg-inline.error { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-pendente { background: #fef9c3; color: #713f12; }
+        .badge-em-custodia { background: #dbeafe; color: #1e40af; }
+        .badge-dispensado { background: #dcfce7; color: #166534; }
+        .badge-devolvido { background: #f1f5f9; color: #475569; }
+        .badge-cancelado { background: #fef2f2; color: #dc2626; }
+        .badge-encerrado { background: #f1f5f9; color: #94a3b8; }
+        .badge-parcial { background: #fef3c7; color: #92400e; }
+
+        .header-user { font-size: 13px; color: rgba(255,255,255,0.9); text-align: right; }
+        .header-user strong { display: block; font-size: 14px; color: white; }
+        .header-user span { font-size: 12px; opacity: 0.8; }
+
+        .login-error { background: #fef2f2; color: #dc2626; padding: 12px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; margin-bottom: 16px; border: 1px solid #fca5a5; }
+
+        footer { text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 800px; margin-left: auto; margin-right: auto; }
+        footer p + p { margin-top: 4px; }
+
+        /* IA Farmacêutica v1 — alertas passivos no balcão do dispensador */
+        .ia-disp-container { margin-top: 10px; }
+        .ia-disp-bloco { border-radius: 6px; font-size: 12px; }
+        .ia-disp-bloco + .ia-disp-bloco { margin-top: 6px; }
+        .ia-disp-alerta  { background: #fffbeb; border: 1px solid #fcd34d; padding: 9px 13px; }
+        .ia-disp-sugestao{ background: #f0f9ff; border: 1px solid #bae6fd; padding: 8px 12px; }
+        .ia-disp-header  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .ia-disp-alerta  .ia-disp-header { color: #92400e; }
+        .ia-disp-sugestao .ia-disp-header { color: #0369a1; }
+        .ia-disp-alerta-item { font-size: 12px; color: #92400e; font-weight: 600; }
+        .ia-disp-alerta-item + .ia-disp-alerta-item { margin-top: 3px; }
+        .ia-disp-info { font-size: 12px; color: #0c4a6e; }
+        .ia-disp-info + .ia-disp-info { margin-top: 2px; }
+        .ia-disp-meta { font-size: 10px; color: #64748b; margin-top: 4px; }
+
+        /* ── Token de Apresentação (Ticket 25) ──────────────────────────── */
+        .token-ou-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 18px 0 16px;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .token-ou-divider::before,
+        .token-ou-divider::after {
+            content: '';
+            flex: 1;
+            border-top: 1px solid #e2e8f0;
+        }
+        #token-input {
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            text-align: center;
+        }
+
+        /* ─── Modo Hospitalar (Ticket 27) ─────────────────────────────── */
+        .modalidade-selector {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            padding: 10px 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+        }
+        .modalidade-selector label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }
+        .modalidade-selector input[type=radio] { accent-color: #009c3b; }
+        .modalidade-selector .modo-hospitalar-ativo { color: #166534; font-weight: 700; }
+
+        .hosp-fields {
+            margin-top: 14px;
+            padding: 14px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+        }
+        .hosp-fields .hosp-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #166534;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .hosp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .hosp-grid .form-group { margin-bottom: 0; }
+        .hosp-dose-row { margin-top: 10px; display: flex; gap: 12px; align-items: center; font-size: 13px; }
+        .hosp-dose-row input[type=checkbox] { accent-color: #009c3b; width: 16px; height: 16px; cursor: pointer; }
+        #hosp-qtd-doses-wrap { display: none; }
+        /* ─────────────────────────────────────────────────────────────── */
+
+        /* ── Onboarding Institucional — Ticket 45 ──────────────────── */
+        .ctx-ident-card { display:flex; align-items:center; justify-content:space-between; gap:14px; border-radius:8px; padding:14px 20px; margin-bottom:20px; border:1.5px solid; }
+        .ctx-ident-card.nao-id { background:#fffbeb; border-color:#fcd34d; }
+        .ctx-ident-card.id { background:#f0fdff; border-color:#7dd3fc; }
+        .ctx-ident-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:3px; }
+        .ctx-ident-card.nao-id .ctx-ident-label { color:#92400e; }
+        .ctx-ident-card.id .ctx-ident-label { color:#0369a1; }
+        .ctx-ident-nome { font-size:13px; font-weight:600; }
+        .ctx-ident-card.nao-id .ctx-ident-nome { color:#92400e; }
+        .ctx-ident-card.id .ctx-ident-nome { color:#0e7490; }
+        .btn-ctx-trocar { background:transparent; border:1.5px solid #0e7490; color:#0e7490; padding:6px 12px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; letter-spacing:0.3px; }
+        .btn-ctx-trocar:hover { background:#f0fdff; }
+        /* Ticket 60 — badge de tipo institucional no card de contexto */
+        .inst-tipo-badge { display:inline-block; font-size:10px; font-weight:700; padding:1px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.4px; vertical-align:middle; margin-left:4px; }
+        .inst-tipo-badge.farmacia    { background:#dcfce7; color:#166534; }
+        .inst-tipo-badge.hospital    { background:#dbeafe; color:#1e40af; }
+        .inst-tipo-badge.usf         { background:#f0fdf4; color:#166534; }
+        .inst-tipo-badge.laboratorio { background:#ede9fe; color:#4c1d95; }
+        .inst-tipo-badge.clinica     { background:#fef9c3; color:#854d0e; }
+
+        /* Soft guard — tipo institucional fora do escopo (Ticket 60) */
+        .banner-tipo-fora-escopo { display:flex; align-items:center; gap:12px; padding:10px 20px; background:#fefce8; border-bottom:2px solid #fbbf24; color:#78350f; font-size:13px; font-weight:500; }
+        .banner-tipo-fora-escopo .banner-msg-tipo { flex:1; }
+        .banner-tipo-fora-escopo .banner-admin-tag { font-size:11px; font-weight:700; background:#fde68a; color:#92400e; padding:2px 8px; border-radius:8px; white-space:nowrap; }
+        .banner-tipo-fora-escopo .banner-tipo-bloqueio { opacity:0.6; font-size:12px; }
+
+        /* ── Ticket 46 — Banner de risco + Modal de gate leve ────────── */
+        .banner-ctx-risco{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;font-weight:600;color:#92400e;}
+        .banner-ctx-risco.hidden{display:none!important;}
+        .banner-ctx-risco .banner-msg{display:flex;align-items:center;gap:7px;}
+        .btn-banner-corrigir{background:transparent;border:1.5px solid #d97706;color:#b45309;padding:5px 12px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+        .btn-banner-corrigir:hover{background:#fef3c7;}
+
+        .modal-ctx-warn{position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;}
+        .modal-ctx-warn.hidden{display:none!important;}
+        .modal-ctx-warn-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
+        .modal-ctx-warn-box{position:relative;background:#fff;border-radius:14px;padding:32px 28px 24px;max-width:420px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.18);text-align:center;}
+        .modal-ctx-warn-icon{font-size:36px;margin-bottom:12px;line-height:1;}
+        .modal-ctx-warn-box h3{font-size:16px;font-weight:700;color:#92400e;margin-bottom:10px;}
+        .modal-ctx-warn-box p{font-size:13px;color:#78350f;line-height:1.65;margin-bottom:24px;}
+        .modal-ctx-warn-btns{display:flex;flex-direction:column;gap:10px;}
+        .btn-ctx-identificar{padding:11px 20px;border-radius:8px;border:none;background:#0e7490;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;}
+        .btn-ctx-identificar:hover{background:#0891b2;}
+        .btn-ctx-continuar{padding:9px 20px;border-radius:8px;border:1.5px solid #d97706;background:transparent;color:#b45309;font-size:12px;font-weight:600;cursor:pointer;}
+        .btn-ctx-continuar:hover{background:#fef3c7;}
+        /* ─────────────────────────────────────────────────────────────── */
+
+        /* ── Circulação Atomizada — item único (Ticket 44, Fase 3) ───── */
+        .atom-banner-disp { background:#e0f2fe; border:1px solid #7dd3fc; border-radius:6px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+        .atom-banner-disp-text p:first-child { font-size:11px; font-weight:700; color:#0e7490; text-transform:uppercase; letter-spacing:0.5px; }
+        .atom-banner-disp-text p:last-child { font-size:12px; color:#0e7490; margin-top:2px; }
+        .btn-atom-voltar { background:transparent; border:1px solid #cbd5e1; color:#475569; border-radius:4px; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; margin-top:12px; display:inline-block; }
+        .btn-atom-voltar:hover { background:#f8fafc; }
+        /* ─────────────────────────────────────────────────────────────── */
+
+        /* ── CNES Modal (Ticket 43) ──────────────────────────────────── */
+        .modal-cnes{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;}
+        .modal-cnes.hidden{display:none!important;}
+        .modal-cnes-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
+        .modal-cnes-box{position:relative;background:#fff;border-radius:14px;width:560px;max-width:95vw;max-height:82vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.22);}
+        .modal-cnes-hd{padding:20px 24px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+        .modal-cnes-hd h3{font-size:12px;font-weight:800;color:#002776;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
+        .btn-fechar-cnes{border:none;background:none;font-size:22px;color:#94a3b8;cursor:pointer;line-height:1;padding:0;flex-shrink:0;}
+        .btn-fechar-cnes:hover{color:#475569;}
+        .modal-cnes-body{padding:18px 24px 20px;}
+        .modal-cnes-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:14px;color:#1e293b;background:#f8fafc;margin-bottom:14px;}
+        .modal-cnes-input:focus{outline:none;border-color:#002776;background:#fff;}
+        .cnes-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:9px;}
+        .cnes-item:hover{border-color:#bfdbfe;background:#f0f7ff;}
+        .cnes-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+        .cnes-item-nome{font-size:14px;font-weight:700;color:#1e293b;}
+        .cnes-item-meta{font-size:12px;color:#64748b;margin-top:3px;}
+        .cnes-badge-t{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;text-transform:uppercase;letter-spacing:0.5px;}
+        .btn-cnes-usar{padding:6px 14px;border-radius:6px;border:none;background:#002776;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+        .btn-cnes-usar:hover{background:#1a3a6b;}
+        .cnes-ul{margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;display:none;}
+        .cnes-ul.aberta{display:block;}
+        .cnes-unidade-opt{padding:8px 12px;border-radius:7px;border:1px solid #e2e8f0;margin-bottom:6px;cursor:pointer;font-size:13px;background:#f8fafc;display:flex;align-items:center;justify-content:space-between;}
+        .cnes-unidade-opt:hover{background:#eff6ff;border-color:#93c5fd;}
+        .cnes-empty{text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;}
+        .cnes-fallback{margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;border-top:1px solid #f1f5f9;padding-top:12px;}
+        .cnes-ok-banner{background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:7px 12px;font-size:12px;color:#166534;font-weight:600;margin-bottom:10px;}
+        .btn-localizar-cnes{padding:5px 12px;border-radius:6px;border:1.5px solid #002776;color:#002776;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
+        .btn-localizar-cnes:hover{background:#eff6ff;}
+    </style>
+  <script src="config.js"></script>
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-left">
+            <img src="logo-picsaude.png" alt="PicSaúde" class="header-logo" onerror="this.style.display='none'">
+            <div class="header-title">
+                <h1><span class="pic">Pic</span><span class="saude">Saúde</span></h1>
+                <div class="modulo">Plataforma de Integração do Cuidado</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+            <span class="module-tag">Módulo Dispensador</span>
+            <div id="header-user-info" class="header-user hidden">
+                <strong id="header-nome">—</strong>
+                <span id="header-cnpj"></span>
+            </div>
+            <button id="btn-sair" class="btn-logout hidden" onclick="sair()">Sair</button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- ── Tela de Login ── -->
+        <div id="tela-login" class="login-wrap">
+            <div class="login-card">
+                <div class="login-logo-wrap">
+                    <img src="logo-picsaude.png" alt="PicSaúde" class="login-logo" onerror="this.style.display='none'">
+                </div>
+                <h2>Acesso Farmácia</h2>
+                <p class="login-sub">Use o CNPJ e a senha do estabelecimento para acessar.</p>
+                <div id="login-erro" class="login-error hidden"></div>
+                <form onsubmit="fazerLogin(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="login-cnpj">CNPJ do Estabelecimento</label>
+                        <input type="text" id="login-cnpj" class="form-input"
+                               placeholder="00.000.000/0001-00" maxlength="18"
+                               autocomplete="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="login-senha">Senha</label>
+                        <input type="password" id="login-senha" class="form-input"
+                               placeholder="••••••••" autocomplete="current-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Entrar</button>
+                </form>
+                <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid #f1f5f9;">
+                    <button type="button" class="btn-localizar-cnes" style="padding:10px 20px; font-size:13px;" onclick="abrirModalCNESPreLogin()">
+                        Localizar Cadastro Nacional (CNES)
+                    </button>
+                    <div id="cnes-pre-login-ok" class="cnes-ok-banner hidden" style="margin-top:12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tela de Onboarding Institucional (Ticket 45) ── -->
+        <div id="tela-onboarding" class="hidden">
+            <div class="card" style="max-width:480px; margin:0 auto; text-align:center; padding:40px 32px;">
+                <div style="font-size:40px; margin-bottom:16px;">🏥</div>
+                <h2 class="section-title" style="text-align:center; border:none; margin-bottom:12px;">Identifique seu estabelecimento</h2>
+                <p style="color:#475569; font-size:14px; line-height:1.7; margin-bottom:28px;">
+                    Antes de dispensar, localize sua farmácia ou unidade no Cadastro Nacional de Estabelecimentos de Saúde.
+                </p>
+                <button class="btn btn-action" onclick="abrirModalCNESOnboarding()" style="margin-bottom:12px;">
+                    🔍 Localizar Cadastro Nacional (CNES)
+                </button>
+                <button class="btn btn-outline" onclick="_pularOnboarding()" style="font-size:12px; margin-top:4px;">
+                    Preencher manualmente no painel
+                </button>
+            </div>
+        </div>
+
+        <!-- ── Dashboard (pós-login) ── -->
+        <div id="tela-dashboard" class="hidden">
+
+            <!-- Ticket 46 — Banner de risco (contexto não verificado) -->
+            <div id="banner-ctx-risco" class="banner-ctx-risco hidden">
+              <span class="banner-msg">⚠ Operando com contexto não verificado no CNES</span>
+              <button class="btn-banner-corrigir" type="button" onclick="abrirModalCNESDispensador()">Corrigir agora</button>
+            </div>
+
+            <!-- Soft guard — tipo institucional fora do escopo principal (Ticket 60) -->
+            <div id="banner-tipo-fora-escopo" class="banner-tipo-fora-escopo hidden">
+                <span class="banner-msg-tipo" id="banner-tipo-msg"></span>
+            </div>
+
+            <!-- CONTEXTO INSTITUCIONAL — onboarding (Ticket 45) -->
+            <div id="ctx-ident-card" class="ctx-ident-card nao-id">
+                <div>
+                    <div class="ctx-ident-label">Estabelecimento</div>
+                    <div id="ctx-ident-texto" class="ctx-ident-nome">Não identificado</div>
+                </div>
+                <button id="ctx-ident-btn" class="btn-localizar-cnes" type="button"
+                        onclick="abrirModalCNESDispensador()">
+                    LOCALIZAR CADASTRO NACIONAL (CNES)
+                </button>
+            </div>
+
+            <div class="card">
+                <h2 class="section-title">Consultar Prescrição</h2>
+
+                <!-- Entrada por protocolo (UUID) -->
+                <form onsubmit="consultarProtocolo(event)">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Protocolo da Prescrição</label>
+                        <div class="search-row">
+                            <input type="text" id="protocolo-input" class="form-input"
+                                   placeholder="Cole ou digite o protocolo (UUID)"
+                                   style="font-family: monospace; font-size: 13px;">
+                            <button type="submit" id="btn-consultar-protocolo" class="btn btn-action">Consultar</button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Divisor -->
+                <div class="token-ou-divider">ou</div>
+
+                <!-- Entrada por token de apresentação (Ticket 25) -->
+                <form onsubmit="resolverToken(event)">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">Código de Apresentação do Paciente</label>
+                        <div class="search-row">
+                            <input type="text" id="token-input" class="form-input"
+                                   placeholder="Ex: A3K9X7Q2"
+                                   maxlength="8" autocomplete="off"
+                                   oninput="this.value = this.value.toUpperCase()">
+                            <button type="submit" id="btn-resolver-token" class="btn btn-outline">Resolver</button>
+                        </div>
+                        <div id="token-resolver-msg" class="msg-inline hidden"
+                             style="margin-top: 10px;"></div>
+                    </div>
+                </form>
+            </div>
+
+            <div id="resultado-container" class="card hidden">
+                <h2 class="section-title">Itens da Prescrição</h2>
+
+                <!-- Seletor de modalidade (Ticket 27) -->
+                <div class="modalidade-selector">
+                    <span>Modalidade:</span>
+                    <label>
+                        <input type="radio" name="modalidade" value="ambulatorial"
+                               id="modo-ambulatorial" checked
+                               onchange="toggleModoHospitalar()">
+                        Farmácia / USF
+                    </label>
+                    <label class="modo-hospitalar-ativo">
+                        <input type="radio" name="modalidade" value="hospitalar"
+                               id="modo-hospitalar"
+                               onchange="toggleModoHospitalar()">
+                        🏥 Hospitalar
+                    </label>
+                </div>
+
+                <!-- Campos hospitalares — visíveis apenas no modo hospitalar -->
+                <div id="hosp-fields-panel" class="hosp-fields hidden">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+                        <div class="hosp-title" style="margin-bottom:0;">📋 Contexto Hospitalar</div>
+                        <button class="btn-localizar-cnes" type="button" onclick="abrirModalCNESDispensador()">
+                            LOCALIZAR CADASTRO NACIONAL (CNES)
+                        </button>
+                    </div>
+                    <div id="cnes-disp-ok" class="cnes-ok-banner hidden"></div>
+                    <div class="hosp-grid">
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:12px;">Organização (org_id) *</label>
+                            <input type="text" id="hosp-org-id" class="form-input"
+                                   placeholder="Ex: HOSP-EINSTEIN" style="font-size:13px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:12px;">Unidade (unidade_id) *</label>
+                            <input type="text" id="hosp-unidade-id" class="form-input"
+                                   placeholder="Ex: FARM-CENTRAL" style="font-size:13px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:12px;">Setor</label>
+                            <input type="text" id="hosp-setor" class="form-input"
+                                   placeholder="Ex: UTI Adulto" style="font-size:13px;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" style="font-size:12px;">Leito</label>
+                            <input type="text" id="hosp-leito" class="form-input"
+                                   placeholder="Ex: 12A" style="font-size:13px;">
+                        </div>
+                    </div>
+                    <div class="hosp-dose-row">
+                        <input type="checkbox" id="hosp-dose-unitaria"
+                               onchange="toggleDoseUnitaria()">
+                        <label for="hosp-dose-unitaria" style="cursor:pointer;">Dose unitária</label>
+                        <span id="hosp-qtd-doses-wrap">
+                            &nbsp;→&nbsp;
+                            <input type="number" id="hosp-qtd-doses" class="form-input"
+                                   min="1" placeholder="Doses" style="width:80px;font-size:13px;">
+                        </span>
+                    </div>
+                </div>
+
+                <div id="resultado-body"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <footer>
+        <p style="font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
+        <p>Distribuído sob GNU AGPL-3.0 — software livre.</p>
+    </footer>
+
+    <script>
+      const BACKEND = BACKEND_URL;
+
+        // ─────────────────────────────────────────────────
+        // Estado da sessão (em memória — não persiste no disco)
+        // ─────────────────────────────────────────────────
+        let jwtAccessToken    = null;
+        let dispensadorLogado = null;  // { nome, cnpj }
+
+        // DEV_PRESET_CONTEXT: pré-seleciona a farmácia de teste automaticamente.
+        // Mude para false antes de publicar em produção.
+        const DEV_PRESET_CONTEXT = true;
+
+        // Soft guard — tipos válidos para o módulo Dispensador (Ticket 60)
+        const _TIPOS_DISPENSADOR_VALIDOS = new Set(['farmacia', 'hospital', 'usf']);
+
+        // Ticket 46 — Gate leve de contexto CNES
+        // true quando usuário explicitamente confirmou operação manual nesta sessão
+        let _cnesConfirmadoManual = false;
+        let _ctxWarnResolve       = null;  // resolve da Promise do gate
+
+        // Atualiza visibilidade do banner de risco
+        // Soft guard — exibe aviso e bloqueia ações se tipo está fora do escopo (Ticket 60)
+        function _aplicarGuardTipoInstitucional() {
+            const banner  = document.getElementById('banner-tipo-fora-escopo');
+            const msgEl   = document.getElementById('banner-tipo-msg');
+            const btnCons = document.getElementById('btn-consultar-protocolo');
+            const btnRes  = document.getElementById('btn-resolver-token');
+            if (!banner) return;
+
+            const tipo    = (dispensadorLogado?.tipo || '').toLowerCase();
+            const isAdmin = dispensadorLogado?.role === 'admin';
+            const foraDe  = tipo && !_TIPOS_DISPENSADOR_VALIDOS.has(tipo);
+
+            if (!foraDe) {
+                banner.classList.add('hidden');
+                if (btnCons) { btnCons.disabled = false; btnCons.title = ''; }
+                if (btnRes)  { btnRes.disabled  = false; btnRes.title  = ''; }
+                return;
+            }
+
+            // Tipo fora do escopo — exibe aviso
+            const _LABEL = { clinica: 'Clínica', laboratorio: 'Laboratório' };
+            const tipoLabel = _LABEL[tipo] || tipo;
+            const adminTag  = isAdmin
+                ? ' <span class="banner-admin-tag">[ADMIN] acesso mantido</span>'
+                : ' <span class="banner-tipo-bloqueio">(consulta e dispenção desabilitadas)</span>';
+            msgEl.innerHTML = '&#9888; O tipo <strong>' + _cEsc(tipoLabel) + '</strong> está fora do escopo do Módulo Dispensador.'
+                + ' Para dispensar, utilize um estabelecimento do tipo Farmácia, Hospital ou USF.'
+                + adminTag;
+            banner.classList.remove('hidden');
+
+            // Admin: aviso sem bloqueio. Outros: desabilita entry points de dispenção.
+            if (btnCons) {
+                btnCons.disabled = !isAdmin;
+                btnCons.title = isAdmin ? '' : 'Tipo institucional fora do escopo do Dispensador';
+            }
+            if (btnRes) {
+                btnRes.disabled = !isAdmin;
+                btnRes.title = isAdmin ? '' : 'Tipo institucional fora do escopo do Dispensador';
+            }
+        }
+
+        function _atualizarBannerRisco() {
+            const banner = document.getElementById('banner-ctx-risco');
+            if (!banner) return;
+            if (dispensadorLogado?.cnes_verificado === false) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        // Gate leve — retorna Promise<true> se pode operar, Promise<false> se abortado
+        function _confirmarContextoManual() {
+            // Contexto verificado ou já confirmado nesta sessão: libera direto
+            if (dispensadorLogado?.cnes_verificado !== false) return Promise.resolve(true);
+            if (_cnesConfirmadoManual) return Promise.resolve(true);
+            // Exibe modal e aguarda escolha
+            return new Promise(resolve => {
+                _ctxWarnResolve = resolve;
+                document.getElementById('modal-ctx-warn').classList.remove('hidden');
+            });
+        }
+
+        // Usuário escolheu "Identificar via CNES"
+        function _ctxWarnIdentificar() {
+            document.getElementById('modal-ctx-warn').classList.add('hidden');
+            if (_ctxWarnResolve) { _ctxWarnResolve(false); _ctxWarnResolve = null; }
+            abrirModalCNESDispensador();
+        }
+
+        // Usuário escolheu "Continuar assim mesmo"
+        function _ctxWarnContinuar() {
+            _cnesConfirmadoManual = true;
+            document.getElementById('modal-ctx-warn').classList.add('hidden');
+            if (_ctxWarnResolve) { _ctxWarnResolve(true); _ctxWarnResolve = null; }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Modo Hospitalar (Ticket 27)
+        // ─────────────────────────────────────────────────
+        function toggleModoHospitalar() {
+            const hospitalar = document.getElementById('modo-hospitalar').checked;
+            const panel = document.getElementById('hosp-fields-panel');
+            if (hospitalar) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        // Ticket 60 — mapeia tipo institucional → modalidade de dispensação.
+        // Dispensadores válidos: farmacia | hospital | usf
+        //   farmacia | usf → ambulatorial (default)
+        //   hospital       → hospitalar (exibe painel de contexto)
+        // clinica e laboratorio são tipos estruturais fora do módulo dispensador.
+        function _aplicarModoInstitucional(tipo) {
+            const hospitalar = tipo === 'hospital';
+            const radioHosp  = document.getElementById('modo-hospitalar');
+            const radioAmb   = document.getElementById('modo-ambulatorial');
+            const panel      = document.getElementById('hosp-fields-panel');
+            if (!radioHosp || !radioAmb || !panel) return;
+            radioHosp.checked = hospitalar;
+            radioAmb.checked  = !hospitalar;
+            if (hospitalar) panel.classList.remove('hidden');
+            else            panel.classList.add('hidden');
+        }
+
+        function toggleDoseUnitaria() {
+            const checked = document.getElementById('hosp-dose-unitaria').checked;
+            document.getElementById('hosp-qtd-doses-wrap').style.display = checked ? 'inline-flex' : 'none';
+        }
+
+        function _modoHospitalar() {
+            return document.getElementById('modo-hospitalar') &&
+                   document.getElementById('modo-hospitalar').checked;
+        }
+
+        function _coletarContextoHospitalar() {
+            const orgId    = (document.getElementById('hosp-org-id')?.value || '').trim();
+            const unidade  = (document.getElementById('hosp-unidade-id')?.value || '').trim();
+            const setor    = (document.getElementById('hosp-setor')?.value || '').trim() || null;
+            const leito    = (document.getElementById('hosp-leito')?.value || '').trim() || null;
+            const doseUnit = document.getElementById('hosp-dose-unitaria')?.checked || false;
+            const qtdDoses = doseUnit
+                ? parseInt(document.getElementById('hosp-qtd-doses')?.value || '0', 10) || null
+                : null;
+            return { orgId, unidade, setor, leito, doseUnit, qtdDoses };
+        }
+
+        // ─────────────────────────────────────────────────
+        // Helpers de autenticação e formatação
+        // ─────────────────────────────────────────────────
+        function authHeaders() {
+            const h = { 'Content-Type': 'application/json' };
+            if (jwtAccessToken) h['Authorization'] = 'Bearer ' + jwtAccessToken;
+            return h;
+        }
+
+        function normalizarCnpj(v) { return v.replace(/\D/g, ''); }
+
+        function formatarCnpj(d) {
+            if (d.length !== 14) return d;
+            return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Ticket 49 — Widget de confiança CNES do prescritor
+        // ─────────────────────────────────────────────────────────────
+
+        function _renderCnesDetails(v) {
+            const sim  = '<span style="color:#16a34a;font-weight:600">sim</span>';
+            const nao  = '<span style="color:#dc2626;font-weight:600">não</span>';
+            const na   = '<span style="color:#94a3b8">—</span>';
+            const bool = (x) => x === true ? sim : x === false ? nao : na;
+            const rows = [
+                `Nome CNES: <strong>${v.nome_cnes || '—'}</strong> · coincide: ${bool(v.nome_normalizado_coincide)}`,
+                `CRM: ${v.crm_declarado || '—'} · UF: ${v.uf_crm_declarado || '—'} · confirmado: ${bool(v.crm_cnes_coincide)}`,
+                `Vínculo c/ prestador: ${bool(v.vinculo_com_prestador)}`,
+            ];
+            const div  = (v.divergencias || []).length
+                ? `<div style="color:#dc2626;margin-top:6px">⚠ ${v.divergencias.join(' · ')}</div>` : '';
+            return rows.map(r => `<div>${r}</div>`).join('') + div;
+        }
+
+        function _renderizarValidacaoCNES(v) {
+            if (!v || !v.nivel_validacao_cnes) return '';
+            const cores  = { forte: '#16a34a', parcial: '#f59e0b', divergente: '#dc2626', nao_encontrado: '#6b7280' };
+            const textos = { forte: 'FORTE', parcial: 'PARCIAL', divergente: 'DIVERGENTE', nao_encontrado: 'NÃO ENCONTRADO' };
+            const nivel  = v.nivel_validacao_cnes;
+            const cor    = cores[nivel] || '#6b7280';
+            const texto  = textos[nivel] || nivel.toUpperCase();
+            const detId  = 'cnes-det-' + Math.random().toString(36).slice(2, 7);
+            return `
+                <div class="cnes-widget" style="margin-bottom:12px;padding:10px 14px;border-left:4px solid ${cor};background:#f9fafb;border-radius:0 6px 6px 0;font-size:13px">
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                        <strong style="color:${cor}">● Validação CNES: ${texto}</strong>
+                        <button onclick="document.getElementById('${detId}').classList.toggle('hidden')"
+                                style="font-size:11px;color:#64748b;background:none;border:none;cursor:pointer;padding:2px 6px">
+                            ver detalhes ▾
+                        </button>
+                    </div>
+                    <div style="color:#64748b;margin-top:3px">
+                        ${v.cbo ? 'CBO: ' + v.cbo + ' · ' : ''}Vínculos: ${v.vinculos_ativos ?? 0} · Base: CNES ${v.snapshot_mes || '—'}
+                    </div>
+                    <div id="${detId}" class="hidden" style="margin-top:8px;color:#475569;border-top:1px solid #e2e8f0;padding-top:8px">
+                        ${_renderCnesDetails(v)}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Mapeia camada CNES do relatório de validação para formato do widget
+        function _mapValidacaoParaWidget(cnes) {
+            const cnsOk      = cnes.cns_encontrado?.ok === true;
+            const nomeOk     = cnes.nome_consistente?.ok !== false;
+            const cboOk      = cnes.cbo_prescritivo?.ok !== false;
+            const conselhoOk = cnes.conselho_habilitado?.ok !== false;
+
+            let nivel;
+            if (!cnsOk)               nivel = 'nao_encontrado';
+            else if (!nomeOk || !cboOk) nivel = 'divergente';
+            else if (cboOk && conselhoOk) nivel = 'forte';
+            else                       nivel = 'parcial';
+
+            const cboDetalhe  = cnes.cbo_prescritivo?.detalhe || '';
+            const cboMatch    = cboDetalhe.match(/CBO prescritivo confirmado: ([^.]+)/);
+            const cbo         = cboMatch ? cboMatch[1].split(',')[0].trim() : null;
+
+            const vincDetalhe = cnes.vinculo_institucional?.detalhe || '';
+            const vincMatch   = vincDetalhe.match(/^(\d+)/);
+            const vinculos    = vincMatch ? parseInt(vincMatch[1]) : 0;
+
+            const nomeDetalhe = cnes.nome_consistente?.detalhe || '';
+            const nomeMatch   = nomeDetalhe.match(/Nome CNES: '([^']+)'/);
+            const nomeCnes    = nomeMatch ? nomeMatch[1] : null;
+
+            return {
+                nivel_validacao_cnes:      nivel,
+                cns_encontrado:            cnsOk,
+                nome_cnes:                 nomeCnes,
+                nome_normalizado_coincide: nomeOk,
+                cbo_prescritor_valido:     cboOk,
+                cbo,
+                vinculos_ativos:           vinculos,
+                snapshot_mes:              '2025-12',
+                divergencias:              nivel === 'divergente' ? ['ver detalhes do prescritor'] : [],
+            };
+        }
+
+        // Busca validação CNES via endpoint autenticado e injeta widget
+        async function _carregarCnesWidget(protocolo) {
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/prescricoes/${encodeURIComponent(protocolo)}/validacao`,
+                    { headers: authHeaders() }
+                );
+                if (!resp.ok) return;
+                const report  = await resp.json();
+                const cnes    = report.camadas?.cnes || {};
+                const widget  = _mapValidacaoParaWidget(cnes);
+                const el      = document.getElementById('cnes-validacao-disp');
+                if (el) el.innerHTML = _renderizarValidacaoCNES(widget);
+                if (widget.nivel_validacao_cnes === 'divergente') {
+                    document.getElementById('cnes-aviso-divergente')?.classList.remove('hidden');
+                }
+            } catch { /* widget não é crítico */ }
+        }
+
+        // Ticket 50 — Badge discreto de Score de Confiança do Cuidado
+        function _renderizarScoreConfianca(s) {
+            if (!s || !s.nivel) return '';
+            const cores = { alto: '#16a34a', medio: '#f59e0b', baixo: '#ea580c', critico: '#dc2626' };
+            const cor   = cores[s.nivel] || '#6b7280';
+            return `<div class="no-print" style="margin-top:8px">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:999px;background:${cor}18;border:1px solid ${cor}40;font-size:12px;font-weight:700;color:${cor}">
+                    ● Confiança do cuidado: ${s.nivel.toUpperCase()}
+                </span>
+                <div style="font-size:11px;color:#64748b;margin-top:3px">${s.resumo || ''}</div>
+            </div>`;
+        }
+
+        function getStatusBadgePresc(status) {
+            const mapa = {
+                pendente:                ['badge-pendente',   'Pendente'],
+                transferida_paciente:    ['badge-pendente',   'Com Paciente'],
+                em_custodia:             ['badge-em-custodia','Em Custódia'],
+                parcialmente_dispensada: ['badge-parcial',    'Parcialmente Dispensada'],
+                dispensada:              ['badge-dispensado', 'Dispensada'],
+                cancelada:               ['badge-cancelado',  'Cancelada'],
+                expirada:                ['badge-encerrado',  'Expirada'],
+                encerrada_localmente:    ['badge-encerrado',  'Encerrada (Física)'],
+            };
+            const [cls, label] = mapa[status] || ['badge-encerrado', status];
+            return `<span class="badge ${cls}">${label}</span>`;
+        }
+
+        function getStatusBadgeItem(status) {
+            const mapa = {
+                pendente:             ['badge-pendente',    'Pendente'],
+                em_custodia:          ['badge-em-custodia', 'Em Custódia'],
+                dispensado:           ['badge-dispensado',  'Dispensado'],
+                devolvido_paciente:   ['badge-devolvido',   'Dev. Paciente'],
+                devolvido_prescritor: ['badge-cancelado',   'Dev. Prescritor'],
+                cancelado:            ['badge-cancelado',   'Cancelado'],
+                estornado:            ['badge-cancelado',   'Estornado'],
+                encerrado_fisico:     ['badge-encerrado',   'Físico'],
+            };
+            const [cls, label] = mapa[status] || ['badge-encerrado', status];
+            return `<span class="badge ${cls}">${label}</span>`;
+        }
+
+        const STATUS_TERMINAIS_ITEM = new Set([
+            'dispensado', 'devolvido_prescritor', 'cancelado', 'estornado', 'encerrado_fisico'
+        ]);
+
+        function mostrarMsgItem(itemId, tipo, texto) {
+            const el = document.getElementById(`msg-item-${itemId}`);
+            if (!el) return;
+            el.className = `msg-inline ${tipo}`;
+            el.textContent = texto;
+            el.classList.remove('hidden');
+        }
+
+        // ─────────────────────────────────────────────────
+        // Login / Logout
+        // ─────────────────────────────────────────────────
+        async function fazerLogin(e) {
+            e.preventDefault();
+            const loginErro = document.getElementById('login-erro');
+            loginErro.classList.add('hidden');
+
+            const cnpj  = normalizarCnpj(document.getElementById('login-cnpj').value.trim());
+            const senha = document.getElementById('login-senha').value;
+
+            const formData = new URLSearchParams();
+            formData.append('username', cnpj);
+            formData.append('password', senha);
+
+            try {
+                const resp = await fetch(BACKEND + '/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    loginErro.textContent = 'Login inválido: ' + (err.detail || 'Verifique suas credenciais.');
+                    loginErro.classList.remove('hidden');
+                    return;
+                }
+
+                const data = await resp.json();
+
+                if (data.role !== 'dispensador' && data.role !== 'admin') {
+                    loginErro.textContent =
+                        'Acesso restrito ao Módulo Dispensador. ' +
+                        'Perfil recebido: "' + data.role + '". ' +
+                        'Utilize o módulo correto para o seu perfil.';
+                    loginErro.classList.remove('hidden');
+                    return;
+                }
+
+                jwtAccessToken    = data.access_token;
+                dispensadorLogado = { nome: data.nome, cnpj, role: data.role, org_id: null, tipo: null, unidades: [] };
+
+                document.getElementById('header-nome').textContent = data.nome;
+                document.getElementById('header-cnpj').textContent = formatarCnpj(cnpj);
+                document.getElementById('header-user-info').classList.remove('hidden');
+                document.getElementById('btn-sair').classList.remove('hidden');
+                document.getElementById('tela-login').classList.add('hidden');
+
+                // Aplicar contexto pré-login (selecionado antes de entrar)
+                if (_pendingContext) {
+                    const { prestador, unidadeId } = _pendingContext;
+                    dispensadorLogado.org_id          = prestador.org_id;
+                    dispensadorLogado.tipo            = prestador.tipo || null;
+                    dispensadorLogado.unidades        = prestador.unidades;
+                    dispensadorLogado.cnes_verificado = prestador.cnes_verificado;
+                    _aplicarContextoHospitalar(prestador.org_id, prestador.unidades, unidadeId);
+                    _aplicarModoInstitucional(prestador.tipo);
+                    _pendingContext = null;
+                    _atualizarContextoDispensadorCard();
+                    document.getElementById('tela-dashboard').classList.remove('hidden');
+                } else {
+                    await _iniciarSessao(data.access_token);
+                }
+
+            } catch (err) {
+                console.error('Erro ao conectar ao backend:', err);
+                loginErro.textContent = 'Não foi possível conectar ao servidor. Verifique se o backend está rodando em ' + BACKEND;
+                loginErro.classList.remove('hidden');
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Contexto institucional (Tickets 42 + 43)
+        // ─────────────────────────────────────────────────
+
+        // Aplica org_id e unidade_id nos campos hospitalares.
+        // Usado tanto pelo auto-fill do login (T42) quanto pela seleção CNES (T43).
+        function _aplicarContextoHospitalar(orgId, unidades, selectedUnidade) {
+            const orgEl = document.getElementById('hosp-org-id');
+            if (orgEl) orgEl.value = orgId || '';
+
+            if (!unidades || !unidades.length) return;
+
+            const currentEl = document.getElementById('hosp-unidade-id');
+            if (!currentEl) return;
+
+            if (unidades.length === 1) {
+                currentEl.value = unidades[0].unidade_id;
+            } else {
+                // Múltiplas unidades — criar/recriar select
+                const sel = document.createElement('select');
+                sel.id        = 'hosp-unidade-id';
+                sel.className = currentEl.className;
+                sel.setAttribute('style', currentEl.getAttribute('style') || '');
+                unidades.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value       = u.unidade_id;
+                    opt.textContent = u.nome ? `${u.nome} (${u.unidade_id})` : u.unidade_id;
+                    opt.selected    = u.unidade_id === selectedUnidade;
+                    sel.appendChild(opt);
+                });
+                currentEl.replaceWith(sel);
+                if (selectedUnidade) {
+                    const newEl = document.getElementById('hosp-unidade-id');
+                    if (newEl) newEl.value = selectedUnidade;
+                }
+            }
+        }
+
+        // Retorna true se encontrou org_id resolvido, false caso contrário.
+        // Usado por _iniciarSessao para decidir: onboarding ou dashboard.
+        async function _carregarContextoInstitucional(token) {
+            let contextFound = false;
+            try {
+                const resp = await fetch(BACKEND + '/auth/me/institucional', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (resp.ok) {
+                    const ctx = await resp.json();
+                    dispensadorLogado.org_id          = ctx.org_id;
+                    dispensadorLogado.tipo            = ctx.tipo || null;
+                    dispensadorLogado.unidades        = ctx.unidades || [];
+                    dispensadorLogado.cnes_verificado = ctx.cnes_verificado;
+                    _aplicarContextoHospitalar(ctx.org_id, ctx.unidades, ctx.unidades?.[0]?.unidade_id || null);
+                    _aplicarModoInstitucional(ctx.tipo);
+                    contextFound = !!(ctx.org_id);
+                }
+            } catch (_) {
+                // backend indisponível — sem bloqueio
+            }
+            _atualizarContextoDispensadorCard();
+            return contextFound;
+        }
+
+        async function _iniciarSessao(token) {
+            const contextFound = await _carregarContextoInstitucional(token);
+            if (contextFound) {
+                document.getElementById('tela-dashboard').classList.remove('hidden');
+            } else {
+                document.getElementById('tela-onboarding').classList.remove('hidden');
+            }
+        }
+
+        // Pré-login: abre modal CNES sem exigir JWT.
+        // Guarda resultado em _pendingContext para ser aplicado após login.
+        let _pendingContext = null;
+
+        function abrirModalCNESPreLogin() {
+            // modo 'cnes-bruto': filtra por TP_UNIDADE farmácia, sem JWT
+            abrirModalCNES((prestador, unidadeId) => {
+                _pendingContext = { prestador, unidadeId };
+                const ok = document.getElementById('cnes-pre-login-ok');
+                if (ok) {
+                    const verificado = prestador.cnes_verificado ? ' ✓ CNES' : ' ⚠ manual';
+                    ok.textContent = prestador.nome + verificado;
+                    ok.classList.remove('hidden');
+                }
+            }, 'cnes-bruto');
+        }
+
+        function abrirModalCNESOnboarding() {
+            abrirModalCNES((prestador, unidadeId) => {
+                _aplicarContextoHospitalar(prestador.org_id, prestador.unidades, unidadeId);
+                _aplicarModoInstitucional(prestador.tipo);
+                if (dispensadorLogado) {
+                    dispensadorLogado.org_id          = prestador.org_id;
+                    dispensadorLogado.tipo            = prestador.tipo || null;
+                    dispensadorLogado.unidades        = prestador.unidades;
+                    dispensadorLogado.cnes_verificado = prestador.cnes_verificado;
+                }
+                _atualizarContextoDispensadorCard();
+                _pularOnboarding();
+            });
+        }
+
+        function _pularOnboarding() {
+            document.getElementById('tela-onboarding').classList.add('hidden');
+            document.getElementById('tela-dashboard').classList.remove('hidden');
+        }
+
+        function _atualizarContextoDispensadorCard() {
+            const card  = document.getElementById('ctx-ident-card');
+            const texto = document.getElementById('ctx-ident-texto');
+            const btn   = document.getElementById('ctx-ident-btn');
+            if (!card) return;
+            if (dispensadorLogado?.org_id) {
+                const verificado = dispensadorLogado.cnes_verificado !== false;
+                card.className = verificado ? 'ctx-ident-card id' : 'ctx-ident-card nao-id';
+                const uns = (dispensadorLogado.unidades || []).length;
+                const aviso = verificado ? '' : ' &nbsp;<span style="color:#d97706;font-size:11px;font-weight:700">⚠ não verificado no CNES</span>';
+                // Ticket 60 — badge de tipo institucional
+                // Dispensadores ativos: farmacia, hospital, usf. clinica/laboratorio: tipos estruturais (exibidos apenas se presentes em dados legados).
+                const _TIPO_LABEL = { farmacia: 'Farmácia', hospital: 'Hospital', usf: 'USF', laboratorio: 'Laboratório', clinica: 'Clínica' };
+                const tipoKey   = (dispensadorLogado.tipo || '').toLowerCase();
+                const tipoLabel = _TIPO_LABEL[tipoKey] || '';
+                const tipoBadge = tipoLabel
+                    ? ` <span class="inst-tipo-badge ${tipoKey}">${_cEsc(tipoLabel)}</span>`
+                    : '';
+                texto.innerHTML = _cEsc(dispensadorLogado.org_id)
+                    + tipoBadge
+                    + (uns > 0 ? ` &nbsp;<span style="font-size:11px;color:#64748b;">· ${uns} unidade(s)</span>` : '')
+                    + aviso;
+                if (btn) { btn.textContent = 'Trocar'; btn.className = 'btn-ctx-trocar'; }
+            } else {
+                card.className = 'ctx-ident-card nao-id';
+                texto.textContent = 'Não identificado — identifique seu estabelecimento';
+                if (btn) { btn.textContent = 'LOCALIZAR CADASTRO NACIONAL (CNES)'; btn.className = 'btn-localizar-cnes'; }
+            }
+            _atualizarBannerRisco();
+            _aplicarGuardTipoInstitucional();
+        }
+
+        function sair() {
+            jwtAccessToken        = null;
+            dispensadorLogado     = null;
+            _cnesConfirmadoManual = false;
+            document.getElementById('tela-dashboard').classList.add('hidden');
+            document.getElementById('resultado-container').classList.add('hidden');
+            document.getElementById('resultado-body').innerHTML = '';
+            document.getElementById('protocolo-input').value = '';
+            document.getElementById('login-cnpj').value = '';
+            document.getElementById('login-senha').value = '';
+            document.getElementById('header-user-info').classList.add('hidden');
+            document.getElementById('btn-sair').classList.add('hidden');
+            document.getElementById('tela-login').classList.remove('hidden');
+            document.getElementById('tela-onboarding').classList.add('hidden');
+            // Resetar card de contexto para o próximo login
+            const card = document.getElementById('ctx-ident-card');
+            if (card) card.className = 'ctx-ident-card nao-id';
+            const texto = document.getElementById('ctx-ident-texto');
+            if (texto) texto.textContent = 'Não identificado';
+            const btn = document.getElementById('ctx-ident-btn');
+            if (btn) { btn.textContent = 'LOCALIZAR CADASTRO NACIONAL (CNES)'; btn.className = 'btn-localizar-cnes'; }
+            // Soft guard — limpar ao sair (re-habilita para próxima sessão)
+            _aplicarGuardTipoInstitucional();
+        }
+
+        function tratarSessaoExpirada() {
+            alert('Sessão expirada ou sem permissão. Faça login novamente.');
+            sair();
+        }
+
+        // ─────────────────────────────────────────────────
+        // Consulta de protocolo (shared core)
+        // ─────────────────────────────────────────────────
+        async function _buscarProtocolo(protocolo) {
+            const container = document.getElementById('resultado-container');
+            const body      = document.getElementById('resultado-body');
+            container.classList.add('hidden');
+            body.innerHTML = '';
+
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/public/prescricoes/${encodeURIComponent(protocolo)}`
+                );
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    body.innerHTML = `<div class="msg-inline error">${err.detail || 'Protocolo não encontrado.'}</div>`;
+                    container.classList.remove('hidden');
+                    return;
+                }
+
+                const data = await resp.json();
+                renderizarResultado(protocolo, data);
+
+            } catch (err) {
+                console.error('Erro ao consultar protocolo:', err);
+                body.innerHTML = '<div class="msg-inline error">Não foi possível conectar ao servidor.</div>';
+                container.classList.remove('hidden');
+            }
+        }
+
+        async function consultarProtocolo(e) {
+            e.preventDefault();
+            const protocolo = document.getElementById('protocolo-input').value.trim();
+            if (!protocolo) return;
+            await _buscarProtocolo(protocolo);
+        }
+
+        // ─────────────────────────────────────────────────
+        // Resolver token de apresentação (Ticket 25)
+        // ─────────────────────────────────────────────────
+        async function resolverToken(e) {
+            e.preventDefault();
+            const codigo = document.getElementById('token-input').value.trim().toUpperCase();
+            if (!codigo || codigo.length < 4) return;
+
+            const msgEl = document.getElementById('token-resolver-msg');
+            msgEl.className    = 'msg-inline';
+            msgEl.textContent  = 'Resolvendo código…';
+            msgEl.classList.remove('hidden');
+
+            try {
+                const resp = await fetch(BACKEND + '/tokens/apresentacao/resolver', {
+                    method:  'POST',
+                    headers: authHeaders(),
+                    body:    JSON.stringify({
+                        codigo_curto:         codigo,
+                        cnpj_estabelecimento: dispensadorLogado?.cnpj || null,
+                    }),
+                });
+
+                if (resp.status === 401 || resp.status === 403) {
+                    tratarSessaoExpirada();
+                    return;
+                }
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    msgEl.className   = 'msg-inline error';
+                    msgEl.textContent = err.detail || 'Token inválido ou expirado.';
+                    return;
+                }
+
+                const data  = await resp.json();
+                const proto = data.protocolo;
+
+                // Ticket 44 — Fase 3: bifurcar por modo do token
+                if (data.modo === 'item' && data.circulacao_atomizada) {
+                    // Token de item individual — mostrar apenas aquele item (privacidade)
+                    document.getElementById('token-input').value = '';
+                    msgEl.className   = 'msg-inline success';
+                    msgEl.textContent = `✓ Item identificado — ${data.item?.nome_medicamento || ''}`;
+                    setTimeout(() => {
+                        msgEl.classList.add('hidden');
+                        _renderizarItemAtomizado(proto, codigo, data.item);
+                    }, 500);
+                    return;
+                }
+
+                // Fluxo original (modo=prescricao) — retrocompat intacto
+                msgEl.className   = 'msg-inline success';
+                msgEl.textContent = `✓ Token resolvido — carregando prescrição…`;
+
+                document.getElementById('protocolo-input').value = proto;
+                document.getElementById('token-input').value     = '';
+
+                setTimeout(async () => {
+                    msgEl.classList.add('hidden');
+                    await _buscarProtocolo(proto);
+                }, 600);
+
+            } catch (err) {
+                console.error('Erro ao resolver token:', err);
+                msgEl.className   = 'msg-inline error';
+                msgEl.textContent = 'Não foi possível conectar ao servidor.';
+            }
+        }
+
+        function renderizarResultado(protocolo, data) {
+            _iaDispConsultados.clear(); // nova consulta — resetar cache de IA
+            let html = `
+                <div class="resultado-header">
+                    <div>
+                        <p class="protocolo-text">${protocolo}</p>
+                        <p class="tipo-emissao">Emissão: ${data.tipo_emissao || '—'}</p>
+                    </div>
+                    ${getStatusBadgePresc(data.status_prescricao)}
+                </div>
+            `;
+
+            if (!data.itens || data.itens.length === 0) {
+                html += '<p style="color:#94a3b8; text-align:center; padding:16px;">Nenhum item encontrado nesta prescrição.</p>';
+            } else {
+                data.itens.forEach(item => {
+                    const terminal = STATUS_TERMINAIS_ITEM.has(item.status_item);
+                    const cardCls  = terminal ? 'item-card terminal' : 'item-card ativo';
+
+                    html += `
+                        <div class="${cardCls}" id="item-card-${item.item_id}">
+                            <div class="item-header">
+                                <span class="item-numero">Fármaco ${item.ordem}</span>
+                                <span id="badge-item-${item.item_id}">${getStatusBadgeItem(item.status_item)}</span>
+                            </div>
+                            <p class="item-medicamento">${item.medicamento}</p>
+                            ${item.dose ? `<p class="item-dose">${item.dose}</p>` : ''}
+                            <div class="ia-disp-container" id="ia-disp-${item.item_id}"></div>
+                            <div id="acoes-item-${item.item_id}">
+                                ${terminal
+                                    ? '<p class="item-terminal-msg">Nenhuma ação disponível para este item.</p>'
+                                    : renderAcoesAtivas(protocolo, item.item_id)}
+                            </div>
+                            <div id="msg-item-${item.item_id}" class="msg-inline hidden"></div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Placeholder CNES — preenchido assincronamente por _carregarCnesWidget
+            html = `<div id="cnes-aviso-divergente" class="msg-inline error hidden">⚠ Divergência CNES detectada — revisar antes de dispensar.</div>
+                    <div id="cnes-validacao-disp" class="no-print"></div>` + html;
+
+            document.getElementById('resultado-body').innerHTML = html;
+            document.getElementById('resultado-container').classList.remove('hidden');
+            _carregarCnesWidget(protocolo); // CNES — async, não bloqueia
+            _iaDispConsultarTodos(data.itens); // IA farmacêutica — chamada única por item
+        }
+
+        function renderAcoesAtivas(protocolo, itemId) {
+            // Escapa o protocolo para uso inline (é um UUID — seguro, mas boas práticas)
+            const p = protocolo.replace(/'/g, '');
+            return `
+                <div class="item-acoes">
+                    <div class="dispensar-group">
+                        <input type="number" id="qtd-${itemId}" class="form-input"
+                               min="1" value="1" title="Quantidade a dispensar">
+                        <button class="btn btn-action btn-sm"
+                                onclick="dispensarItem('${p}', ${itemId})">
+                            ✓ Dispensar
+                        </button>
+                    </div>
+                    <button class="btn btn-outline btn-sm"
+                            onclick="devolverItemPaciente('${p}', ${itemId})">
+                        ← Dev. ao Paciente
+                    </button>
+                    <button class="btn btn-danger btn-sm"
+                            onclick="toggleMotivoPrescritor(${itemId})">
+                        ✕ Dev. ao Prescritor
+                    </button>
+                </div>
+                <div id="motivo-prescritor-${itemId}" class="motivo-section hidden">
+                    <p style="font-size:13px; color:#dc2626; font-weight:700; margin-bottom:8px;">
+                        Devolução ao prescritor — informe o motivo:
+                    </p>
+                    <input type="text" id="motivo-${itemId}" class="form-input"
+                           placeholder="Ex: medicamento contraindicado, dosagem incorreta…">
+                    <div class="motivo-row">
+                        <button class="btn btn-danger btn-sm"
+                                onclick="devolverItemPrescritor('${p}', ${itemId})">
+                            Confirmar Devolução
+                        </button>
+                        <button class="btn btn-outline btn-sm"
+                                onclick="toggleMotivoPrescritor(${itemId})">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ─────────────────────────────────────────────────
+        // Toggle formulário de motivo (devolução ao prescritor)
+        // ─────────────────────────────────────────────────
+        function toggleMotivoPrescritor(itemId) {
+            const el = document.getElementById(`motivo-prescritor-${itemId}`);
+            el.classList.toggle('hidden');
+            if (!el.classList.contains('hidden')) {
+                document.getElementById(`motivo-${itemId}`).focus();
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Dispensar item — ambulatorial ou hospitalar
+        // ─────────────────────────────────────────────────
+        async function dispensarItem(protocolo, itemId) {
+            const qtd = parseInt(document.getElementById(`qtd-${itemId}`).value, 10);
+            if (!qtd || qtd < 1) {
+                mostrarMsgItem(itemId, 'error', 'Informe uma quantidade válida (mínimo: 1).');
+                return;
+            }
+
+            // Ticket 46 — Gate leve de contexto CNES
+            const podeOperar = await _confirmarContextoManual();
+            if (!podeOperar) return;
+
+            // ── Ramificação: ambulatorial vs hospitalar ────────────────
+            if (_modoHospitalar()) {
+                await _dispensarHospitalar(protocolo, itemId, qtd);
+            } else {
+                await _dispensarAmbulatorial(protocolo, itemId, qtd);
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Dispensação ambulatorial (fluxo original intacto)
+        // ─────────────────────────────────────────────────
+        // codigoToken: opcional — quando informado, fluxo atomizado (Ticket 44, Fase 3)
+        async function _dispensarAmbulatorial(protocolo, itemId, qtd, codigoToken = null) {
+            const payload = {
+                cnpj_estabelecimento:  dispensadorLogado.cnpj,
+                quantidade_dispensada: qtd,
+                dispensado_por:        dispensadorLogado.nome,
+                origem_contexto:              dispensadorLogado.cnes_verificado === false ? 'manual' : 'cnes_verificado',
+                contexto_confirmado_manual:   _cnesConfirmadoManual,
+            };
+            if (codigoToken) payload.codigo_curto_token = codigoToken;
+
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/prescricoes/${encodeURIComponent(protocolo)}/itens/${itemId}/dispensar`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) }
+                );
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    mostrarMsgItem(itemId, 'error', err.detail || 'Erro ao dispensar item.');
+                    return;
+                }
+                _atualizarUiAposDispensacao(await resp.json(), itemId);
+            } catch (err) {
+                console.error('Erro ao dispensar (ambulatorial):', err);
+                mostrarMsgItem(itemId, 'error', 'Não foi possível conectar ao servidor.');
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Dispensação hospitalar (Ticket 27)
+        // ─────────────────────────────────────────────────
+        async function _dispensarHospitalar(protocolo, itemId, qtd) {
+            const ctx = _coletarContextoHospitalar();
+
+            // Validar campos obrigatórios no frontend
+            if (!ctx.orgId) {
+                mostrarMsgItem(itemId, 'error', 'Modo hospitalar: informe a Organização (org_id).');
+                document.getElementById('hosp-org-id')?.focus();
+                return;
+            }
+            if (!ctx.unidade) {
+                mostrarMsgItem(itemId, 'error', 'Modo hospitalar: informe a Unidade (unidade_id).');
+                document.getElementById('hosp-unidade-id')?.focus();
+                return;
+            }
+
+            const payload = {
+                org_id:                ctx.orgId,
+                unidade_id:            ctx.unidade,
+                setor:                 ctx.setor,
+                leito:                 ctx.leito,
+                modalidade:            'internacao',
+                quantidade_dispensada: qtd,
+                dispensado_por:        dispensadorLogado.nome,
+                dose_unitaria:         ctx.doseUnit,
+                quantidade_doses:      ctx.doseUnit ? ctx.qtdDoses : null,
+                cnpj_estabelecimento:        dispensadorLogado.cnpj || null,
+                origem_contexto:             dispensadorLogado.cnes_verificado === false ? 'manual' : 'cnes_verificado',
+                contexto_confirmado_manual:  _cnesConfirmadoManual,
+            };
+
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/prescricoes/${encodeURIComponent(protocolo)}/itens/${itemId}/dispensar/hospitalar`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) }
+                );
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    mostrarMsgItem(itemId, 'error', err.detail || 'Erro ao dispensar (hospitalar).');
+                    return;
+                }
+                const data = await resp.json();
+                _atualizarUiAposDispensacao(data, itemId);
+                // Exibe contexto hospitalar na mensagem de sucesso
+                const ctxInfo = [ctx.setor, ctx.leito].filter(Boolean).join(' / ');
+                if (ctxInfo && data.status_item !== 'dispensado') {
+                    mostrarMsgItem(itemId, 'success',
+                        `Dispensação hospitalar registrada${ctxInfo ? ' — ' + ctxInfo : ''}. ` +
+                        `Qtd: ${data.quantidade_dispensada}. Saldo: ${data.saldo_restante}.`);
+                }
+            } catch (err) {
+                console.error('Erro ao dispensar (hospitalar):', err);
+                mostrarMsgItem(itemId, 'error', 'Não foi possível conectar ao servidor.');
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Atualiza UI após qualquer dispensação (ambulatorial ou hospitalar)
+        // ─────────────────────────────────────────────────
+        function _atualizarUiAposDispensacao(data, itemId) {
+            document.getElementById(`badge-item-${itemId}`).innerHTML = getStatusBadgeItem(data.status_item);
+            if (data.status_item === 'dispensado') {
+                document.getElementById(`acoes-item-${itemId}`).innerHTML =
+                    '<p class="item-terminal-msg">Item dispensado completamente.</p>';
+                document.getElementById(`item-card-${itemId}`).className = 'item-card terminal';
+                mostrarMsgItem(itemId, 'success',
+                    `Dispensação registrada. Quantidade entregue: ${data.quantidade_dispensada}.`);
+            } else {
+                mostrarMsgItem(itemId, 'success',
+                    `Dispensação parcial registrada. Quantidade entregue: ${data.quantidade_dispensada}. ` +
+                    `Saldo restante: ${data.saldo_restante} unidade(s).`);
+            }
+            // Ticket 50 — badge de score após dispensação
+            if (data.score_confianca) {
+                const el = document.getElementById(`msg-item-${itemId}`);
+                if (el) el.insertAdjacentHTML('afterend', _renderizarScoreConfianca(data.score_confianca));
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // Circulação Atomizada — view de item único (Ticket 44, Fase 3)
+        // ─────────────────────────────────────────────────
+
+        function _renderizarItemAtomizado(proto, codigo, item) {
+            const body      = document.getElementById('resultado-body');
+            const container = document.getElementById('resultado-container');
+
+            // Ocultar seletor de modalidade — não se aplica no fluxo atomizado
+            document.querySelector('.modalidade-selector')?.classList.add('hidden');
+            document.getElementById('hosp-fields-panel')?.classList.add('hidden');
+
+            const terminal = STATUS_TERMINAIS_ITEM.has(item.status_item);
+            const nomeExib = [item.nome_medicamento, item.concentracao].filter(Boolean).join(' ');
+
+            body.innerHTML = `
+                <div class="atom-banner-disp">
+                    <span style="font-size:20px;">🔵</span>
+                    <div class="atom-banner-disp-text">
+                        <p>Circulação Atomizada — Item Individual</p>
+                        <p>Código: <strong>${codigo}</strong> · Protocolo: <strong>${proto.substring(0,8)}…</strong></p>
+                    </div>
+                </div>
+                <div class="${terminal ? 'item-card terminal' : 'item-card ativo'}" id="item-card-${item.item_id}">
+                    <div class="item-header">
+                        <span class="item-numero">Medicamento</span>
+                        <span id="badge-item-${item.item_id}">${getStatusBadgeItem(item.status_item)}</span>
+                    </div>
+                    <p class="item-medicamento">${nomeExib || '—'}</p>
+                    ${item.posologia ? `<p class="item-dose">${item.posologia}</p>` : ''}
+                    ${item.quantidade ? `<p style="font-size:12px;color:#475569;margin-top:4px;">Qtd. prescrita: <strong>${item.quantidade}${item.unidade_quantidade ? ' ' + item.unidade_quantidade : ''}</strong></p>` : ''}
+                    <div id="acoes-item-${item.item_id}">
+                        ${terminal
+                            ? '<p class="item-terminal-msg">Nenhuma ação disponível — item já encerrado.</p>'
+                            : renderAcoesAtivasAtomizadas(proto, item.item_id, codigo)}
+                    </div>
+                    <div id="msg-item-${item.item_id}" class="msg-inline hidden"></div>
+                </div>
+                <button onclick="_limparItemAtomizado()" class="btn-atom-voltar">← Buscar outro código</button>`;
+
+            container.classList.remove('hidden');
+        }
+
+        function renderAcoesAtivasAtomizadas(protocolo, itemId, codigoToken) {
+            const p = protocolo.replace(/'/g, '');
+            const t = codigoToken.replace(/'/g, '');
+            return `
+                <div class="item-acoes">
+                    <div class="dispensar-group">
+                        <input type="number" id="qtd-${itemId}" class="form-input"
+                               min="1" value="1" title="Quantidade a dispensar">
+                        <button class="btn btn-action btn-sm"
+                                onclick="dispensarItemAtomizado('${p}', ${itemId}, '${t}')">
+                            ✓ Dispensar
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        async function dispensarItemAtomizado(protocolo, itemId, codigoToken) {
+            const qtd = parseInt(document.getElementById(`qtd-${itemId}`).value, 10);
+            if (!qtd || qtd < 1) {
+                mostrarMsgItem(itemId, 'error', 'Informe uma quantidade válida (mínimo: 1).');
+                return;
+            }
+            await _dispensarAmbulatorial(protocolo, itemId, qtd, codigoToken);
+        }
+
+        function _limparItemAtomizado() {
+            document.getElementById('resultado-container').classList.add('hidden');
+            document.getElementById('resultado-body').innerHTML = '';
+            document.getElementById('token-input').value = '';
+            document.getElementById('protocolo-input').value = '';
+            document.querySelector('.modalidade-selector')?.classList.remove('hidden');
+            document.getElementById('token-input')?.focus();
+        }
+
+        // ─────────────────────────────────────────────────
+        // Devolver ao paciente (abandono / item não disponível)
+        // ─────────────────────────────────────────────────
+        async function devolverItemPaciente(protocolo, itemId) {
+            await _devolverItem(protocolo, itemId, 'paciente', null,
+                'Item devolvido ao paciente. Disponível para nova dispensação em outra farmácia.');
+        }
+
+        // ─────────────────────────────────────────────────
+        // Devolver ao prescritor (erro na prescrição)
+        // ─────────────────────────────────────────────────
+        async function devolverItemPrescritor(protocolo, itemId) {
+            const motivo = (document.getElementById(`motivo-${itemId}`) || {}).value || '';
+            if (!motivo.trim()) {
+                mostrarMsgItem(itemId, 'error', 'O motivo da devolução ao prescritor é obrigatório.');
+                document.getElementById(`motivo-${itemId}`).focus();
+                return;
+            }
+            await _devolverItem(protocolo, itemId, 'prescritor', motivo.trim(),
+                'Item devolvido ao prescritor para correção. Status: devolvido_prescritor.');
+        }
+
+        async function _devolverItem(protocolo, itemId, para, motivo, msgSucesso) {
+            const payload = { para };
+            if (motivo) payload.motivo = motivo;
+
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/prescricoes/${encodeURIComponent(protocolo)}/itens/${itemId}/devolver`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) }
+                );
+
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    mostrarMsgItem(itemId, 'error', err.detail || 'Erro ao devolver item.');
+                    return;
+                }
+
+                const data = await resp.json();
+                document.getElementById(`badge-item-${itemId}`).innerHTML = getStatusBadgeItem(data.status_item);
+                document.getElementById(`acoes-item-${itemId}`).innerHTML =
+                    '<p class="item-terminal-msg">Item devolvido.</p>';
+                document.getElementById(`item-card-${itemId}`).className = 'item-card terminal';
+                mostrarMsgItem(itemId, 'success', msgSucesso);
+
+            } catch (err) {
+                console.error('Erro ao devolver:', err);
+                mostrarMsgItem(itemId, 'error', 'Não foi possível conectar ao servidor.');
+            }
+        }
+
+        // =====================================================================
+        // IA FARMACÊUTICA v1 — alertas passivos no balcão do dispensador
+        // POST /ia/medicamentos/sugerir (somente leitura, sem gravação)
+        //
+        // Comportamento:
+        //   - Chamada única por item ao renderizar o resultado
+        //   - Sem debounce (não há digitação)
+        //   - Sem botão "aplicar" (dispensador não edita os campos)
+        //   - Alerta (âmbar) > Sugestão (azul discreto)
+        //   - Falhas silenciosas — nunca bloqueia dispensação
+        // =====================================================================
+
+        const _iaDispConsultados = new Set(); // cache de item_ids já consultados
+
+        /**
+         * Itera sobre os itens e dispara a IA para cada item não-terminal.
+         * Chamado uma vez após renderizarResultado().
+         */
+        function _iaDispConsultarTodos(itens) {
+            if (!jwtAccessToken || !itens) return;
+            itens.forEach(item => {
+                if (!STATUS_TERMINAIS_ITEM.has(item.status_item)) {
+                    _iaDispConsultar(item);
+                }
+            });
+        }
+
+        /**
+         * Consulta a IA para um item específico.
+         * Usa o nome do medicamento disponível na resposta pública.
+         * Ignora silenciosamente qualquer erro de rede ou de API.
+         */
+        function _iaDispConsultar(item) {
+            const itemId = item.item_id;
+
+            // Cache simples — evitar chamada duplicada se re-renderizar o mesmo protocolo
+            if (_iaDispConsultados.has(itemId)) return;
+            _iaDispConsultados.add(itemId);
+
+            const container = document.getElementById('ia-disp-' + itemId);
+            if (!container) return;
+
+            const nomeMed = (item.medicamento || '').trim();
+            if (nomeMed.length < 2) return; // nome insuficiente para busca útil
+
+            const payload = {
+                nome_medicamento:   nomeMed,
+                // forma_farmaceutica e unidade_quantidade não vêm do endpoint público —
+                // a IA opera apenas com o nome e o contexto de dispensação.
+                forma_farmaceutica: item.forma_farmaceutica  || null,
+                unidade_quantidade: item.unidade_quantidade  || null,
+                contexto:           'dispensacao'
+            };
+
+            fetch(BACKEND + '/ia/medicamentos/sugerir', {
+                method:  'POST',
+                headers: authHeaders(),
+                body:    JSON.stringify(payload)
+            })
+            .then(r => { if (!r.ok) throw new Error('ia_err'); return r.json(); })
+            .then(data => _iaDispRenderizar(itemId, data))
+            .catch(() => {}); // silenciar — a IA é acessória
+        }
+
+        /**
+         * Renderiza alertas e referência farmacêutica no card do item.
+         *
+         * Prioridade visual:
+         *   1. Alertas de incoerência (âmbar, visível)
+         *   2. Referência farmacêutica (azul claro, discreto) — sem ação
+         *
+         * Sem botão "aplicar" — o dispensador não edita os campos da prescrição.
+         */
+        function _iaDispRenderizar(itemId, data) {
+            const container = document.getElementById('ia-disp-' + itemId);
+            if (!container) return;
+
+            const forma    = data.forma_farmaceutica_sugerida;
+            const unidade  = data.unidade_quantidade_sugerida;
+            const alertas  = data.alertas || [];
+            const matchTipo = data.match_tipo || 'nenhum';
+            const score    = typeof data.score === 'number' ? data.score : 0;
+            const fonte    = data.fonte || '';
+
+            // Sem nada relevante → não renderizar
+            if (!forma && !unidade && alertas.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+
+            // — Bloco de alertas (prioridade — fundo âmbar)
+            if (alertas.length > 0) {
+                html += `<div class="ia-disp-bloco ia-disp-alerta">`;
+                html += `<div class="ia-disp-header">&#9888; Alerta farmacêutico</div>`;
+                alertas.forEach(a => {
+                    html += `<div class="ia-disp-alerta-item">&#9888; ${a}</div>`;
+                });
+                html += `</div>`;
+            }
+
+            // — Bloco de referência (discreto — fundo azul claro, sem ação)
+            if ((forma || unidade) && matchTipo !== 'nenhum') {
+                const confianca  = score >= 0.9 ? 'Alta' : score >= 0.7 ? 'Média' : 'Baixa';
+                const metaParts  = [];
+                if (fonte)     metaParts.push(fonte);
+                if (score > 0) metaParts.push('Confiança: ' + confianca);
+
+                html += `<div class="ia-disp-bloco ia-disp-sugestao">`;
+                html += `<div class="ia-disp-header">Referência farmacêutica</div>`;
+                if (forma)   html += `<div class="ia-disp-info">Forma esperada: <strong>${forma}</strong></div>`;
+                if (unidade) html += `<div class="ia-disp-info">Unidade esperada: <strong>${unidade}</strong></div>`;
+                if (metaParts.length > 0) {
+                    html += `<div class="ia-disp-meta">${metaParts.join(' · ')}</div>`;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // =====================================================================
+
+        // ── CNES Modal (Ticket 43 + Segurança) ────────────────────────────
+        let _cnesCallback = null;
+        let _cnesDados    = [];
+        let _cnesTimer    = null;
+        // 'prestadores' = busca na tabela interna (pós-login)
+        // 'cnes-bruto'  = busca no CNES DataSUS filtrado por tipo (pré-login)
+        let _cnesModo     = 'prestadores';
+
+        function abrirModalCNES(cb, modo = 'prestadores') {
+            _cnesCallback = cb;
+            _cnesModo     = modo;
+            _cnesDados    = [];
+            document.getElementById('cnes-input').value = '';
+            document.getElementById('cnes-resultado').innerHTML = '';
+            document.getElementById('modal-cnes').classList.remove('hidden');
+            setTimeout(() => document.getElementById('cnes-input').focus(), 80);
+        }
+
+        function fecharModalCNES() {
+            document.getElementById('modal-cnes').classList.add('hidden');
+            _cnesCallback = null;
+        }
+
+        function _cnesBuscarDebounce(q) {
+            clearTimeout(_cnesTimer);
+            _cnesTimer = setTimeout(() => _cnesExecutar(q), 280);
+        }
+
+        async function _cnesExecutar(q) {
+            const el = document.getElementById('cnes-resultado');
+            if (!q || q.length < 2) { el.innerHTML = ''; return; }
+            el.innerHTML = '<div class="cnes-empty">Buscando…</div>';
+            try {
+                const headers = jwtAccessToken
+                    ? { 'Authorization': 'Bearer ' + jwtAccessToken }
+                    : {};
+                const url = _cnesModo === 'cnes-bruto'
+                    ? BACKEND + '/prestadores/buscar-cnes?modulo=dispensador&q=' + encodeURIComponent(q)
+                    : BACKEND + '/prestadores/buscar?q=' + encodeURIComponent(q);
+                const r = await fetch(url, { headers });
+                if (!r.ok) { el.innerHTML = '<div class="cnes-empty">Erro ao buscar. Verifique o servidor.</div>'; return; }
+                const d = await r.json();
+                _cnesDados = _cnesModo === 'cnes-bruto'
+                    ? (d.estabelecimentos || [])
+                    : (d.prestadores || []);
+                if (!_cnesDados.length) {
+                    el.innerHTML = `
+                        <div class="cnes-empty">Nenhum estabelecimento encontrado para "${_cEsc(q)}".</div>
+                        <div style="margin-top:12px;text-align:center;">
+                            <button type="button" class="btn-cnes-usar" onclick="_cnesMostrarFormCadastro()">+ Cadastrar manualmente</button>
+                        </div>
+                        <div id="cnes-form-cadastro" style="display:none;margin-top:16px;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                            <div style="font-weight:600;margin-bottom:12px;font-size:13px;color:#0f172a;">Dados do estabelecimento</div>
+                            <input id="cnes-cad-nome" type="text" class="modal-cnes-input" style="margin-bottom:8px;" placeholder="Nome do estabelecimento *" />
+                            <input id="cnes-cad-cnpj" type="text" class="modal-cnes-input" style="margin-bottom:8px;" placeholder="CNPJ (opcional)" />
+                            <input id="cnes-cad-orgid" type="text" class="modal-cnes-input" style="margin-bottom:8px;" placeholder="org_id * (ex: farm-central-pe)" />
+                            <input id="cnes-cad-unidade" type="text" class="modal-cnes-input" style="margin-bottom:12px;" placeholder="unidade_id * (ex: balcao-01)" />
+                            <button type="button" class="btn-cnes-usar" style="width:100%;" onclick="_cnesConfirmarCadastro()">Confirmar</button>
+                        </div>`;
+                    return;
+                }
+                el.innerHTML = _cnesModo === 'cnes-bruto'
+                    ? _cnesDados.map((p, i) => `
+                        <div class="cnes-item">
+                            <div class="cnes-item-hd">
+                                <div>
+                                    <div class="cnes-item-nome">${_cEsc(p.nome)}</div>
+                                    <div class="cnes-item-meta">
+                                        ${p.cnpj ? `CNPJ: ${formatarCnpj(p.cnpj)} &nbsp;·&nbsp;` : ''}
+                                        <span class="cnes-badge-t">${_cEsc(p.tipo)}</span>
+                                        &nbsp;·&nbsp;CNES: <code>${_cEsc(p.co_cnes)}</code>
+                                        ${p.uf ? `&nbsp;·&nbsp;${_cEsc(p.uf)}` : ''}
+                                        &nbsp;·&nbsp;<span style="color:#166534;font-weight:700;font-size:10px;">✓ CNES</span>
+                                    </div>
+                                    ${p.endereco ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${_cEsc(p.endereco)}</div>` : ''}
+                                </div>
+                                <button class="btn-cnes-usar" type="button" onclick="_cnesSelecionarBruto(${i})">Usar</button>
+                            </div>
+                        </div>`).join('')
+                    : _cnesDados.map((p, i) => `
+                        <div class="cnes-item">
+                            <div class="cnes-item-hd">
+                                <div>
+                                    <div class="cnes-item-nome">${_cEsc(p.nome)}</div>
+                                    <div class="cnes-item-meta">
+                                        ${p.cnpj ? `CNPJ: ${formatarCnpj(p.cnpj)} &nbsp;·&nbsp;` : ''}
+                                        <span class="cnes-badge-t">${_cEsc(p.tipo)}</span>
+                                        &nbsp;·&nbsp;org_id: <code>${_cEsc(p.org_id)}</code>
+                                        &nbsp;·&nbsp;${p.unidades.length} unidade(s)
+                                    </div>
+                                </div>
+                                <button class="btn-cnes-usar" type="button"
+                                    onclick="${p.unidades.length === 1
+                                        ? `_cnesSelecionar(${i},'${p.unidades[0].unidade_id}')`
+                                        : `_cnesExpandir(${i})`}">
+                                    ${p.unidades.length === 1 ? 'Usar' : 'Selecionar ▾'}
+                                </button>
+                            </div>
+                            ${p.unidades.length > 1 ? `
+                            <div class="cnes-ul" id="cnes-ul-${i}">
+                                ${p.unidades.map(u => `
+                                    <div class="cnes-unidade-opt" onclick="_cnesSelecionar(${i},'${_cEsc(u.unidade_id)}')">
+                                        <span>
+                                            <strong>${_cEsc(u.nome || u.unidade_id)}</strong>
+                                            <span style="color:#64748b;font-size:11px;margin-left:6px">${_cEsc(u.unidade_id)}</span>
+                                            ${u.tipo ? `<span class="cnes-badge-t" style="margin-left:4px">${_cEsc(u.tipo)}</span>` : ''}
+                                        </span>
+                                        <span style="font-size:11px;color:#002776;font-weight:700">Usar →</span>
+                                    </div>
+                                `).join('')}
+                            </div>` : ''}
+                        </div>`).join('');
+            } catch (_) {
+                el.innerHTML = '<div class="cnes-empty">Não foi possível conectar ao servidor.</div>';
+            }
+        }
+
+        function _cnesExpandir(idx) {
+            const el = document.getElementById(`cnes-ul-${idx}`);
+            if (el) el.classList.toggle('aberta');
+        }
+
+        function _cnesSelecionar(idx, unidadeId) {
+            const p = _cnesDados[idx];
+            if (p && _cnesCallback) _cnesCallback(p, unidadeId);
+            fecharModalCNES();
+        }
+
+        // Seleção no modo cnes-bruto: constrói objeto compatível com o callback
+        function _cnesSelecionarBruto(idx) {
+            const p = _cnesDados[idx];
+            if (!p || !_cnesCallback) return;
+            const prestador = {
+                org_id:          null,           // ainda não cadastrado no sistema
+                nome:            p.nome,
+                cnpj:            (p.cnpj || '').replace(/\D/g, ''),
+                co_cnes:         p.co_cnes,
+                tipo:            p.tipo,
+                tp_unidade:      p.tp_unidade,
+                uf:              p.uf,
+                cnes_verificado: true,            // veio do CNES DataSUS
+                unidades:        [],
+            };
+            _cnesCallback(prestador, null);
+            fecharModalCNES();
+        }
+
+        function _cnesMostrarFormCadastro() {
+            const f = document.getElementById('cnes-form-cadastro');
+            if (f) { f.style.display = 'block'; document.getElementById('cnes-cad-nome')?.focus(); }
+        }
+
+        function _cnesConfirmarCadastro() {
+            const nome    = (document.getElementById('cnes-cad-nome')?.value    || '').trim();
+            const cnpj    = (document.getElementById('cnes-cad-cnpj')?.value    || '').replace(/\D/g, '');
+            const orgId   = (document.getElementById('cnes-cad-orgid')?.value   || '').trim();
+            const unidade = (document.getElementById('cnes-cad-unidade')?.value || '').trim();
+            if (!nome || !orgId || !unidade) {
+                alert('Preencha pelo menos: Nome, org_id e unidade_id.');
+                return;
+            }
+            const prestador = {
+                nome,
+                cnpj:            cnpj || null,
+                org_id:          orgId,
+                tipo:            'manual',
+                cnes_verificado: false,   // cadastro manual — não verificado no CNES
+                unidades:        [{ unidade_id: unidade, nome, tipo: null }],
+            };
+            if (_cnesCallback) _cnesCallback(prestador, unidade);
+            fecharModalCNES();
+        }
+
+        function _cEsc(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // Dispensador-specific callback
+        // ── DEV_PRESET_CONTEXT — login automático com farmácia de teste ─────────
+        // Só ativa se DEV_PRESET_CONTEXT=true e nenhum dispensador já logado.
+        // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
+        if (DEV_PRESET_CONTEXT && !dispensadorLogado) {
+            const cnpjEl  = document.getElementById('login-cnpj');
+            const senhaEl = document.getElementById('login-senha');
+            if (cnpjEl && senhaEl) {
+                cnpjEl.value  = '12345678000199';   // CNPJ da farmácia de teste
+                senhaEl.value = 'Teste@2024';
+                setTimeout(() => fazerLogin({ preventDefault: () => {} }), 120);
+            }
+        }
+
+        function abrirModalCNESDispensador() {
+            abrirModalCNES((prestador, unidadeId) => {
+                _aplicarContextoHospitalar(prestador.org_id, prestador.unidades, unidadeId);
+                _aplicarModoInstitucional(prestador.tipo);
+                if (dispensadorLogado) {
+                    dispensadorLogado.org_id          = prestador.org_id;
+                    dispensadorLogado.tipo            = prestador.tipo || null;
+                    dispensadorLogado.unidades        = prestador.unidades;
+                    dispensadorLogado.cnes_verificado = prestador.cnes_verificado;
+                }
+                _atualizarContextoDispensadorCard(); // Ticket 45: atualizar card de onboarding
+                const ok = document.getElementById('cnes-disp-ok');
+                if (ok) {
+                    ok.textContent = `✓ ${prestador.nome} — unidade: ${unidadeId}`;
+                    ok.classList.remove('hidden');
+                }
+            });
+        }
+
+    </script>
+
+    <!-- CNES Modal (Ticket 43) -->
+    <div id="modal-cnes" class="modal-cnes hidden">
+        <div class="modal-cnes-bd" onclick="fecharModalCNES()"></div>
+        <div class="modal-cnes-box">
+            <div class="modal-cnes-hd">
+                <h3>Localizar Cadastro Nacional (CNES)</h3>
+                <button class="btn-fechar-cnes" onclick="fecharModalCNES()" title="Fechar">×</button>
+            </div>
+            <div class="modal-cnes-body">
+                <input type="text" id="cnes-input" class="modal-cnes-input"
+                       placeholder="Nome do estabelecimento, CNPJ ou código org_id…"
+                       oninput="_cnesBuscarDebounce(this.value)">
+                <div id="cnes-resultado"></div>
+                <div class="cnes-fallback">
+                    Cadastro não localizado? Preencha <strong>org_id</strong> e <strong>unidade_id</strong> manualmente.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ticket 46 — Modal gate leve de contexto CNES -->
+    <div id="modal-ctx-warn" class="modal-ctx-warn hidden">
+        <div class="modal-ctx-warn-bd"></div>
+        <div class="modal-ctx-warn-box">
+            <div class="modal-ctx-warn-icon">⚠️</div>
+            <h3>Estabelecimento não verificado no CNES</h3>
+            <p>Você está operando com contexto manual.<br>Isso reduz a confiabilidade institucional do registro.</p>
+            <div class="modal-ctx-warn-btns">
+                <button class="btn-ctx-identificar" type="button" onclick="_ctxWarnIdentificar()">Identificar via CNES</button>
+                <button class="btn-ctx-continuar"   type="button" onclick="_ctxWarnContinuar()">Continuar assim mesmo</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
