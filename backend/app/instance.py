@@ -292,3 +292,131 @@ def get_instance_id(session: Optional[Session] = None) -> str:
         )
     _gravar_arquivo(final)
     return final
+
+
+# ---------------------------------------------------------------------------
+# Variante raw-conn (sub-tarefa 4C)
+# ---------------------------------------------------------------------------
+
+
+def _is_sqlite_conn(conn) -> bool:
+    """
+    Detecta se ``conn`` é uma conexão SQLite nativa (``sqlite3.Connection``).
+
+    Em produção, ``app.database.get_conn()`` retorna o wrapper
+    ``_PgConnection``; em dev/teste, retorna ``sqlite3.Connection`` direto.
+    A detecção por ``isinstance`` é precisa para ambos.
+    """
+    import sqlite3
+    return isinstance(conn, sqlite3.Connection)
+
+
+def get_instance_id_conn(conn) -> str:
+    """
+    Variante de :func:`get_instance_id` que opera com ``conn`` raw em vez
+    de ``Session`` SQLAlchemy. Necessária pela 4C porque:
+
+      1. Os routers do PicSaúde operam com ``conn = get_conn()`` (raw),
+         não com ``Session``.
+      2. ``get_instance_id(session)`` chama ``session.commit()`` no first
+         boot — risco de commit antecipado dentro de transação clínica
+         (CODEX P1-1).
+      3. O wrapper ``_PgConnection.execute()`` (``database.py:173``)
+         adiciona ``RETURNING id`` automático em INSERTs sem RETURNING —
+         quebraria em ``meta_instalacao`` cuja PK é ``chave``.
+         Solução: usar ``RETURNING chave`` explícito (CODEX P2-1).
+
+    Padrão (CODEX rodadas 2–3):
+
+      0. Env override em dev/test: se ``PICSAUDE_INSTANCE_ID`` está
+         setada e ``PICSAUDE_ENV != "prod"``, retorna o valor da env
+         sem tocar DB. Em prod, env override → ``RuntimeError``.
+         Coerência com ``get_instance_id(session)`` — sem este passo,
+         dev com override + transação clínica persistiria valor
+         diferente no DB, criando divergência forense.
+      a. ``SELECT`` primeiro (caso comum: instance_id já existe no DB).
+      b. Se vazio (first boot): ``INSERT`` idempotente.
+         - SQLite: ``INSERT OR IGNORE`` (sem ``RETURNING``)
+         - PG via wrapper: ``INSERT ... ON CONFLICT (chave) DO NOTHING
+           RETURNING chave`` — o ``RETURNING`` serve apenas para evitar
+           a auto-adição de ``RETURNING id`` pelo wrapper
+           ``_PgConnection`` (PK de ``meta_instalacao`` é ``chave``).
+           NÃO confiamos no valor retornado.
+      c. ``SELECT`` autoritativo após o INSERT — race-safe; se outro
+         processo venceu a corrida, retornamos o valor dele.
+
+    Não comita — caller controla a transação clínica que envolve esta
+    chamada. Sincronização com o arquivo ``.instance_id`` permanece
+    APENAS na variante ``get_instance_id(session)``: aquela roda no
+    boot da aplicação (lifespan); esta variante roda dentro de
+    transações clínicas, onde I/O em arquivo seria contraproducente.
+
+    Levanta
+    -------
+    RuntimeError
+        Se o INSERT falhar em persistir e o SELECT subsequente retornar
+        vazio (sintoma de problema na conexão ou no schema).
+        Também se ``PICSAUDE_INSTANCE_ID`` for usada em ``PICSAUDE_ENV=prod``.
+    """
+    # 0. Env override em dev/test (CODEX rodada 3 — coerência com
+    #    get_instance_id(session)). Sem este passo, dev com
+    #    PICSAUDE_INSTANCE_ID=X + transação clínica persistiria valor
+    #    diferente no DB, criando divergência forense que
+    #    get_instance_id(session) rejeitaria com RuntimeError no boot.
+    env_id = os.environ.get("PICSAUDE_INSTANCE_ID")
+    if env_id:
+        env_modo = os.environ.get("PICSAUDE_ENV", "dev")
+        if env_modo == "prod":
+            raise RuntimeError(
+                "PICSAUDE_INSTANCE_ID env var não pode ser usada em "
+                "PICSAUDE_ENV=prod. Em produção, instance_id é gerado "
+                "automaticamente no primeiro boot e persistido."
+            )
+        return _validar_uuid_v4(env_id)
+
+    # 1. SELECT primeiro (caso comum)
+    row = conn.execute(
+        "SELECT valor FROM meta_instalacao WHERE chave = ?",
+        (_CHAVE_DB,),
+    ).fetchone()
+    if row:
+        valor = row["valor"] if hasattr(row, "keys") else row[0]
+        return _validar_uuid_v4(valor)
+
+    # 2. First boot — gera e tenta inserir (race-safe).
+    novo = str(uuid.uuid4())
+    agora = datetime.now(timezone.utc).isoformat()
+
+    # SQLite nativo NÃO precisa de ``RETURNING`` (não há wrapper
+    # interceptando). Mantê-lo só para uniformidade exigiria SQLite ≥ 3.35
+    # — desnecessário (CODEX rodada 3 — P2-B).
+    #
+    # No caminho PG, ``RETURNING chave`` permanece — serve apenas para
+    # impedir que o wrapper ``_PgConnection.execute`` (database.py:173)
+    # adicione ``RETURNING id`` automático, que quebraria já que
+    # ``meta_instalacao`` tem PK ``chave``. NÃO confiamos no valor
+    # retornado: o SELECT do passo 3 é a fonte de verdade.
+    if _is_sqlite_conn(conn):
+        sql_insert = (
+            "INSERT OR IGNORE INTO meta_instalacao (chave, valor, criado_em) "
+            "VALUES (?, ?, ?)"
+        )
+    else:
+        sql_insert = (
+            "INSERT INTO meta_instalacao (chave, valor, criado_em) "
+            "VALUES (?, ?, ?) ON CONFLICT (chave) DO NOTHING RETURNING chave"
+        )
+    conn.execute(sql_insert, (_CHAVE_DB, novo, agora))
+
+    # 3. SELECT autoritativo (race-safe).
+    row = conn.execute(
+        "SELECT valor FROM meta_instalacao WHERE chave = ?",
+        (_CHAVE_DB,),
+    ).fetchone()
+    if row is None:
+        raise RuntimeError(
+            "Falha ao persistir instance_id no DB durante first boot via conn. "
+            "Verifique conexão e schema da tabela meta_instalacao."
+        )
+    valor = row["valor"] if hasattr(row, "keys") else row[0]
+    return _validar_uuid_v4(valor)

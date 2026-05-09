@@ -1,6 +1,17 @@
-# conftest.py raiz (backend/) — configura sys.path ANTES de qualquer importação.
+# conftest.py raiz (backend/) — configura sys.path e ambiente de testes
+# ANTES de qualquer importação de app.*
 import os
 import sys
+
+# ---------------------------------------------------------------------------
+# Top-level (executado antes de coleta) — evita o guard de prod em
+# app/main.py (linhas ~32–69) que dispara em IMPORT-TIME se
+# PICSAUDE_ENV=prod com SQLite. Fixtures autouse rodam DEPOIS dos imports
+# do TestClient — não pegam isso. setdefault preserva PICSAUDE_ENV
+# explícita do operador (ex.: rodar pytest em ambiente de produção
+# detectaria o guard, comportamento intencional).
+# ---------------------------------------------------------------------------
+os.environ.setdefault("PICSAUDE_ENV", "test")
 
 import pytest
 
@@ -21,3 +32,27 @@ def _disable_rate_limit_in_tests():
     os.environ["RATE_LIMIT_DISABLED"] = "1"
     yield
     del os.environ["RATE_LIMIT_DISABLED"]
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _disable_lifespan_bootstrap():
+    """
+    Neutraliza ``_lifespan_bootstrap`` em testes (CODEX rodada 5 P2).
+
+    ``with TestClient(app)`` dispara o lifespan, que em produção/dev
+    chama ``get_instance_id(session)`` contra o ``SessionLocal`` global —
+    o que tocaria o DB real (``data/pix_saude_pe.db``). Em testes,
+    queremos isolamento total via ``DATABASE_URL`` per-test.
+
+    NÃO usa ``PICSAUDE_INSTANCE_ID`` global porque isso faria
+    ``get_instance_id_conn`` curto-circuitar SEMPRE, quebrando o teste
+    15 da 4C (``test_get_instance_id_conn_funciona_com_pgconnection_wrapper``):
+    ele espera capturar ``INSERT ... RETURNING chave`` no fake PG.
+
+    Testes que precisam exercitar o lifespan real (ex.: futuros testes
+    do startup hook) devem usar fixture local que para o patch (ex.:
+    ``mock.patch.stopall()`` ou um patch sobreposto).
+    """
+    from unittest.mock import patch
+    with patch("app.main._lifespan_bootstrap", lambda: None):
+        yield

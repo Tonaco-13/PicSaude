@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import psycopg2
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.database import SessionLocal
+from app.instance import get_instance_id
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.observabilidade import ObservabilidadeMiddleware
@@ -68,7 +72,42 @@ if PICSAUDE_ENV == "prod" and (
         "╚══════════════════════════════════════════════════════════════╝\n"
     )
 
-app = FastAPI(title="PIX da Saúde", version="0.2.0")
+def _lifespan_bootstrap() -> None:
+    """
+    Hook do startup — bootstrap idempotente do ``instance_id``.
+
+    Função module-level para ser patchável em testes via
+    ``unittest.mock.patch`` (CODEX rodada 5 P1). Em produção/dev, abre
+    ``SessionLocal`` global e chama ``get_instance_id(session)``:
+    garante que DB (``meta_instalacao``), arquivo (``.instance_id``) e
+    env override estão coerentes ANTES do primeiro request.
+
+    Sem isso, ``get_instance_id_conn(conn)`` no primeiro request pode
+    criar valor no DB sem propagar para o arquivo, gerando divergência
+    forense que ``get_instance_id(session)`` rejeitaria depois com
+    ``RuntimeError`` (DATA-PROTECTION.md §4.2).
+
+    O bootstrap é idempotente (race-safe via INSERT OR IGNORE) e barato
+    quando o ``instance_id`` já existe — apenas um SELECT.
+
+    Em testes, ``backend/conftest.py`` neutraliza este hook via
+    ``patch("app.main._lifespan_bootstrap", lambda: None)`` para evitar
+    que ``with TestClient(app)`` toque o DB real.
+    """
+    session = SessionLocal()
+    try:
+        get_instance_id(session)
+    finally:
+        session.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _lifespan_bootstrap()
+    yield
+
+
+app = FastAPI(title="PIX da Saúde", version="0.2.0", lifespan=lifespan)
 
 
 # ---------------------------------------------------------------------------

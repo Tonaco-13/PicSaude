@@ -30,6 +30,7 @@ def registrar_outbox(
     payload:      dict[str, Any],
     org_id:       str | None = None,
     unidade_id:   str | None = None,
+    instance_id:  str | None = None,
 ) -> str | None:
     """
     Insere um registro no outbox `eventos_publicacao`.
@@ -43,6 +44,12 @@ def registrar_outbox(
     payload     : dict com contexto do evento (será serializado em JSON)
     org_id      : escopo institucional (None = sem escopo obrigatório)
     unidade_id  : escopo de unidade (None = sem escopo obrigatório)
+    instance_id : UUID v4 da instância PicSaúde (Ticket 4C). Opcional para
+                  retrocompatibilidade com chamadas pré-4D que ainda não
+                  passam o valor. Quando fornecido, é gravado na coluna
+                  ``instance_id`` da ``eventos_publicacao``. Caller é quem
+                  obtém via ``get_instance_id_conn(conn)`` e passa para
+                  ledger E outbox no mesmo ``with get_tx()``.
 
     Retorna
     -------
@@ -56,8 +63,9 @@ def registrar_outbox(
             """
             INSERT INTO eventos_publicacao
                 (id, tipo_evento, objeto_tipo, objeto_id, payload,
-                 org_id, unidade_id, publicado, tentativas, criado_em)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+                 org_id, unidade_id, instance_id,
+                 publicado, tentativas, criado_em)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
             """,
             (
                 evt_id,
@@ -67,6 +75,7 @@ def registrar_outbox(
                 json.dumps(payload, ensure_ascii=False),
                 org_id,
                 unidade_id,
+                instance_id,
                 agora,
             ),
         )
