@@ -22,3 +22,7 @@ class PedidoExameEvento(Base):
     tipo_evento = Column(String(60), nullable=False)
     dados_json  = Column(Text, nullable=True)
     criado_em   = Column(DateTime, server_default=func.now(), nullable=False)
+    # NOVO (4C): marca d'água da instância PicSaúde — preenchida pelo
+    # helper registrar_evento_ledger via get_instance_id_conn().
+    # Nullable=True alinhado com a migration 4B (4b1ce80a017d).
+    instance_id = Column(String(36), nullable=True)

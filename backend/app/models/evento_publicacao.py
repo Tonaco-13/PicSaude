@@ -9,7 +9,7 @@ Princípios:
   - Falha de inserção no outbox nunca deve impactar o fluxo clínico
   - publicado: 0 = pendente, 1 = consumido (via POST /eventos/{id}/ack)
 """
-from sqlalchemy import Column, Integer, Text
+from sqlalchemy import Column, Integer, String, Text
 from app.database import Base
 
 
@@ -27,3 +27,8 @@ class EventoPublicacao(Base):
     tentativas   = Column(Integer, nullable=False, default=0)
     criado_em    = Column(Text, nullable=False)             # ISO 8601 UTC
     publicado_em = Column(Text, nullable=True)              # NULL até ack
+    # NOVO (4C): marca d'água da instância PicSaúde — preenchida pelo
+    # helper registrar_evento_ledger / registrar_outbox via
+    # get_instance_id_conn(). Nullable=True alinhado com a migration
+    # 4B (4b1ce80a017d) — preserva registros pré-instance_id.
+    instance_id  = Column(String(36), nullable=True)
