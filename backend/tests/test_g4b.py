@@ -82,10 +82,9 @@ def admin_client(db_path):
     app.dependency_overrides[get_current_user] = lambda: _admin
     app.dependency_overrides[get_current_user_or_api_key] = lambda: _admin
     with (
-        patch("app.routers.api_keys.get_conn", _make_get_conn(db_path)),
-        patch("app.routers.prestadores.get_conn", _make_get_conn(db_path)),
-        patch("app.routers.eventos.get_conn", _make_get_conn(db_path)),
-        patch("app.auth.dependencies.get_conn", side_effect=_make_get_conn(db_path)),
+        # database_tx.get_conn cobre api_keys/prestadores/eventos (usam get_tx).
+        patch("app.database_tx.get_conn", _make_get_conn(db_path)),
+        # auth.dependencies usa get_tx — patch via database_tx.get_conn já cobre.
     ):
         with TestClient(app) as c:
             yield c
@@ -99,7 +98,8 @@ def prescritor_client(db_path):
     from app.auth.dependencies import get_current_user
     app.dependency_overrides[get_current_user] = lambda: {"role": "prescritor", "sub": "pres@test"}
     with (
-        patch("app.routers.api_keys.get_conn", _make_get_conn(db_path)),
+        # database_tx.get_conn cobre api_keys (usa get_tx).
+        patch("app.database_tx.get_conn", _make_get_conn(db_path)),
     ):
         with TestClient(app) as c:
             yield c
@@ -223,8 +223,9 @@ class TestEventosAutenticacao:
     def test_sem_autenticacao_retorna_401(self, db_path):
         from app.main import app
         with (
-            patch("app.routers.eventos.get_conn", _make_get_conn(db_path)),
-            patch("app.auth.dependencies.get_conn", side_effect=_make_get_conn(db_path)),
+            # database_tx.get_conn cobre eventos (usa get_tx).
+            patch("app.database_tx.get_conn", _make_get_conn(db_path)),
+            # auth.dependencies usa get_tx — patch via database_tx.get_conn já cobre.
         ):
             with TestClient(app) as c:
                 r = c.get("/eventos")
@@ -233,8 +234,9 @@ class TestEventosAutenticacao:
     def test_api_key_invalida_retorna_401(self, db_path):
         from app.main import app
         with (
-            patch("app.routers.eventos.get_conn", _make_get_conn(db_path)),
-            patch("app.auth.dependencies.get_conn", side_effect=_make_get_conn(db_path)),
+            # database_tx.get_conn cobre eventos (usa get_tx).
+            patch("app.database_tx.get_conn", _make_get_conn(db_path)),
+            # auth.dependencies usa get_tx — patch via database_tx.get_conn já cobre.
         ):
             with TestClient(app) as c:
                 r = c.get("/eventos", headers={"X-Api-Key": "chave-invalida-qualquer"})
@@ -247,8 +249,9 @@ class TestEventosAutenticacao:
         # Remove override temporariamente para que a validação real de API key ocorra
         override = app.dependency_overrides.pop(get_current_user_or_api_key, None)
         patches = (
-            patch("app.routers.eventos.get_conn", _make_get_conn(db_path)),
-            patch("app.auth.dependencies.get_conn", side_effect=_make_get_conn(db_path)),
+            # database_tx.get_conn cobre eventos (usa get_tx).
+            patch("app.database_tx.get_conn", _make_get_conn(db_path)),
+            # auth.dependencies usa get_tx — patch via database_tx.get_conn já cobre.
         )
         return app, override, get_current_user_or_api_key, patches
 

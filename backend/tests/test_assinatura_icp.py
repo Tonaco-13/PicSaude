@@ -505,17 +505,12 @@ def client_com_db_68(tmp_path):
     from contextlib import ExitStack
 
     stack = ExitStack()
+    # database_tx.get_conn cobre 8 dos 10 routers (todos que usam get_tx).
+    # prescricoes e tokens importam get_conn diretamente — patch específico.
     targets = [
+        "app.database_tx.get_conn",
         "app.routers.prescricoes.get_conn",
-        "app.routers.custodia.get_conn",
-        "app.routers.dispensacoes.get_conn",
         "app.routers.tokens.get_conn",
-        "app.routers.hospitalares.get_conn",
-        "app.routers.agendamentos.get_conn",
-        "app.routers.pedidos_exame.get_conn",
-        "app.routers.auth.get_conn",
-        "app.routers.eventos.get_conn",
-        "app.routers.circulacao_diagnostica.get_conn",
     ]
     for t in targets:
         stack.enter_context(patch(t, _get_conn))

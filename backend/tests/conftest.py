@@ -80,21 +80,26 @@ class RoleClient:
 
 
 def _build_shared_client(db_path: str) -> TestClient:
-    """Cria um único TestClient com get_conn patchado para o banco de teste."""
+    """Cria um único TestClient com ``get_conn`` patchado para o banco de teste.
+
+    A maioria dos routers usa ``get_tx()`` (de ``app.database_tx``), que
+    internamente chama ``get_conn`` resolvido naquele namespace. Patchar
+    ``app.database_tx.get_conn`` cobre todos os routers que usam o
+    context manager.
+
+    Routers que importam ``get_conn`` diretamente (``prescricoes`` e
+    ``tokens``) ainda precisam de patch específico — esses são listados
+    explicitamente.
+    """
     from app.main import app
     gc = _make_get_conn(db_path)
     stack = ExitStack()
     for target in [
+        # Cobre todos os endpoints que usam ``with get_tx() as conn:``.
+        "app.database_tx.get_conn",
+        # Routers que importam ``get_conn`` direto (binding local).
         "app.routers.prescricoes.get_conn",
-        "app.routers.custodia.get_conn",
-        "app.routers.dispensacoes.get_conn",
         "app.routers.tokens.get_conn",
-        "app.routers.hospitalares.get_conn",   # Ticket 27
-        "app.routers.agendamentos.get_conn",   # Ticket 29
-        "app.routers.pedidos_exame.get_conn",  # Ticket 29 (integração)
-        "app.routers.auth.get_conn",           # Ticket 29 (carteira exames)
-        "app.routers.eventos.get_conn",                     # G4A — event publishing layer
-        "app.routers.circulacao_diagnostica.get_conn",      # Ticket 53
     ]:
         stack.enter_context(patch(target, gc))
     client = TestClient(app, raise_server_exceptions=True)

@@ -69,17 +69,13 @@ def _get_otp(cpf: str, db_path: str) -> str | None:
 
 
 _LOGIN_TARGETS = [
-    "app.routers.login.get_conn",
-    "app.routers.pacientes.get_conn",
-    "app.routers.auth.get_conn",
+    # database_tx.get_conn cobre todos os routers que usam get_tx
+    # (login, pacientes, auth, custodia, dispensacoes, hospitalares,
+    #  agendamentos, pedidos_exame, eventos).
+    "app.database_tx.get_conn",
+    # Routers que importam get_conn diretamente (binding local).
     "app.routers.prescricoes.get_conn",
-    "app.routers.custodia.get_conn",
-    "app.routers.dispensacoes.get_conn",
     "app.routers.tokens.get_conn",
-    "app.routers.hospitalares.get_conn",
-    "app.routers.agendamentos.get_conn",
-    "app.routers.pedidos_exame.get_conn",
-    "app.routers.eventos.get_conn",
 ]
 
 

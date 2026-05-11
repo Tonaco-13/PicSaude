@@ -101,12 +101,24 @@ _TABELAS_APP = [
 # Triggers de imutabilidade do ledger
 # ---------------------------------------------------------------------------
 
-def _aplicar_triggers_sqlite() -> None:
-    """Cria triggers de imutabilidade no SQLite (idempotente)."""
-    import sqlite3
-    from app.config import DB_PATH
+def _aplicar_triggers_sqlite(db_path: str | None = None) -> None:
+    """Cria triggers de imutabilidade no SQLite (idempotente).
 
-    conn = sqlite3.connect(DB_PATH)
+    Parâmetros
+    ----------
+    db_path : caminho explícito do banco SQLite. Quando ``None``, usa
+        ``app.config.DB_PATH`` (uso normal). Quando fornecido, conecta
+        diretamente nesse path — usado por fixtures de teste para
+        aplicar triggers em SQLite temporário sem alterar a config
+        global.
+    """
+    import sqlite3
+
+    if db_path is None:
+        from app.config import DB_PATH
+        db_path = DB_PATH
+
+    conn = sqlite3.connect(db_path)
     try:
         for tabela in _TABELAS_LEDGER:
             conn.execute(f"""
@@ -126,6 +138,27 @@ def _aplicar_triggers_sqlite() -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def aplicar_triggers_ledger(db_path: str | None = None) -> None:
+    """Aplica triggers de imutabilidade do ledger.
+
+    API pública estável usada por fixtures de teste (chamada com
+    ``db_path`` explícito para SQLite temporário). Quando ``db_path``
+    é fornecido, força o caminho SQLite — apropriado para testes que
+    usam ``Base.metadata.create_all`` num banco isolado.
+
+    Sem argumentos, escolhe entre SQLite/PostgreSQL conforme o engine
+    global, idêntico ao comportamento histórico antes da divisão em
+    ``_aplicar_triggers_sqlite`` / ``_aplicar_triggers_postgres``.
+    """
+    if db_path is not None:
+        _aplicar_triggers_sqlite(db_path)
+        return
+    if _USE_SQLITE:
+        _aplicar_triggers_sqlite()
+    else:
+        _aplicar_triggers_postgres()
 
 
 def _aplicar_triggers_postgres() -> None:

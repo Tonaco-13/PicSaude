@@ -61,14 +61,47 @@ import itertools
 import threading
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 import psycopg2
 import psycopg2.extensions
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 
 from app.auth.jwt import hash_senha
 from app.database import _PgRow, _PgCursor, _pg_translate, _RE_IS_INSERT, _RE_HAS_RETURNING
+
+
+# ---------------------------------------------------------------------------
+# Setup automático — Alembic upgrade head no banco de teste
+# ---------------------------------------------------------------------------
+# Garante que TODA migration (incluindo 4B/4D.x futuras) está aplicada
+# antes da coleta de testes. Evita erro do tipo:
+#   psycopg2.errors.UndefinedColumn: column "instance_id" does not exist
+# que apareceu no T4D.1 quando a 4B-prequel/4B não estavam aplicadas no
+# banco picsaude_test.
+#
+# Idempotente — Alembic detecta no-op quando já está no head.
+
+def _aplicar_migrations_alembic() -> None:
+    backend_root = Path(__file__).resolve().parent.parent.parent
+    alembic_ini = backend_root / "alembic.ini"
+    if not alembic_ini.exists():
+        return
+    cfg = Config(str(alembic_ini))
+    # env.py do alembic respeita DATABASE_URL — já apontando para test
+    # (validado pelo guardrail acima).
+    cwd_before = os.getcwd()
+    try:
+        os.chdir(backend_root)
+        command.upgrade(cfg, "head")
+    finally:
+        os.chdir(cwd_before)
+
+
+_aplicar_migrations_alembic()
 
 # ---------------------------------------------------------------------------
 # Constantes compartilhadas com os testes
