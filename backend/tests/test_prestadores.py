@@ -65,7 +65,7 @@ def admin_client(db_path):
     from app.main import app
     from app.auth.dependencies import get_current_user
     app.dependency_overrides[get_current_user] = lambda: {"role": "admin", "sub": "admin@test"}
-    with patch("app.routers.prestadores.get_conn", _make_get_conn(db_path)):
+    with patch("app.database_tx.get_conn", _make_get_conn(db_path)):
         with TestClient(app) as c:
             yield c
     app.dependency_overrides.pop(get_current_user, None)
@@ -76,7 +76,7 @@ def prescritor_client(db_path):
     from app.main import app
     from app.auth.dependencies import get_current_user
     app.dependency_overrides[get_current_user] = lambda: {"role": "prescritor", "sub": "123"}
-    with patch("app.routers.prestadores.get_conn", _make_get_conn(db_path)):
+    with patch("app.database_tx.get_conn", _make_get_conn(db_path)):
         with TestClient(app) as c:
             yield c
     app.dependency_overrides.pop(get_current_user, None)
@@ -279,7 +279,7 @@ class TestRoleEnforcement:
 
     def test_sem_auth_retorna_401(self, db_path):
         from app.main import app
-        with patch("app.routers.prestadores.get_conn", _make_get_conn(db_path)):
+        with patch("app.database_tx.get_conn", _make_get_conn(db_path)):
             with TestClient(app) as c:
                 r = c.get("/prestadores")
         assert r.status_code == 401

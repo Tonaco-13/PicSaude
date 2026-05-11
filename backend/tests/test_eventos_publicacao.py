@@ -81,10 +81,10 @@ def admin_client(db_path_g4a):
 
     gc = _make_get_conn(db_path_g4a)
     stack = ExitStack()
-    stack.enter_context(patch("app.routers.eventos.get_conn", gc))
+    # database_tx.get_conn cobre eventos/agendamentos/pedidos_exame (usam get_tx).
+    stack.enter_context(patch("app.database_tx.get_conn", gc))
+    # prescricoes importa get_conn diretamente — patch específico necessário.
     stack.enter_context(patch("app.routers.prescricoes.get_conn", gc))
-    stack.enter_context(patch("app.routers.agendamentos.get_conn", gc))
-    stack.enter_context(patch("app.routers.pedidos_exame.get_conn", gc))
 
     _admin = {"role": "admin", "sub": "test"}
     app.dependency_overrides[get_current_user] = lambda: _admin
@@ -110,7 +110,8 @@ def paciente_client(db_path_g4a):
 
     gc = _make_get_conn(db_path_g4a)
     stack = ExitStack()
-    stack.enter_context(patch("app.routers.eventos.get_conn", gc))
+    # database_tx.get_conn cobre eventos (usa get_tx).
+    stack.enter_context(patch("app.database_tx.get_conn", gc))
 
     _paciente = {"role": "paciente", "sub": "test"}
     app.dependency_overrides[get_current_user] = lambda: _paciente
@@ -433,11 +434,11 @@ def integracao_client(db_path_g4a):
 
     gc = _make_get_conn(db_path_g4a)
     stack = ExitStack()
+    # database_tx.get_conn cobre eventos/agendamentos/pedidos_exame.
+    # prescricoes importa get_conn diretamente — patch específico.
     for target in [
-        "app.routers.eventos.get_conn",
+        "app.database_tx.get_conn",
         "app.routers.prescricoes.get_conn",
-        "app.routers.agendamentos.get_conn",
-        "app.routers.pedidos_exame.get_conn",
     ]:
         stack.enter_context(patch(target, gc))
 
