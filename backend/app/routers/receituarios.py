@@ -37,6 +37,8 @@ from app.adapters.sncr_factory import get_sncr_adapter
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
 from app.domain.catalogo_regulatorio import validar_itens_prescricao
+from app.domain.ledger import registrar_evento_ledger
+from app.instance import get_instance_id_conn
 from app.domain.motor_regulatorio import (
     Receituario as ReceituarioDTO,
     agrupar_por_receituario,
@@ -190,6 +192,11 @@ def gerar_receituarios(
     agora = datetime.utcnow()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        # Reutilizado pelo evento principal e pelos N todo_regulatorio
+        # do loop (invariante §6.3).
+        instance_id = get_instance_id_conn(conn)
+
         # 1. Carregar prescrição e validar posse
         prescricao = _carregar_prescricao(conn, protocolo)
         if prescricao.get("prescritor_cns") != cns_token:
@@ -387,18 +394,16 @@ def gerar_receituarios(
             "regenerado": bool(existentes),
             "ticket_referencia": "TICKET-15",
         }
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-                (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'receituarios_gerados', 'prescritor', ?, ?, ?)
-            """,
-            (
-                prescricao["id"],
-                cns_token,
-                json.dumps(ev_payload, ensure_ascii=False, default=str),
-                agora,
-            ),
+        # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=prescricao["id"],
+            tipo_evento="receituarios_gerados",
+            instance_id=instance_id,
+            payload=ev_payload,
+            ator_tipo="prescritor",
+            ator_id=cns_token,
         )
 
         # 8. Ticket 18 — TODO_REGULATORIO provisório para receita_retencao.
@@ -419,18 +424,16 @@ def gerar_receituarios(
                     ),
                     "ticket_referencia": "TICKET-18",
                 }
-                conn.execute(
-                    """
-                    INSERT INTO prescricao_eventos
-                        (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                    VALUES (?, 'todo_regulatorio', 'prescritor', ?, ?, ?)
-                    """,
-                    (
-                        prescricao["id"],
-                        cns_token,
-                        json.dumps(todo, ensure_ascii=False, default=str),
-                        agora,
-                    ),
+                # Ticket 4D.1: reutiliza instance_id da transação (invariante §6.3).
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="prescricao",
+                    objeto_id=prescricao["id"],
+                    tipo_evento="todo_regulatorio",
+                    instance_id=instance_id,
+                    payload=todo,
+                    ator_tipo="prescritor",
+                    ator_id=cns_token,
                 )
 
     return {
@@ -526,6 +529,11 @@ def numerar_receituarios(
     agora = datetime.utcnow()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        # Reutilizado pelo evento principal e pelos N todo_regulatorio
+        # do loop (invariante §6.3).
+        instance_id = get_instance_id_conn(conn)
+
         # 1. Carregar prescrição e validar posse
         prescricao = _carregar_prescricao(conn, protocolo)
         if prescricao.get("prescritor_cns") != cns_token:
@@ -693,34 +701,30 @@ def numerar_receituarios(
                 "numeracoes": numeracoes_emitidas,
                 "ticket_referencia": "TICKET-16A",
             }
-            conn.execute(
-                """
-                INSERT INTO prescricao_eventos
-                    (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                VALUES (?, 'receituarios_numerados', 'prescritor', ?, ?, ?)
-                """,
-                (
-                    prescricao["id"],
-                    cns_token,
-                    json.dumps(ev_payload, ensure_ascii=False, default=str),
-                    agora,
-                ),
+            # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=prescricao["id"],
+                tipo_evento="receituarios_numerados",
+                instance_id=instance_id,
+                payload=ev_payload,
+                ator_tipo="prescritor",
+                ator_id=cns_token,
             )
 
             # Eventos TODO_REGULATORIO — um por receituário com pendência
             for todo in eventos_todo:
-                conn.execute(
-                    """
-                    INSERT INTO prescricao_eventos
-                        (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                    VALUES (?, 'todo_regulatorio', 'prescritor', ?, ?, ?)
-                    """,
-                    (
-                        prescricao["id"],
-                        cns_token,
-                        json.dumps(todo, ensure_ascii=False, default=str),
-                        agora,
-                    ),
+                # Ticket 4D.1: reutiliza instance_id da transação (invariante §6.3).
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="prescricao",
+                    objeto_id=prescricao["id"],
+                    tipo_evento="todo_regulatorio",
+                    instance_id=instance_id,
+                    payload=todo,
+                    ator_tipo="prescritor",
+                    ator_id=cns_token,
                 )
 
     return {
@@ -880,6 +884,11 @@ def baixar_pdf_receituario(
     agora = datetime.utcnow()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        # Reutilizado pelos eventos receituario_emitido/todo/pdf_acessado
+        # (invariante §6.3).
+        instance_id = get_instance_id_conn(conn)
+
         # 1. Validar prescrição + posse
         prescricao = _carregar_prescricao(conn, protocolo)
         if prescricao.get("prescritor_cns") != cns_token:
@@ -980,18 +989,16 @@ def baixar_pdf_receituario(
                 "adapter_usado":      receituario.get("adapter_usado"),
                 "ticket_referencia":  "TICKET-17",
             }
-            conn.execute(
-                """
-                INSERT INTO prescricao_eventos
-                    (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                VALUES (?, 'receituario_emitido', 'prescritor', ?, ?, ?)
-                """,
-                (
-                    prescricao["id"],
-                    cns_token,
-                    json.dumps(payload, ensure_ascii=False, default=str),
-                    agora,
-                ),
+            # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=prescricao["id"],
+                tipo_evento="receituario_emitido",
+                instance_id=instance_id,
+                payload=payload,
+                ator_tipo="prescritor",
+                ator_id=cns_token,
             )
 
             # Modo real (futuro) — registrar TODO regulatório enquanto
@@ -1007,18 +1014,16 @@ def baixar_pdf_receituario(
                     ),
                     "acao_necessaria":  "validacao_juridica_pre_producao",
                 }
-                conn.execute(
-                    """
-                    INSERT INTO prescricao_eventos
-                        (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                    VALUES (?, 'todo_regulatorio', 'prescritor', ?, ?, ?)
-                    """,
-                    (
-                        prescricao["id"],
-                        cns_token,
-                        json.dumps(todo_payload, ensure_ascii=False, default=str),
-                        agora,
-                    ),
+                # Ticket 4D.1: reutiliza instance_id da transação (invariante §6.3).
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="prescricao",
+                    objeto_id=prescricao["id"],
+                    tipo_evento="todo_regulatorio",
+                    instance_id=instance_id,
+                    payload=todo_payload,
+                    ator_tipo="prescritor",
+                    ator_id=cns_token,
                 )
         else:
             # status_atual == "emitido" — re-download. Auditoria leve para
@@ -1027,18 +1032,16 @@ def baixar_pdf_receituario(
                 "receituario_id":   receituario_id,
                 "tipo_receituario": receituario["tipo_receituario"],
             }
-            conn.execute(
-                """
-                INSERT INTO prescricao_eventos
-                    (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                VALUES (?, 'receituario_pdf_acessado', 'prescritor', ?, ?, ?)
-                """,
-                (
-                    prescricao["id"],
-                    cns_token,
-                    json.dumps(payload, ensure_ascii=False, default=str),
-                    agora,
-                ),
+            # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=prescricao["id"],
+                tipo_evento="receituario_pdf_acessado",
+                instance_id=instance_id,
+                payload=payload,
+                ator_tipo="prescritor",
+                ator_id=cns_token,
             )
 
     # 7. Resposta — StreamingResponse com Content-Disposition
@@ -1132,6 +1135,9 @@ def baixar_pdf_assinado(
     agora = datetime.utcnow()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         # 1. Validar prescrição + posse
         prescricao = _carregar_prescricao(conn, protocolo)
         if prescricao.get("prescritor_cns") != cns_token:
@@ -1256,18 +1262,16 @@ def baixar_pdf_assinado(
             "nivel_pades":      "B",
             "ticket_referencia": "TICKET-21",
         }
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-                (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'pdf_assinado_pades', 'prescritor', ?, ?, ?)
-            """,
-            (
-                prescricao["id"],
-                cns_token,
-                json.dumps(payload, ensure_ascii=False, default=str),
-                agora,
-            ),
+        # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=prescricao["id"],
+            tipo_evento="pdf_assinado_pades",
+            instance_id=instance_id,
+            payload=payload,
+            ator_tipo="prescritor",
+            ator_id=cns_token,
         )
 
     # 10. Resposta

@@ -45,6 +45,8 @@ from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
+from app.instance import get_instance_id_conn
 from app.domain.assinatura import (
     TIPOS_CERTIFICADO_VALIDOS,
     DESCRICAO_STATUS_ASSINATURA,
@@ -255,6 +257,8 @@ def registrar_assinatura(
     with get_tx() as conn:
         meta = _get_meta_prescricao(conn, protocolo)
         agora = datetime.utcnow().isoformat()
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
 
         # Verificar se já existe registro
         existente = conn.execute(
@@ -315,8 +319,15 @@ def registrar_assinatura(
             )
             operacao = "atualizado"
 
-        payload_evento = json.dumps(
-            {
+        # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+        # ator_id preservado intencionalmente (semanticamente fraco — ver §4.3).
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=meta["id"],
+            tipo_evento="assinatura_registrada",
+            instance_id=instance_id,
+            payload={
                 "tipo_certificado":   payload.tipo_certificado,
                 "emissor":            payload.emissor,
                 "serial_certificado": payload.serial_certificado,
@@ -326,20 +337,8 @@ def registrar_assinatura(
                 "operacao":           operacao,
                 "status_validacao":   "assinatura_pendente",
             },
-            ensure_ascii=False,
-        )
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-              (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'assinatura_registrada', 'prescritor', ?, ?, ?)
-            """,
-            (
-                meta["id"],
-                meta.get("assinatura_modo") or "sem_modo",
-                payload_evento,
-                agora,
-            ),
+            ator_tipo="prescritor",
+            ator_id=meta.get("assinatura_modo") or "sem_modo",
         )
 
     nivel = calcular_nivel_formal(meta["assinatura_modo"], meta["tipo_emissao"])

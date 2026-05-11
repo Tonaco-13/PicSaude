@@ -26,7 +26,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
+from app.instance import get_instance_id_conn
 
 router = APIRouter()
 
@@ -98,19 +100,23 @@ def solicitar_renovacao(proto: str, body: dict, usuario=Depends(require_role("pa
             (proto, pid, cpf, cns_prescritor, motivo, agora),
         )
 
-        # Registra no ledger
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-                   (prescricao_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'renovacao_solicitada', ?, ?)
-            """,
-            (pid, json.dumps({
-                "cpf_paciente":  cpf,
+        # Ticket 4D.1: corrige bug latente (schema divergente
+        # `dados_json`/`criado_em` viola NOT NULL em ator_tipo).
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=pid,
+            tipo_evento="renovacao_solicitada",
+            instance_id=instance_id,
+            payload={
+                "cpf_paciente":   cpf,
                 "cns_prescritor": cns_prescritor,
-                "motivo":        motivo,
-                "origem":        "cidadao_app",
-            }), agora),
+                "motivo":         motivo,
+                "origem":         "cidadao_app",
+            },
+            ator_tipo="paciente",
+            ator_id=cpf,
         )
 
     return {"ok": True, "protocolo": proto, "status": "pendente"}
@@ -243,20 +249,25 @@ def responder_solicitacao(
             (novo_status, agora, cns, observacao, nova_proto, solicitacao_id),
         )
 
-        # Registra no ledger da prescrição original
+        # Ticket 4D.1: corrige bug latente (schema divergente). Eventos
+        # `renovacao_atendida`/`renovacao_recusada` agora persistem com
+        # ator_tipo='prescritor' e instance_id.
         if sol["prescricao_id"]:
-            conn.execute(
-                """
-                INSERT INTO prescricao_eventos
-                       (prescricao_id, tipo_evento, dados_json, criado_em)
-                VALUES (?, ?, ?, ?)
-                """,
-                (sol["prescricao_id"], tipo_evento, json.dumps({
-                    "cns_prescritor":          cns,
-                    "cpf_paciente":            sol["cpf_paciente"],
-                    "observacao":              observacao,
+            instance_id = get_instance_id_conn(conn)
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=sol["prescricao_id"],
+                tipo_evento=tipo_evento,
+                instance_id=instance_id,
+                payload={
+                    "cns_prescritor":            cns,
+                    "cpf_paciente":              sol["cpf_paciente"],
+                    "observacao":                observacao,
                     "nova_prescricao_protocolo": nova_proto,
-                }), agora),
+                },
+                ator_tipo="prescritor",
+                ator_id=cns,
             )
 
 

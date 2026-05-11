@@ -29,6 +29,8 @@ from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
+from app.instance import get_instance_id_conn
 
 router = APIRouter(prefix="/prescricoes", tags=["farmacia_hospitalar"])
 
@@ -174,17 +176,26 @@ def _abrir_custodia_hospitalar(
 def _gravar_evento(
     conn, prescricao_id: int, tipo_evento: str,
     ator_tipo: str, ator_id: str, payload: dict, agora: str,
+    *, instance_id: str,
 ) -> None:
-    conn.execute(
-        """
-        INSERT INTO prescricao_eventos
-          (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            prescricao_id, tipo_evento, ator_tipo, ator_id,
-            json.dumps(payload, ensure_ascii=False), agora,
-        ),
+    """
+    Ticket 4D.1: helper interno passa a delegar ao registrar_evento_ledger.
+    `instance_id` é keyword-only obrigatório — caller obtém uma vez por
+    transação clínica via get_instance_id_conn(conn).
+
+    `agora` é mantido na assinatura por compat — o helper central usa
+    seu próprio timestamp UTC. Eventos hospitalares e seus pares
+    (custódia/UPDATE) continuam alinhados pela ordem do INSERT.
+    """
+    registrar_evento_ledger(
+        conn,
+        objeto_tipo="prescricao",
+        objeto_id=prescricao_id,
+        tipo_evento=tipo_evento,
+        instance_id=instance_id,
+        payload=payload,
+        ator_tipo=ator_tipo,
+        ator_id=ator_id,
     )
 
 
@@ -256,6 +267,9 @@ def dispensar_hospitalar(
     cnpj_base = payload.cnpj_estabelecimento or payload.org_id
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         # ── 1. Validar prescrição ──────────────────────────────────────────
         presc = _get_prescricao(conn, protocolo)
 
@@ -404,6 +418,7 @@ def dispensar_hospitalar(
             "dispensador", payload.unidade_id,
             evento_hosp,
             agora,
+            instance_id=instance_id,
         )
 
         return {
