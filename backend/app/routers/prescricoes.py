@@ -14,7 +14,9 @@ from app.auth.dependencies import require_role
 from app.database import get_conn
 from app.database_tx import get_tx
 from app.domain.documento_canonico import montar_documento, montar_documento_de_conn
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
+from app.instance import get_instance_id_conn
 from app.domain.pdf_prescricao import gerar_pdf_prescricao
 from app.domain.assinatura import (
     MODOS_DIGITAIS_VALIDOS,
@@ -234,6 +236,11 @@ def criar_prescricao(payload: PrescricaoIn, _=Depends(require_role("prescritor")
 
     conn = get_conn()
     try:
+        # Ticket 4D.1 (snippet §4.1): instance_id obtido UMA VEZ, dentro do
+        # try, antes de qualquer evento. Se get_conn() falhou, o try não é
+        # alcançado; se get_instance_id_conn falhar aqui, o except limpa.
+        instance_id = get_instance_id_conn(conn)
+
         # ------------------------------------------------------------------
         # 1. Localizar ou criar prescritor por CNS
         # ------------------------------------------------------------------
@@ -525,15 +532,19 @@ def criar_prescricao(payload: PrescricaoIn, _=Depends(require_role("prescritor")
                 "componentes":      sv_payload["componentes"],
             }
 
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-              (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'prescricao_emitida', 'prescritor', ?, ?, ?)
-            """,
-            (prescricao_id, cns, json.dumps(ev_payload, ensure_ascii=False), agora),
+        # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=prescricao_id,
+            tipo_evento="prescricao_emitida",
+            instance_id=instance_id,
+            payload=ev_payload,
+            ator_tipo="prescritor",
+            ator_id=cns,
         )
-        registrar_outbox(conn, "prescricao_emitida", "prescricao", protocolo, ev_payload)
+        registrar_outbox(conn, "prescricao_emitida", "prescricao", protocolo,
+                         ev_payload, instance_id=instance_id)
 
         # ------------------------------------------------------------------
         # Ticket 63 — Entrega à carteira digital
@@ -561,26 +572,22 @@ def criar_prescricao(payload: PrescricaoIn, _=Depends(require_role("prescritor")
                 (agora, prescricao_id),
             )
             # Registrar evento de custódia no ledger (imutável)
-            conn.execute(
-                """
-                INSERT INTO prescricao_eventos
-                  (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                VALUES (?, 'custodia_transferida', 'prescritor', ?, ?, ?)
-                """,
-                (
-                    prescricao_id,
-                    cns,
-                    json.dumps(
-                        {
-                            "de": "prescritor", "de_id": cns,
-                            "para": "paciente", "para_id": cpf,
-                            "motivo": "entrega_carteira_digital",
-                            "via": "emissao_direta",
-                        },
-                        ensure_ascii=False,
-                    ),
-                    agora,
-                ),
+            # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
+            # Reutiliza o mesmo instance_id da transação (invariante §6.3).
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=prescricao_id,
+                tipo_evento="custodia_transferida",
+                instance_id=instance_id,
+                payload={
+                    "de": "prescritor", "de_id": cns,
+                    "para": "paciente", "para_id": cpf,
+                    "motivo": "entrega_carteira_digital",
+                    "via": "emissao_direta",
+                },
+                ator_tipo="prescritor",
+                ator_id=cns,
             )
             entregue_carteira = True
             status_final = "transferida_paciente"
@@ -678,6 +685,9 @@ def criar_prescricao_fisica(payload: FisicaIn, _=Depends(require_role("prescrito
     agora    = datetime.utcnow().isoformat()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         # 1. Localizar ou criar prescritor
         prescritor = conn.execute(
             "SELECT id FROM prescritores WHERE cns = ?", (cns,)
@@ -749,24 +759,26 @@ def criar_prescricao_fisica(payload: FisicaIn, _=Depends(require_role("prescrito
         #    encerrada_localmente   — estado: a prescrição encerrou-se sem entrar no ciclo
         #                             digital. Separação explícita de evento de ação vs.
         #                             evento de transição de estado.
-        payload_impressa = json.dumps(
-            {
-                "tipo_emissao":    "fisica",
-                "itens_count":     len(payload.itens),
-                "cpf_identificado": payload.cpf_paciente is not None,
-            },
-            ensure_ascii=False,
-        )
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-              (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'prescricao_impressa', 'prescritor', ?, ?, ?)
-            """,
-            (prescricao_id, cns, payload_impressa, agora),
+        # Ticket 4D.1: substituídos os 2 INSERTs por registrar_evento_ledger.
+        # Os dois eventos (prescricao_impressa + encerrada_localmente) e os
+        # 2 outboxes compartilham o mesmo instance_id da transação.
+        ev_impressa = {
+            "tipo_emissao":     "fisica",
+            "itens_count":      len(payload.itens),
+            "cpf_identificado": payload.cpf_paciente is not None,
+        }
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=prescricao_id,
+            tipo_evento="prescricao_impressa",
+            instance_id=instance_id,
+            payload=ev_impressa,
+            ator_tipo="prescritor",
+            ator_id=cns,
         )
         registrar_outbox(conn, "prescricao_impressa", "prescricao", protocolo,
-                         json.loads(payload_impressa))
+                         ev_impressa, instance_id=instance_id)
 
         ev_encerrada = {
             "status_anterior": None,          # prescrição nasce já encerrada
@@ -774,15 +786,18 @@ def criar_prescricao_fisica(payload: FisicaIn, _=Depends(require_role("prescrito
             "motivo":          "emissao_exclusivamente_fisica",
             "sem_custodia_digital": True,
         }
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-              (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'encerrada_localmente', 'prescritor', ?, ?, ?)
-            """,
-            (prescricao_id, cns, json.dumps(ev_encerrada, ensure_ascii=False), agora),
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=prescricao_id,
+            tipo_evento="encerrada_localmente",
+            instance_id=instance_id,
+            payload=ev_encerrada,
+            ator_tipo="prescritor",
+            ator_id=cns,
         )
-        registrar_outbox(conn, "encerrada_localmente", "prescricao", protocolo, ev_encerrada)
+        registrar_outbox(conn, "encerrada_localmente", "prescricao", protocolo,
+                         ev_encerrada, instance_id=instance_id)
 
         return {
             "protocolo": protocolo,
@@ -1018,6 +1033,10 @@ def atomizar_circulacao(
     agora = datetime.now(timezone.utc).isoformat()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        # Reutilizado pelo evento principal e pelos N tokens (invariante §6.3).
+        instance_id = get_instance_id_conn(conn)
+
         # 1. Carregar prescrição e verificar titularidade
         prescricao = conn.execute(
             """
@@ -1115,41 +1134,37 @@ def atomizar_circulacao(
             })
 
         # 6. Registrar eventos no ledger
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-              (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-            VALUES (?, 'circulacao_atomizada_ativada', 'paciente', ?, ?, ?)
-            """,
-            (
-                prescricao_id,
-                cpf_paciente,
-                json.dumps({
-                    "total_tokens": len(tokens_gerados),
-                    "validade_minutos": payload.validade_minutos,
-                }, ensure_ascii=False),
-                agora,
-            ),
+        # Ticket 4D.1: substituídos pelo helper. Todos os 1+N eventos
+        # compartilham o mesmo instance_id (invariante §6.3).
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=prescricao_id,
+            tipo_evento="circulacao_atomizada_ativada",
+            instance_id=instance_id,
+            payload={
+                "total_tokens":     len(tokens_gerados),
+                "validade_minutos": payload.validade_minutos,
+            },
+            ator_tipo="paciente",
+            ator_id=cpf_paciente,
         )
 
         for t in tokens_gerados:
-            conn.execute(
-                """
-                INSERT INTO prescricao_eventos
-                  (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-                VALUES (?, 'token_item_emitido', 'paciente', ?, ?, ?)
-                """,
-                (
-                    prescricao_id,
-                    cpf_paciente,
-                    json.dumps({
-                        "item_id":          t["item_id"],
-                        "nome_medicamento":  t["nome_medicamento"],
-                        "codigo_curto":      t["codigo_curto"],
-                        "expira_em":         t["expira_em"],
-                    }, ensure_ascii=False),
-                    agora,
-                ),
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=prescricao_id,
+                tipo_evento="token_item_emitido",
+                instance_id=instance_id,
+                payload={
+                    "item_id":          t["item_id"],
+                    "nome_medicamento": t["nome_medicamento"],
+                    "codigo_curto":     t["codigo_curto"],
+                    "expira_em":        t["expira_em"],
+                },
+                ator_tipo="paciente",
+                ator_id=cpf_paciente,
             )
 
         return {

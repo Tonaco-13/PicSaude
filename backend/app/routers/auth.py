@@ -11,8 +11,10 @@ from pydantic import BaseModel
 from app.auth.dependencies import require_role
 from app.auth.jwt import criar_access_token
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
 from app.domain.states_exame import ESTADOS_TERMINAIS_PEDIDO_EXAME
+from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf
 
 router = APIRouter()
@@ -216,29 +218,40 @@ def transferir_farmacia(proto: str, body: dict, usuario=Depends(require_role("pa
             (agora, pid),
         )
         # Abre custódia do dispensador
+        # Ticket 4D.1 (P1.2): fix de schema — coluna real é
+        # `transferida_em` (não `iniciada_em`); `created_at` é NOT NULL
+        # sem server_default. Bug latente que falhava transacionalmente
+        # antes desta correção.
         conn.execute(
             """
             INSERT INTO prescricao_custodia
-                   (prescricao_id, item_id, detentor_tipo, detentor_id, motivo, iniciada_em)
-            VALUES (?, NULL, 'dispensador', ?, 'Transferência pelo cidadão via app', ?)
+                   (prescricao_id, item_id, detentor_tipo, detentor_id,
+                    transferida_em, encerrada_em, motivo, created_at)
+            VALUES (?, NULL, 'dispensador', ?,
+                    ?, NULL, 'Transferência pelo cidadão via app', ?)
             """,
-            (pid, cnpj, agora),
+            (pid, cnpj, agora, agora),
         )
         conn.execute(
             "UPDATE prescricoes SET status = 'em_custodia', updated_at = ? WHERE id = ?",
             (agora, pid),
         )
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-                   (prescricao_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'custodia_transferida', ?, ?)
-            """,
-            (pid, json.dumps({
-                "de": "paciente", "de_id": cpf,
+        # Ticket 4D.1: substituído INSERT manual divergente
+        # (`dados_json`/`criado_em` violavam ator_tipo NOT NULL).
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=pid,
+            tipo_evento="custodia_transferida",
+            instance_id=instance_id,
+            payload={
+                "de": "paciente",     "de_id":  cpf,
                 "para": "dispensador", "para_id": cnpj,
                 "origem": "cidadao_app",
-            }), agora),
+            },
+            ator_tipo="paciente",
+            ator_id=cpf,
         )
 
     return {"ok": True, "protocolo": proto, "status": "em_custodia"}
@@ -287,13 +300,18 @@ def devolver_prescritor(proto: str, body: dict, usuario=Depends(require_role("pa
             (agora, pid),
         )
         # Abre custódia do prescritor
+        # Ticket 4D.1 (P1.2): fix de schema (mesmo bug do site
+        # transferir-farmacia — `iniciada_em` → `transferida_em` +
+        # `created_at`).
         conn.execute(
             """
             INSERT INTO prescricao_custodia
-                   (prescricao_id, item_id, detentor_tipo, detentor_id, motivo, iniciada_em)
-            VALUES (?, NULL, 'prescritor', ?, ?, ?)
+                   (prescricao_id, item_id, detentor_tipo, detentor_id,
+                    transferida_em, encerrada_em, motivo, created_at)
+            VALUES (?, NULL, 'prescritor', ?,
+                    ?, NULL, ?, ?)
             """,
-            (pid, cns, motivo, agora),
+            (pid, cns, agora, motivo, agora),
         )
         # Itens pendentes voltam ao prescritor
         conn.execute(
@@ -308,18 +326,22 @@ def devolver_prescritor(proto: str, body: dict, usuario=Depends(require_role("pa
             "UPDATE prescricoes SET status = 'pendente', updated_at = ? WHERE id = ?",
             (agora, pid),
         )
-        conn.execute(
-            """
-            INSERT INTO prescricao_eventos
-                   (prescricao_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'custodia_transferida', ?, ?)
-            """,
-            (pid, json.dumps({
-                "de": "paciente", "de_id": cpf,
-                "para": "prescritor", "para_id": cns,
+        # Ticket 4D.1: substituído INSERT manual divergente.
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=pid,
+            tipo_evento="custodia_transferida",
+            instance_id=instance_id,
+            payload={
+                "de": "paciente",      "de_id":  cpf,
+                "para": "prescritor",  "para_id": cns,
                 "motivo": motivo,
                 "origem": "cidadao_app",
-            }), agora),
+            },
+            ator_tipo="paciente",
+            ator_id=cpf,
         )
 
     return {"ok": True, "protocolo": proto, "status": "pendente"}

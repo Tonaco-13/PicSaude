@@ -26,7 +26,9 @@ from pydantic import BaseModel, field_validator
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
 from app.domain.confianca_cuidado import calcular_score_confianca_dispensacao
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_PRESCRICAO, ESTADOS_TERMINAIS_PRESCRICAO
+from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf, normalize_cns
 
 router = APIRouter(prefix="/prescricoes", tags=["custodia"])
@@ -157,15 +159,26 @@ def _abrir_custodia(conn, prescricao_id: int, item_id: Optional[int],
 
 
 def _gravar_evento(conn, prescricao_id: int, tipo_evento: str,
-                   ator_tipo: str, ator_id: str, payload: dict, agora: str) -> None:
-    conn.execute(
-        """
-        INSERT INTO prescricao_eventos
-          (prescricao_id, tipo_evento, ator_tipo, ator_id, payload_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (prescricao_id, tipo_evento, ator_tipo, ator_id,
-         json.dumps(payload, ensure_ascii=False), agora),
+                   ator_tipo: str, ator_id: str, payload: dict, agora: str,
+                   *, instance_id: str) -> None:
+    """
+    Ticket 4D.1: helper interno passa a delegar ao registrar_evento_ledger.
+    `instance_id` é keyword-only obrigatório — caller obtém uma vez por
+    transação clínica via get_instance_id_conn(conn).
+
+    `agora` continua na assinatura por compat — o helper central usa
+    seu próprio timestamp UTC. Eventos e seus pares (UPDATEs de
+    custódia) seguem alinhados pela ordem do INSERT.
+    """
+    registrar_evento_ledger(
+        conn,
+        objeto_tipo="prescricao",
+        objeto_id=prescricao_id,
+        tipo_evento=tipo_evento,
+        instance_id=instance_id,
+        payload=payload,
+        ator_tipo=ator_tipo,
+        ator_id=ator_id,
     )
 
 
@@ -289,6 +302,9 @@ def transferir_custodia(protocolo: str, payload: TransferirCustodiaIn, _=Depends
     agora  = datetime.utcnow().isoformat()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         presc = _get_prescricao_by_protocolo(conn, protocolo)
 
         if presc["status"] not in _STATUS_PRESCRICAO_ATIVOS:
@@ -334,7 +350,8 @@ def transferir_custodia(protocolo: str, payload: TransferirCustodiaIn, _=Depends
         _gravar_evento(conn, presc["id"], "custodia_transferida", payload.de, de_id,
                        {"de": payload.de, "de_id": de_id,
                         "para": payload.para, "para_id": para_id,
-                        "motivo": payload.motivo}, agora)
+                        "motivo": payload.motivo}, agora,
+                       instance_id=instance_id)
 
         return {
             "protocolo": protocolo,
@@ -359,6 +376,9 @@ def dispensar_item(protocolo: str, item_id: int, payload: DispensarItemIn, _=Dep
     agora_utc = datetime.now(timezone.utc)
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         presc = _get_prescricao_by_protocolo(conn, protocolo)
 
         item = conn.execute(
@@ -538,7 +558,8 @@ def dispensar_item(protocolo: str, item_id: int, payload: DispensarItemIn, _=Dep
             evento_payload["score_confianca"] = score_confianca
 
         _gravar_evento(conn, presc["id"], "item_dispensado", "dispensador", cnpj,
-                       evento_payload, agora)
+                       evento_payload, agora,
+                       instance_id=instance_id)
 
         return {
             "protocolo": protocolo,
@@ -564,6 +585,9 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, _=Depen
     agora = datetime.utcnow().isoformat()
 
     with get_tx() as conn:
+        # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         presc = _get_prescricao_by_protocolo(conn, protocolo)
 
         item = conn.execute(
@@ -594,7 +618,8 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, _=Depen
                         "nome_medicamento": item["nome_medicamento"],
                         "devolvido_para": payload.para,
                         "motivo": payload.motivo,
-                        "novo_status_item": novo_status_item}, agora)
+                        "novo_status_item": novo_status_item}, agora,
+                       instance_id=instance_id)
 
         return {
             "protocolo": protocolo,
