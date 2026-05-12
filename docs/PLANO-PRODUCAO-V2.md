@@ -78,9 +78,25 @@ Frontend exibe escolha consciente ao prescritor.
 - Paciente com wallet + `enviar_ao_paciente=true` → 200 (entrega ocorre)
 - Paciente sem wallet + `enviar_ao_paciente=false` → 200 (sem tentar entregar)
 
-### 5B — Fix segurança OTP (CRÍTICO + ALTO 1 do CODEX)
+### 5B — Fix segurança OTP (CRÍTICO + ALTO 1 do CODEX) — ✅ RESOLVIDO em `5fa6902` (2026-05-12)
 
-**Problemas identificados:**
+**Status:** ambos os achados fechados via Regra 3 (Edit direto), com 2 rodadas
+de revisão CODEX (4 achados rodada 1 + 4 da rodada 2, sobrepostos parcialmente).
+Bloqueador pré-Etapa 8 **removido**.
+
+**Como foi resolvido:**
+
+- **CRÍTICO**: guard `if os.getenv("PICSAUDE_ENV") in ("dev", "test"):` em
+  `auth.py:74` e `login.py:345`. **Sem fallback `"dev"`** (safe-by-default —
+  deploy sem env configurada NÃO vaza OTP em stdout — lapidação CODEX rodada 2).
+- **ALTO**: `random.randint(100000, 999999)` substituído por
+  `secrets.randbelow(900000) + 100000` em `auth.py:48` e `login.py:324`
+  (mesmo range 100000-999999, mesma cardinalidade, PRNG criptográfico).
+- **Cobertura**: 3 testes novos em `tests/test_auth_paciente.py::TestOtpPrintGuard`:
+  `test_otp_nao_imprime_em_prod`, `test_otp_nao_imprime_sem_env`,
+  `test_otp_imprime_em_dev`.
+
+**Problemas identificados (histórico):**
 
 1. **CRÍTICO:** `auth.py:70` e `login.py:343` — OTP impresso em `stdout` sem guard de ambiente. Em produção, vai para os logs do Render — qualquer pessoa com acesso ao painel captura código de autenticação ativo.
 

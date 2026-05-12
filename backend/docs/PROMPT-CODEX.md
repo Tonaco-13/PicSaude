@@ -154,12 +154,15 @@ Estes padrões são intencionais. Não levante falso positivo:
 | 2026-05-09 | 5 rodadas ticket 4C | 26+1 aceitos, 0 rejeitados |
 | 2026-05-10 | 4 rodadas ticket 4D.1 | 8 aceitos, 0 rejeitados |
 
-## Segurança pendente (seu relatório de 2026-05-06)
+## Segurança (seu relatório de 2026-05-06) — ✅ Resolvido em `5fa6902` (2026-05-12)
 
-Estes 2 achados ainda NÃO foram corrigidos — confirmar antes da Etapa 8:
+Os 2 achados foram fechados via Regra 3 (Edit direto) com 2 rodadas
+de revisão sua (CODEX):
 
-1. **CRÍTICO — OTP em print()**: `app/routers/auth.py` e `app/routers/login.py` imprimem OTP em stdout
-2. **ALTO — OTP com random.randint**: mesmos arquivos, usar `secrets.randbelow()`
+1. **CRÍTICO — OTP em print()**: ✅ guard `if os.getenv("PICSAUDE_ENV") in ("dev", "test"):` aplicado em `auth.py:74` e `login.py:345`. Sem fallback `"dev"` (safe-by-default, lapidação CODEX rodada 2).
+2. **ALTO — OTP com random.randint**: ✅ substituído por `secrets.randbelow(900000) + 100000` em `auth.py:48` e `login.py:324` (mesmo range, PRNG criptográfico).
+
+Cobertura: 3 testes em `tests/test_auth_paciente.py::TestOtpPrintGuard` (prod sem stdout, sem env sem stdout, dev com stdout).
 
 ## Formato de comunicação
 
