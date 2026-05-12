@@ -147,12 +147,17 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 | 9 — Labels + 12 issues good-first-issue | ⛔ |
 | 10 — Teste E2E URL pública | ⛔ |
 
-### Segurança pendente (Relatório CODEX 2026-05-06)
+### Segurança (Relatório CODEX 2026-05-06) — ✅ Resolvido em `5fa6902` (2026-05-12)
 
-1. **CRÍTICO — OTP em print()**: `auth.py:70` e `login.py:343`. Guardar por `PICSAUDE_ENV`.
-2. **ALTO — OTP com random.randint**: `auth.py:46` e `login.py:324`. Trocar por `secrets`.
+| Achado | Status |
+|---|---|
+| CRÍTICO — OTP em print() em `auth.py:72` + `login.py:343` | ✅ Resolvido — guard `if os.getenv("PICSAUDE_ENV") in ("dev", "test"):` (safe-by-default — sem fallback "dev", CODEX rodada 2) |
+| ALTO — OTP com `random.randint` em `auth.py:48` + `login.py:324` | ✅ Resolvido — substituído por `secrets.randbelow(900000) + 100000` (mesmo range, PRNG criptográfico) |
+| Cobertura por testes | ✅ `tests/test_auth_paciente.py::TestOtpPrintGuard` (3 testes: prod sem stdout, sem env sem stdout, dev com stdout) |
 
-Corrigir antes da Etapa 8 (deploy).
+Bloqueador pré-Etapa 8 **fechado**. Continua a verificar via grep:
+- `grep -nE "random\.randint|^import random" app/routers/auth.py app/routers/login.py` → zero matches
+- `grep -B 1 -nE "^[[:space:]]*print.*(OTP|CODIGO)" app/routers/auth.py app/routers/login.py` → matches apenas em blocos com guard
 
 ## Como escrever specs para o Code
 

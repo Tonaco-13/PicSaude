@@ -94,10 +94,13 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 | 9 — Labels + issues | ⛔ |
 | 10 — Teste E2E | ⛔ |
 
-## Segurança pendente (corrigir antes da Etapa 8)
+## Segurança (Relatório CODEX 2026-05-06)
 
-1. **CRÍTICO — OTP em print()**: `app/routers/auth.py` e `app/routers/login.py` imprimem OTP em stdout. Guardar por `PICSAUDE_ENV` ou remover.
-2. **ALTO — OTP com random.randint**: mesmos arquivos. Trocar por `secrets.randbelow()`.
+| Achado | Status |
+|---|---|
+| CRÍTICO — OTP em print() em `auth.py` + `login.py` | ✅ Resolvido em `5fa6902` (guard `if os.getenv("PICSAUDE_ENV") in ("dev", "test"):` — safe-by-default) |
+| ALTO — OTP com `random.randint` | ✅ Resolvido em `5fa6902` (substituído por `secrets.randbelow(900000) + 100000`) |
+| Cobertura por testes | ✅ `tests/test_auth_paciente.py::TestOtpPrintGuard` (3 testes: prod sem stdout, sem env sem stdout, dev com stdout) |
 
 ## Gotchas técnicos
 
