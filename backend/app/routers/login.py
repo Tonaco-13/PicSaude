@@ -21,7 +21,8 @@ Bootstrap:
 
 from __future__ import annotations
 
-import random as _random
+import os
+import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -321,7 +322,7 @@ def solicitar_codigo_paciente(body: _SolicitarCodigoIn):
     if not cpf:
         raise HTTPException(status_code=400, detail="CPF inválido ou não informado.")
 
-    codigo = str(_random.randint(100000, 999999))
+    codigo = str(secrets.randbelow(900000) + 100000)
     agora_str = datetime.utcnow().isoformat()
 
     with get_tx() as conn:
@@ -336,11 +337,13 @@ def solicitar_codigo_paciente(body: _SolicitarCodigoIn):
             (cpf, codigo, expiracao_str, agora_str),
         )
 
-    # [DEV] Imprimir OTP no console — nunca expor na resposta HTTP.
-    # CPF mascarado (LGPD): apenas últimos 4 dígitos.
-    # Em produção: substituir por integração SMS/e-mail real.
+    # Print OTP no stdout APENAS em dev/test — em produção (Render),
+    # OTP nunca aparece nos logs. Bloqueador de segurança CODEX 2026-05-06.
+    # SEM default: PICSAUDE_ENV ausente é tratado como "não-dev/test",
+    # então deploy sem env configurada NÃO vaza OTP.
     _cpf_mascarado = f"*******{cpf[-4:]}" if len(cpf) >= 4 else "***"
-    print(f"\n[PICSAUDE-OTP] CPF={_cpf_mascarado} | CODIGO={codigo} | Expira em 5min (apenas dev)\n")
+    if os.getenv("PICSAUDE_ENV") in ("dev", "test"):
+        print(f"\n[PICSAUDE-OTP] CPF={_cpf_mascarado} | CODIGO={codigo} | Expira em 5min (apenas dev)\n")
 
     return {
         "ok": True,
