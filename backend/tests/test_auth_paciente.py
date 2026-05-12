@@ -449,6 +449,47 @@ class TestPacientesMe:
 
 
 # ---------------------------------------------------------------------------
+# Classe 4b: Guard de print OTP por PICSAUDE_ENV
+# ---------------------------------------------------------------------------
+#
+# Bloqueador de segurança CODEX 2026-05-06: o print() de debug do OTP
+# nunca pode vazar em logs de produção. Guard `PICSAUDE_ENV in ("dev", "test")`
+# é safe-by-default — env ausente NÃO imprime.
+
+class TestOtpPrintGuard:
+
+    def test_otp_nao_imprime_em_prod(self, auth_client, monkeypatch, capsys):
+        """Em PICSAUDE_ENV=prod, OTP nunca aparece em stdout."""
+        client, _ = auth_client
+        monkeypatch.setenv("PICSAUDE_ENV", "prod")
+        resp = client.post("/auth/paciente/solicitar-codigo", json={"cpf": _PACIENTE_CPF})
+        assert resp.status_code == 200
+        captured = capsys.readouterr()
+        assert "[PICSAUDE-OTP]" not in captured.out
+        assert "[PICSAUDE-OTP]" not in captured.err
+
+    def test_otp_nao_imprime_sem_env(self, auth_client, monkeypatch, capsys):
+        """Sem PICSAUDE_ENV setada (deploy mal configurado),
+        OTP NÃO vaza em stdout — safe-by-default."""
+        client, _ = auth_client
+        monkeypatch.delenv("PICSAUDE_ENV", raising=False)
+        resp = client.post("/auth/paciente/solicitar-codigo", json={"cpf": _PACIENTE_CPF})
+        assert resp.status_code == 200
+        captured = capsys.readouterr()
+        assert "[PICSAUDE-OTP]" not in captured.out
+        assert "[PICSAUDE-OTP]" not in captured.err
+
+    def test_otp_imprime_em_dev(self, auth_client, monkeypatch, capsys):
+        """Em PICSAUDE_ENV=dev, OTP aparece em stdout (UX de debug)."""
+        client, _ = auth_client
+        monkeypatch.setenv("PICSAUDE_ENV", "dev")
+        resp = client.post("/auth/paciente/solicitar-codigo", json={"cpf": _PACIENTE_CPF})
+        assert resp.status_code == 200
+        captured = capsys.readouterr()
+        assert "[PICSAUDE-OTP]" in captured.out
+
+
+# ---------------------------------------------------------------------------
 # Classe 5: GET /pacientes (listagem bloqueada)
 # ---------------------------------------------------------------------------
 
