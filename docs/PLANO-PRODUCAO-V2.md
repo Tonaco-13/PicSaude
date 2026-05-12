@@ -24,10 +24,10 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 
 | Etapa | Status | Notas |
 |---|---|---|
-| 1 — `.gitignore` + `git init` + commit inicial | 🟡 Parcial | gitignore revisado e completo, git init feito; commit inicial pendente da conclusão da Etapa 3 |
-| 2 — `gh repo create tonaco-13/picsaude --private` | ⛔ Não feito | Sem remote, sem repo no GitHub |
-| 3 — 7 arquivos de licenciamento | 🟡 Em conclusão | 6 dos 7 entregues (CONTRIBUTOR-LICENSE, CONTRIBUTING, README, DISCLAIMER, DATA-PROTECTION, COMMERCIAL-LICENSE). Falta apenas LICENSE (preâmbulo + AGPL-3.0 oficial concatenada manualmente) |
-| 4 — `instance_id` canônico | ⛔ Não feito | Pré-requisito de TICKET-70 e dos fixes de segurança da Etapa 5B |
+| 1 — `.gitignore` + `git init` + commit inicial | ✅ Feito | commit inicial `9d15a3f` em 2026-05-06 |
+| 2 — `gh repo create` | ✅ Feito | Remote `Tonaco-13/PicSaude` ativo (privado) |
+| 3 — 7 arquivos de licenciamento | ✅ Feito | LICENSE (AGPL-3.0 + preâmbulo), README, CONTRIBUTING, CONTRIBUTOR-LICENSE, COMMERCIAL-LICENSE, DATA-PROTECTION, DISCLAIMER — todos na raiz |
+| 4 — `instance_id` canônico | 🟡 Em andamento | **4A** ✅ `d8abf7e`, **4B-prequel** ✅ `2dce4f8`, **4B** ✅ `89f064a`, **4C** ✅ `2fbcf43`+`983359f`, **4D.1** ✅ `60382d2`+`0056c93`, **4D.2** ✅ `3db4060`+`79f2f4f`. Falta apenas **4E** (testes E2E consolidados + CODEX+Jules — Regra 5 do pacto). |
 | 5 — Bloqueadores pré-deploy | ⛔ Não feito | **Expandido — ver §5 abaixo** |
 | 6 — `DEMO_MODE` + seletor de papéis | ⛔ Não feito | Bloqueador do deploy |
 | 7 — Dockerfile | ⛔ Não feito | |
