@@ -378,3 +378,96 @@ Ticket revisado e aprovado pelo ChatGPT (GPT-4o). Pontos fortes destacados: sepa
 | `tests/integration/test_pdf_assinatura.py` | CRIAR — testes |
 | `tests/fixtures/certificado_teste.py` | CRIAR — gerador de .pfx para testes |
 | `docs/tickets/TICKET-21-ASSINATURA-DIGITAL-PDF-ICP-BRASIL.md` | CRIAR — esta documentação |
+
+## Fase C — Validação Real
+
+**Run automatizado**: 2026-05-08, agente Cowork (tarefa agendada `ticket21-fase-c-validacao-real`).
+**Status**: parcialmente automatizado — smoke test verde com certificado sintético; etapas que dependem de presença interativa do usuário (senha do .pfx + Adobe Reader visual) ficam pendentes para execução manual.
+
+### O que foi verificado autonomamente
+
+**1. Ambiente e contrato do módulo.** A dependência `pyHanko 0.35.1` foi instalada no sandbox e o módulo `app/domain/pdf_assinatura.py` importa limpo, expondo a API pública esperada: `MetadataAssinatura`, `AssinaturaPdfError`, `SenhaPfxInvalida`, `CertificadoSemKeyUsage`, `carregar_pfx`, `assinar_pdf_icp`, `pdf_tem_assinatura`. Observação: o extra `[pkcs12]` documentado em `pip install pyhanko[pkcs12]` não é mais publicado pelo pyHanko 0.35.x (a instrução `pip install pyhanko[pkcs12]` agora emite o aviso `pyhanko 0.35.1 does not provide the extra 'pkcs12'` mas instala normalmente, porque o suporte a PKCS#12 já vem no core via `cryptography`). Considerar atualizar a documentação para `pip install pyhanko cryptography`.
+
+**2. Suíte unitária do módulo.** Os 11 testes de `tests/test_pdf_assinatura.py` rodam verdes contra o pyHanko 0.35.1 com `--noconftest` (o conftest do projeto exige FastAPI, fora do escopo deste run). Os 18 testes de `tests/test_assinatura_icp.py` que não dependem do app FastAPI também passam (29 passed, 8 errors — todos os 8 errors são `ModuleNotFoundError: fastapi` em fixtures de integração, irrelevantes para o caminho de assinatura PAdES). Isso reafirma o resultado 146/146 reportado pelo Fabiano no ambiente local com FastAPI instalado.
+
+**3. Smoke test end-to-end com certificado sintético.** Foi executado um round-trip completo da pipeline de assinatura, do ReportLab até a inspeção do CMS embutido, usando o gerador `tests/fixtures/certificado_teste.gerar_certificado_teste()` (autoassinado, OID 2.16.76.1.3.1, `KeyUsage.digitalSignature` ligado). Resultados:
+
+   - PDF de receituário gerado (1 673 bytes) → PDF assinado (9 513 bytes), delta +7 840 bytes correspondente ao CMS embutido.
+   - `pdf_tem_assinatura()` retorna True; `PdfFileReader.embedded_signatures` retorna 1 entrada.
+   - `/SubFilter = /ETSI.CAdES.detached` (valor PAdES-B canônico em ETSI EN 319 142, equivalente ao Adobe.PPKLite/PAdES Baseline).
+   - `/Reason`, `/Location`, `/M` (signing time UTC) populados conforme `MetadataAssinatura`.
+   - Subject do signer extraído corretamente: `CN=FABIANO TESTE BORGES:00000000191, OU=AC TESTE PICSAUDE, O=ICP-Brasil, C=BR`.
+   - PDF assinado salvo em `outputs/ticket21_fase_c_smoke_signed.pdf` para inspeção avulsa pelo Fabiano se desejar abrir em qualquer leitor PAdES.
+
+   Esse smoke test confirma que o caminho `pdf bytes → SimpleSigner.load_pkcs12_data → IncrementalPdfFileWriter → PdfSigner.sign_pdf → CMS PAdES-B embutido` está funcional na versão atual do pyHanko, independente do conteúdo do certificado.
+
+### Etapas que NÃO podem rodar automaticamente neste contexto
+
+A tarefa agendada não tem como completar 100% da Fase C porque os três passos finais exigem presença interativa do Fabiano:
+
+| Etapa | Bloqueador objetivo |
+|-------|---------------------|
+| Carregar `173960303_FABIANO_TONACO_BORGES_83086439149.pfx` | O .pfx vive em `~/Desktop/PicSaude_Dev/Certificação Digital Cerpro/`, fora da pasta montada (`backend/`). O sandbox do agente só enxerga `backend`, `outputs`, `uploads`. |
+| Digitar a senha do .pfx | Por contrato de segurança a senha não é persistida nem logada; em `getpass` não há TTY interativo num run agendado. |
+| Abrir Adobe Reader e inspecionar selo + cadeia | App nativo desktop. Em scheduled task sem usuário presente, `request_access` para o Adobe Reader e a captura de screenshot ficariam pendentes de aprovação — não há quem aprove. |
+
+Por isso a validação visual no Adobe Reader fica explicitamente como **passo manual do Fabiano**.
+
+### Procedimento manual para o Fabiano fechar a Fase C
+
+Roteiro reproduzível em uma sessão Cowork interativa (com o Fabiano presente) ou via script local:
+
+1. Ativar o venv local que já tem FastAPI + pyHanko + cryptography.
+2. Em um terminal Python, dentro de `backend/`:
+
+   ```python
+   import getpass, pathlib
+   from app.domain.pdf_assinatura import (
+       assinar_pdf_icp, MetadataAssinatura, pdf_tem_assinatura,
+   )
+   from app.domain.pdf_receituario import gerar_pdf_receituario  # ou um fixture
+
+   pfx_path = pathlib.Path.home() / "Desktop/PicSaude_Dev/Certificação Digital Cerpro/173960303_FABIANO_TONACO_BORGES_83086439149.pfx"
+   pfx = pfx_path.read_bytes()
+   senha = getpass.getpass("Senha do .pfx: ")
+
+   pdf = gerar_pdf_receituario(...)  # usar um receituário válido qualquer
+
+   meta = MetadataAssinatura(
+       nome_prescritor="FABIANO TONACO BORGES",
+       cpf_prescritor="83086439149",
+       crm_prescritor=None,   # binding T65 fica fora do certificado
+       uf_prescritor=None,
+       razao="Prescrição médica digital",
+       localizacao="Belo Horizonte/MG",
+   )
+   assinado = assinar_pdf_icp(pdf, pfx, senha, meta)
+   assert pdf_tem_assinatura(assinado)
+   pathlib.Path("/tmp/receituario_assinado_fase_c.pdf").write_bytes(assinado)
+   ```
+
+3. Abrir `/tmp/receituario_assinado_fase_c.pdf` no Adobe Reader.
+4. Conferir, em ordem, todos os critérios de sucesso da Fase C:
+   - Painel de assinaturas mostra "Assinado digitalmente por FABIANO TONACO BORGES".
+   - Detalhes do certificado mostram emissor `AC SERPRORFBv5` e cadeia até `AC Raiz Brasileira v5` (a depender da configuração de truststore do Adobe).
+   - Selo visual no rodapé exibe nome, CPF formatado `830.864.391-49`, data/hora UTC e a string `Certificado ICP-Brasil`.
+   - Conteúdo do receituário (cabeçalho, itens, QR, hash) intacto e legível.
+5. Capturar screenshot e anexar em `docs/tickets/anexos/ticket21_fase_c_adobe_reader.png` (criar a pasta se não existir). Atualizar esta seção com "Fase C concluída em <data>" e marcar os critérios verificados.
+
+### Pontos de atenção para a inspeção visual
+
+Coisas que podem aparecer e a interpretação esperada:
+
+- **"Pelo menos uma assinatura é inválida" no topo do Adobe.** Esperado se a AC SERPRORFBv5 não estiver no truststore local do Reader; cliques em "Detalhes" devem mostrar "A integridade do documento está OK" e "A identidade do signatário é desconhecida porque não foi incluída na sua lista de identidades confiáveis". Adicionar a AC ICP-Brasil ao truststore (Adobe → Preferências → Assinaturas → Identidades e Certificados Confiáveis → Importar, ou habilitar AATL) elimina o aviso.
+- **Texto do selo cortado/truncado.** O default `posicao_selo_mm=(20, 8, 110, 33)` foi calibrado para A4. Em receituário Carta ou em layouts com rodapé maior, ajustar `posicao_selo_mm` quando chamar `assinar_pdf_icp`.
+- **Diferença de fuso na data do selo.** O selo grava UTC (`%d/%m/%Y %H:%M:%S UTC`) por design, para alinhar com o `/M` do dicionário PAdES e com o que o ledger registra. Não converter para horário de Brasília para evitar discrepância entre o selo visível e os timestamps de auditoria.
+
+### Resumo de status
+
+- [x] Ambiente Python + pyHanko OK
+- [x] Módulo `pdf_assinatura.py` importável e API estável
+- [x] Testes unitários do módulo verdes
+- [x] Smoke test end-to-end com cert sintético gerou PAdES-B válido
+- [ ] Assinatura com .pfx real (`173960303_…_83086439149.pfx`) — pendente, exige Fabiano no terminal para o `getpass`
+- [ ] Validação visual no Adobe Reader — pendente, etapa manual
+- [ ] Screenshot anexado — pendente
