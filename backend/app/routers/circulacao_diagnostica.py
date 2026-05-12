@@ -39,7 +39,6 @@ States:     domain/states_circulacao_diagnostica.py
 """
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -49,6 +48,8 @@ from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
+from app.instance import get_instance_id_conn
 from app.domain.states_circulacao_diagnostica import (
     ESTADOS_TERMINAIS_CIRCULACAO_DIAGNOSTICA,
     validar_transicao_circulacao_diagnostica,
@@ -161,15 +162,21 @@ def _gerar_chave_circulacao() -> str:
 
 
 def _gravar_evento(conn, circulacao_id: int, tipo_evento: str,
-                   dados: dict, agora: str) -> None:
-    """Insere evento no ledger. Nunca recebe UPDATE nem DELETE."""
-    conn.execute(
-        """
-        INSERT INTO circulacao_diagnostica_eventos
-               (circulacao_id, tipo_evento, dados_json, criado_em)
-        VALUES (?, ?, ?, ?)
-        """,
-        (circulacao_id, tipo_evento, json.dumps(dados, ensure_ascii=False), agora),
+                   dados: dict, agora: str,
+                   *, instance_id: str) -> None:
+    """Insere evento no ledger. Nunca recebe UPDATE nem DELETE.
+
+    Ticket 4D.2: delega para ``registrar_evento_ledger``. ``instance_id``
+    é parâmetro keyword-only obrigatório — caller obtém via
+    ``get_instance_id_conn(conn)`` uma vez por transação.
+    """
+    registrar_evento_ledger(
+        conn,
+        objeto_tipo="circulacao_diagnostica",
+        objeto_id=circulacao_id,
+        tipo_evento=tipo_evento,
+        instance_id=instance_id,
+        payload=dados,
     )
 
 
@@ -323,6 +330,7 @@ def criar_circulacao(
             })
 
         # Evento no ledger
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento(conn, circ_id, "circulacao_criada", {
             "circulacao_id":  circ_id,
             "pedido_id":      pedido["id"],
@@ -330,7 +338,7 @@ def criar_circulacao(
             "unidade_id":     payload.unidade_id,
             "itens":          [i["pedido_exame_item_id"] for i in itens_inseridos],
             "criado_por":     usuario["sub"],
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo":         protocolo_circ,
@@ -467,13 +475,14 @@ def registrar_proposta(
              payload.instrucoes_preparo, circ["id"]),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento(conn, circ["id"], "circulacao_proposta_recebida", {
             "circulacao_id":      circ["id"],
             "data_hora_proposta": payload.data_hora_proposta,
             "local_texto":        payload.local_texto,
             "instrucoes_preparo": payload.instrucoes_preparo,
             "registrado_por":     usuario["sub"],
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo":          circ["protocolo"],
@@ -516,10 +525,11 @@ def confirmar_proposta(
             (circ["id"],),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento(conn, circ["id"], "circulacao_confirmada_paciente", {
             "circulacao_id":  circ["id"],
             "confirmado_por": usuario["sub"],
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo": circ["protocolo"],
@@ -574,11 +584,12 @@ def desmarcar_circulacao(
             (novo_status, circ["id"]),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento(conn, circ["id"], tipo_evento, {
             "circulacao_id":  circ["id"],
             "desmarcado_por": usuario["sub"],
             "motivo":         payload.motivo,
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo": circ["protocolo"],
@@ -620,11 +631,12 @@ def realizar_circulacao(
             (circ["id"],),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento(conn, circ["id"], "circulacao_realizada", {
             "circulacao_id":  circ["id"],
             "realizado_por":  usuario["sub"],
             "observacao":     payload.observacao,
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo": circ["protocolo"],
@@ -668,11 +680,14 @@ def remarcar_circulacao(
             "UPDATE circulacoes_diagnosticas SET status = 'desmarcado_laboratorio' WHERE id = ?",
             (circ["id"],),
         )
+        # Ticket 4D.2: 2 eventos da remarcação compartilham instance_id
+        # (este e circulacao_criada da nova circulação derivada abaixo).
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento(conn, circ["id"], "circulacao_desmarcada_laboratorio", {
             "circulacao_id":  circ["id"],
             "desmarcado_por": usuario["sub"],
             "motivo":         "remarcado",
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         # Busca itens da circulação original
         itens_orig = _itens_da_circulacao(conn, circ["id"])
@@ -742,7 +757,7 @@ def remarcar_circulacao(
             "itens":                 item_ids,
             "criado_por":            usuario["sub"],
             "tipo_emissao":          "remarcacao",
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo_anterior": circ["protocolo"],

@@ -21,7 +21,6 @@ Nota MVP obrigatória (comentada no código):
 """
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -31,7 +30,9 @@ from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
+from app.instance import get_instance_id_conn
 from app.domain.states_agendamento import (
     ESTADOS_TERMINAIS_AGENDAMENTO,
     validar_transicao,
@@ -108,18 +109,29 @@ def _get_pedido_por_protocolo(conn, protocolo: str) -> dict:
 
 def _gravar_evento_agendamento(conn, agendamento_id: int, evento: str,
                                 payload: dict, agora: str,
+                                *,
+                                instance_id: str,
                                 ag_context: dict | None = None) -> None:
     """Insere evento no ledger de agendamentos. Nunca recebe UPDATE/DELETE.
 
-    Se ag_context for fornecido (dict com 'protocolo', 'org_id', 'unidade_id'),
-    espelha o evento no outbox de publicação externa (G4A).
+    Ticket 4D.2: helper delega para ``registrar_evento_ledger`` (escopo
+    helper único + drift de nomenclatura encapsulado em ``_LEDGER_SCHEMA``,
+    onde ``agendamento_eventos`` é outlier com coluna ``evento``/``payload``).
+    ``instance_id`` é parâmetro keyword-only obrigatório — caller obtém
+    via ``get_instance_id_conn(conn)`` uma vez por transação e repassa.
+
+    Se ``ag_context`` for fornecido (dict com 'protocolo', 'org_id',
+    'unidade_id'), espelha o evento no outbox de publicação externa
+    (G4A) com o mesmo ``instance_id`` — preserva correspondência
+    forense entre ledger e outbox.
     """
-    conn.execute(
-        """
-        INSERT INTO agendamento_eventos (agendamento_id, evento, payload, criado_em)
-        VALUES (?, ?, ?, ?)
-        """,
-        (agendamento_id, evento, json.dumps(payload, ensure_ascii=False), agora),
+    registrar_evento_ledger(
+        conn,
+        objeto_tipo="agendamento",
+        objeto_id=agendamento_id,
+        tipo_evento=evento,
+        instance_id=instance_id,
+        payload=payload,
     )
     if ag_context:
         registrar_outbox(
@@ -128,6 +140,7 @@ def _gravar_evento_agendamento(conn, agendamento_id: int, evento: str,
             payload,
             org_id=ag_context.get("org_id"),
             unidade_id=ag_context.get("unidade_id"),
+            instance_id=instance_id,
         )
 
 
@@ -259,6 +272,7 @@ def criar_agendamento(
 
         novo_status_pedido = _recalcular_status_pedido(conn, pedido["id"], agora)
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag_id, "agendamento_criado", {
             "agendamento_id": ag_id,
             "pedido_id":      pedido["id"],
@@ -266,7 +280,9 @@ def criar_agendamento(
             "unidade_id":     payload.unidade_id,
             "data_hora":      payload.data_hora,
             "itens_agendados": sum(1 for i in itens if i["status_item"] == "pendente"),
-        }, agora, ag_context={"protocolo": protocolo, "org_id": payload.org_id, "unidade_id": payload.unidade_id})
+        }, agora,
+        instance_id=instance_id,
+        ag_context={"protocolo": protocolo, "org_id": payload.org_id, "unidade_id": payload.unidade_id})
 
         return {
             "protocolo":          protocolo,
@@ -349,8 +365,10 @@ def confirmar_agendamento(
     agora = datetime.utcnow().isoformat()
     with get_tx() as conn:
         ag = _transicionar(conn, protocolo, "confirmado", agora)
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_confirmado",
-                                   _montar_payload_evento(ag), agora, ag_context=ag)
+                                   _montar_payload_evento(ag), agora,
+                                   instance_id=instance_id, ag_context=ag)
         return {"protocolo": protocolo, "status": "confirmado"}
 
 
@@ -390,7 +408,10 @@ def realizar_agendamento(
         payload_ev = _montar_payload_evento(ag)
         payload_ev["itens_coletados"] = coletados
         payload_ev["mvp_nota"] = "realizado implica coletado — simplificacao MVP"
-        _gravar_evento_agendamento(conn, ag["id"], "agendamento_realizado", payload_ev, agora, ag_context=ag)
+        instance_id = get_instance_id_conn(conn)
+        _gravar_evento_agendamento(conn, ag["id"], "agendamento_realizado",
+                                   payload_ev, agora,
+                                   instance_id=instance_id, ag_context=ag)
 
         return {
             "protocolo":      protocolo,
@@ -424,8 +445,10 @@ def cancelar_agendamento(
 
         novo_status_pedido = _recalcular_status_pedido(conn, ag["pedido_id"], agora)
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_cancelado",
-                                   _montar_payload_evento(ag), agora, ag_context=ag)
+                                   _montar_payload_evento(ag), agora,
+                                   instance_id=instance_id, ag_context=ag)
         return {
             "protocolo":      protocolo,
             "status":         "cancelado",
@@ -457,8 +480,10 @@ def nao_compareceu(
 
         novo_status_pedido = _recalcular_status_pedido(conn, ag["pedido_id"], agora)
 
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_nao_compareceu",
-                                   _montar_payload_evento(ag), agora, ag_context=ag)
+                                   _montar_payload_evento(ag), agora,
+                                   instance_id=instance_id, ag_context=ag)
         return {
             "protocolo":     protocolo,
             "status":        "nao_compareceu",
@@ -503,15 +528,18 @@ def remarcar_agendamento(
         conn.execute(
             "UPDATE agendamentos SET status = 'cancelado' WHERE id = ?", (ag["id"],),
         )
+        # Ticket 4D.2: 3 eventos da remarcação compartilham instance_id
+        # (este e o terceiro evento agendamento_criado abaixo).
+        instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_remarcado", {
             **_montar_payload_evento(ag),
             "novo_protocolo": novo_protocolo,
             "motivo":         "remarcacao",
-        }, agora, ag_context=ag)
+        }, agora, instance_id=instance_id, ag_context=ag)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_cancelado", {
             **_montar_payload_evento(ag),
             "motivo": "remarcado",
-        }, agora, ag_context=ag)
+        }, agora, instance_id=instance_id, ag_context=ag)
 
         # Criar novo agendamento derivado
         novo_org_id    = payload.org_id    or ag["org_id"]
@@ -542,7 +570,9 @@ def remarcar_agendamento(
             "data_hora":         payload.data_hora,
             "tipo_emissao":      "remarcacao",
             "origem_protocolo":  protocolo,
-        }, agora, ag_context={"protocolo": novo_protocolo, "org_id": novo_org_id, "unidade_id": novo_unidade})
+        }, agora,
+        instance_id=instance_id,
+        ag_context={"protocolo": novo_protocolo, "org_id": novo_org_id, "unidade_id": novo_unidade})
 
         return {
             "protocolo_anterior": protocolo,
