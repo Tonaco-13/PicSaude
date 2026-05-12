@@ -26,7 +26,9 @@ from pydantic import BaseModel, field_validator, model_validator
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
+from app.instance import get_instance_id_conn
 from app.domain.states_exame import (
     ESTADOS_TERMINAIS_PEDIDO_EXAME,
     derivar_status_pedido,
@@ -293,21 +295,27 @@ def criar_pedido_exame(
             (doc_hash, pedido_id),
         )
 
+        # Ticket 4D.2: instance_id uma vez por transação clínica.
+        instance_id = get_instance_id_conn(conn)
+
         ev_emitido = {
             "tipo_emissao":     payload.tipo_emissao,
             "origem_pedido_id": payload.origem_pedido_id,
             "prioridade":       payload.prioridade,
             "itens_count":      len(payload.itens),
         }
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos
-              (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'pedido_emitido', ?, ?)
-            """,
-            (pedido_id, json.dumps(ev_emitido, ensure_ascii=False), agora),
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido_id,
+            tipo_evento="pedido_emitido",
+            instance_id=instance_id,
+            payload=ev_emitido,
         )
-        registrar_outbox(conn, "pedido_emitido", "pedido_exame", protocolo, ev_emitido)
+        registrar_outbox(
+            conn, "pedido_emitido", "pedido_exame", protocolo, ev_emitido,
+            instance_id=instance_id,
+        )
 
         # ------------------------------------------------------------------
         # Ticket 63 — Entrega à carteira digital
@@ -339,24 +347,17 @@ def criar_pedido_exame(
                     ),
                 ),
             )
-            conn.execute(
-                """
-                INSERT INTO pedido_exame_eventos
-                  (pedido_id, tipo_evento, dados_json, criado_em)
-                VALUES (?, 'custodia_transferida', ?, ?)
-                """,
-                (
-                    pedido_id,
-                    json.dumps(
-                        {
-                            "de": "prescritor", "de_id": cns,
-                            "para": "paciente", "para_id": cpf,
-                            "via": "emissao_direta",
-                        },
-                        ensure_ascii=False,
-                    ),
-                    agora,
-                ),
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="pedido_exame",
+                objeto_id=pedido_id,
+                tipo_evento="custodia_transferida",
+                instance_id=instance_id,
+                payload={
+                    "de": "prescritor", "de_id": cns,
+                    "para": "paciente", "para_id": cpf,
+                    "via": "emissao_direta",
+                },
             )
             entregue_carteira = True
 
@@ -407,6 +408,11 @@ def criar_pedido_exame_fisico(
     protocolo = str(uuid.uuid4())
     agora    = datetime.utcnow().isoformat()
     data_emissao = date.today().isoformat()
+    # Ticket 4D.2 (rodada 4): fix incidental — data_validade era
+    # NULL mas schema é NOT NULL. Mesma classe do fix da 4D.1 §4.7
+    # P1.2 (auth.py prescricao_custodia). Usa mesma fórmula/constante
+    # do endpoint digital (linhas 237-240).
+    data_validade = (date.today() + timedelta(days=_VALIDADE_PADRAO_DIAS)).isoformat()
 
     with get_tx() as conn:
         prescritor_id = _localizar_ou_criar_prescritor(conn, cns, payload.nome_prescritor, agora)
@@ -417,12 +423,12 @@ def criar_pedido_exame_fisico(
             INSERT INTO pedidos_exame
               (protocolo, prescritor_id, paciente_id, status, tipo_emissao,
                prioridade, indicacao_clinica, data_emissao, data_validade, criado_em)
-            VALUES (?, ?, ?, 'encerrado_fisico', 'fisico', ?, ?, ?, NULL, ?)
+            VALUES (?, ?, ?, 'encerrado_fisico', 'fisico', ?, ?, ?, ?, ?)
             """,
             (
                 protocolo, prescritor_id, paciente_id,
                 payload.prioridade, payload.indicacao_clinica,
-                data_emissao, agora,
+                data_emissao, data_validade, agora,
             ),
         )
         pedido_id = cursor.lastrowid
@@ -439,36 +445,32 @@ def criar_pedido_exame_fisico(
                  item.codigo_sigtap, item.quantidade, agora),
             )
 
-        # Dois eventos no ledger (mesmo padrão do fluxo físico da prescrição)
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'pedido_impresso', ?, ?)
-            """,
-            (
-                pedido_id,
-                json.dumps({
-                    "tipo_emissao":      "fisico",
-                    "itens_count":       len(payload.itens),
-                    "cpf_identificado":  payload.cpf_paciente is not None,
-                }, ensure_ascii=False),
-                agora,
-            ),
+        # Ticket 4D.2: dois eventos no ledger (mesmo padrão do fluxo físico
+        # da prescrição). Mesmo instance_id em ambos — invariante forense.
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido_id,
+            tipo_evento="pedido_impresso",
+            instance_id=instance_id,
+            payload={
+                "tipo_emissao":      "fisico",
+                "itens_count":       len(payload.itens),
+                "cpf_identificado":  payload.cpf_paciente is not None,
+            },
         )
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'encerrado_localmente', ?, ?)
-            """,
-            (
-                pedido_id,
-                json.dumps({
-                    "status_novo":           "encerrado_fisico",
-                    "motivo":                "emissao_exclusivamente_fisica",
-                    "sem_custodia_digital":  True,
-                }, ensure_ascii=False),
-                agora,
-            ),
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido_id,
+            tipo_evento="encerrado_localmente",
+            instance_id=instance_id,
+            payload={
+                "status_novo":           "encerrado_fisico",
+                "motivo":                "emissao_exclusivamente_fisica",
+                "sem_custodia_digital":  True,
+            },
         )
 
         return {
@@ -628,21 +630,19 @@ def agendar_pedido_exame(
 
         novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
 
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'pedido_agendado', ?, ?)
-            """,
-            (
-                pedido["id"],
-                json.dumps({
-                    "cnpj_prestador":   payload.cnpj_prestador,
-                    "nome_prestador":   payload.nome_prestador,
-                    "data_agendamento": payload.data_agendamento,
-                    "itens_agendados":  len(itens_agendar),
-                }, ensure_ascii=False),
-                agora,
-            ),
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="pedido_agendado",
+            instance_id=instance_id,
+            payload={
+                "cnpj_prestador":   payload.cnpj_prestador,
+                "nome_prestador":   payload.nome_prestador,
+                "data_agendamento": payload.data_agendamento,
+                "itens_agendados":  len(itens_agendar),
+            },
         )
 
         return {
@@ -703,14 +703,19 @@ def coletar_item_exame(
         novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
 
         ev_coletado = {"item_id": item_id, "nome_exame": item["nome_exame"]}
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'pedido_coletado', ?, ?)
-            """,
-            (pedido["id"], json.dumps(ev_coletado, ensure_ascii=False), agora),
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="pedido_coletado",
+            instance_id=instance_id,
+            payload=ev_coletado,
         )
-        registrar_outbox(conn, "pedido_coletado", "pedido_exame", protocolo, ev_coletado)
+        registrar_outbox(
+            conn, "pedido_coletado", "pedido_exame", protocolo, ev_coletado,
+            instance_id=instance_id,
+        )
 
         return {
             "protocolo":     protocolo,
@@ -768,14 +773,19 @@ def cancelar_pedido_exame(
             "motivo":           payload.motivo,
             "itens_cancelados": cancelados,
         }
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'pedido_cancelado', ?, ?)
-            """,
-            (pedido["id"], json.dumps(ev_cancelado, ensure_ascii=False), agora),
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="pedido_cancelado",
+            instance_id=instance_id,
+            payload=ev_cancelado,
         )
-        registrar_outbox(conn, "pedido_cancelado", "pedido_exame", protocolo, ev_cancelado)
+        registrar_outbox(
+            conn, "pedido_cancelado", "pedido_exame", protocolo, ev_cancelado,
+            instance_id=instance_id,
+        )
 
         return {
             "protocolo":        protocolo,
@@ -842,19 +852,19 @@ def registrar_resultado_item(
                 ),
             )
 
+        # Ticket 4D.2: dois eventos compartilham instance_id (invariante
+        # forense da transação de registro de resultado).
+        instance_id = get_instance_id_conn(conn)
+
         # Evento intermediário: em_analise (semântica preservada no ledger)
         if item["status_item"] == "coletado":
-            conn.execute(
-                """
-                INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-                VALUES (?, 'pedido_em_analise', ?, ?)
-                """,
-                (
-                    pedido["id"],
-                    json.dumps({"item_id": item_id, "nome_exame": item["nome_exame"]},
-                               ensure_ascii=False),
-                    agora,
-                ),
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="pedido_exame",
+                objeto_id=pedido["id"],
+                tipo_evento="pedido_em_analise",
+                instance_id=instance_id,
+                payload={"item_id": item_id, "nome_exame": item["nome_exame"]},
             )
 
         # Atualizar item com resultado e transicionar para resultado_disponivel
@@ -878,14 +888,18 @@ def registrar_resultado_item(
             "tem_resumo": payload.resultado_resumo is not None,
             "tem_url":    payload.resultado_url is not None,
         }
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'resultado_registrado', ?, ?)
-            """,
-            (pedido["id"], json.dumps(ev_resultado, ensure_ascii=False), agora),
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="resultado_registrado",
+            instance_id=instance_id,
+            payload=ev_resultado,
         )
-        registrar_outbox(conn, "resultado_registrado", "pedido_exame", protocolo, ev_resultado)
+        registrar_outbox(
+            conn, "resultado_registrado", "pedido_exame", protocolo, ev_resultado,
+            instance_id=instance_id,
+        )
 
         return {
             "protocolo":     protocolo,
@@ -950,14 +964,19 @@ def encerrar_pedido_exame(
             "itens_encerrados": encerrados,
             "motivo": "ciencia_registrada",
         }
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em)
-            VALUES (?, 'pedido_encerrado', ?, ?)
-            """,
-            (pedido["id"], json.dumps(ev_encerrado, ensure_ascii=False), agora),
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="pedido_encerrado",
+            instance_id=instance_id,
+            payload=ev_encerrado,
         )
-        registrar_outbox(conn, "pedido_encerrado", "pedido_exame", protocolo, ev_encerrado)
+        registrar_outbox(
+            conn, "pedido_encerrado", "pedido_exame", protocolo, ev_encerrado,
+            instance_id=instance_id,
+        )
 
         return {
             "protocolo":       protocolo,

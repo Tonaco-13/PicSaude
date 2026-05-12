@@ -42,8 +42,10 @@ from pydantic import BaseModel, field_validator, model_validator
 from app.auth.dependencies import require_role
 from app.config import BASE_URL
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
 from app.domain.pdf_laudo import gerar_pdf_laudo
+from app.instance import get_instance_id_conn
 from app.domain.states_laudo import (
     ESTADOS_TERMINAIS_LAUDO,
     ESTADOS_TERMINAIS_ITEM_LAUDO,
@@ -203,20 +205,30 @@ def _get_itens_laudo(conn, laudo_id: int) -> list[dict]:
 
 
 def _evento(conn, laudo_id: int, tipo: str, dados: dict, agora: str,
-            protocolo: str | None = None) -> None:
+            protocolo: str | None = None,
+            *, instance_id: str) -> None:
     """Insere evento no ledger de laudos. Nunca recebe UPDATE/DELETE.
 
-    Se protocolo for fornecido, espelha no outbox de publicação externa (G4A).
+    Ticket 4D.2: delega para ``registrar_evento_ledger`` e propaga
+    ``instance_id`` para o outbox quando ``protocolo`` for fornecido —
+    preserva correspondência forense entre ledger e outbox.
+
+    ``instance_id`` é parâmetro keyword-only obrigatório — caller obtém
+    via ``get_instance_id_conn(conn)`` uma vez por transação clínica.
     """
-    conn.execute(
-        """
-        INSERT INTO laudo_eventos (laudo_id, tipo_evento, dados_json, criado_em)
-        VALUES (?, ?, ?, ?)
-        """,
-        (laudo_id, tipo, json.dumps(dados, ensure_ascii=False), agora),
+    registrar_evento_ledger(
+        conn,
+        objeto_tipo="laudo",
+        objeto_id=laudo_id,
+        tipo_evento=tipo,
+        instance_id=instance_id,
+        payload=dados,
     )
     if protocolo:
-        registrar_outbox(conn, tipo, "laudo", protocolo, dados)
+        registrar_outbox(
+            conn, tipo, "laudo", protocolo, dados,
+            instance_id=instance_id,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -305,12 +317,13 @@ def criar_laudo(
             (doc_hash, laudo_id),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo_id, "laudo_criado", {
             "tipo_emissao":    payload.tipo_emissao,
             "origem_laudo_id": payload.origem_laudo_id,
             "pedido_id":       pedido_id,
             "itens_count":     len(payload.itens),
-        }, agora, protocolo=protocolo)
+        }, agora, protocolo=protocolo, instance_id=instance_id)
 
         return {
             "id":            laudo_id,
@@ -377,16 +390,18 @@ def criar_laudo_fisico(
                  item.conclusao, item.valor_referencia, item.resultado_url, agora),
             )
 
+        # Ticket 4D.2: 2 eventos do fluxo físico compartilham instance_id.
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo_id, "laudo_impresso", {
             "tipo_emissao":      "fisico",
             "itens_count":       len(payload.itens),
             "cpf_identificado":  payload.cpf_paciente is not None,
-        }, agora)
+        }, agora, instance_id=instance_id)
         _evento(conn, laudo_id, "encerrado_localmente", {
             "status_novo":          "encerrado_fisico",
             "motivo":               "emissao_exclusivamente_fisica",
             "sem_custodia_digital": True,
-        }, agora)
+        }, agora, instance_id=instance_id)
 
         return {
             "protocolo":    protocolo,
@@ -479,9 +494,10 @@ def assinar_laudo(
             (laudo["id"],),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "laudo_assinado", {
             "status_anterior": "em_producao",
-        }, agora, protocolo=laudo["protocolo"])
+        }, agora, protocolo=laudo["protocolo"], instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": "assinado"}
 
@@ -536,9 +552,10 @@ def liberar_laudo(
             ),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "laudo_liberado", {
             "cnpj_prestador": payload.cnpj_prestador,
-        }, agora, protocolo=laudo["protocolo"])
+        }, agora, protocolo=laudo["protocolo"], instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": "liberado"}
 
@@ -577,15 +594,18 @@ def ciencia_paciente(
             (novo_status, laudo["id"]),
         )
 
+        # Ticket 4D.2: ciencia_paciente + laudo_encerrado (condicional)
+        # compartilham instance_id na mesma transação clínica.
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "ciencia_paciente", {
             "status_anterior": laudo["status"],
             "status_novo":     novo_status,
-        }, agora, protocolo=protocolo)
+        }, agora, protocolo=protocolo, instance_id=instance_id)
 
         if novo_status == "encerrado":
             _evento(conn, laudo["id"], "laudo_encerrado", {
                 "motivo": "ciencia_completa",
-            }, agora, protocolo=protocolo)
+            }, agora, protocolo=protocolo, instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": novo_status}
 
@@ -624,15 +644,18 @@ def ciencia_prescritor(
             (novo_status, laudo["id"]),
         )
 
+        # Ticket 4D.2: ciencia_prescritor + laudo_encerrado (condicional)
+        # compartilham instance_id na mesma transação clínica.
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "ciencia_prescritor", {
             "status_anterior": laudo["status"],
             "status_novo":     novo_status,
-        }, agora, protocolo=protocolo)
+        }, agora, protocolo=protocolo, instance_id=instance_id)
 
         if novo_status == "encerrado":
             _evento(conn, laudo["id"], "laudo_encerrado", {
                 "motivo": "ciencia_completa",
-            }, agora, protocolo=protocolo)
+            }, agora, protocolo=protocolo, instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": novo_status}
 
@@ -667,10 +690,11 @@ def encerrar_laudo(
             (laudo["id"],),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "laudo_encerrado", {
             "status_anterior": laudo["status"],
             "motivo":          "encerramento_direto",
-        }, agora, protocolo=protocolo)
+        }, agora, protocolo=protocolo, instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": "encerrado"}
 
@@ -721,10 +745,11 @@ def cancelar_laudo(
             (laudo["id"],),
         )
 
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "laudo_cancelado", {
             "status_anterior": laudo["status"],
             "motivo":          payload.motivo,
-        }, agora, protocolo=protocolo)
+        }, agora, protocolo=protocolo, instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": "cancelado"}
 
