@@ -66,9 +66,9 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 5. **Cada clique desperdiçado é um paciente a menos** — UX mínima é saúde pública
 6. **Código público porque SUS é público** — AGPL não é ideologia, é estratégia
 
-## Estado atual (2026-05-11)
+## Estado atual (2026-05-14)
 
-### Etapa 4 — instance_id canônico (em andamento)
+### Etapa 4 — instance_id canônico (em andamento — falta apenas 4E.2)
 
 | Sub-tarefa | Status | Commit |
 |---|---|---|
@@ -77,7 +77,8 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 | 4C | ✅ | 2fbcf43 + 983359f |
 | 4D.1 (prescrição, 21 sites, 7 routers) | ✅ | 60382d2 + 0056c93 |
 | 4D.2 (exame/laudo/agendamento/circulação, 13 sites, 4 routers) | ✅ | 3db4060 + 79f2f4f |
-| 4E (testes E2E consolidados + CODEX+Jules — Regra 5) | ⏳ Próxima |
+| 4E.1 (testes E2E consolidados, 6 cenários, 780 linhas, 5 rodadas) | ✅ | 65181dc + a53d5ba |
+| 4E.2 (disparo Regra 5 — CODEX + Jules sobre diff acumulado) | ⏳ Próxima |
 
 ### Plano de produção (10 etapas)
 
@@ -86,7 +87,7 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 | 1 — git init | ✅ |
 | 2 — GitHub repo | ✅ |
 | 3 — docs licenciamento | ✅ (verificar com `ls LICENSE README.md CONTRIBUTING.md CONTRIBUTOR-LICENSE.md COMMERCIAL-LICENSE.md DATA-PROTECTION.md DISCLAIMER.md`) |
-| 4 — instance_id | 🟡 Em andamento (4A-4D ✅ feitas; falta apenas 4E — fechamento Regra 5) |
+| 4 — instance_id | 🟡 Em andamento (4A-4D + 4E.1 ✅ feitas; falta apenas 4E.2 — disparo Regra 5) |
 | 5 — Fix B1 (carteira digital 422) | ⛔ Bloqueador deploy |
 | 6 — DEMO_MODE + seletor papéis | ⛔ Bloqueador deploy |
 | 7 — Dockerfile | ⛔ |

@@ -27,7 +27,7 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 | 1 — `.gitignore` + `git init` + commit inicial | ✅ Feito | commit inicial `9d15a3f` em 2026-05-06 |
 | 2 — `gh repo create` | ✅ Feito | Remote `Tonaco-13/PicSaude` ativo (privado) |
 | 3 — 7 arquivos de licenciamento | ✅ Feito | LICENSE (AGPL-3.0 + preâmbulo), README, CONTRIBUTING, CONTRIBUTOR-LICENSE, COMMERCIAL-LICENSE, DATA-PROTECTION, DISCLAIMER — todos na raiz |
-| 4 — `instance_id` canônico | 🟡 Em andamento | **4A** ✅ `d8abf7e`, **4B-prequel** ✅ `2dce4f8`, **4B** ✅ `89f064a`, **4C** ✅ `2fbcf43`+`983359f`, **4D.1** ✅ `60382d2`+`0056c93`, **4D.2** ✅ `3db4060`+`79f2f4f`. Falta apenas **4E** (testes E2E consolidados + CODEX+Jules — Regra 5 do pacto). |
+| 4 — `instance_id` canônico | 🟡 Em andamento | **4A** ✅ `d8abf7e`, **4B-prequel** ✅ `2dce4f8`, **4B** ✅ `89f064a`, **4C** ✅ `2fbcf43`+`983359f`, **4D.1** ✅ `60382d2`+`0056c93`, **4D.2** ✅ `3db4060`+`79f2f4f`, **4E.1** ✅ `65181dc`+`a53d5ba` (testes E2E consolidados, 6 cenários verdes, 5 rodadas CODEX/Arquiteto/Code). Falta apenas **4E.2** (disparo Regra 5 — CODEX + Jules sobre diff acumulado `d8abf7e^..HEAD -- backend/`). |
 | 5 — Bloqueadores pré-deploy | ⛔ Não feito | **Expandido — ver §5 abaixo** |
 | 6 — `DEMO_MODE` + seletor de papéis | ⛔ Não feito | Bloqueador do deploy |
 | 7 — Dockerfile | ⛔ Não feito | |
