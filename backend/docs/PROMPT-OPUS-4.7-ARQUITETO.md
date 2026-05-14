@@ -130,7 +130,8 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 | 4D.1 — prescrição (21 sites, 7 routers) | ✅ | 60382d2 + 0056c93 |
 | 4D.2 — exame/laudo/agendamento/circulação (13 sites, 4 routers) | ✅ | 3db4060 + 79f2f4f |
 | Task #8 — saneamento de fixtures legadas | ✅ | d2f016b |
-| 4E — testes E2E consolidados + CODEX+Jules (Regra 5) | ⏳ Próxima |
+| 4E.1 — testes E2E consolidados (6 cenários, 780 linhas, 5 rodadas CODEX/Arquiteto/Code) | ✅ | 65181dc + a53d5ba |
+| 4E.2 — disparo Regra 5 (CODEX + Jules sobre diff `d8abf7e^..HEAD`) | ⏳ Próxima |
 
 ### Etapas do plano de produção
 
@@ -139,7 +140,7 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 | 1 — git init + .gitignore | ✅ |
 | 2 — GitHub repo | ✅ (Tonaco-13/PicSaude) |
 | 3 — 7 docs de licenciamento | ✅ (verificar se todos os 7 existem na raiz) |
-| 4 — instance_id canônico | 🟡 Em andamento (4A-4D ✅; falta apenas 4E — Regra 5) |
+| 4 — instance_id canônico | 🟡 Em andamento (4A-4D + 4E.1 ✅; falta apenas 4E.2 — Regra 5) |
 | 5 — Fix B1 (carteira digital 422) | ⛔ Bloqueador deploy |
 | 6 — DEMO_MODE + seletor papéis | ⛔ Bloqueador deploy |
 | 7 — Dockerfile | ⛔ |
