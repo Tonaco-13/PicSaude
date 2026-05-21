@@ -66,9 +66,9 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 5. **Cada clique desperdiçado é um paciente a menos** — UX mínima é saúde pública
 6. **Código público porque SUS é público** — AGPL não é ideologia, é estratégia
 
-## Estado atual (2026-05-14)
+## Estado atual (2026-05-21)
 
-### Etapa 4 — instance_id canônico (em andamento — falta apenas 4E.2)
+### Etapa 4 — instance_id canônico — ✅ Fechada (2026-05-21)
 
 | Sub-tarefa | Status | Commit |
 |---|---|---|
@@ -78,7 +78,9 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 | 4D.1 (prescrição, 21 sites, 7 routers) | ✅ | 60382d2 + 0056c93 |
 | 4D.2 (exame/laudo/agendamento/circulação, 13 sites, 4 routers) | ✅ | 3db4060 + 79f2f4f |
 | 4E.1 (testes E2E consolidados, 6 cenários, 780 linhas, 5 rodadas) | ✅ | 65181dc + a53d5ba |
-| 4E.2 (disparo Regra 5 — CODEX + Jules sobre diff acumulado) | ⏳ Próxima |
+| 4E.2 (Regra 5: CODEX+Jules + ticket integrado + ADR-001 + fix custódia + batch lapidações) | ✅ | ab1c897 + 9ef3bb2 + 9cc339f |
+
+**Próxima etapa:** **Etapa 5** — Fix B1 (carteira digital 422) + 5B (OTP, já resolvido) + 5C (testes autorização) + 5D (guard JWT_SECRET). Ver `docs/PLANO-PRODUCAO-V2.md §5`.
 
 ### Plano de produção (10 etapas)
 
@@ -86,14 +88,21 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 |---|---|
 | 1 — git init | ✅ |
 | 2 — GitHub repo | ✅ |
-| 3 — docs licenciamento | ✅ (verificar com `ls LICENSE README.md CONTRIBUTING.md CONTRIBUTOR-LICENSE.md COMMERCIAL-LICENSE.md DATA-PROTECTION.md DISCLAIMER.md`) |
-| 4 — instance_id | 🟡 Em andamento (4A-4D + 4E.1 ✅ feitas; falta apenas 4E.2 — disparo Regra 5) |
-| 5 — Fix B1 (carteira digital 422) | ⛔ Bloqueador deploy |
+| 3 — docs licenciamento | ✅ |
+| 4 — instance_id | ✅ **Fechada** (3 commits 4E.2: ab1c897 + 9ef3bb2 + 9cc339f) |
+| 5 — Fix B1 (carteira digital 422) | ⛔ Próxima — bloqueador deploy |
 | 6 — DEMO_MODE + seletor papéis | ⛔ Bloqueador deploy |
 | 7 — Dockerfile | ⛔ |
 | 8 — Deploy Render | ⛔ |
 | 9 — Labels + issues | ⛔ |
 | 10 — Teste E2E | ⛔ |
+
+### Tickets registrados pós-Etapa 4 (não bloqueiam Etapa 5)
+
+| Ticket | Origem | Quando |
+|---|---|---|
+| `TICKET-COBERTURA-LEDGER-COMPLEMENTAR.md` | Achado #6 CODEX 4E.2 (receituarios/hospitalares/assinaturas sem cobertura focal) | Pré-Etapa 5 recomendado |
+| `TICKET-COERENCIA-DEVOLUCOES.md` | Achado #4 CODEX 4E.2 + NOTA `states.py:153` (auth.py:devolver_prescritor pula em_custodia) | Pós-Etapa 5/6 |
 
 ## Segurança (Relatório CODEX 2026-05-06)
 

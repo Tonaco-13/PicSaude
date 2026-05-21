@@ -117,9 +117,9 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 5. **Cada clique desperdiçado é um paciente a menos** — UX mínima é saúde pública
 6. **Código público porque SUS é público** — AGPL não é ideologia, é estratégia
 
-## Estado atual (2026-05-11)
+## Estado atual (2026-05-21)
 
-### Etapa 4 — instance_id canônico (em andamento)
+### Etapa 4 — instance_id canônico — ✅ **Fechada (2026-05-21)**
 
 | Sub-tarefa | Status | Commit |
 |---|---|---|
@@ -131,7 +131,11 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 | 4D.2 — exame/laudo/agendamento/circulação (13 sites, 4 routers) | ✅ | 3db4060 + 79f2f4f |
 | Task #8 — saneamento de fixtures legadas | ✅ | d2f016b |
 | 4E.1 — testes E2E consolidados (6 cenários, 780 linhas, 5 rodadas CODEX/Arquiteto/Code) | ✅ | 65181dc + a53d5ba |
-| 4E.2 — disparo Regra 5 (CODEX + Jules sobre diff `d8abf7e^..HEAD`) | ⏳ Próxima |
+| 4E.2 — Regra 5: CODEX+Jules + ticket integrado + ADR-001 | ✅ | ab1c897 |
+| 4E.2 — Fix custódia (vocabulário canônico + ator JWT, Regra 2 estrita) | ✅ | 9ef3bb2 |
+| 4E.2 — Batch lapidações pós-Regra 5 (cache + ator assinaturas + outbox kwo + docstrings + C5 focal) | ✅ | 9cc339f |
+
+**Estado:** 124 testes verdes. Ciclo Regra 5 (CODEX + Jules) validado na prática. ADR-001 registrada. **Próxima etapa: 5** (Fix B1 carteira digital 422).
 
 ### Etapas do plano de produção
 
@@ -139,14 +143,19 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 |---|---|
 | 1 — git init + .gitignore | ✅ |
 | 2 — GitHub repo | ✅ (Tonaco-13/PicSaude) |
-| 3 — 7 docs de licenciamento | ✅ (verificar se todos os 7 existem na raiz) |
-| 4 — instance_id canônico | 🟡 Em andamento (4A-4D + 4E.1 ✅; falta apenas 4E.2 — Regra 5) |
-| 5 — Fix B1 (carteira digital 422) | ⛔ Bloqueador deploy |
+| 3 — 7 docs de licenciamento | ✅ |
+| 4 — instance_id canônico | ✅ **Fechada (2026-05-21)** |
+| 5 — Fix B1 (carteira digital 422) | ⛔ **Próxima** — bloqueador deploy |
 | 6 — DEMO_MODE + seletor papéis | ⛔ Bloqueador deploy |
 | 7 — Dockerfile | ⛔ |
 | 8 — Deploy Render + frontend | ⛔ |
 | 9 — Labels + 12 issues good-first-issue | ⛔ |
 | 10 — Teste E2E URL pública | ⛔ |
+
+### Tickets registrados pós-Etapa 4 (não bloqueiam Etapa 5)
+
+- `TICKET-COBERTURA-LEDGER-COMPLEMENTAR.md` — pré-Etapa 5 (achado #6 CODEX 4E.2: receituarios/hospitalares/assinaturas sem cobertura focal)
+- `TICKET-COERENCIA-DEVOLUCOES.md` — pós-Etapa 5/6 (achado #4 CODEX + NOTA em states.py:153)
 
 ### Segurança (Relatório CODEX 2026-05-06) — ✅ Resolvido em `5fa6902` (2026-05-12)
 
