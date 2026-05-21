@@ -34,6 +34,27 @@ def _disable_rate_limit_in_tests():
     del os.environ["RATE_LIMIT_DISABLED"]
 
 
+@pytest.fixture(autouse=True)
+def _reset_instance_id_cache():
+    """
+    Reseta o cache de instance_id antes de cada teste (4E.2 §3.1.1).
+
+    O cache em ``app/instance.py`` é módulo-level e persiste entre testes
+    dentro do mesmo processo pytest. Sem este reset:
+      - Testes que populam o cache via DB (integration) deixam um valor
+        cacheado que faz ``test_get_instance_id_conn_funciona_com_pgconnection_wrapper``
+        pular o ramo de SELECT/INSERT e falhar na asserção de SQL capturado.
+      - Testes com banco SQLite tmp_path diferente cada vez ficariam
+        servindo o instance_id de um banco anterior.
+
+    Custo: < 1µs por teste; benefício: isolamento completo.
+    """
+    from app.instance import _reset_cache_for_tests
+    _reset_cache_for_tests()
+    yield
+    _reset_cache_for_tests()
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _disable_lifespan_bootstrap():
     """

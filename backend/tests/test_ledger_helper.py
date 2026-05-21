@@ -318,27 +318,20 @@ def test_outbox_aceita_instance_id_opcional(conn):
     assert row["instance_id"] == iid
 
 
-def test_outbox_sem_instance_id_continua_funcionando_silencioso(conn):
-    """Backward-compat: chamadas pré-4D não passam ``instance_id``.
-    Outbox grava com ``instance_id NULL`` — não levanta."""
+def test_outbox_sem_instance_id_recusa_chamada(conn):
+    """4E.2 §3.1.4: ``instance_id`` é keyword-only obrigatório — chamadas
+    sem o parâmetro devem falhar cedo com TypeError, não silenciosamente
+    gravar NULL como acontecia no contrato pré-4E.2."""
     from app.domain.outbox import registrar_outbox
 
-    evt_id = registrar_outbox(
-        conn,
-        "agendamento_realizado",
-        "agendamento",
-        "proto-xyz",
-        {"sala": "B2"},
-    )
-    conn.commit()
-    assert evt_id is not None
-
-    row = conn.execute(
-        "SELECT instance_id FROM eventos_publicacao WHERE id = ?",
-        (evt_id,),
-    ).fetchone()
-    assert row is not None
-    assert row["instance_id"] is None
+    with pytest.raises(TypeError, match="instance_id"):
+        registrar_outbox(
+            conn,
+            "agendamento_realizado",
+            "agendamento",
+            "proto-xyz",
+            {"sala": "B2"},
+        )
 
 
 # ===========================================================================
