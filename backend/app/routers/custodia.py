@@ -575,12 +575,18 @@ def dispensar_item(protocolo: str, item_id: int, payload: DispensarItemIn, _=Dep
 
 
 @router.post("/{protocolo}/itens/{item_id}/devolver", status_code=200)
-def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, _=Depends(require_role("dispensador", "prescritor"))):
+def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario=Depends(require_role("dispensador", "prescritor"))):
     """
-    Devolve um item ao paciente (abandono de compra) ou ao prescritor (erro).
+    Devolve um item ao paciente (abandono de compra) ou ao prescritor (erro clínico).
 
-    - Devolução ao prescritor: status_item → 'cancelado', aguarda correção.
-    - Devolução ao paciente:   status_item → 'pendente', disponível para nova dispensação.
+    Transições (CLAUDE.md §5b + `domain/states.py::TRANSICOES_ITEM`):
+    - payload.para = "prescritor": status_item → 'devolvido_prescritor' (terminal*).
+      Evento ledger: 'item_devolvido_prescritor'. Aguarda nova prescrição derivada.
+    - payload.para = "paciente": status_item → 'devolvido_paciente' (não-terminal).
+      Evento ledger: 'item_devolvido_paciente'. Item pode ser apresentado em outra farmácia.
+
+    Custódia ativa do item é encerrada em ambos os casos.
+    O ator (dispensador ou prescritor) é capturado via Depends(require_role).
     """
     agora = datetime.utcnow().isoformat()
 
@@ -613,7 +619,17 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, _=Depen
 
         novo_status_prescricao = _recalcular_status_prescricao(conn, presc["id"], agora)
 
-        _gravar_evento(conn, presc["id"], "item_devolvido", "dispensador", "sistema",
+        # Vocabulário canônico (CLAUDE.md §2): eventos separados por destino.
+        tipo_evento = (
+            "item_devolvido_prescritor"
+            if payload.para == "prescritor"
+            else "item_devolvido_paciente"
+        )
+        # Ator real do JWT (acesso estrito — falha cedo se contrato do JWT mudar).
+        ator_tipo = usuario["role"]
+        ator_id = usuario["sub"]
+
+        _gravar_evento(conn, presc["id"], tipo_evento, ator_tipo, ator_id,
                        {"item_id": item_id,
                         "nome_medicamento": item["nome_medicamento"],
                         "devolvido_para": payload.para,
