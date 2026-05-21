@@ -3,6 +3,16 @@ app/instance.py
 ===============
 Identificador único da instância PicSaúde (instance_id).
 
+================================================================
+ATENÇÃO: `instance_id` REPRESENTA A INSTALAÇÃO FÍSICA DO PICSAÚDE.
+É um UUID v4 IMUTÁVEL gerado no primeiro boot da instância e
+persistido em `meta_instalacao` + `.instance_id`. NÃO É um ID de
+request, transação, sessão ou objeto. Todos os eventos de uma
+mesma instalação compartilham o mesmo `instance_id`. Esta marca
+d'água tem função forense: identificar a instalação de origem se
+um row vazar. Ver DATA-PROTECTION.md §4.2.
+================================================================
+
 UUID v4 inalterável, gerado no primeiro boot, usado como marca d'água de
 rastreabilidade conforme DATA-PROTECTION.md §4.2 e DATA-PROTECTION.md §2
 (Mecanismos técnicos de proteção).
@@ -39,6 +49,7 @@ Referências:
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -50,11 +61,24 @@ from sqlalchemy.orm import Session
 
 from app.models.meta_instalacao import MetaInstalacao
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Constantes
 # ---------------------------------------------------------------------------
 
 _CHAVE_DB = "instance_id"
+
+# 4E.2 §3.1.1 — cache em nível de módulo de instance_id.
+# Imutável por instalação: o valor lido/persistido no first boot vale
+# para a vida útil do processo. Cache evita um SELECT em meta_instalacao
+# a cada transação clínica.
+#
+# Nota de teste: o env override (PICSAUDE_INSTANCE_ID) é checado ANTES
+# do cache, então testes que setam env via monkeypatch continuam funcionando
+# sem reset. Helper _reset_cache_for_tests() existe para o caso (raro) em
+# que um teste manipule meta_instalacao diretamente.
+_CACHED_INSTANCE_ID: Optional[str] = None
 
 # Caminho default do arquivo .instance_id (raiz do projeto).
 # Em produção (Docker), recomenda-se override via PICSAUDE_INSTANCE_ID_PATH
@@ -358,11 +382,13 @@ def get_instance_id_conn(conn) -> str:
         vazio (sintoma de problema na conexão ou no schema).
         Também se ``PICSAUDE_INSTANCE_ID`` for usada em ``PICSAUDE_ENV=prod``.
     """
+    global _CACHED_INSTANCE_ID
+
     # 0. Env override em dev/test (CODEX rodada 3 — coerência com
-    #    get_instance_id(session)). Sem este passo, dev com
-    #    PICSAUDE_INSTANCE_ID=X + transação clínica persistiria valor
-    #    diferente no DB, criando divergência forense que
-    #    get_instance_id(session) rejeitaria com RuntimeError no boot.
+    #    get_instance_id(session)). Verificado ANTES do cache para que
+    #    testes que setam PICSAUDE_INSTANCE_ID via monkeypatch sempre
+    #    enxerguem o valor forçado, independentemente do que esteja
+    #    cacheado de execuções anteriores no mesmo processo.
     env_id = os.environ.get("PICSAUDE_INSTANCE_ID")
     if env_id:
         env_modo = os.environ.get("PICSAUDE_ENV", "dev")
@@ -374,6 +400,12 @@ def get_instance_id_conn(conn) -> str:
             )
         return _validar_uuid_v4(env_id)
 
+    # 0b. Cache em memória (4E.2 §3.1.1). instance_id é imutável por
+    #     instalação — uma vez lido do DB, o valor vale para o resto da
+    #     vida do processo. Evita SELECT em meta_instalacao por transação.
+    if _CACHED_INSTANCE_ID is not None:
+        return _CACHED_INSTANCE_ID
+
     # 1. SELECT primeiro (caso comum)
     row = conn.execute(
         "SELECT valor FROM meta_instalacao WHERE chave = ?",
@@ -381,9 +413,20 @@ def get_instance_id_conn(conn) -> str:
     ).fetchone()
     if row:
         valor = row["valor"] if hasattr(row, "keys") else row[0]
-        return _validar_uuid_v4(valor)
+        validado = _validar_uuid_v4(valor)
+        _CACHED_INSTANCE_ID = validado
+        return validado
 
-    # 2. First boot — gera e tenta inserir (race-safe).
+    # 2. First boot — fallback defensivo.
+    #    Em produção, lifespan/startup popula meta_instalacao ANTES de
+    #    qualquer request. Este bloco existe para cenários onde o lifespan
+    #    está intencionalmente desabilitado (testes/demo, conftest.py:37)
+    #    ou onde o startup falhou silenciosamente. Se este caminho
+    #    executar em produção, indica problema operacional.
+    logger.warning(
+        "get_instance_id_conn fallback INSERT executado — verificar se "
+        "lifespan rodou. Em produção, este caminho não deve ocorrer."
+    )
     novo = str(uuid.uuid4())
     agora = datetime.now(timezone.utc).isoformat()
 
@@ -419,4 +462,23 @@ def get_instance_id_conn(conn) -> str:
             "Verifique conexão e schema da tabela meta_instalacao."
         )
     valor = row["valor"] if hasattr(row, "keys") else row[0]
-    return _validar_uuid_v4(valor)
+    validado = _validar_uuid_v4(valor)
+    _CACHED_INSTANCE_ID = validado
+    return validado
+
+
+# ---------------------------------------------------------------------------
+# Helpers para testes
+# ---------------------------------------------------------------------------
+
+
+def _reset_cache_for_tests() -> None:
+    """
+    Reseta o cache do instance_id. APENAS para testes — não chamar em produção.
+
+    Útil quando um teste manipula `meta_instalacao` diretamente (raro,
+    porque o env override `PICSAUDE_INSTANCE_ID` já cobre o caso comum
+    de forçar um valor específico).
+    """
+    global _CACHED_INSTANCE_ID
+    _CACHED_INSTANCE_ID = None

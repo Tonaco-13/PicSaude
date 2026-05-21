@@ -234,7 +234,7 @@ def get_assinatura(
 def registrar_assinatura(
     protocolo: str,
     payload: AssinaturaIn,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     """
     Registra ou atualiza os metadados de assinatura digital de uma prescrição.
@@ -319,8 +319,8 @@ def registrar_assinatura(
             )
             operacao = "atualizado"
 
-        # Ticket 4D.1: substituído INSERT manual por registrar_evento_ledger.
-        # ator_id preservado intencionalmente (semanticamente fraco — ver §4.3).
+        # 4E.2 §3.1.2: ator_id agora vem do sub do JWT (CNS/CPF do prescritor),
+        # não mais do modo de assinatura. Padrão consistente com custodia.py:629.
         registrar_evento_ledger(
             conn,
             objeto_tipo="prescricao",
@@ -338,7 +338,7 @@ def registrar_assinatura(
                 "status_validacao":   "assinatura_pendente",
             },
             ator_tipo="prescritor",
-            ator_id=meta.get("assinatura_modo") or "sem_modo",
+            ator_id=usuario["sub"],
         )
 
     nivel = calcular_nivel_formal(meta["assinatura_modo"], meta["tipo_emissao"])

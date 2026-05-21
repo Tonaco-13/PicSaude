@@ -3,9 +3,11 @@ outbox.py
 =========
 Helper central para inserção no outbox de publicação de eventos (G4A).
 
-Uso obrigatório:
-    Sempre que um router inserir em qualquer tabela *_eventos (ledger clínico),
-    deve chamar `registrar_outbox()` na mesma transação para espelhar o evento.
+Uso:
+    Quando houver evento publicável previsto, o router deve chamar
+    `registrar_outbox()` com o mesmo `instance_id` do ledger, dentro da
+    mesma transação clínica. Nem todo INSERT em `*_eventos` tem outbox
+    adjacente — apenas os eventos com semântica de publicação externa.
 
 Princípio de isolamento:
     A função nunca levanta exceção que impacte o fluxo clínico.
@@ -30,7 +32,8 @@ def registrar_outbox(
     payload:      dict[str, Any],
     org_id:       str | None = None,
     unidade_id:   str | None = None,
-    instance_id:  str | None = None,
+    *,
+    instance_id:  str,
 ) -> str | None:
     """
     Insere um registro no outbox `eventos_publicacao`.
@@ -44,12 +47,10 @@ def registrar_outbox(
     payload     : dict com contexto do evento (será serializado em JSON)
     org_id      : escopo institucional (None = sem escopo obrigatório)
     unidade_id  : escopo de unidade (None = sem escopo obrigatório)
-    instance_id : UUID v4 da instância PicSaúde (Ticket 4C). Opcional para
-                  retrocompatibilidade com chamadas pré-4D que ainda não
-                  passam o valor. Quando fornecido, é gravado na coluna
-                  ``instance_id`` da ``eventos_publicacao``. Caller é quem
-                  obtém via ``get_instance_id_conn(conn)`` e passa para
-                  ledger E outbox no mesmo ``with get_tx()``.
+    instance_id : UUID v4 da instância. **Keyword-only obrigatório desde 4E.2.**
+                  Caller obtém via get_instance_id_conn(conn) e passa para
+                  ledger e outbox no mesmo `with get_tx()` para garantir
+                  coerência forense.
 
     Retorna
     -------

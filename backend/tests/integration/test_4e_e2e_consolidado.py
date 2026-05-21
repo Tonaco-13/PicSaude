@@ -418,6 +418,7 @@ def test_smoke_agregado_5_ledgers_um_instance_id(
     r = client.post("/prescricoes", json=_PAYLOAD_PRESCRICAO,
                     headers=_headers(token))
     assert r.status_code == 201, r.text
+    prescricao_id = r.json()["id"]
 
     # (2) Capturar canônico
     instance_id_canonico = _instance_id_canonico_apos_primeira_transacao(
@@ -428,7 +429,9 @@ def test_smoke_agregado_5_ledgers_um_instance_id(
     r = client.post("/pedidos-exame", json=_PAYLOAD_PEDIDO_A,
                     headers=_headers(token))
     assert r.status_code == 201, r.text
-    proto_pedido_A = r.json()["protocolo"]
+    body_A = r.json()
+    proto_pedido_A = body_A["protocolo"]
+    pedido_A_id = body_A["id"]
 
     # (4) pedido_B — item permanece pendente para alimentar a circulação
     r = client.post("/pedidos-exame", json=_PAYLOAD_PEDIDO_B,
@@ -443,11 +446,13 @@ def test_smoke_agregado_5_ledgers_um_instance_id(
     r = client.post("/agendamentos", json=payload_ag,
                     headers=_headers(token))
     assert r.status_code == 201, r.text
+    proto_agendamento = r.json()["protocolo"]
 
     # (6) Laudo independente (não precisa de pedido_protocolo aqui — C5 é
     # smoke, cobertura de encadeamento real está em C1/C3)
     r = client.post("/laudos", json=_PAYLOAD_LAUDO, headers=_headers(token))
     assert r.status_code == 201, r.text
+    laudo_id = r.json()["id"]
 
     # (7) Circulação diagnóstica sobre pedido_B (item ainda pendente)
     with outer_conn.cursor() as cur:
@@ -465,22 +470,46 @@ def test_smoke_agregado_5_ledgers_um_instance_id(
             headers=_headers(token),
         )
     assert r.status_code == 201, r.text
+    proto_circulacao = r.json()["protocolo"]
 
     # ----- Invariante crítica: UNION dos 5 ledgers tem 1 só instance_id ---
     with outer_conn.cursor() as cur:
-        # I1 universal: zero NULL em cada ledger
-        for tabela in (
-            "prescricao_eventos",
-            "pedido_exame_eventos",
-            "laudo_eventos",
-            "agendamento_eventos",
-            "circulacao_diagnostica_eventos",
-        ):
+        # Resolve IDs faltantes pelos protocolos (agendamento e circulação
+        # devolvem apenas o protocolo na resposta).
+        cur.execute(
+            "SELECT id FROM agendamentos WHERE protocolo = %s",
+            (proto_agendamento,),
+        )
+        agendamento_id = cur.fetchone()[0]
+        cur.execute(
+            "SELECT id FROM circulacoes_diagnosticas WHERE protocolo = %s",
+            (proto_circulacao,),
+        )
+        circulacao_id = cur.fetchone()[0]
+
+        # I1 focal (4E.2 §3.1.7): apenas eventos dos objetos criados neste
+        # teste — mitiga falso positivo se o banco de teste acumular rows
+        # pré-4D.1 com instance_id NULL em ledgers históricos. Cada ledger
+        # subdomínio usa o nome da FK específica do objeto (não há
+        # objeto_id genérico nos ledgers internos).
+        objetos_do_teste = [
+            ("prescricao_eventos",             "prescricao_id",  [prescricao_id]),
+            ("pedido_exame_eventos",           "pedido_id",      [pedido_A_id, pedido_B_id]),
+            ("laudo_eventos",                  "laudo_id",       [laudo_id]),
+            ("agendamento_eventos",            "agendamento_id", [agendamento_id]),
+            ("circulacao_diagnostica_eventos", "circulacao_id",  [circulacao_id]),
+        ]
+        for tabela, fk, ids in objetos_do_teste:
             cur.execute(
-                f"SELECT COUNT(*) FROM {tabela} WHERE instance_id IS NULL"
+                f"SELECT COUNT(*) FROM {tabela} "
+                f"WHERE {fk} = ANY(%s) AND instance_id IS NULL",
+                (ids,),
             )
-            assert cur.fetchone()[0] == 0, (
-                f"{tabela}: existem rows com instance_id NULL"
+            nulls = cur.fetchone()[0]
+            assert nulls == 0, (
+                f"{tabela}: {nulls} eventos dos objetos criados neste teste "
+                f"sem instance_id ({fk}={ids}). Bug em código novo — "
+                "não é drift histórico."
             )
 
         # I2 agregada: SELECT DISTINCT sobre UNION = 1 linha = canônico

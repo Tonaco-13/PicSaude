@@ -16,8 +16,8 @@ eventos clínicos (ex.: ``agendamento_eventos.evento`` é outlier — usa
 ``evento`` em vez de ``tipo_evento``) num único mapping privado. Routers
 ficam com API uniforme. Padronização do drift vira ticket separado.
 
-Contrato com os routers (4D — ainda não implementado)
------------------------------------------------------
+Contrato com os routers (aplicado pelos routers desde 4D — Etapa 4 fechada em 2026-05-21)
+-----------------------------------------------------------------------------------------
 1. Router abre transação clínica via ``get_tx()``.
 2. Router chama ``get_instance_id_conn(conn)`` UMA VEZ por transação.
 3. Router passa ``instance_id`` para ``registrar_evento_ledger`` E para

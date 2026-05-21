@@ -155,6 +155,11 @@ def eh_terminal_item(status: str) -> bool:
 #   para "pendente" (não previsto em TRANSICOES_PRESCRICAO["em_custodia"]).
 #   E devolução dispensador→paciente transiciona itens para "pendente" em vez
 #   de "devolvido_paciente" → "em_custodia" (conforme o state machine do item).
+#   Em auth.py:devolver_prescritor (paciente → prescritor), itens transicionam
+#   de "pendente" diretamente para "devolvido_prescritor" (terminal), pulando
+#   "em_custodia" exigido por TRANSICOES_ITEM. Apontado pelo CODEX em 2026-05-21
+#   (4E.2). Tratamento previsto: ticket pós-Etapa 5 para auditoria completa das
+#   máquinas de estado de devolução. Ver docs/revisoes/CODEX-4E-2-relatorio-2026-05-21.md §3.3.
 #   Essas transições FUNCIONAM mas desviam do modelo formal.
 #   Correção sugerida: introduzir "transferida_prescritor" como estado para
 #   devolução ao prescritor, e usar "devolvido_paciente" explicitamente no
