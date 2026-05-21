@@ -423,13 +423,34 @@ CODEX retornou 9 achados (1 P1 + 5 P2 + 3 P3). Arquiteto classificou e integrou:
 
 **Resultado:** 9 achados aceitos, zero rejeitados, zero adaptados. P1 corrigido. Ticket liberado para Code.
 
-### §10.3 Rodada 4 — CODEX pós-implementação (aguardando implementação)
+### §10.3 Rodada 4 — CODEX pós-implementação (2026-05-21)
 
-A preencher após Code implementar.
+**Material:** `git diff 9ff5131^..9ff5131 -- backend/app/routers/custodia.py backend/tests/integration/test_custodia_devolucao.py`
+**Modo:** revisão estática (CODEX não rodou pytest).
+**Veredito literal:** "Zero P1. Liberado para push."
 
-### §10.3 Rodada 4 — CODEX pós-implementação (aguardando implementação)
+CODEX retornou 2 achados P2, ambos em arquivo de teste (não tocam produção):
 
-A preencher após Code implementar.
+| # | Achado CODEX | Severidade | Decisão | Aplicado em |
+|---|---|---|---|---|
+| 1 | C3 (`test_custodia_devolucao.py:272`) não valida shape completo da resposta nem confirma `prescricao_itens.status_item` no banco — faltam `item_id`, `nome_medicamento`, `status_prescricao` + assert de domínio | P2 | ✅ Aceito | Asserts adicionados em `test_custodia_devolucao.py:272-288`: shape completo (5 chaves) + SELECT `status_item` no banco |
+| 2 | C4 (`test_custodia_devolucao.py:304`) só confere `status_code` — faltam shape JSON de r1/r2 e estado de domínio dos dois itens | P2 | ✅ Aceito | Asserts adicionados em `test_custodia_devolucao.py:317-345`: shape de body1/body2 (4 chaves cada) + SELECT `id, status_item` validando os 2 itens |
+
+**Respostas focais confirmadas pelo CODEX:**
+1. **Vocabulário:** ramo `tipo_evento` cobre exclusivamente os dois eventos canônicos. Não há caminho de produção gravando `item_devolvido` genérico.
+2. **Ator JWT:** acesso estrito (`usuario["role"]`/`["sub"]`) falha cedo (KeyError no `sub`; 403 no `role` via `require_role.get()`). Rollback da transação preserva integridade — sem fallback para `"sistema"`.
+3. **`instance_id` e shape da resposta:** preservados.
+4. **Escopo:** respeitado (só `custodia.py` + `test_custodia_devolucao.py`).
+5. **Docstring:** corresponde ao comportamento real.
+6. **Regressão latente:** zero consumer interno em `backend/app` filtrando pelo evento genérico.
+
+**Verificação pytest (executada por Fabiano após aplicar os P2):**
+- Bloco 1 (`test_custodia_devolucao.py`): **4 passed** em 3.77s
+- Bloco 2 (regressão Etapa 4 — 5 arquivos): **59 passed** em 3.33s
+- Bloco 3 (regressão custódia/dispensação): **60 passed** em 2.11s
+- Total: **123 passed, 0 failed**
+
+**Resultado:** 2 P2 aceitos e aplicados antes do push. Zero achados pendentes. Suíte completa verde. Liberado para push (amend ao `9ff5131`).
 
 ---
 
@@ -440,9 +461,9 @@ A preencher após Code implementar.
 | Arquiteto rodada 0 | ✅ Escrito | 2026-05-21 |
 | CODEX rodada 1 | ✅ Concluído (9 achados, todos aceitos) | 2026-05-21 |
 | Arquiteto integra rodada 1 | ✅ Concluído (P1 corrigido + 5 P2 + 3 P3 aplicados em §10.2) | 2026-05-21 |
-| Code implementa | ⏳ Pronto para receber | — |
-| CODEX rodada 4 | ⏳ Aguarda implementação | — |
-| Fabiano aprova final | ⏳ — | — |
+| Code implementa | ✅ Concluído (commit 9ff5131 + amend com asserts P2) | 2026-05-21 |
+| CODEX rodada 4 | ✅ Concluído (zero P1, 2 P2 aceitos e aplicados antes do push) | 2026-05-21 |
+| Fabiano aprova final | ⏳ Pytest verde (123 passed), aguardando amend + push | 2026-05-21 |
 
 ---
 
