@@ -116,3 +116,139 @@ def test_toda_prescricao_tem_prescritor_e_paciente(client, outer_conn, seed_usua
     assert row[2] is not None  # paciente_id
     assert row[3] == "987654321098765"
     assert row[4] == SEED_PACIENTE_CPF
+
+
+# ===========================================================================
+# TICKET-5A — entrega digital solicitada sem carteira → 422 + rollback
+# ===========================================================================
+
+_CPF_PACIENTE_NOVO_5A = "55566677788"   # CPF nunca seedado em conftest
+
+# Baselines de tabelas regulatórias sob a outer tx, tiradas ANTES da request
+# e comparadas DEPOIS para garantir rollback total no caminho 422.
+_TABELAS_BASELINE_PRESCRICAO = (
+    "prescricao_eventos",
+    "prescricao_custodia",
+    "eventos_publicacao",
+)
+
+
+def _contagens(outer_conn, tabelas: tuple[str, ...]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    with outer_conn.cursor() as cur:
+        for t in tabelas:
+            cur.execute(f"SELECT COUNT(*) FROM {t}")
+            out[t] = cur.fetchone()[0]
+    return out
+
+
+def test_prescricao_422_quando_enviar_ao_paciente_sem_carteira(
+    client, outer_conn, seed_usuario,
+):
+    """5A — paciente novo + enviar_ao_paciente=true → 422 com rollback total."""
+    token = obter_token_prescritor(client, seed_usuario)
+    baseline = _contagens(outer_conn, _TABELAS_BASELINE_PRESCRICAO)
+
+    payload = {
+        **_PAYLOAD_BASE,
+        "cpf_paciente":         _CPF_PACIENTE_NOVO_5A,
+        "nome_paciente":        "PACIENTE NOVO 5A",
+        "enviar_ao_paciente":   True,
+    }
+    r = client.post("/prescricoes", json=payload, headers=_headers(token))
+
+    # Contrato HTTP
+    assert r.status_code == 422, r.text
+    detail = r.json()["detail"]
+    assert detail["codigo"] == "patient_no_digital_wallet"
+    assert "carteira digital" in detail["mensagem"]
+    assert "patient_id" not in detail   # P2 CODEX: não ecoar CPF/id
+
+    # Rollback efetivo
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM prescricoes p
+              JOIN pacientes pa ON pa.id = p.paciente_id
+             WHERE pa.cpf = %s
+            """,
+            (_CPF_PACIENTE_NOVO_5A,),
+        )
+        assert cur.fetchone()[0] == 0
+        cur.execute(
+            "SELECT COUNT(*) FROM pacientes WHERE cpf = %s",
+            (_CPF_PACIENTE_NOVO_5A,),
+        )
+        assert cur.fetchone()[0] == 0   # paciente novo NÃO foi auto-criado
+
+    depois = _contagens(outer_conn, _TABELAS_BASELINE_PRESCRICAO)
+    for t in _TABELAS_BASELINE_PRESCRICAO:
+        assert depois[t] == baseline[t], (
+            f"{t}: baseline={baseline[t]} depois={depois[t]} — rollback incompleto"
+        )
+
+
+def test_prescricao_201_quando_enviar_ao_paciente_com_carteira(
+    client, outer_conn, seed_usuario, seed_paciente,
+):
+    """5A — paciente cadastrado + enviar_ao_paciente=true → 201, entrega ocorre."""
+    token = obter_token_prescritor(client, seed_usuario)
+
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM prescricao_eventos WHERE tipo_evento = 'custodia_transferida'"
+        )
+        eventos_custodia_antes = cur.fetchone()[0]
+
+    payload = {**_PAYLOAD_BASE, "enviar_ao_paciente": True}
+    r = client.post("/prescricoes", json=payload, headers=_headers(token))
+    assert r.status_code == 201, r.text
+
+    body = r.json()
+    assert body["entregue_carteira"] is True
+    assert body["status"] == "transferida_paciente"
+    protocolo = body["protocolo"]
+
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM prescricao_custodia c
+              JOIN prescricoes p ON p.id = c.prescricao_id
+             WHERE p.protocolo = %s AND c.detentor_tipo = 'paciente'
+            """,
+            (protocolo,),
+        )
+        assert cur.fetchone()[0] == 1, "custódia paciente não registrada"
+
+        cur.execute(
+            "SELECT COUNT(*) FROM prescricao_eventos WHERE tipo_evento = 'custodia_transferida'"
+        )
+        assert cur.fetchone()[0] == eventos_custodia_antes + 1
+
+
+def test_prescricao_201_quando_nao_enviar_ao_paciente_sem_carteira(
+    client, outer_conn, seed_usuario,
+):
+    """5A — paciente novo + enviar_ao_paciente=false → 201, auto-cria sem entrega."""
+    token = obter_token_prescritor(client, seed_usuario)
+
+    payload = {
+        **_PAYLOAD_BASE,
+        "cpf_paciente":         _CPF_PACIENTE_NOVO_5A,
+        "nome_paciente":        "PACIENTE NOVO 5A",
+        "enviar_ao_paciente":   False,
+    }
+    r = client.post("/prescricoes", json=payload, headers=_headers(token))
+    assert r.status_code == 201, r.text
+
+    body = r.json()
+    assert body["entregue_carteira"] is False
+    assert body["status"] == "pendente"
+
+    # Paciente foi auto-criado (linha 297-303 do router continua executando)
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM pacientes WHERE cpf = %s",
+            (_CPF_PACIENTE_NOVO_5A,),
+        )
+        assert cur.fetchone()[0] == 1
