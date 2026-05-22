@@ -48,6 +48,10 @@ from app.domain.icp_identity import (
 )
 from app.domain.identidade_prescritor import MockConselhoProvider
 
+# Fixture CNES — patcheia DB_PATH para arquivo SQLite tmp (arquitetura dual,
+# ver docs/arquitetura_dual_bancos.md).
+from tests.cnes_fixtures import cnes_db  # noqa: F401
+
 
 # ---------------------------------------------------------------------------
 # Helpers de criação de certificados de teste
@@ -353,45 +357,45 @@ def test_caso7_cpf_offset_icp04():
 # ---------------------------------------------------------------------------
 
 
-def _make_db_com_profissional(conselho_numero: str = "12345", conselho_uf: str = "PE") -> sqlite3.Connection:
-    """Banco in-memory com profissional para testar integração."""
+def _seed_db_com_profissional(
+    cnes_db,
+    *,
+    conselho_numero: str = "12345",
+    conselho_uf: str = "PE",
+) -> sqlite3.Connection:
+    """
+    Popula o CNES tmp gerenciado pela fixture `cnes_db` e devolve uma
+    conexão SQLite in-memory vazia para o argumento `conn` de
+    `binding_icp` / `resolver_identidade_prescritor`. As queries CNES
+    abrem _get_cnes_conn() internamente — `conn` não é tocada pelas
+    funções para CNES. Ver docs/arquitetura_dual_bancos.md.
+    """
+    cnes_db.add_profissional(
+        CO_PROFISSIONAL_SUS="P001", NO_PROFISSIONAL="CARLOS MEDICO",
+        CO_CNS="700001111222333", CO_CPF="CO_CPF",
+    )
+    cnes_db.add_relacao(
+        CO_PROFISSIONAL_SUS="P001", CO_CONSELHO_CLASSE="71",
+        NU_REGISTRO=conselho_numero, SG_UF_CRM=conselho_uf,
+        CO_CBO="225125", CO_UNIDADE="UNID001",
+    )
+    cnes_db.add_estabelecimento(
+        CO_UNIDADE="UNID001", CO_CNES="9990001",
+        NO_FANTASIA="CLINICA TESTE", TP_UNIDADE="01",
+    )
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.executescript("""
-        CREATE TABLE profissionais_cnes (
-            CO_PROFISSIONAL_SUS TEXT PRIMARY KEY,
-            CO_CPF TEXT, NO_PROFISSIONAL TEXT, CO_CNS TEXT
-        );
-        CREATE TABLE relacao_prof_estab (
-            CO_UNIDADE TEXT, CO_PROFISSIONAL_SUS TEXT,
-            CO_CBO TEXT, CO_CONSELHO_CLASSE TEXT, NU_REGISTRO TEXT, SG_UF_CRM TEXT
-        );
-        CREATE TABLE estabelecimentos_cnes (
-            CO_UNIDADE TEXT PRIMARY KEY, CO_CNES TEXT, NO_FANTASIA TEXT, TP_UNIDADE TEXT
-        );
-    """)
-    conn.execute(
-        "INSERT INTO profissionais_cnes VALUES ('P001', 'CO_CPF', 'CARLOS MEDICO', '700001111222333')"
-    )
-    conn.execute(
-        "INSERT INTO relacao_prof_estab VALUES ('UNID001', 'P001', '225125', '71', ?, ?)",
-        (conselho_numero, conselho_uf),
-    )
-    conn.execute(
-        "INSERT INTO estabelecimentos_cnes VALUES ('UNID001', '9990001', 'CLINICA TESTE', '01')"
-    )
-    conn.commit()
     return conn
 
 
-def test_caso8_binding_completo_com_conselho():
+def test_caso8_binding_completo_com_conselho(cnes_db):
     """Fluxo completo: ICP → parsing → pipeline T65 → ok."""
     pem = _make_cert(
         cn="CARLOS MEDICO",
         ous=["Medico", "CRM PE 12345"],
         cpf="11122233344",
     )
-    conn = _make_db_com_profissional("12345", "PE")
+    conn = _seed_db_com_profissional(cnes_db, conselho_numero="12345", conselho_uf="PE")
     mock = MockConselhoProvider({
         "tipo_conselho": "CRM",
         "numero": "12345",
@@ -413,10 +417,10 @@ def test_caso8_binding_completo_com_conselho():
 # ---------------------------------------------------------------------------
 
 
-def test_caso9_sem_conselho_fallback_manual():
+def test_caso9_sem_conselho_fallback_manual(cnes_db):
     """Quando OU não tem CRM/CRO, retornar necessita_conselho_manual."""
     pem = _make_cert(cn="JOAO SILVA", ous=["Assistente"], cpf="12345678900")
-    conn = _make_db_com_profissional()
+    conn = _seed_db_com_profissional(cnes_db)
 
     result = binding_icp(cert_pem=pem, conn=conn)
 
@@ -478,14 +482,14 @@ def test_caso11_parsear_pem_invalido_retorna_identidade():
 # ---------------------------------------------------------------------------
 
 
-def test_caso12_sem_regressao_identidade_prescritor():
+def test_caso12_sem_regressao_identidade_prescritor(cnes_db):
     """
     Verifica que identidade_prescritor.py continua funcionando
     após a integração com icp_identity.py.
     """
     from app.domain.identidade_prescritor import resolver_identidade_prescritor
 
-    conn = _make_db_com_profissional("99999", "RJ")
+    conn = _seed_db_com_profissional(cnes_db, conselho_numero="99999", conselho_uf="RJ")
     mock = MockConselhoProvider({
         "tipo_conselho": "CRM",
         "numero": "99999",

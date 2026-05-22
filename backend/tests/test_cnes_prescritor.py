@@ -97,87 +97,44 @@ from app.domain.cnes_prescritor import (
     validar_cns_prescritor,
 )
 
+# Fixtures CNES (cnes_db, cnes_db_sem_tabelas) — vêm do módulo compartilhado;
+# pytest as enxerga porque elas estão no namespace do arquivo de teste.
+from tests.cnes_fixtures import cnes_db, cnes_db_sem_tabelas  # noqa: F401
+
 
 # ===========================================================================
-# Fixtures de banco in-memory
+# Helpers locais — conexão APP in-memory para a tabela `prestadores`
 # ===========================================================================
 
-def _make_conn_vazio() -> sqlite3.Connection:
-    """Banco in-memory SEM tabelas CNES — simula erro de tabela ausente."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def _make_conn_cnes(
-    profissionais: list[dict],
-    relacoes: list[dict],
-    prestadores: list[dict] | None = None,
-    cnes_estab: list[dict] | None = None,
-) -> sqlite3.Connection:
+def _app_conn(prestadores: list[dict] | None = None) -> sqlite3.Connection:
     """
-    Banco in-memory com tabelas CNES + prestadores (opcionais).
+    Conexão SQLite in-memory com a tabela `prestadores` (tabela da
+    APLICAÇÃO — `validar_cns_prescritor` a consulta via `conn` recebida).
 
-    profissionais : CO_PROFISSIONAL_SUS, CO_CNS, NO_PROFISSIONAL
-    relacoes      : CO_PROFISSIONAL_SUS, CO_CONSELHO_CLASSE, NU_REGISTRO,
-                    SG_UF_CRM, CO_CBO, CO_UNIDADE
-    prestadores   : id, org_id, nome, tipo, cnpj, ativo
-    cnes_estab    : CO_CNES, NU_CNPJ
+    As tabelas CNES (profissionais_cnes / relacao_prof_estab /
+    estabelecimentos_cnes) NÃO ficam aqui — vão para o arquivo gerenciado
+    pelo fixture `cnes_db`, porque `_get_cnes_conn()` ignora `conn` e abre
+    DB_PATH diretamente. Ver docs/arquitetura_dual_bancos.md.
     """
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
-    conn.execute("""
-        CREATE TABLE profissionais_cnes (
-            CO_PROFISSIONAL_SUS TEXT,
-            CO_CNS              TEXT,
-            NO_PROFISSIONAL     TEXT
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE relacao_prof_estab (
-            CO_PROFISSIONAL_SUS TEXT,
-            CO_CONSELHO_CLASSE  TEXT,
-            NU_REGISTRO         TEXT,
-            SG_UF_CRM           TEXT,
-            CO_CBO              TEXT,
-            CO_UNIDADE          TEXT
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE prestadores (
-            id TEXT, org_id TEXT, nome TEXT, tipo TEXT,
-            cnpj TEXT, ativo INTEGER
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE estabelecimentos_cnes (
-            CO_CNES TEXT,
-            NU_CNPJ TEXT
-        )
-    """)
-    for p in profissionais:
-        conn.execute(
-            "INSERT INTO profissionais_cnes VALUES (?, ?, ?)",
-            (p["CO_PROFISSIONAL_SUS"], p["CO_CNS"], p["NO_PROFISSIONAL"]),
-        )
-    for r in relacoes:
-        conn.execute(
-            "INSERT INTO relacao_prof_estab VALUES (?, ?, ?, ?, ?, ?)",
-            (r["CO_PROFISSIONAL_SUS"], r["CO_CONSELHO_CLASSE"],
-             r["NU_REGISTRO"], r["SG_UF_CRM"], r["CO_CBO"], r["CO_UNIDADE"]),
-        )
+    conn.execute(
+        "CREATE TABLE prestadores ("
+        " id TEXT, org_id TEXT, nome TEXT, tipo TEXT, cnpj TEXT, ativo INTEGER)"
+    )
     for p in (prestadores or []):
         conn.execute(
             "INSERT INTO prestadores VALUES (?, ?, ?, ?, ?, ?)",
             (p["id"], p["org_id"], p["nome"], p["tipo"], p["cnpj"], p["ativo"]),
         )
-    for e in (cnes_estab or []):
-        conn.execute(
-            "INSERT INTO estabelecimentos_cnes VALUES (?, ?)",
-            (e["CO_CNES"], e["NU_CNPJ"]),
-        )
     conn.commit()
     return conn
+
+
+def _seed_profissional(cnes_db, prof: dict, rel: dict) -> None:
+    """Atalho para seedar um profissional+relação via fixture."""
+    cnes_db.add_profissional(**prof)
+    cnes_db.add_relacao(**rel)
 
 
 # ---------------------------------------------------------------------------
@@ -421,9 +378,10 @@ def test_nivel_nao_encontrado():
 # GRUPO 4 — validar_cns_prescritor com banco in-memory (T47/T48)
 # ===========================================================================
 
-def test_validar_cns_nao_encontrado_banco():
+def test_validar_cns_nao_encontrado_banco(cnes_db):
     """31. CNS ausente → nao_encontrado, campos None."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "000000000000001", "QUALQUER NOME")
     assert r["nivel_validacao_cnes"] == "nao_encontrado"
     assert r["cns_encontrado"] is False
@@ -432,18 +390,20 @@ def test_validar_cns_nao_encontrado_banco():
     conn.close()
 
 
-def test_validar_cns_vazio():
+def test_validar_cns_vazio(cnes_db):
     """32. CNS vazio → nao_encontrado sem consulta ao banco."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "", "DR JOSE")
     assert r["nivel_validacao_cnes"] == "nao_encontrado"
     assert r["cns_encontrado"] is False
     conn.close()
 
 
-def test_validar_cns_forte():
+def test_validar_cns_forte(cnes_db):
     """33. Resultado forte — todos os checks ok."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r["nivel_validacao_cnes"] == "forte"
     assert r["cns_encontrado"] is True
@@ -453,10 +413,11 @@ def test_validar_cns_forte():
     conn.close()
 
 
-def test_validar_cns_parcial_sem_conselho():
+def test_validar_cns_parcial_sem_conselho(cnes_db):
     """34. Resultado parcial — CBO ok mas conselho inválido."""
     rel_sem_conselho = {**_REL_MEDICO, "CO_CONSELHO_CLASSE": "99"}
-    conn = _make_conn_cnes([_PROF_MEDICO], [rel_sem_conselho])
+    _seed_profissional(cnes_db, _PROF_MEDICO, rel_sem_conselho)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r["nivel_validacao_cnes"] == "parcial"
     assert r["cns_encontrado"] is True
@@ -465,9 +426,10 @@ def test_validar_cns_parcial_sem_conselho():
     conn.close()
 
 
-def test_validar_cns_divergente_nome():
+def test_validar_cns_divergente_nome(cnes_db):
     """35. Divergente por nome — nome declarado muito diferente."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "PEDRO COMPLETAMENTE DIFERENTE")
     assert r["nivel_validacao_cnes"] == "divergente"
     assert r["cns_encontrado"] is True
@@ -476,9 +438,10 @@ def test_validar_cns_divergente_nome():
     conn.close()
 
 
-def test_validar_cns_divergente_cbo():
+def test_validar_cns_divergente_cbo(cnes_db):
     """36. Divergente por CBO — CBO não prescritivo."""
-    conn = _make_conn_cnes([_PROF_NAO_PRESCRITOR], [_REL_NAO_PRESCRITOR])
+    _seed_profissional(cnes_db, _PROF_NAO_PRESCRITOR, _REL_NAO_PRESCRITOR)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "111222333444555", "ANA FERREIRA")
     assert r["nivel_validacao_cnes"] == "divergente"
     assert r["cns_encontrado"] is True
@@ -486,9 +449,15 @@ def test_validar_cns_divergente_cbo():
     conn.close()
 
 
-def test_validar_cns_erro_banco():
-    """37. Erro de banco → nao_encontrado sem lançar exceção."""
-    conn = _make_conn_vazio()   # tabelas CNES não existem
+def test_validar_cns_erro_banco(cnes_db_sem_tabelas):
+    """37. Erro de banco → nao_encontrado sem lançar exceção.
+
+    `cnes_db_sem_tabelas` cria arquivo SQLite vazio (sem CREATE TABLE) e
+    patcheia DB_PATH para ele. A consulta levanta OperationalError →
+    `except Exception` em cnes_prescritor.py:384 captura → divergência
+    'erro_consulta_cnes' + nivel nao_encontrado.
+    """
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "DR TESTE")
     assert r["nivel_validacao_cnes"] == "nao_encontrado"
     assert r["cns_encontrado"] is False
@@ -496,27 +465,29 @@ def test_validar_cns_erro_banco():
     conn.close()
 
 
-def test_snapshot_ref_presente():
+def test_snapshot_ref_presente(cnes_db):
     """38. snapshot_ref sempre presente."""
-    conn = _make_conn_cnes([], [])
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "999999999999999", "X")
     assert "snapshot_ref" in r
     assert r["snapshot_ref"]  # não vazio
     conn.close()
 
 
-def test_snapshot_mes_presente():
+def test_snapshot_mes_presente(cnes_db):
     """39. snapshot_mes sempre presente."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert "snapshot_mes" in r
     assert r["snapshot_mes"]
     conn.close()
 
 
-def test_validado_em_presente():
+def test_validado_em_presente(cnes_db):
     """40. validado_em sempre presente e não vazio."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert "validado_em" in r
     assert r["validado_em"]
@@ -524,27 +495,32 @@ def test_validado_em_presente():
     conn.close()
 
 
-def test_cbo_primario_no_campo_cbo():
+def test_cbo_primario_no_campo_cbo(cnes_db):
     """41. Campo 'cbo' retorna o CBO prescritivo primário encontrado."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r["cbo"] == "225125"
     assert r["cbo_prescritor_valido"] is True
     conn.close()
 
 
-def test_vinculos_ativos_contagem():
+def test_vinculos_ativos_contagem(cnes_db):
     """42. vinculos_ativos conta unidades únicas."""
     rel_b = {**_REL_MEDICO, "CO_CBO": "225135", "CO_UNIDADE": "UNID002"}
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO, rel_b])
+    cnes_db.add_profissional(**_PROF_MEDICO)
+    cnes_db.add_relacao(**_REL_MEDICO)
+    cnes_db.add_relacao(**rel_b)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r["vinculos_ativos"] >= 2
     conn.close()
 
 
-def test_conselho_crm_extraido():
+def test_conselho_crm_extraido(cnes_db):
     """43. conselho, crm_declarado e uf_crm_declarado corretamente extraídos."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r["conselho"] == "71"
     assert r["crm_declarado"] == "12345"
@@ -554,84 +530,77 @@ def test_conselho_crm_extraido():
     conn.close()
 
 
-def test_tipo_prescritor_identificado():
+def test_tipo_prescritor_identificado(cnes_db):
     """44. tipo_prescritor correto a partir do CBO."""
-    conn_med = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
-    r_med = validar_cns_prescritor(conn_med, "123456789012345", "JOAO DA SILVA")
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    _seed_profissional(cnes_db, _PROF_ODONTOLOGO, _REL_ODONTOLOGO)
+    conn = _app_conn()
+    r_med = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r_med["tipo_prescritor"] == "medico"
-    conn_med.close()
-
-    conn_odo = _make_conn_cnes([_PROF_ODONTOLOGO], [_REL_ODONTOLOGO])
-    r_odo = validar_cns_prescritor(conn_odo, "999888777666555", "MARIA SANTOS")
+    r_odo = validar_cns_prescritor(conn, "999888777666555", "MARIA SANTOS")
     assert r_odo["tipo_prescritor"] == "odontologo"
-    conn_odo.close()
+    conn.close()
 
 
 # ===========================================================================
 # GRUPO 5 — Vínculo com prestador (T48)
 # ===========================================================================
 
-def test_vinculo_prestador_none_quando_org_id_none():
+def test_vinculo_prestador_none_quando_org_id_none(cnes_db):
     """45. org_id=None → vinculo_com_prestador=None (não aplicável)."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA", org_id=None)
     assert r["vinculo_com_prestador"] is None
     conn.close()
 
 
-def test_vinculo_prestador_encontrado():
+def test_vinculo_prestador_encontrado(cnes_db):
     """46. CO_UNIDADE do prescritor bate com CO_CNES do prestador → True, nivel=forte."""
-    conn = _make_conn_cnes(
-        profissionais=[_PROF_MEDICO],
-        relacoes=[_REL_MEDICO],       # CO_UNIDADE = "UNID001"
-        prestadores=[{
-            "id": "UUID-001", "org_id": "HOSP-PE-001",
-            "nome": "Hospital Teste", "tipo": "hospital",
-            "cnpj": "12345678000195", "ativo": 1,
-        }],
-        cnes_estab=[{
-            "CO_CNES": "UNID001",     # bate com CO_UNIDADE do prescritor
-            "NU_CNPJ": "12345678000195",
-        }],
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)   # CO_UNIDADE = "UNID001"
+    cnes_db.add_estabelecimento(
+        CO_UNIDADE="UNID001",
+        CO_CNES="UNID001",            # bate com CO_UNIDADE do prescritor
+        NU_CNPJ="12345678000195",
     )
+    conn = _app_conn(prestadores=[{
+        "id": "UUID-001", "org_id": "HOSP-PE-001",
+        "nome": "Hospital Teste", "tipo": "hospital",
+        "cnpj": "12345678000195", "ativo": 1,
+    }])
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA", org_id="HOSP-PE-001")
     assert r["vinculo_com_prestador"] is True
     assert r["nivel_validacao_cnes"] == "forte"
     conn.close()
 
 
-def test_vinculo_prestador_sem_cnes_mapeado():
+def test_vinculo_prestador_sem_cnes_mapeado(cnes_db):
     """47. Prestador existe mas sem CO_CNES em estabelecimentos_cnes → None."""
-    conn = _make_conn_cnes(
-        profissionais=[_PROF_MEDICO],
-        relacoes=[_REL_MEDICO],
-        prestadores=[{
-            "id": "UUID-002", "org_id": "CLINICA-001",
-            "nome": "Clínica Sem CNES", "tipo": "clinica",
-            "cnpj": "99887766000100", "ativo": 1,
-        }],
-        cnes_estab=[],   # sem mapeamento
-    )
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    # Sem add_estabelecimento → estabelecimentos_cnes vazio
+    conn = _app_conn(prestadores=[{
+        "id": "UUID-002", "org_id": "CLINICA-001",
+        "nome": "Clínica Sem CNES", "tipo": "clinica",
+        "cnpj": "99887766000100", "ativo": 1,
+    }])
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA", org_id="CLINICA-001")
     assert r["vinculo_com_prestador"] is None   # não é divergência
     conn.close()
 
 
-def test_vinculo_prestador_co_unidade_nao_bate():
+def test_vinculo_prestador_co_unidade_nao_bate(cnes_db):
     """48. CO_UNIDADE do prescritor não inclui o CO_CNES do prestador → False."""
-    conn = _make_conn_cnes(
-        profissionais=[_PROF_MEDICO],
-        relacoes=[_REL_MEDICO],       # CO_UNIDADE = "UNID001"
-        prestadores=[{
-            "id": "UUID-003", "org_id": "OUTRO-HOSP",
-            "nome": "Outro Hospital", "tipo": "hospital",
-            "cnpj": "55555555000155", "ativo": 1,
-        }],
-        cnes_estab=[{
-            "CO_CNES": "UNID999",     # diferente do CO_UNIDADE do prescritor
-            "NU_CNPJ": "55555555000155",
-        }],
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)   # CO_UNIDADE = "UNID001"
+    cnes_db.add_estabelecimento(
+        CO_UNIDADE="UNID999",
+        CO_CNES="UNID999",            # diferente do CO_UNIDADE do prescritor
+        NU_CNPJ="55555555000155",
     )
+    conn = _app_conn(prestadores=[{
+        "id": "UUID-003", "org_id": "OUTRO-HOSP",
+        "nome": "Outro Hospital", "tipo": "hospital",
+        "cnpj": "55555555000155", "ativo": 1,
+    }])
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA", org_id="OUTRO-HOSP")
     assert r["vinculo_com_prestador"] is False
     # vínculo False rebaixa de forte → parcial
@@ -639,29 +608,28 @@ def test_vinculo_prestador_co_unidade_nao_bate():
     conn.close()
 
 
-def test_vinculo_prestador_org_inexistente():
+def test_vinculo_prestador_org_inexistente(cnes_db):
     """49. org_id não existe em prestadores → vinculo_com_prestador=None."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA", org_id="NAO-EXISTE")
     assert r["vinculo_com_prestador"] is None
     conn.close()
 
 
-def test_vinculo_false_adiciona_divergencia():
+def test_vinculo_false_adiciona_divergencia(cnes_db):
     """50. vinculo_com_prestador=False gera entrada em divergencias."""
-    conn = _make_conn_cnes(
-        profissionais=[_PROF_MEDICO],
-        relacoes=[_REL_MEDICO],
-        prestadores=[{
-            "id": "UUID-004", "org_id": "EXTERNO",
-            "nome": "Externo", "tipo": "clinica",
-            "cnpj": "11111111000111", "ativo": 1,
-        }],
-        cnes_estab=[{
-            "CO_CNES": "UNID_EXTERNA",
-            "NU_CNPJ": "11111111000111",
-        }],
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    cnes_db.add_estabelecimento(
+        CO_UNIDADE="UNID_EXTERNA",
+        CO_CNES="UNID_EXTERNA",
+        NU_CNPJ="11111111000111",
     )
+    conn = _app_conn(prestadores=[{
+        "id": "UUID-004", "org_id": "EXTERNO",
+        "nome": "Externo", "tipo": "clinica",
+        "cnpj": "11111111000111", "ativo": 1,
+    }])
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA", org_id="EXTERNO")
     assert r["vinculo_com_prestador"] is False
     assert any("vinculo_prestador_ausente" in d for d in r["divergencias"])
@@ -672,25 +640,28 @@ def test_vinculo_false_adiciona_divergencia():
 # GRUPO 6 — Divergencias (T48)
 # ===========================================================================
 
-def test_divergencias_vazia_quando_tudo_ok():
+def test_divergencias_vazia_quando_tudo_ok(cnes_db):
     """51. Resultado forte → divergencias = []."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "JOAO DA SILVA")
     assert r["divergencias"] == []
     conn.close()
 
 
-def test_divergencias_nome_divergente():
+def test_divergencias_nome_divergente(cnes_db):
     """52. Nome divergente → divergencias tem entrada de nome."""
-    conn = _make_conn_cnes([_PROF_MEDICO], [_REL_MEDICO])
+    _seed_profissional(cnes_db, _PROF_MEDICO, _REL_MEDICO)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "ZXYWV COMPLETAMENTE OUTRO")
     assert any("nome_divergente" in d for d in r["divergencias"])
     conn.close()
 
 
-def test_divergencias_cbo_invalido():
+def test_divergencias_cbo_invalido(cnes_db):
     """53. CBO não prescritivo → divergencias tem entrada de cbo."""
-    conn = _make_conn_cnes([_PROF_NAO_PRESCRITOR], [_REL_NAO_PRESCRITOR])
+    _seed_profissional(cnes_db, _PROF_NAO_PRESCRITOR, _REL_NAO_PRESCRITOR)
+    conn = _app_conn()
     r = validar_cns_prescritor(conn, "111222333444555", "ANA FERREIRA")
     assert any("cbo_nao_prescritivo" in d for d in r["divergencias"])
     conn.close()
