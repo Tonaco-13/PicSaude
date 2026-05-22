@@ -33,6 +33,9 @@ from sqlalchemy import create_engine
 from app.domain.outbox import registrar_outbox
 
 
+_TEST_INSTANCE_ID = "test-instance-eventos-pub"
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -138,6 +141,7 @@ class TestRegistrarOutbox:
         evt_id = registrar_outbox(
             conn, "evento_teste", "prescricao", "proto-123", payload,
             org_id="ORG-X", unidade_id="UNIDADE-1",
+            instance_id=_TEST_INSTANCE_ID,
         )
         conn.commit()
 
@@ -159,7 +163,7 @@ class TestRegistrarOutbox:
 
     def test_retorna_id_com_prefixo_evt(self, db_path_g4a):
         conn = _conn(db_path_g4a)
-        evt_id = registrar_outbox(conn, "ev", "laudo", "uuid-abc", {})
+        evt_id = registrar_outbox(conn, "ev", "laudo", "uuid-abc", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
         assert evt_id.startswith("evt_")
@@ -169,14 +173,14 @@ class TestRegistrarOutbox:
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
         # Banco vazio sem tabela eventos_publicacao
-        result = registrar_outbox(conn, "ev", "obj", "id", {})
+        result = registrar_outbox(conn, "ev", "obj", "id", {}, instance_id=_TEST_INSTANCE_ID)
         conn.close()
         assert result is None   # falhou silenciosamente
 
     def test_org_id_nulo_permitido(self, db_path_g4a):
         """Eventos de objetos sem escopo institucional têm org_id = NULL."""
         conn = _conn(db_path_g4a)
-        evt_id = registrar_outbox(conn, "prescricao_emitida", "prescricao", "p1", {})
+        evt_id = registrar_outbox(conn, "prescricao_emitida", "prescricao", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         row = conn.execute("SELECT org_id FROM eventos_publicacao WHERE id=?", (evt_id,)).fetchone()
         conn.close()
@@ -192,7 +196,7 @@ class TestListarEventos:
     def _inserir_eventos(self, db_path, n=3, org="ORG-A"):
         conn = _conn(db_path)
         for i in range(n):
-            registrar_outbox(conn, f"evento_{i}", "agendamento", f"proto-{i}", {"i": i}, org_id=org)
+            registrar_outbox(conn, f"evento_{i}", "agendamento", f"proto-{i}", {"i": i}, org_id=org, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -216,7 +220,8 @@ class TestListarEventos:
         client, db_path = admin_client
         conn = _conn(db_path)
         registrar_outbox(conn, "agendamento_realizado", "agendamento", "uuid-xyz",
-                         {"k": "v"}, org_id="LAB", unidade_id="U1")
+                         {"k": "v"}, org_id="LAB", unidade_id="U1",
+                         instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -235,8 +240,8 @@ class TestListarEventos:
     def test_filtro_por_org_id(self, admin_client):
         client, db_path = admin_client
         conn = _conn(db_path)
-        registrar_outbox(conn, "ev1", "agendamento", "p1", {}, org_id="ORG-A")
-        registrar_outbox(conn, "ev2", "agendamento", "p2", {}, org_id="ORG-B")
+        registrar_outbox(conn, "ev1", "agendamento", "p1", {}, org_id="ORG-A", instance_id=_TEST_INSTANCE_ID)
+        registrar_outbox(conn, "ev2", "agendamento", "p2", {}, org_id="ORG-B", instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -248,8 +253,8 @@ class TestListarEventos:
     def test_filtro_por_objeto_tipo(self, admin_client):
         client, db_path = admin_client
         conn = _conn(db_path)
-        registrar_outbox(conn, "ev1", "agendamento", "p1", {})
-        registrar_outbox(conn, "ev2", "prescricao", "p2", {})
+        registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
+        registrar_outbox(conn, "ev2", "prescricao", "p2", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -277,7 +282,7 @@ class TestListarEventos:
 
         # Insere evento antigo com timestamp controlado
         conn = _conn(db_path)
-        registrar_outbox(conn, "ev_antigo", "prescricao", "p1", {})
+        registrar_outbox(conn, "ev_antigo", "prescricao", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -292,7 +297,7 @@ class TestListarEventos:
 
         # Insere evento posterior ao cursor
         conn = _conn(db_path)
-        registrar_outbox(conn, "ev_novo", "laudo", "p2", {})
+        registrar_outbox(conn, "ev_novo", "laudo", "p2", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -305,7 +310,7 @@ class TestListarEventos:
         """Sem incluir_consumidos, apenas publicado=0 é retornado."""
         client, db_path = admin_client
         conn = _conn(db_path)
-        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {})
+        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         # Ack manual
         conn.execute("UPDATE eventos_publicacao SET publicado=1 WHERE id=?", (evt_id,))
@@ -319,7 +324,7 @@ class TestListarEventos:
         """Com incluir_consumidos=true, eventos acked também aparecem."""
         client, db_path = admin_client
         conn = _conn(db_path)
-        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {})
+        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.execute("UPDATE eventos_publicacao SET publicado=1 WHERE id=?", (evt_id,))
         conn.commit()
@@ -338,7 +343,7 @@ class TestAckEvento:
     def test_ack_marca_publicado(self, admin_client):
         client, db_path = admin_client
         conn = _conn(db_path)
-        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {})
+        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -358,7 +363,7 @@ class TestAckEvento:
         """Ack duplo não gera erro — retorna 200."""
         client, db_path = admin_client
         conn = _conn(db_path)
-        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {})
+        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -376,7 +381,7 @@ class TestAckEvento:
         """Após ack, evento não aparece no polling padrão (publicado=0)."""
         client, db_path = admin_client
         conn = _conn(db_path)
-        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {})
+        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
@@ -389,7 +394,7 @@ class TestAckEvento:
         """Evento acked permanece disponível com incluir_consumidos=true (sem DELETE)."""
         client, db_path = admin_client
         conn = _conn(db_path)
-        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {})
+        evt_id = registrar_outbox(conn, "ev1", "agendamento", "p1", {}, instance_id=_TEST_INSTANCE_ID)
         conn.commit()
         conn.close()
 
