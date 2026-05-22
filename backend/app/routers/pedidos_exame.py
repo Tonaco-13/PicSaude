@@ -255,6 +255,23 @@ def criar_pedido_exame(
         # Ticket 63: verificar se paciente já existe antes de criar
         _pac_row = conn.execute("SELECT id FROM pacientes WHERE cpf = ?", (cpf,)).fetchone()
         paciente_existia = _pac_row is not None
+
+        # 5A — entrega digital solicitada sem carteira disponível
+        # (ver TICKET-5A-CARTEIRA-DIGITAL-422.md §3.1 — "paciente_existia=False"
+        # é a inferência atual para "sem carteira digital"; modelo pode evoluir.)
+        if payload.enviar_ao_paciente and not paciente_existia:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "codigo": "patient_no_digital_wallet",
+                    "mensagem": (
+                        "Paciente sem carteira digital disponível. "
+                        "Emissão rejeitada porque a entrega digital solicitada não é possível. "
+                        "Reemita com enviar_ao_paciente=false ou cadastre o paciente antes."
+                    ),
+                },
+            )
+
         paciente_id = _localizar_ou_criar_paciente(conn, cpf, nome_pac, agora)
 
         cursor = conn.execute(
