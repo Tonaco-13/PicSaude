@@ -53,30 +53,39 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 
 A Etapa 5 agora consolida **três fixes obrigatórios** antes do deploy público (Etapa 8). Todos foram identificados como bloqueadores reais — pelo plano original (B1) e pela revisão CODEX (5B, 5C).
 
-### 5A — Fix B1: contrato carteira digital → 422
+### 5A — Falhar explicitamente entrega digital solicitada sem carteira do paciente
 
-**Problema:** frontend envia `enviar_ao_paciente=true` e backend silencia quando paciente não tem carteira digital. Viola rastreabilidade RDC 1.000/2025.
+**Problema:** frontend envia `enviar_ao_paciente=true` e backend silencia quando paciente não tem carteira digital. Viola rastreabilidade RDC 1.000/2025 e o princípio `CLAUDE.md §3` (backend é fonte de verdade).
+
+**Decisão semântica (corrigida em 2026-05-22):** `HTTP 422 patient_no_digital_wallet` é **rejeição da emissão**, não aviso. O `HTTPException` faz rollback efetivo: nenhuma prescrição/pedido é gravado, nenhum paciente novo é auto-criado. O frontend exibe escolha consciente: (a) re-emitir com `enviar_ao_paciente=false`; ou (b) cadastrar/vincular o paciente antes.
+
+**Escopo:** o mesmo padrão silencioso aparece em `POST /prescricoes` E em `POST /pedidos_exame` — ambos endereçados no mesmo ticket (`backend/docs/tickets/TICKET-5A-CARTEIRA-DIGITAL-422.md`).
 
 **Fix:**
 
 ```python
-# Se enviar_ao_paciente=true e paciente sem wallet:
-raise HTTPException(
-    status_code=422,
-    detail={
-        "detail": "patient_no_digital_wallet",
-        "patient_id": "...",
-        "message": "Paciente não possui carteira digital. Prescrição emitida mas não entregue digitalmente."
-    }
-)
+# Logo após determinar paciente_existia, antes do INSERT OR IGNORE em pacientes:
+if payload.enviar_ao_paciente and not paciente_existia:
+    raise HTTPException(
+        status_code=422,
+        detail={
+            "codigo": "patient_no_digital_wallet",
+            "patient_id": cpf,
+            "message": (
+                "Paciente sem carteira digital disponível. "
+                "Emissão rejeitada porque a entrega digital solicitada não é possível. "
+                "Reemita com enviar_ao_paciente=false ou cadastre o paciente antes."
+            ),
+        },
+    )
 ```
 
-Frontend exibe escolha consciente ao prescritor.
+**Inferência atual** (CLAUDE.md §3.1 do ticket 5A): "paciente sem carteira digital" = `paciente_existia == False`. Quando o modelo de carteira digital evoluir (autenticação, vínculo verificável), revisitar.
 
-**Testes obrigatórios:**
-- Paciente novo + `enviar_ao_paciente=true` → 422 com payload correto
-- Paciente com wallet + `enviar_ao_paciente=true` → 200 (entrega ocorre)
-- Paciente sem wallet + `enviar_ao_paciente=false` → 200 (sem tentar entregar)
+**Testes obrigatórios (6 — 3 prescricoes + 3 pedidos_exame):**
+- Paciente novo + `enviar_ao_paciente=true` → 422 com payload correto; zero linhas em `prescricoes`/`pedidos_exame` e zero linhas novas em `pacientes` (prova de rollback).
+- Paciente cadastrado + `enviar_ao_paciente=true` → 200 (entrega ocorre, custódia criada).
+- Paciente novo + `enviar_ao_paciente=false` → 200 (paciente auto-criado normalmente, sem tentar entregar).
 
 ### 5B — Fix segurança OTP (CRÍTICO + ALTO 1 do CODEX) — ✅ RESOLVIDO em `5fa6902` (2026-05-12)
 
