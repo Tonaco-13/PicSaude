@@ -52,25 +52,40 @@ if PICSAUDE_ENV == "prod" and _USE_SQLITE:
 # de 32 caracteres, o servidor recusa iniciar com mensagem clara.
 # NÃO altera lógica de autenticação — apenas bloqueia o caso inválido.
 # ---------------------------------------------------------------------------
-if PICSAUDE_ENV == "prod" and (
-    "TROQUE_EM_PRODUCAO" in JWT_SECRET or len(JWT_SECRET) < 32
-):
-    raise RuntimeError(
-        "\n"
-        "╔══════════════════════════════════════════════════════════════╗\n"
-        "║  ERRO DE CONFIGURAÇÃO — INICIALIZAÇÃO BLOQUEADA              ║\n"
-        "╠══════════════════════════════════════════════════════════════╣\n"
-        "║  PICSAUDE_ENV=prod mas PICSAUDE_JWT_SECRET é fraco ou é      ║\n"
-        "║  o valor padrão inseguro do repositório.                     ║\n"
-        "║                                                              ║\n"
-        "║  Gere um segredo forte e configure antes de iniciar:         ║\n"
-        "║    python3 -c \"import secrets; print(secrets.token_hex(32))\" ║\n"
-        "║    export PICSAUDE_JWT_SECRET=<valor gerado>                 ║\n"
-        "║                                                              ║\n"
-        "║  Requisito mínimo: 32 caracteres, sem valor padrão do repo.  ║\n"
-        "║  Para ambiente de desenvolvimento, use PICSAUDE_ENV=dev      ║\n"
-        "╚══════════════════════════════════════════════════════════════╝\n"
-    )
+def _validate_jwt_secret_at_boot(env: str, secret: str) -> None:
+    """
+    Guardrail de produção — recusa boot se PICSAUDE_JWT_SECRET é fraco
+    ou é o valor default do repositório quando PICSAUDE_ENV=prod.
+
+    Em dev/test, não dispara: aceita o default placeholder.
+    Função pura (sem efeitos colaterais além do raise) para permitir
+    regressão direta em testes — ver tests/test_config_guards.py.
+
+    Raises:
+        RuntimeError: quando env == "prod" e secret é inválido.
+    """
+    if env != "prod":
+        return
+    if "TROQUE_EM_PRODUCAO" in secret or len(secret) < 32:
+        raise RuntimeError(
+            "\n"
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║  ERRO DE CONFIGURAÇÃO — INICIALIZAÇÃO BLOQUEADA              ║\n"
+            "╠══════════════════════════════════════════════════════════════╣\n"
+            "║  PICSAUDE_ENV=prod mas PICSAUDE_JWT_SECRET é fraco ou é      ║\n"
+            "║  o valor padrão inseguro do repositório.                     ║\n"
+            "║                                                              ║\n"
+            "║  Gere um segredo forte e configure antes de iniciar:         ║\n"
+            "║    python3 -c \"import secrets; print(secrets.token_hex(32))\" ║\n"
+            "║    export PICSAUDE_JWT_SECRET=<valor gerado>                 ║\n"
+            "║                                                              ║\n"
+            "║  Requisito mínimo: 32 caracteres, sem valor padrão do repo.  ║\n"
+            "║  Para ambiente de desenvolvimento, use PICSAUDE_ENV=dev      ║\n"
+            "╚══════════════════════════════════════════════════════════════╝\n"
+        )
+
+
+_validate_jwt_secret_at_boot(PICSAUDE_ENV, JWT_SECRET)
 
 def _lifespan_bootstrap() -> None:
     """
