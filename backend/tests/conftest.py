@@ -38,6 +38,19 @@ def db_path(tmp_path):
     return path
 
 
+# 5C — Subs canônicos do RoleClient. Devem coincidir com os campos
+# correspondentes nos PAYLOADs canônicos abaixo (cns_prescritor em
+# PAYLOAD_PADRAO, cnpj_estabelecimento em PAYLOAD_DISPENSA). Owner checks
+# em produção comparam JWT.sub com o payload — se desalinhar, retornam 403.
+_ROLE_SUB_PADRAO = {
+    "prescritor":  "123456789012345",   # = PAYLOAD_PADRAO["cns_prescritor"]
+    "dispensador": "12345678000195",    # = PAYLOAD_DISPENSA["cnpj_estabelecimento"]
+    "paciente":    "12345678901",       # = PAYLOAD_PADRAO["cpf_paciente"]
+    "auditor":     "auditor-test",
+    "admin":       "admin-test",
+}
+
+
 class RoleClient:
     """
     Wrapper sobre TestClient que redefine o role antes de cada request HTTP.
@@ -56,7 +69,8 @@ class RoleClient:
         from app.main import app
         from app.auth.dependencies import get_current_user
         role = self._role
-        app.dependency_overrides[get_current_user] = lambda: {"role": role, "sub": "test"}
+        sub = _ROLE_SUB_PADRAO.get(role, "test")
+        app.dependency_overrides[get_current_user] = lambda: {"role": role, "sub": sub}
 
     def post(self, *args, **kwargs):
         self._activate()

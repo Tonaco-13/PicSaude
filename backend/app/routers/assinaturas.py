@@ -52,6 +52,7 @@ from app.domain.assinatura import (
     DESCRICAO_STATUS_ASSINATURA,
     calcular_nivel_formal,
 )
+from app.utils.helpers import normalize_cns
 
 router = APIRouter(prefix="/prescricoes", tags=["assinaturas"])
 
@@ -148,7 +149,7 @@ def _get_meta_prescricao(conn, protocolo: str) -> dict:
 @router.get("/{protocolo}/assinatura")
 def get_assinatura(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     """
     Retorna os metadados de assinatura registrados para a prescrição.
@@ -166,6 +167,26 @@ def get_assinatura(
     """
     with get_tx() as conn:
         meta = _get_meta_prescricao(conn, protocolo)
+
+        # V8 (TICKET-5C §4.8) — owner check; admin sempre passa.
+        if usuario["role"] != "admin":
+            owner = conn.execute(
+                """
+                SELECT 1
+                  FROM prescricoes p
+                  JOIN prescritores pr ON pr.id = p.prescritor_id
+                 WHERE p.protocolo = ? AND pr.cns = ?
+                """,
+                (protocolo, normalize_cns(usuario["sub"])),
+            ).fetchone()
+            if not owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "nao_e_dono_da_prescricao",
+                        "mensagem": "Esta prescrição foi emitida por outro prescritor.",
+                    },
+                )
 
         assin = conn.execute(
             """
@@ -256,6 +277,29 @@ def registrar_assinatura(
     """
     with get_tx() as conn:
         meta = _get_meta_prescricao(conn, protocolo)
+
+        # V11 (TICKET-5C §4.11) — owner check antes de qualquer escrita
+        # (INSERT/UPDATE em prescricao_assinatura + evento ledger).
+        # Admin sempre passa.
+        if usuario["role"] != "admin":
+            owner = conn.execute(
+                """
+                SELECT 1
+                  FROM prescricoes p
+                  JOIN prescritores pr ON pr.id = p.prescritor_id
+                 WHERE p.protocolo = ? AND pr.cns = ?
+                """,
+                (protocolo, normalize_cns(usuario["sub"])),
+            ).fetchone()
+            if not owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "nao_e_dono_da_prescricao",
+                        "mensagem": "Esta prescrição foi emitida por outro prescritor.",
+                    },
+                )
+
         agora = datetime.utcnow().isoformat()
         # Ticket 4D.1: instance_id obtido uma vez por transação clínica.
         instance_id = get_instance_id_conn(conn)

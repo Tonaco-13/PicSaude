@@ -450,11 +450,18 @@ def integracao_client(db_path_g4a):
     raw_client = TestClient(app, raise_server_exceptions=True)
     raw_client.__enter__()
 
+    # 5C: sub canônico por role para satisfazer owner checks (V1, V10).
+    _SUB_5C = {
+        "prescritor":  "123456789012345",
+        "dispensador": "12345678000195",
+        "admin":       "admin-test",
+    }
+
     class _RoleClient:
         def __init__(self, role):
             self._role = role
         def _activate(self):
-            u = {"role": self._role, "sub": "test"}
+            u = {"role": self._role, "sub": _SUB_5C.get(self._role, "test")}
             app.dependency_overrides[get_current_user] = lambda: u
             # G4B: /eventos usa get_current_user_or_api_key
             app.dependency_overrides[get_current_user_or_api_key] = lambda: u

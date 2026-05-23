@@ -211,7 +211,7 @@ class PrescricaoIn(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("", status_code=201)
-def criar_prescricao(payload: PrescricaoIn, _=Depends(require_role("prescritor"))):
+def criar_prescricao(payload: PrescricaoIn, usuario=Depends(require_role("prescritor"))):
     if not payload.itens:
         raise HTTPException(status_code=422, detail="A prescrição deve conter ao menos um item.")
 
@@ -229,6 +229,15 @@ def criar_prescricao(payload: PrescricaoIn, _=Depends(require_role("prescritor")
         )
 
     cns = normalize_cns(payload.cns_prescritor)
+    # V1 (TICKET-5C §4.1) — CNS declarado deve coincidir com o JWT.
+    if normalize_cns(usuario["sub"]) != cns:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "prescritor_mismatch",
+                "mensagem": "CNS do payload não coincide com prescritor autenticado.",
+            },
+        )
     cpf = normalize_cpf(payload.cpf_paciente)
     nome = normalize_nome(payload.nome_paciente)
     protocolo = str(uuid.uuid4())
@@ -679,7 +688,7 @@ class FisicaIn(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/fisica", status_code=201)
-def criar_prescricao_fisica(payload: FisicaIn, _=Depends(require_role("prescritor"))):
+def criar_prescricao_fisica(payload: FisicaIn, usuario=Depends(require_role("prescritor"))):
     """
     Registra uma prescrição emitida exclusivamente em papel.
 
@@ -695,6 +704,15 @@ def criar_prescricao_fisica(payload: FisicaIn, _=Depends(require_role("prescrito
         raise HTTPException(status_code=422, detail="A prescrição deve conter ao menos um item.")
 
     cns      = normalize_cns(payload.cns_prescritor)
+    # V2 (TICKET-5C §4.2) — CNS declarado deve coincidir com o JWT.
+    if normalize_cns(usuario["sub"]) != cns:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "prescritor_mismatch",
+                "mensagem": "CNS do payload não coincide com prescritor autenticado.",
+            },
+        )
     cpf      = normalize_cpf(payload.cpf_paciente) if payload.cpf_paciente else _CPF_NAO_IDENTIFICADO
     nome_pac = normalize_nome(payload.nome_paciente)
     protocolo = str(uuid.uuid4())
@@ -830,7 +848,7 @@ def criar_prescricao_fisica(payload: FisicaIn, _=Depends(require_role("prescrito
 # ---------------------------------------------------------------------------
 
 @router.get("/{protocolo}/documento")
-def get_documento(protocolo: str, _=Depends(require_role("prescritor", "admin"))):
+def get_documento(protocolo: str, usuario=Depends(require_role("prescritor", "admin"))):
     """
     Retorna o documento canônico de uma prescrição e verifica integridade.
 
@@ -851,6 +869,26 @@ def get_documento(protocolo: str, _=Depends(require_role("prescritor", "admin"))
 
         if meta is None:
             raise HTTPException(status_code=404, detail=f"Prescrição '{protocolo}' não encontrada.")
+
+        # V3 (TICKET-5C §4.3) — owner check; admin sempre passa.
+        if usuario["role"] != "admin":
+            owner = conn.execute(
+                """
+                SELECT 1
+                  FROM prescricoes p
+                  JOIN prescritores pr ON pr.id = p.prescritor_id
+                 WHERE p.protocolo = ? AND pr.cns = ?
+                """,
+                (protocolo, normalize_cns(usuario["sub"])),
+            ).fetchone()
+            if not owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "nao_e_dono_da_prescricao",
+                        "mensagem": "Esta prescrição foi emitida por outro prescritor.",
+                    },
+                )
 
         if meta["tipo_emissao"] == "fisica":
             raise HTTPException(
@@ -892,7 +930,7 @@ def get_documento(protocolo: str, _=Depends(require_role("prescritor", "admin"))
 @router.get("/{protocolo}/pdf")
 def get_pdf_prescricao(
     protocolo: str,
-    _=Depends(require_role("prescritor", "dispensador", "admin")),
+    usuario=Depends(require_role("prescritor", "dispensador", "admin")),
 ):
     """
     Gera e retorna o PDF da receita médica no formato institucional PicSaúde.
@@ -931,6 +969,18 @@ def get_pdf_prescricao(
 
         if not row:
             raise HTTPException(status_code=404, detail=f"Prescrição '{protocolo}' não encontrada.")
+
+        # V4 (TICKET-5C §4.4) — owner check apenas para role 'prescritor'.
+        # Dispensador e admin passam direto (fluxo de balcão / fiscalização).
+        if usuario["role"] == "prescritor":
+            if normalize_cns(usuario["sub"]) != row["cns_prescritor"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "nao_e_dono_da_prescricao",
+                        "mensagem": "Esta prescrição foi emitida por outro prescritor.",
+                    },
+                )
 
         itens_rows = conn.execute(
             """
