@@ -13,11 +13,12 @@ O prescritor precisa validar sua própria emissão.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
 from app.domain.validacao_documental import validar_prescricao
+from app.utils.helpers import normalize_cns
 
 router = APIRouter(prefix="/prescricoes", tags=["validacao"])
 
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/prescricoes", tags=["validacao"])
 @router.get("/{protocolo}/validacao")
 def get_validacao(
     protocolo: str,
-    _=Depends(require_role("prescritor", "dispensador", "admin")),
+    usuario=Depends(require_role("prescritor", "dispensador", "admin")),
 ):
     """
     Executa todas as camadas de validação documental da prescrição.
@@ -55,14 +56,35 @@ def get_validacao(
     with get_tx() as conn:
         relatorio = validar_prescricao(conn, protocolo)
 
-    # 404 se não encontrado (camada estrutural captura, mas retornamos 404 HTTP)
-    from fastapi import HTTPException
-    if relatorio.resultado_geral == "invalido":
-        est = relatorio.camadas.get("estrutural", {})
-        if not est.get("prescricao_existe", type("", (), {"ok": True})()).ok:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Prescrição '{protocolo}' não encontrada.",
-            )
+        # 404 se não encontrado (camada estrutural captura, mas retornamos 404 HTTP)
+        if relatorio.resultado_geral == "invalido":
+            est = relatorio.camadas.get("estrutural", {})
+            if not est.get("prescricao_existe", type("", (), {"ok": True})()).ok:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Prescrição '{protocolo}' não encontrada.",
+                )
+
+        # V7 (TICKET-5C §4.7) — owner check apenas para role 'prescritor'.
+        # Dispensador e admin passam direto (validação como parte do balcão /
+        # fiscalização).
+        if usuario["role"] == "prescritor":
+            owner = conn.execute(
+                """
+                SELECT 1
+                  FROM prescricoes p
+                  JOIN prescritores pr ON pr.id = p.prescritor_id
+                 WHERE p.protocolo = ? AND pr.cns = ?
+                """,
+                (protocolo, normalize_cns(usuario["sub"])),
+            ).fetchone()
+            if not owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "nao_e_dono_da_prescricao",
+                        "mensagem": "Esta prescrição foi emitida por outro prescritor.",
+                    },
+                )
 
     return relatorio.to_dict()

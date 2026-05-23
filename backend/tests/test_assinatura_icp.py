@@ -101,7 +101,7 @@ def chave_e_cert():
 
 
 _PAYLOAD_PADRAO = {
-    "cns_prescritor": "706108587809760",
+    "cns_prescritor": "123456789012345",
     "cpf_paciente":   "12345678901",
     "tipo_emissao":   "nova",
     "itens": [{"nome_medicamento": "AMOXICILINA", "concentracao": "500mg",
@@ -306,7 +306,7 @@ def test_caso7_payload_ordem_chaves_diferente(chave_e_cert):
     # Assinar com uma ordem
     payload_ordem_1 = {
         "tipo_emissao": "nova",
-        "cns_prescritor": "706108587809760",
+        "cns_prescritor": "123456789012345",
         "cpf_paciente": "12345678901",
         "itens": [{"nome_medicamento": "AMOX", "concentracao": "500mg",
                    "quantidade": 10, "unidade_quantidade": None, "posologia": "1x"}],
@@ -316,7 +316,7 @@ def test_caso7_payload_ordem_chaves_diferente(chave_e_cert):
         "cpf_paciente": "12345678901",
         "itens": [{"posologia": "1x", "quantidade": 10, "nome_medicamento": "AMOX",
                    "concentracao": "500mg", "unidade_quantidade": None}],
-        "cns_prescritor": "706108587809760",
+        "cns_prescritor": "123456789012345",
         "tipo_emissao": "nova",
     }
 
@@ -515,7 +515,8 @@ def client_com_db_68(tmp_path):
     for t in targets:
         stack.enter_context(patch(t, _get_conn))
 
-    app.dependency_overrides[get_current_user] = lambda: {"role": "prescritor", "sub": "test"}
+    # 5C: sub do JWT deve coincidir com cns_prescritor do payload (V1).
+    app.dependency_overrides[get_current_user] = lambda: {"role": "prescritor", "sub": "123456789012345"}
     client = TestClient(app, raise_server_exceptions=True)
     client.__enter__()
 
@@ -527,7 +528,7 @@ def client_com_db_68(tmp_path):
 
 
 _PAYLOAD_API_PADRAO = {
-    "cns_prescritor": "706108587809760",
+    "cns_prescritor": "123456789012345",
     "nome_prescritor": "DR TESTE",
     "cpf_paciente": "12345678901",
     "nome_paciente": "PACIENTE TESTE",
@@ -572,7 +573,7 @@ def test_68a_ambos_presentes_segue_fluxo(client_com_db_68):
     pem = _to_pem(cert)
     # Payload canônico igual ao que o router usa
     dados_canonicos = {
-        "cns_prescritor": "706108587809760",
+        "cns_prescritor": "123456789012345",
         "cpf_paciente": "12345678901",
         "tipo_emissao": "nova",
         "itens": [{"nome_medicamento": "AMOXICILINA", "concentracao": "500mg",

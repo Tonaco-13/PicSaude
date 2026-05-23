@@ -744,8 +744,11 @@ def test_evento_emitida_tem_cnes_validacao(prescritor, db_path):
 
 def test_emissao_nao_bloqueada_cns_ausente_cnes(prescritor):
     """57. Emissão aceita mesmo com CNS ausente do CNES (nivel nao_encontrado)."""
+    # 5C V1: o JWT do RoleClient prescritor usa CNS "123456789012345"
+    # (tests/conftest.py:_ROLE_SUB_PADRAO). Payload precisa coincidir; teste
+    # continua válido porque esse CNS também não está seedado no cnes_db.
     payload = {
-        "cns_prescritor": "777777777777777",
+        "cns_prescritor": "123456789012345",
         "nome_prescritor": "Dr. Inexistente CNES",
         "cpf_paciente": "12345678901",
         "nome_paciente": "Paciente Teste",

@@ -23,6 +23,7 @@ from fastapi.responses import Response
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.utils.helpers import normalize_cnpj, normalize_cns
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
 
@@ -277,7 +278,7 @@ def _gerar_pdf(dados: dict) -> bytes:
 def comprovante(
     dispensacao_id: int,
     formato: str = Query(default="json", pattern="^(json|pdf)$"),
-    _=Depends(require_role("dispensador", "prescritor", "auditor", "admin")),
+    usuario=Depends(require_role("dispensador", "prescritor", "auditor", "admin")),
 ):
     """
     Retorna o comprovante de uma dispensação específica.
@@ -285,6 +286,45 @@ def comprovante(
     - ?formato=json  (padrão) → payload JSON estruturado
     - ?formato=pdf            → arquivo PDF para impressão
     """
+    # V9 (TICKET-5C §4.9) — owner check multi-role.
+    # admin/auditor passam direto; dispensador exige CNPJ; prescritor exige CNS.
+    if usuario["role"] not in ("admin", "auditor"):
+        with get_tx() as conn:
+            info = conn.execute(
+                """
+                SELECT d.cnpj_estabelecimento, pr.cns AS prescritor_cns
+                  FROM dispensacoes d
+                  JOIN prescricao_itens i ON i.id = d.prescricao_item_id
+                  JOIN prescricoes p       ON p.id = i.prescricao_id
+                  JOIN prescritores pr     ON pr.id = p.prescritor_id
+                 WHERE d.id = ?
+                """,
+                (dispensacao_id,),
+            ).fetchone()
+            if not info:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Dispensação {dispensacao_id} não encontrada.",
+                )
+            if usuario["role"] == "dispensador":
+                if normalize_cnpj(usuario["sub"]) != info["cnpj_estabelecimento"]:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "codigo": "nao_e_dono_da_dispensacao",
+                            "mensagem": "Esta dispensação foi realizada por outro estabelecimento.",
+                        },
+                    )
+            elif usuario["role"] == "prescritor":
+                if normalize_cns(usuario["sub"]) != info["prescritor_cns"]:
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "codigo": "nao_e_dono_da_prescricao",
+                            "mensagem": "Esta prescrição foi emitida por outro prescritor.",
+                        },
+                    )
+
     dados_brutos = _buscar_dados(dispensacao_id)
     dados = _montar_json(dados_brutos)
 

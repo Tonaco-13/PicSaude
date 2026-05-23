@@ -235,12 +235,76 @@ def _normalizar_id(detentor_tipo: str, raw_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.get("/{protocolo}/custodia")
-def get_custodia(protocolo: str):
+def get_custodia(
+    protocolo: str,
+    usuario=Depends(require_role("prescritor", "dispensador", "paciente", "admin", "auditor")),
+):
     """
     Retorna a custódia ativa e o histórico completo de transferências.
+
+    V5 (TICKET-5C §3.3 / §4.5) — matriz de acesso:
+      admin / auditor → sempre
+      prescritor      → dono da prescrição (cns no JWT)
+      paciente        → dono (cpf no JWT)
+      dispensador     → histórico de participação ambulatorial (cnpj no JWT)
     """
     with get_tx() as conn:
         presc = _get_prescricao_by_protocolo(conn, protocolo)
+
+        # V5 — owner matrix
+        if usuario["role"] in ("admin", "auditor"):
+            pass
+        elif usuario["role"] == "prescritor":
+            owner = conn.execute(
+                "SELECT 1 FROM prescritores WHERE id = ? AND cns = ?",
+                (presc["prescritor_id"], normalize_cns(usuario["sub"])),
+            ).fetchone()
+            if not owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "sem_vinculo_com_prescricao",
+                        "mensagem": "Você não tem vínculo de leitura com esta prescrição.",
+                    },
+                )
+        elif usuario["role"] == "paciente":
+            # JWT do paciente carrega CPF como sub.
+            owner = conn.execute(
+                "SELECT 1 FROM pacientes WHERE id = ? AND cpf = ?",
+                (presc["paciente_id"], normalize_cpf(usuario["sub"])),
+            ).fetchone()
+            if not owner:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "sem_vinculo_com_prescricao",
+                        "mensagem": "Você não tem vínculo de leitura com esta prescrição.",
+                    },
+                )
+        elif usuario["role"] == "dispensador":
+            # Histórico de participação ambulatorial — qualquer custódia
+            # (ativa ou encerrada) já registrada para esse CNPJ. Ver §3.3.
+            # JWT sub = CNPJ normalizado (login.py:70). Hospitalar fica em
+            # ticket follow-up #49 (detentor_id = unidade_id, não CNPJ).
+            vinculo = conn.execute(
+                """
+                SELECT 1
+                  FROM prescricao_custodia
+                 WHERE prescricao_id = ?
+                   AND detentor_tipo = 'dispensador'
+                   AND detentor_id = ?
+                 LIMIT 1
+                """,
+                (presc["id"], normalize_cnpj(usuario["sub"])),
+            ).fetchone()
+            if not vinculo:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "sem_vinculo_com_prescricao",
+                        "mensagem": "Você não tem vínculo de leitura com esta prescrição.",
+                    },
+                )
 
         ativa = conn.execute(
             """
@@ -280,9 +344,21 @@ def get_custodia(protocolo: str):
 
 
 @router.post("/{protocolo}/custodia/transferir", status_code=201)
-def transferir_custodia(protocolo: str, payload: TransferirCustodiaIn, _=Depends(require_role("prescritor", "dispensador"))):
+def transferir_custodia(
+    protocolo: str,
+    payload: TransferirCustodiaIn,
+    usuario=Depends(require_role("prescritor", "dispensador")),
+):
     """
     Transfere a custódia da prescrição inteira entre detentores.
+
+    V6 (TICKET-5C §3.4 / §4.6) — 5 regras:
+      1. payload.de == "paciente" → 403 (fluxo paciente em auth.py)
+      2. payload.de != usuario["role"] → 403 ator_mismatch
+      3. prescritor: cns_jwt == cns_payload E é o dono real da prescrição
+      4. dispensador: cnpj_jwt == cnpj_payload E custódia ATIVA da
+         prescrição INTEIRA (item_id IS NULL) registrada para esse CNPJ
+      5. hospitalar fora do escopo (ticket #49)
 
     Transições permitidas:
       prescritor  → paciente      (emissão digital)
@@ -291,6 +367,28 @@ def transferir_custodia(protocolo: str, payload: TransferirCustodiaIn, _=Depends
       dispensador → prescritor    (erro de prescrição)
       paciente    → prescritor    (devolução voluntária)
     """
+    # V6 Regra 1 — fluxo paciente tem endpoint próprio em auth.py
+    if payload.de == "paciente":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "ator_mismatch",
+                "mensagem": (
+                    "Fluxo paciente não é aceito neste endpoint. "
+                    "Use /auth/prescricoes/{proto}/transferir-farmacia."
+                ),
+            },
+        )
+    # V6 Regra 2 — role do JWT deve coincidir com payload.de
+    if payload.de != usuario["role"]:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "ator_mismatch",
+                "mensagem": "Role do JWT não coincide com payload.de.",
+            },
+        )
+
     if (payload.de, payload.para) not in _TRANSICOES_VALIDAS:
         raise HTTPException(
             status_code=422,
@@ -306,6 +404,62 @@ def transferir_custodia(protocolo: str, payload: TransferirCustodiaIn, _=Depends
         instance_id = get_instance_id_conn(conn)
 
         presc = _get_prescricao_by_protocolo(conn, protocolo)
+
+        # V6 Regra 3 — prescritor: JWT bate com payload E é o dono real
+        if usuario["role"] == "prescritor":
+            cns_jwt = normalize_cns(usuario["sub"])
+            if cns_jwt != de_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "ator_mismatch",
+                        "mensagem": "Ator declarado não coincide com usuário autenticado.",
+                    },
+                )
+            dono = conn.execute(
+                "SELECT 1 FROM prescritores WHERE id = ? AND cns = ?",
+                (presc["prescritor_id"], cns_jwt),
+            ).fetchone()
+            if not dono:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "ator_mismatch",
+                        "mensagem": "Ator declarado não coincide com usuário autenticado.",
+                    },
+                )
+        # V6 Regra 4 — dispensador: JWT bate E custódia ativa da prescrição inteira
+        else:  # dispensador (já validado em require_role)
+            cnpj_jwt = normalize_cnpj(usuario["sub"])
+            if cnpj_jwt != de_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "ator_mismatch",
+                        "mensagem": "Ator declarado não coincide com usuário autenticado.",
+                    },
+                )
+            vinculo = conn.execute(
+                """
+                SELECT 1
+                  FROM prescricao_custodia
+                 WHERE prescricao_id = ?
+                   AND item_id IS NULL
+                   AND detentor_tipo = 'dispensador'
+                   AND detentor_id = ?
+                   AND encerrada_em IS NULL
+                 LIMIT 1
+                """,
+                (presc["id"], cnpj_jwt),
+            ).fetchone()
+            if not vinculo:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "ator_mismatch",
+                        "mensagem": "Ator declarado não coincide com usuário autenticado.",
+                    },
+                )
 
         if presc["status"] not in _STATUS_PRESCRICAO_ATIVOS:
             raise HTTPException(
@@ -361,7 +515,12 @@ def transferir_custodia(protocolo: str, payload: TransferirCustodiaIn, _=Depends
 
 
 @router.post("/{protocolo}/itens/{item_id}/dispensar", status_code=201)
-def dispensar_item(protocolo: str, item_id: int, payload: DispensarItemIn, _=Depends(require_role("dispensador"))):
+def dispensar_item(
+    protocolo: str,
+    item_id: int,
+    payload: DispensarItemIn,
+    usuario=Depends(require_role("dispensador")),
+):
     """
     Registra a dispensação (total ou parcial) de um item da prescrição.
 
@@ -372,6 +531,16 @@ def dispensar_item(protocolo: str, item_id: int, payload: DispensarItemIn, _=Dep
     - Fecha a custódia ativa do item e grava evento no ledger.
     """
     cnpj = normalize_cnpj(payload.cnpj_estabelecimento)
+    # V10 (TICKET-5C §4.10) — CNPJ declarado deve coincidir com o JWT.
+    # Check antes de qualquer SELECT/INSERT — rollback trivial.
+    if normalize_cnpj(usuario["sub"]) != cnpj:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "ator_mismatch",
+                "mensagem": "CNPJ do payload não coincide com dispensador autenticado.",
+            },
+        )
     agora = datetime.utcnow().isoformat()
     agora_utc = datetime.now(timezone.utc)
 

@@ -1,11 +1,20 @@
 """Ticket 13 — emissão de prescrição + ledger contra banco real."""
 from __future__ import annotations
 
+from app.auth.jwt import criar_access_token
+
 from tests.integration.conftest import (
     SEED_PACIENTE_CPF,
     SEED_PACIENTE_NOME,
+    SEED_PRESCRITOR_CNS,
+    SEED_PRESCRITOR_NOME,
     obter_token_prescritor,
 )
+
+
+# TICKET-5C — CNS de prescritor "B" usado em testes cross-tenant V1-V4.
+# 15 dígitos válidos para normalize_cns (P3 #7 CODEX rodada 1).
+_CNS_PRESCRITOR_B_5C = "999888777666555"
 
 
 _PAYLOAD_BASE = {
@@ -253,3 +262,116 @@ def test_prescricao_201_quando_nao_enviar_ao_paciente_sem_carteira(
             (_CPF_PACIENTE_NOVO_5A,),
         )
         assert cur.fetchone()[0] == 1
+
+
+# ===========================================================================
+# TICKET-5C — Autorização mínima (V1-V4)
+# ===========================================================================
+
+_TABELAS_BASELINE_V1_V2 = (
+    "prescricoes",
+    "prescritores",
+    "pacientes",
+    "prescricao_eventos",
+    "eventos_publicacao",
+)
+
+
+def _token_prescritor_b() -> str:
+    """Forja JWT para prescritor B (CNS independente do seed)."""
+    return criar_access_token(
+        sub=_CNS_PRESCRITOR_B_5C, role="prescritor", nome="DR. PRESCRITOR B",
+    )
+
+
+def _token_admin() -> str:
+    return criar_access_token(sub="admin@picsaude", role="admin", nome="ADMIN")
+
+
+def _token_dispensador(cnpj: str = "12345678000195") -> str:
+    return criar_access_token(sub=cnpj, role="dispensador", nome="DROGARIA TESTE")
+
+
+def test_v1_prescricao_cns_mismatch_403(client, outer_conn, seed_usuario):
+    """V1 — CNS do payload diferente do JWT → 403 com rollback total."""
+    token = obter_token_prescritor(client, seed_usuario)  # JWT.sub = SEED_PRESCRITOR_CNS
+    baseline = _contagens(outer_conn, _TABELAS_BASELINE_V1_V2)
+
+    payload = {**_PAYLOAD_BASE, "cns_prescritor": _CNS_PRESCRITOR_B_5C}
+    r = client.post("/prescricoes", json=payload, headers=_headers(token))
+
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["codigo"] == "prescritor_mismatch"
+    assert "CNS do payload" in r.json()["detail"]["mensagem"]
+
+    depois = _contagens(outer_conn, _TABELAS_BASELINE_V1_V2)
+    for t in _TABELAS_BASELINE_V1_V2:
+        assert depois[t] == baseline[t], (
+            f"{t}: baseline={baseline[t]} depois={depois[t]} — rollback incompleto"
+        )
+
+
+def test_v2_prescricao_fisica_cns_mismatch_403(client, outer_conn, seed_usuario):
+    """V2 — espelho de V1 sobre /prescricoes/fisica."""
+    token = obter_token_prescritor(client, seed_usuario)
+    baseline = _contagens(outer_conn, _TABELAS_BASELINE_V1_V2)
+
+    payload = {
+        "cns_prescritor":  _CNS_PRESCRITOR_B_5C,
+        "nome_prescritor": "DR. PRESCRITOR B",
+        "nome_paciente":   SEED_PACIENTE_NOME,
+        "cpf_paciente":    SEED_PACIENTE_CPF,
+        "itens": [{"nome_medicamento": "DIPIRONA", "concentracao": "500mg", "quantidade": 4}],
+    }
+    r = client.post("/prescricoes/fisica", json=payload, headers=_headers(token))
+
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["codigo"] == "prescritor_mismatch"
+
+    depois = _contagens(outer_conn, _TABELAS_BASELINE_V1_V2)
+    for t in _TABELAS_BASELINE_V1_V2:
+        assert depois[t] == baseline[t]
+
+
+def test_v3_documento_outro_prescritor_403(client, seed_usuario, seed_paciente):
+    """V3 — prescritor B não pode ler documento canônico de prescrição de A."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    r = client.post("/prescricoes", json=_PAYLOAD_BASE, headers=_headers(token_a))
+    assert r.status_code == 201, r.text
+    proto = r.json()["protocolo"]
+
+    # Prescritor B tenta acessar → 403
+    rb = client.get(f"/prescricoes/{proto}/documento", headers=_headers(_token_prescritor_b()))
+    assert rb.status_code == 403, rb.text
+    assert rb.json()["detail"]["codigo"] == "nao_e_dono_da_prescricao"
+
+    # Dono A → 200 (acesso preservado)
+    ra = client.get(f"/prescricoes/{proto}/documento", headers=_headers(token_a))
+    assert ra.status_code == 200, ra.text
+
+    # Admin → 200
+    radmin = client.get(f"/prescricoes/{proto}/documento", headers=_headers(_token_admin()))
+    assert radmin.status_code == 200, radmin.text
+
+    # Protocolo inexistente + token dono → 404 (não 403)
+    r404 = client.get("/prescricoes/PROTO-INEXISTENTE-5C/documento", headers=_headers(token_a))
+    assert r404.status_code == 404, r404.text
+
+
+def test_v4_pdf_outro_prescritor_403(client, seed_usuario, seed_paciente):
+    """V4 — prescritor B não pode baixar PDF de prescrição de A; dispensador passa."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    r = client.post("/prescricoes", json=_PAYLOAD_BASE, headers=_headers(token_a))
+    assert r.status_code == 201, r.text
+    proto = r.json()["protocolo"]
+
+    rb = client.get(f"/prescricoes/{proto}/pdf", headers=_headers(_token_prescritor_b()))
+    assert rb.status_code == 403, rb.text
+    assert rb.json()["detail"]["codigo"] == "nao_e_dono_da_prescricao"
+
+    ra = client.get(f"/prescricoes/{proto}/pdf", headers=_headers(token_a))
+    assert ra.status_code == 200, ra.text
+
+    # Dispensador autenticado pode ler PDF (fluxo de balcão)
+    rd = client.get(f"/prescricoes/{proto}/pdf", headers=_headers(_token_dispensador()))
+    assert rd.status_code == 200, rd.text
