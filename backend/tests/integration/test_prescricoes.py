@@ -130,6 +130,7 @@ _TABELAS_BASELINE_PRESCRICAO = (
     "prescricao_eventos",
     "prescricao_custodia",
     "eventos_publicacao",
+    "prescritores",     # P2 CODEX rodada 2 — prescritor auto-criado também não persiste
 )
 
 

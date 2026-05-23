@@ -30,6 +30,7 @@ _TABELAS_BASELINE_PEDIDO = (
     "pedido_exame_eventos",
     "pedido_exame_custodia",
     "eventos_publicacao",
+    "prescritores",     # P2 CODEX rodada 2 — prescritor auto-criado também não persiste
 )
 
 
