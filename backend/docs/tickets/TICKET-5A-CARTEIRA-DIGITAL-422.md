@@ -361,9 +361,61 @@ Todos os achados foram **validados contra o código real** antes de integração
 - Anti-escopo §7: bem desenhado.
 - CNES/outbox/CPF-shift: não bloqueiam 5A, desde que a verificação final declare falhas pré-existentes separadamente.
 
-## §11 Reservado — Status final
+## §11 Status final — fechado em `e09dc3e` + `66547e4` (2026-05-22)
 
-*A ser preenchido após CODEX rodada 2 (pós-implementação) confirmar zero P1.*
+### §11.1 Implementação
+
+Code entregou em commit `e09dc3e` (push em main; HEAD após docs `66547e4`).
+
+| Artefato | Onde |
+|---|---|
+| Guard 422 prescricoes | `backend/app/routers/prescricoes.py` linhas 299-313 |
+| Guard 422 pedidos_exame | `backend/app/routers/pedidos_exame.py` linhas 259-273 |
+| 3 testes prescricoes | `backend/tests/integration/test_prescricoes.py` |
+| 3 testes pedidos_exame | `backend/tests/integration/test_pedidos_exame.py` |
+
+### §11.2 Resultados de teste
+
+- Suite focal: **6/6 verdes**
+- Suite focal estendida (Code + outros testes do arquivo): **11 passed**
+- Suite completa: **1228 passed / 27 failed** — sem regressão (27 falhas pré-existentes diagnosticadas em clusters: CPF-shift, catálogo regulatório, health, g4b auth eventos, órfão auth_paciente)
+
+### §11.3 CODEX rodada 2 (revisão pós-implementação)
+
+| Severidade | # | Achado | Decisão |
+|---|---|---|---|
+| P1 | — | Zero | — |
+| P2 | 1 | Assert do rollback do prescritor auto-criado não está nos testes (rollback funciona, mas teste não cobre) | Follow-up — task #43 |
+| P2 | 2 | CPF inválido + `enviar_ao_paciente=true` cai em `patient_no_digital_wallet` (não há validator geral de CPF nos schemas; só `normalize_cpf` que remove não dígitos) | Não é regressão do 5A; ticket próprio — task #44 |
+| P3 | 3 | Testes da mensagem usam `in` em vez de igualdade exata — não protegem drift futuro | Lapidação aceita; pode ser feita junto com P2 #1 ou ficar como issue |
+| P3 | 4 | Comentário em `prescricoes.py:288` sobre concorrência `INSERT OR IGNORE` ficou amplo demais (o guard 5A já rejeita antes do INSERT em `enviar_ao_paciente=true`) | Lapidação cosmética; ajustar quando tocar o arquivo a próxima vez |
+
+**Confirmações do CODEX rodada 2:**
+- Guard no ponto exato: antes do INSERT/helper de paciente.
+- Payload correto: `codigo` + `mensagem`, sem `patient_id`.
+- Rollback efetivo: `except HTTPException: conn.rollback(); raise` em prescricoes; `with get_tx()` em pedidos_exame.
+- Mensagem byte-a-byte idêntica nos 2 routers.
+- Anti-regressão confirmada — clusters restantes não são causados pelo 5A.
+
+### §11.4 Tickets/dívidas abertas pelo ciclo 5A
+
+| # | Origem | Quando |
+|---|---|---|
+| #36 | P2 CODEX rodada 1 | Dívida B-Carteira — modelagem definitiva da carteira digital |
+| #43 | P2 CODEX rodada 2 | Follow-up — teste rollback do prescritor auto-criado no caminho 422 |
+| #44 | P2 CODEX rodada 2 | Validator geral de CPF nos schemas (ortogonal ao 5A; afeta semântica de mensagens de erro) |
+
+### §11.5 Trilha de auditoria final do 5A
+
+```
+2026-05-22 (rodada 0) — Arquiteto redige ticket
+2026-05-22 (rodada 1) — CODEX revisa spec: 2 P1 + 4 P2 + 2 P3 → integrados em §10
+2026-05-22 (impl)     — Code implementa em e09dc3e: 6/6 verdes focal
+2026-05-22 (rodada 2) — CODEX revisa código: zero P1, 2 P2, 2 P3 → §11.3
+2026-05-22 (fechamento) — ticket fechado; §11 preenchido; tickets follow-up abertos
+```
+
+5A **CLOSED**.
 
 ## §12 Prompt final ao Code
 
