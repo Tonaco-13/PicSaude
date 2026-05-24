@@ -1606,6 +1606,27 @@
                 showToast(`Erro na devolução: ${err.message}`, 'error');
             }
         }
+
+        // ── TICKET-6.1 P1#2 — hidratação da sessão demo ─────────────────
+        // Quando o usuário clicou em "Entrar como Paciente" em index.html,
+        // o seletor demo gravou o JWT em sessionStorage. Aqui hidratamos
+        // sessaoAtual e abrimos a carteira direto, pulando OTP.
+        (function _hidratarSessaoDemo() {
+            try {
+                const token = sessionStorage.getItem('picsaude_demo_token');
+                const role  = sessionStorage.getItem('picsaude_demo_role');
+                if (!token || !role) return;
+                if (role !== 'paciente') {
+                    sessionStorage.clear();
+                    window.location.replace('/');
+                    return;
+                }
+                sessaoAtual.token = token;
+                sessaoAtual.cpf   = sessionStorage.getItem('picsaude_demo_sub')  || '';
+                sessaoAtual.nome  = sessionStorage.getItem('picsaude_demo_nome') || 'Demo';
+                entrarNaCarteira();
+            } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
+        })();
     </script>
 
     <!-- Toast ─────────────────────────────────────────────── -->

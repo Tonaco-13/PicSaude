@@ -1845,9 +1845,38 @@
         }
 
         // Dispensador-specific callback
+        // ── TICKET-6.1 P1#2 — hidratação da sessão demo ─────────────────
+        // Quando o usuário clicou em "Entrar como Dispensador" em index.html,
+        // o seletor demo gravou o JWT em sessionStorage. Aqui hidratamos
+        // jwtAccessToken + dispensadorLogado e abrimos a sessão direto,
+        // pulando login. Suprime DEV_PRESET_CONTEXT porque dispensadorLogado
+        // já está populado antes do bloco abaixo.
+        (function _hidratarSessaoDemo() {
+            try {
+                const token = sessionStorage.getItem('picsaude_demo_token');
+                const role  = sessionStorage.getItem('picsaude_demo_role');
+                if (!token || !role) return;
+                if (role !== 'dispensador') {
+                    sessionStorage.clear();
+                    window.location.replace('/');
+                    return;
+                }
+                jwtAccessToken    = token;
+                dispensadorLogado = {
+                    nome: sessionStorage.getItem('picsaude_demo_nome') || 'Demo',
+                    cnpj: sessionStorage.getItem('picsaude_demo_sub')  || '',
+                    role: 'dispensador',
+                    org_id: null, tipo: null, unidades: [],
+                };
+                document.getElementById('tela-login').classList.add('hidden');
+                _iniciarSessao(token);
+            } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
+        })();
+
         // ── DEV_PRESET_CONTEXT — login automático com farmácia de teste ─────────
         // Só ativa se DEV_PRESET_CONTEXT=true e nenhum dispensador já logado.
         // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
+        // Em sessão demo, dispensadorLogado já é populado pelo bloco acima → não dispara.
         if (DEV_PRESET_CONTEXT && !dispensadorLogado) {
             const cnpjEl  = document.getElementById('login-cnpj');
             const senhaEl = document.getElementById('login-senha');

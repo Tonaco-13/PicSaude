@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from app.config import DB_PATH, PICSAUDE_ENV, PICSAUDE_INSTANCE_ORG_ID, PICSAUDE_VERSION
+from app.config import PICSAUDE_ENV, PICSAUDE_INSTANCE_ORG_ID, PICSAUDE_VERSION
 from app.database import _USE_SQLITE, get_conn
 from app.database_tx import get_tx
 
