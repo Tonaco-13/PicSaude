@@ -117,7 +117,7 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 5. **Cada clique desperdiçado é um paciente a menos** — UX mínima é saúde pública
 6. **Código público porque SUS é público** — AGPL não é ideologia, é estratégia
 
-## Estado atual (2026-05-21)
+## Estado atual (2026-05-24)
 
 ### Etapa 4 — instance_id canônico — ✅ **Fechada (2026-05-21)**
 
@@ -135,7 +135,18 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 | 4E.2 — Fix custódia (vocabulário canônico + ator JWT, Regra 2 estrita) | ✅ | 9ef3bb2 |
 | 4E.2 — Batch lapidações pós-Regra 5 (cache + ator assinaturas + outbox kwo + docstrings + C5 focal) | ✅ | 9cc339f |
 
-**Estado:** 124 testes verdes. Ciclo Regra 5 (CODEX + Jules) validado na prática. ADR-001 registrada. **Próxima etapa: 5** (Fix B1 carteira digital 422).
+**Estado:** 124 testes verdes. Ciclo Regra 5 (CODEX + Jules) validado na prática. ADR-001 registrada.
+
+### Etapa 5 — Bloqueadores pré-deploy — ✅ **Fechada (2026-05-24)**
+
+| Sub-tarefa | Status | Commit |
+|---|---|---|
+| 5A — Falhar entrega digital sem carteira (422) | ✅ | `e09dc3e` + `66547e4` + P2 #43 `f82b0da` |
+| 5B — OTP secrets/guard (CRÍTICO + ALTO 1 CODEX 2026-05-06) | ✅ | `5fa6902` |
+| 5C — Autorização mínima em 11 endpoints clínicos (V1-V11, 3 ciclos CODEX pré-impl + rodada 2 pós-impl zero P1) | ✅ | `01c67fa` + `b020770` |
+| 5D — Guard de produção para JWT_SECRET | ✅ | `6ff6910` |
+
+**Estado:** 17/17 testes focais do 5C verdes; suite completa sem regressão; CODEX rodada 2 zero P1 + 3 follow-ups não-bloqueantes abertos (#52 info disclosure 400 vs 403, #53 V6 instance_id antes de checks, #54 V9 TOCTOU teórico). Tickets sucessores fora do MVP ambulatorial: #47-51 (exames, agendamentos, laudos, hospitalar, circulação, carteira paciente). **Próxima etapa: 6** (DEMO_MODE + seletor de papéis — bloqueador deploy).
 
 ### Etapas do plano de produção
 
@@ -145,17 +156,19 @@ Tarefas ≤100 linhas: Edit direto pelo Code, sem ticket formal.
 | 2 — GitHub repo | ✅ (Tonaco-13/PicSaude) |
 | 3 — 7 docs de licenciamento | ✅ |
 | 4 — instance_id canônico | ✅ **Fechada (2026-05-21)** |
-| 5 — Fix B1 (carteira digital 422) | ⛔ **Próxima** — bloqueador deploy |
-| 6 — DEMO_MODE + seletor papéis | ⛔ Bloqueador deploy |
+| 5 — Bloqueadores pré-deploy (5A/5B/5C/5D) | ✅ **Fechada (2026-05-24)** |
+| 6 — DEMO_MODE + seletor papéis | ⛔ **Próxima** — bloqueador deploy |
 | 7 — Dockerfile | ⛔ |
 | 8 — Deploy Render + frontend | ⛔ |
 | 9 — Labels + 12 issues good-first-issue | ⛔ |
 | 10 — Teste E2E URL pública | ⛔ |
 
-### Tickets registrados pós-Etapa 4 (não bloqueiam Etapa 5)
+### Tickets registrados pós-Etapa 4 / pós-Etapa 5 (não bloqueiam Etapa 6)
 
-- `TICKET-COBERTURA-LEDGER-COMPLEMENTAR.md` — pré-Etapa 5 (achado #6 CODEX 4E.2: receituarios/hospitalares/assinaturas sem cobertura focal)
-- `TICKET-COERENCIA-DEVOLUCOES.md` — pós-Etapa 5/6 (achado #4 CODEX + NOTA em states.py:153)
+- `TICKET-COBERTURA-LEDGER-COMPLEMENTAR.md` — achado #6 CODEX 4E.2 (receituarios/hospitalares/assinaturas sem cobertura focal)
+- `TICKET-COERENCIA-DEVOLUCOES.md` — achado #4 CODEX + NOTA em states.py:153
+- Follow-ups 5C #52/#53/#54 — abertos em §11.3 do `TICKET-5C-AUTORIZACAO-MINIMA.md` (P2 + 2× P3, nenhum bloqueia deploy ambulatorial)
+- Tickets sucessores 5C #47-51 — exames, agendamentos, laudos, hospitalar, circulação, carteira paciente (todos fora do MVP ambulatorial)
 
 ### Segurança (Relatório CODEX 2026-05-06) — ✅ Resolvido em `5fa6902` (2026-05-12)
 

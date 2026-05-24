@@ -20,7 +20,7 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 
 ---
 
-## Status atual (2026-05-21)
+## Status atual (2026-05-24)
 
 | Etapa | Status | Notas |
 |---|---|---|
@@ -28,8 +28,8 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 | 2 — `gh repo create` | ✅ Feito | Remote `Tonaco-13/PicSaude` ativo (privado) |
 | 3 — 7 arquivos de licenciamento | ✅ Feito | LICENSE (AGPL-3.0 + preâmbulo), README, CONTRIBUTING, CONTRIBUTOR-LICENSE, COMMERCIAL-LICENSE, DATA-PROTECTION, DISCLAIMER — todos na raiz |
 | 4 — `instance_id` canônico | ✅ **Fechada (2026-05-21)** | **4A** ✅ `d8abf7e`, **4B-prequel** ✅ `2dce4f8`, **4B** ✅ `89f064a`, **4C** ✅ `2fbcf43`+`983359f`, **4D.1** ✅ `60382d2`+`0056c93`, **4D.2** ✅ `3db4060`+`79f2f4f`, **4E.1** ✅ `65181dc`+`a53d5ba`, **4E.2** ✅ `ab1c897` (CODEX+Jules + tickets) + `9ef3bb2` (fix custódia, vocabulário canônico + ator JWT) + `9cc339f` (batch lapidações pós-Regra 5). Critérios §7 do `TICKET-4E-2-RELATORIO-INTEGRADO.md` cumpridos. 124 testes verdes. |
-| 5 — Bloqueadores pré-deploy | ⛔ Não feito | **Expandido — ver §5 abaixo** |
-| 6 — `DEMO_MODE` + seletor de papéis | ⛔ Não feito | Bloqueador do deploy |
+| 5 — Bloqueadores pré-deploy | ✅ **Fechada (2026-05-24)** | **5A** ✅ `e09dc3e`+`66547e4`+`f82b0da`, **5B** ✅ `5fa6902`, **5C** ✅ `01c67fa`+`b020770` (CODEX rodada 2 zero P1; 3 follow-ups #52/#53/#54 em §11 do ticket), **5D** ✅ `6ff6910`. Ver §5 abaixo. |
+| 6 — `DEMO_MODE` + seletor de papéis | ⛔ **Próximo bloqueador** | Bloqueador do deploy |
 | 7 — Dockerfile | ⛔ Não feito | |
 | 8 — Deploy Render + frontend Cloudflare | ⛔ Não feito | |
 | 9 — Labels + issues `good-first-issue` | ⛔ Não feito | **Expandido para 12 issues — ver §9 abaixo** |
@@ -53,7 +53,7 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 
 A Etapa 5 agora consolida **três fixes obrigatórios** antes do deploy público (Etapa 8). Todos foram identificados como bloqueadores reais — pelo plano original (B1) e pela revisão CODEX (5B, 5C).
 
-### 5A — Falhar explicitamente entrega digital solicitada sem carteira do paciente
+### 5A — Falhar explicitamente entrega digital solicitada sem carteira do paciente — ✅ RESOLVIDO em `e09dc3e` + `66547e4` (2026-05-21) + P2 follow-up `f82b0da` (2026-05-23)
 
 **Problema:** frontend envia `enviar_ao_paciente=true` e backend silencia quando paciente não tem carteira digital. Viola rastreabilidade RDC 1.000/2025 e o princípio `CLAUDE.md §3` (backend é fonte de verdade).
 
@@ -140,33 +140,23 @@ otp = str(secrets.randbelow(900000) + 100000)
 - OTP gerado tem entropia criptográfica (validar com `secrets.SystemRandom` ou medir colisões em N=10000)
 - Guard de ambiente respeita `PICSAUDE_ENV` corretamente (dev/test → imprime, prod → silencia)
 
-### 5C — Testes mínimos de autorização em rotas sensíveis (subset ALTO 2 do CODEX)
+### 5C — Autorização mínima em endpoints clínicos centrais — ✅ RESOLVIDO em `01c67fa` + `b020770` (2026-05-23/24)
 
-**Problema identificado:** 56 de 117 rotas do backend não têm cobertura de teste. Cobertura completa não bloqueia deploy, mas **rotas sensíveis** (auth, login, prescrições, dispensações, custódia) precisam ter pelo menos teste de autorização e isolamento.
+**Reformulação importante (2026-05-23):** a auditoria de gap do plano original revelou que **o problema não era cobertura de teste faltante — eram vulnerabilidades ativas de autorização** em 11 endpoints clínicos centrais. A maioria descartava o `usuario` (`_=Depends(require_role(...))`), 1 não tinha autenticação (`GET /custodia`), e 1 capturava o usuário mas não fazia owner check antes de upsert + evento de ledger (`POST /assinatura`).
 
-**Cenários mínimos por router crítico:**
+**Achado central CODEX:** "O maior gap não é 'transição inválida', é endpoint crítico ignorando o ator autenticado."
 
-- `routers/auth.py` e `routers/login.py`:
-  - 401 sem token
-  - 403 com token de papel incorreto
-  - OTP expirado → 401
-  - OTP usado duas vezes → 401
+**Resultado:** ticket `TICKET-5C-AUTORIZACAO-MINIMA.md` redigido com 11 vulnerabilidades (V1-V11) em 5 routers (`prescricoes`, `custodia`, `validacao`, `assinaturas`, `dispensacoes`), 17 cenários de teste, 3 ciclos CODEX integrados antes do Code (rodada 1 + varredura `_=Depends` + rodada 1.5) e CODEX rodada 2 (pós-impl) zero P1.
 
-- `routers/prescricoes.py`:
-  - Prescritor A não acessa prescrição emitida pelo prescritor B (cross-tenant)
-  - Prescrição encerrada localmente não pode ser editada (estado terminal)
-  - Tentativa de `UPDATE` direto retorna 405 (operação proibida arquiteturalmente)
+**Implementação:**
+- `01c67fa` — fix de produção + 17 testes (1.207 inserções, 31 deleções, 15 arquivos)
+- `b020770` — ticket consolidado pós-impl com §11 preenchido
 
-- `routers/dispensacoes.py`:
-  - Soma de quantidades dispensadas nunca excede prescrito
-  - Dispensador sem custódia retorna 403
-  - Dispensação parcial não invalida prescrição
+**Follow-ups abertos:** #52 (P2 info disclosure 400 vs 403 em prescrição física), #53 (P3 V6 instance_id antes dos checks), #54 (P3 V9 TOCTOU teórico). Nenhum bloqueia deploy ambulatorial.
 
-- `routers/custodia.py`:
-  - Transição inválida (paciente → outro paciente) retorna 422
-  - Custódia transferida emite evento no ledger
+**Tickets sucessores abertos** (fora do MVP ambulatorial): #47 exames+agendamentos, #48 laudos, #49 hospitalar, #50 circulação diagnóstica, #51 carteira paciente.
 
-**Critério de aceitação 5C:** os 5 routers acima passam a ter pelo menos 80% de cobertura. Demais rotas (laudos, relatórios, validação, etc.) ficam para Etapa 9 como `good-first-issue`.
+**Critério de aceitação atingido:** 5 routers críticos com owner check inline; 17/17 testes focais verdes; suite completa sem regressão; CODEX rodada 2 zero P1.
 
 ### 5D — Guard de produção para JWT_SECRET (descoberto em 2026-05-06)
 
@@ -205,7 +195,11 @@ if os.getenv("PICSAUDE_ENV") == "prod" and JWT_SECRET.startswith("TROQUE_EM_PROD
 - Boot com `PICSAUDE_ENV=dev` e default → sucesso (silencioso)
 - Boot com `PICSAUDE_ENV=test` e default → sucesso (silencioso)
 
-**Estimativa:** 5D é trivial (~30 minutos). 5B é trivial (~2h). 5C consome ~1 dia. Etapa 5 inteira passa de "1 dia" para "~2 dias".
+**Estimativa original:** 5D trivial (~30 minutos); 5B trivial (~2h); 5C ~1 dia; Etapa 5 inteira ~2 dias.
+
+**Realidade (fechamento 2026-05-24):** 5B fechado em 12/05 (`5fa6902`); 5D fechado em 22/05 (`6ff6910`); 5A fechado em 21/05 + P2 follow-up em 23/05; 5C consumiu 3 dias (23–24/05) por causa da reformulação semântica de "cobertura de teste" para "vulnerabilidades ativas" — 11 vulnerabilidades cobertas, 3 ciclos CODEX pré-impl + rodada 2 pós-impl, zero P1 na entrega.
+
+**Etapa 5 fechada em 2026-05-24.** Próximo bloqueador de deploy: Etapa 6 (DEMO_MODE + seletor de papéis).
 
 ---
 
