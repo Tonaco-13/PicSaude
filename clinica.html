@@ -435,6 +435,40 @@
 </head>
 <body>
 
+  <!-- TICKET-6 DEMO_MODE — clinica.html não tem persona demo (P2#7 CODEX rodada 1).
+       Banner + botão "Voltar ao seletor" quando demo_mode=true; login real
+       (que está bloqueado no backend) não é tentado. -->
+  <style id="demo-mode-styles">
+    .demo-banner {
+      background: #fef3c7; border-bottom: 3px solid #f59e0b;
+      color: #78350f; padding: 12px 24px;
+      font-size: 14px; font-weight: 600; text-align: center;
+    }
+    .demo-banner strong { color: #92400e; }
+    .demo-banner a {
+      display: inline-block; margin-left: 12px;
+      padding: 4px 12px; background: #92400e; color: #fff;
+      border-radius: 4px; text-decoration: none; font-size: 12px;
+    }
+  </style>
+  <script>
+    (async function picsaudeDemoBoot() {
+      try {
+        const r = await fetch('/config/public', { cache: 'no-store' });
+        if (!r.ok) return;
+        const cfg = await r.json();
+        if (!cfg.demo_mode) return;
+        document.body.classList.add('demo');
+        const banner = document.createElement('div');
+        banner.className = 'demo-banner';
+        banner.id = 'demo-banner';
+        banner.innerHTML = '<strong>MODO DEMO</strong> — esta tela não tem persona demo. '
+          + '<a href="/">Ir para o seletor</a>';
+        document.body.insertBefore(banner, document.body.firstChild);
+      } catch (e) { console.warn('demo boot: ' + e.message); }
+    })();
+  </script>
+
   <!-- ============================================================ -->
   <!-- CABEÇALHO INSTITUCIONAL                                       -->
   <!-- ============================================================ -->

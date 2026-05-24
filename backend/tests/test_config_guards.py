@@ -20,7 +20,7 @@ import sys
 
 import pytest
 
-from app.main import _validate_jwt_secret_at_boot
+from app.main import _validate_demo_mode_at_boot, _validate_jwt_secret_at_boot
 
 
 # ---- 1. prod + default placeholder → RuntimeError ---------------------------
@@ -94,3 +94,30 @@ def test_smoke_import_time_em_prod_falha():
         f"esperava mensagem do guard no stderr; stderr={result.stderr!r}"
     )
     assert "PICSAUDE_JWT_SECRET" in result.stderr
+
+
+# ===========================================================================
+# TICKET-6 — _validate_demo_mode_at_boot
+# ===========================================================================
+# Função pura: aborta boot quando PICSAUDE_ENV=prod e PICSAUDE_DEMO_MODE=true
+# simultaneamente. Demais combinações são aceitas.
+
+def test_demo_guard_prod_com_demo_true_bloqueia():
+    with pytest.raises(RuntimeError, match="INICIALIZAÇÃO BLOQUEADA"):
+        _validate_demo_mode_at_boot("prod", True)
+
+
+def test_demo_guard_prod_sem_demo_nao_bloqueia():
+    _validate_demo_mode_at_boot("prod", False)   # não levanta
+
+
+def test_demo_guard_dev_com_demo_nao_bloqueia():
+    _validate_demo_mode_at_boot("dev", True)
+
+
+def test_demo_guard_test_com_demo_nao_bloqueia():
+    _validate_demo_mode_at_boot("test", True)
+
+
+def test_demo_guard_dev_sem_demo_nao_bloqueia():
+    _validate_demo_mode_at_boot("dev", False)

@@ -313,6 +313,97 @@
 <body>
 
   <!-- ============================================================ -->
+  <!-- TICKET-6 DEMO_MODE — banner + interceptação dos cards         -->
+  <!-- ============================================================ -->
+  <style id="demo-mode-styles">
+    .demo-banner {
+      background: #fef3c7;
+      border-bottom: 3px solid #f59e0b;
+      color: #78350f;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .demo-banner strong { color: #92400e; }
+    body.demo .card[data-demo-role] { position: relative; }
+    body.demo .card[data-demo-role]::after {
+      content: "DEMO";
+      position: absolute; top: 8px; right: 8px;
+      background: #f59e0b; color: #fff;
+      font-size: 10px; font-weight: 800;
+      padding: 2px 6px; border-radius: 3px;
+    }
+  </style>
+  <script>
+    (async function picsaudeDemoBoot() {
+      try {
+        const r = await fetch('/config/public', { cache: 'no-store' });
+        if (!r.ok) return;
+        const cfg = await r.json();
+        if (!cfg.demo_mode) return;
+        document.body.classList.add('demo');
+        // Banner — injeta no topo do body.
+        const banner = document.createElement('div');
+        banner.className = 'demo-banner';
+        banner.id = 'demo-banner';
+        const reset = cfg.proximo_reset ? new Date(cfg.proximo_reset) : null;
+        const msg = reset
+          ? `Reset previsto às ${reset.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})}`
+          : '';
+        banner.innerHTML = `<strong>MODO DEMO</strong> — dados fictícios, nenhuma prescrição é real. ${msg}`;
+        document.body.insertBefore(banner, document.body.firstChild);
+
+        // Mapeia cards → role para interceptar clicks e fazer /demo/login.
+        const ROLE_BY_HREF = {
+          'prescritor.html':  'prescritor',
+          'dispensador.html': 'dispensador',
+          'cidadao.html':     'paciente',
+        };
+        document.querySelectorAll('a.card').forEach(card => {
+          const href = card.getAttribute('href') || '';
+          const role = ROLE_BY_HREF[href];
+          if (!role || !cfg.demo_roles.includes(role)) return;
+          card.setAttribute('data-demo-role', role);
+          card.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+              const resp = await fetch('/demo/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ role }),
+              });
+              if (!resp.ok) {
+                alert('Erro ao iniciar sessão demo. Tente novamente.');
+                return;
+              }
+              const data = await resp.json();
+              sessionStorage.setItem('picsaude_demo_token',  data.access_token);
+              sessionStorage.setItem('picsaude_demo_role',   data.role);
+              sessionStorage.setItem('picsaude_demo_sub',    data.sub);
+              sessionStorage.setItem('picsaude_demo_nome',   data.nome);
+              window.location.href = href;
+            } catch (err) {
+              alert('Erro ao iniciar sessão demo: ' + err.message);
+            }
+          });
+        });
+
+        // ?demo_role=X → click automático.
+        const params = new URLSearchParams(window.location.search);
+        const auto = params.get('demo_role');
+        if (auto && ROLE_BY_HREF[auto + '.html'] === auto) {
+          const card = document.querySelector(`a.card[data-demo-role="${auto}"]`);
+          if (card) card.click();
+        }
+      } catch (e) {
+        // /config/public indisponível — segue com fluxo normal.
+        console.warn('demo boot: ' + e.message);
+      }
+    })();
+  </script>
+
+  <!-- ============================================================ -->
   <!-- CABEÇALHO INSTITUCIONAL                                       -->
   <!-- ============================================================ -->
   <header class="header">

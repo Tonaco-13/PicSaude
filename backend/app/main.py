@@ -14,7 +14,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.observabilidade import ObservabilidadeMiddleware
 from app.observabilidade.logging_config import configure_logging
-from app.routers import agendamentos, api_keys, auth, assinaturas, catalogo, circulacao_diagnostica, custodia, dispensacoes, dispensadores, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
+from app.routers import agendamentos, api_keys, auth, assinaturas, catalogo, circulacao_diagnostica, config_publico, custodia, demo, dispensacoes, dispensadores, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
 
 # Configura logging estruturado o mais cedo possível
 configure_logging()
@@ -26,7 +26,7 @@ configure_logging()
 # recusa iniciar com mensagem clara. Usa variáveis já definidas em config.py.
 # NÃO altera a camada dual SQLite/PostgreSQL — apenas bloqueia o caso inválido.
 # ---------------------------------------------------------------------------
-from app.config import PICSAUDE_ENV, JWT_SECRET
+from app.config import PICSAUDE_ENV, JWT_SECRET, PICSAUDE_DEMO_MODE
 from app.database import _USE_SQLITE
 
 if PICSAUDE_ENV == "prod" and _USE_SQLITE:
@@ -86,6 +86,40 @@ def _validate_jwt_secret_at_boot(env: str, secret: str) -> None:
 
 
 _validate_jwt_secret_at_boot(PICSAUDE_ENV, JWT_SECRET)
+
+
+# ---------------------------------------------------------------------------
+# Guardrail de produção — impede inicialização com DEMO_MODE em prod (TICKET-6)
+# ---------------------------------------------------------------------------
+def _validate_demo_mode_at_boot(env: str, demo: bool) -> None:
+    """
+    Recusa boot se PICSAUDE_DEMO_MODE=true e PICSAUDE_ENV=prod simultaneamente.
+
+    Razões:
+    - Produção nunca pode subir em modo demo (mistura dados reais e fictícios).
+    - DEMO_MODE substitui login real — produção sem login é inaceitável.
+
+    Em dev/test, modo demo é aceitável. Função pura — testável.
+
+    Raises:
+        RuntimeError: quando env == "prod" e demo == True.
+    """
+    if env == "prod" and demo:
+        raise RuntimeError(
+            "\n"
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║  ERRO DE CONFIGURAÇÃO — INICIALIZAÇÃO BLOQUEADA              ║\n"
+            "╠══════════════════════════════════════════════════════════════╣\n"
+            "║  PICSAUDE_ENV=prod e PICSAUDE_DEMO_MODE=true são             ║\n"
+            "║  incompatíveis. Modo demo nunca pode rodar em produção.      ║\n"
+            "║                                                              ║\n"
+            "║  Para demo: PICSAUDE_ENV=dev ou stg.                         ║\n"
+            "║  Para produção: PICSAUDE_DEMO_MODE não definida.             ║\n"
+            "╚══════════════════════════════════════════════════════════════╝\n"
+        )
+
+
+_validate_demo_mode_at_boot(PICSAUDE_ENV, PICSAUDE_DEMO_MODE)
 
 def _lifespan_bootstrap() -> None:
     """
@@ -203,6 +237,12 @@ app.include_router(metrics.router)        # Ticket 11 — métricas operacionais
 app.include_router(prestadores.router)    # Ticket 30 — cadastro de prestadores
 app.include_router(api_keys.router)       # G4B — gestão de API keys institucionais
 app.include_router(publico.router)
+
+# TICKET-6 — /config/public sempre disponível (frontend lê estado);
+# /demo/* apenas quando DEMO_MODE ativo.
+app.include_router(config_publico.router)
+if PICSAUDE_DEMO_MODE:
+    app.include_router(demo.router)
 
 # ---------------------------------------------------------------------------
 # Servir HTMLs do frontend (apenas em DEV/HML)

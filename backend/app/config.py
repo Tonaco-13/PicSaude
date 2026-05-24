@@ -45,3 +45,22 @@ MAX_LIMIT: int = 50
 PICSAUDE_VERSION: str = os.getenv("PICSAUDE_VERSION", "1.0.0")
 PICSAUDE_ENV: str = os.getenv("PICSAUDE_ENV", "dev")
 PICSAUDE_INSTANCE_ORG_ID: str = os.getenv("PICSAUDE_INSTANCE_ORG_ID", "")
+
+# ---------------------------------------------------------------------------
+# DEMO_MODE (TICKET-6) — ambiente público de demonstração
+# ---------------------------------------------------------------------------
+# Safe-by-default off. Quando PICSAUDE_DEMO_MODE=true:
+#   - /demo/* routers ativos; /auth/* OTP/login bloqueados (403 demo_mode_ativo)
+#   - SQLite routado para PIX_SAUDE_DEMO_DB (isolamento físico vs prod)
+#   - Guardrail em main.py aborta boot se PICSAUDE_ENV=prod simultâneo
+#
+# Para instance_id estável em demo, exportar (P1#3 — reusa env vars existentes
+# em app/instance.py:97 e :253; NÃO criar PICSAUDE_DEMO_INSTANCE_ID nova):
+#   PICSAUDE_INSTANCE_ID=00000000-0000-4000-8000-00000000d3d3
+#   PICSAUDE_INSTANCE_ID_PATH=data/.instance_id.demo
+PICSAUDE_DEMO_MODE:  bool = os.getenv("PICSAUDE_DEMO_MODE",  "").lower() == "true"
+PICSAUDE_DEMO_ADMIN: bool = os.getenv("PICSAUDE_DEMO_ADMIN", "").lower() == "true"
+PIX_SAUDE_DEMO_DB:   str  = os.getenv(
+    "PIX_SAUDE_DEMO_DB",
+    os.path.join(os.path.dirname(__file__), "../../data/pix_saude_demo.db"),
+)

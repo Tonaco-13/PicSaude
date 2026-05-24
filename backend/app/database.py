@@ -10,6 +10,23 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Resolução de path SQLite — respeita PICSAUDE_DEMO_MODE (TICKET-6 P1#1)
+# ---------------------------------------------------------------------------
+# Usado pelo engine SQLAlchemy E pelo get_conn() — garante isolamento real
+# do DB demo vs prod. Sem isso, get_conn() importaria DB_PATH direto e
+# escreveria/leria no DB de produção mesmo em modo demo.
+
+def _resolve_sqlite_db_path() -> str:
+    """
+    Retorna o path do arquivo SQLite a usar.
+    Em DEMO_MODE: PIX_SAUDE_DEMO_DB. Caso contrário: DB_PATH.
+    """
+    from app.config import DB_PATH, PICSAUDE_DEMO_MODE, PIX_SAUDE_DEMO_DB
+    return PIX_SAUDE_DEMO_DB if PICSAUDE_DEMO_MODE else DB_PATH
+
+
 # ---------------------------------------------------------------------------
 # Configuração — DATABASE_URL (PostgreSQL) com fallback SQLite para dev
 # ---------------------------------------------------------------------------
@@ -19,11 +36,14 @@ DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 _USE_SQLITE = not DATABASE_URL
 
 if _USE_SQLITE:
-    from app.config import DB_PATH
-    DATABASE_URL = f"sqlite:///{DB_PATH}"
+    _resolved_db_path = _resolve_sqlite_db_path()
+    DATABASE_URL = f"sqlite:///{_resolved_db_path}"
+    from app.config import PICSAUDE_DEMO_MODE as _DEMO
     logger.warning(
-        "DATABASE_URL não configurada — fallback para SQLite (modo dev). "
-        "Para produção: export DATABASE_URL=postgresql://user:pass@host:5432/picsaude"
+        "DATABASE_URL não configurada — fallback para SQLite (%s, path=%s). "
+        "Para produção: export DATABASE_URL=postgresql://user:pass@host:5432/picsaude",
+        "modo demo" if _DEMO else "modo dev",
+        _resolved_db_path,
     )
 else:
     # Loga URL sem credenciais
@@ -35,8 +55,6 @@ else:
 # ---------------------------------------------------------------------------
 
 if _USE_SQLITE:
-    from app.config import DB_PATH as _DB_PATH
-
     engine = create_engine(
         DATABASE_URL,
         connect_args={"check_same_thread": False, "timeout": 30},
@@ -224,7 +242,8 @@ def get_conn():
     if _USE_SQLITE:
         import sqlite3
 
-        from app.config import DB_PATH as _sqlite_path
+        # P1#1 TICKET-6 — usar helper compartilhado para honrar DEMO_MODE.
+        _sqlite_path = _resolve_sqlite_db_path()
 
         if not os.path.exists(_sqlite_path):
             raise RuntimeError(f"SQLite DB não encontrado: {_sqlite_path}")
