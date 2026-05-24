@@ -1022,9 +1022,55 @@ Após integração da rodada 1 + varredura, CODEX revisou o ticket consolidado V
 | 5 | P3 | §6 grep "Esperado: 10 ocorrências" falharia porque V6 emite múltiplos `ator_mismatch` | ✅ Aceito | §6 flexibilizado: confiar nos testes focais + checar que os 5 códigos aparecem em pelo menos 1 ocorrência cada |
 | 6 | P3 | §3.5 tabela de payloads não listava V7-V11 nem `nao_e_dono_da_dispensacao` | ✅ Aceito | §3.5 tabela expandida com todas as 11 vulnerabilidades |
 
-## §11 Reservado — Status final
+## §11 Status final — Etapa 5 fechada (2026-05-24)
 
-*A ser preenchido após CODEX rodada 2 (pós-implementação) confirmar zero P1.*
+CODEX rodada 2 (pós-impl) retornou **zero P1 + 1 P2 + 2 P3** sobre o commit `01c67fa`. Critério do Pacto atingido — ticket fechado sem rodada 2.5.
+
+### §11.1 Implementação entregue
+
+| Commit | Mensagem |
+|---|---|
+| `01c67fa` | `feat(5c): autorização mínima em 11 endpoints clínicos centrais` |
+| `b020770` | `docs(5c): ticket pré-impl V1-V11 com 3 ciclos CODEX integrados` |
+
+Volume real: 1.207 inserções, 31 deleções, 15 arquivos. Suite focal 17/17 verdes; suite completa sem regressão (27→27 falhas pré-existentes inalteradas; cluster auth eventos #41 não reagiu ao fix do GET /custodia).
+
+### §11.2 Achados CODEX rodada 2
+
+| # | Sev | Achado | Decisão |
+|---|---|---|---|
+| 1 | P2 | `_get_meta_prescricao` em `assinaturas.py:107` levanta `400 assinatura_nao_aplicavel` para prescrição física antes dos owner checks V8/V11. Prescritor B descobre que protocolo existe e é físico antes do 403. Sem efeito de escrita/ledger. | ✅ Aceito como dívida — follow-up #52 |
+| 2 | P3 | V6 chama `get_instance_id_conn(conn)` em `custodia.py:404` antes dos checks de ownership; em first-boot/test pode inserir em `meta_instalacao` + popular cache de processo de forma não rollbackable | ✅ Aceito como dívida — follow-up #53 |
+| 3 | P3 | V9 faz autorização em uma transação e busca o comprovante em outra (`_buscar_dados` em `dispensacoes.py:74`). TOCTOU teórico; baixo risco porque dispensações são append-only | ✅ Aceito como dívida — follow-up #54 |
+
+Verificações do CODEX rodada 2 (cruzando com leitura estática do diff):
+
+- `_=Depends` zerado nos 5 routers — ✅
+- Os 5 códigos de erro presentes em pelo menos 1 ocorrência cada — ✅
+- Imports completos — ✅
+- `require_role` não foi alterado — ✅
+- 11 fixes inline, sem helper compartilhado — ✅ (consistente com §3.2 KISS)
+
+CODEX não conseguiu rodar a suite focal localmente (PostgreSQL `picsaude_test` recusou conexão em `127.0.0.1:5432`). Rodou os 4 arquivos SQLite realinhados — 139 passes + 1 falha pré-existente em `test_string_validacao.py` (CPF ICP `01112223330` vs `11122233300` — cluster CPF-shift #35, não causado pelo 5C). Cobertura compensada pela suite que o Code já rodou.
+
+### §11.3 Follow-ups abertos por esta rodada
+
+| # | Origem | Título proposto | Severidade |
+|---|---|---|---|
+| #52 | P2 CODEX rodada 2 | Owner check antes de `_get_meta_prescricao` em V8/V11 — separar SELECT de prescritor_id do check de `tipo_emissao` para evitar info disclosure 400 vs 403 em prescrição física | P2 (info disclosure, sem ledger) — não bloqueia deploy ambulatorial |
+| #53 | P3 CODEX rodada 2 | V6 mover `get_instance_id_conn(conn)` para depois dos checks de ownership — evitar side-effect de cache em caminho rejeitado | P3 (lapidação; ~5 linhas) |
+| #54 | P3 CODEX rodada 2 | V9 unificar autorização + busca em single-tx — fechar TOCTOU teórico em `comprovante` | P3 (refator; baixa prioridade enquanto dispensações forem append-only) |
+
+### §11.4 Etapa 5 — status
+
+| Sub-tarefa | Status | Commits |
+|---|---|---|
+| 5A — Falhar entrega digital sem carteira | ✅ Fechada | `e09dc3e` + `66547e4` + P2 #43 follow-up `f82b0da` |
+| 5B — OTP secrets/guard | ✅ Fechada | `5fa6902` |
+| 5C — Autorização mínima | ✅ Fechada | `01c67fa` + `b020770` |
+| 5D — Guard JWT_SECRET | ✅ Fechada | `6ff6910` |
+
+**Etapa 5 fechada em 2026-05-24.** Próximo bloqueador de deploy: Etapa 6 (DEMO_MODE + seletor de papéis).
 
 ## §12 Prompt final ao Code
 
@@ -1341,11 +1387,12 @@ NÃO ESQUEÇA
 
 ---
 
-> **Status do ticket (2026-05-23 — pronto para implementação):**
+> **Status do ticket (2026-05-24 — fechado):**
 > Rodada 0 (Arquiteto) ✅
 > CODEX rodada 1 (revisão inicial de spec) ✅ — 7 achados integrados em §10
 > CODEX varredura `_=Depends` ✅ — V10 P1 + 5 tickets sucessores integrados em §10.1/§10.3
 > CODEX rodada 1.5 (final pré-impl) ✅ — V11 P1 + 5 lapidações integradas em §10.5
 > Fabiano: aprovado ✅
-> Code: aguarda implementação
-> CODEX rodada 2 (pós-implementação) — pendente
+> Code: implementado em `01c67fa` ✅
+> CODEX rodada 2 (pós-implementação) ✅ — zero P1, 1 P2 + 2 P3 abertos como #52/#53/#54 (§11)
+> **Etapa 5 fechada** em 2026-05-24.
