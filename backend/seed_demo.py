@@ -182,6 +182,17 @@ def main() -> None:
         print("❌ ABORTANDO: seed_demo não pode rodar em PICSAUDE_ENV=prod.")
         sys.exit(1)
 
+    # TICKET-6.1 P2#5: sem a flag, _resolve_sqlite_db_path() devolve DB_PATH
+    # (dev/prod). Quem rodar `python3 seed_demo.py` sem PICSAUDE_DEMO_MODE=true
+    # acaba inserindo as personas demo no banco errado.
+    demo = os.getenv("PICSAUDE_DEMO_MODE", "").lower()
+    if demo != "true":
+        print(
+            "❌ ABORTANDO: PICSAUDE_DEMO_MODE precisa ser 'true' para semear o DB demo.\n"
+            "   Sem a flag, get_conn() roteia para o DB de dev/prod (TICKET-6.1 P2#5)."
+        )
+        sys.exit(1)
+
     print("\n=== seed_demo.py — TICKET-6 ===")
     print(f"DB:  {os.getenv('PIX_SAUDE_DEMO_DB', '(padrão data/pix_saude_demo.db)')}")
     print(f"ENV: {os.getenv('PICSAUDE_ENV', '(não setado)')}")

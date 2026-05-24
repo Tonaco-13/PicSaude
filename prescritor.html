@@ -2878,9 +2878,36 @@
 
         initBancoLocal();
 
+        // ── TICKET-6.1 P1#2 — hidratação da sessão demo ─────────────────
+        // Quando o usuário clicou em "Entrar como Prescritor" em index.html,
+        // o seletor demo gravou o JWT em sessionStorage. Aqui hidratamos
+        // jwtAccessToken + medicoLogado e abrimos o dashboard direto,
+        // pulando OTP. Suprime DEV_PRESET_CONTEXT porque medicoLogado=true
+        // antes do bloco abaixo.
+        (function _hidratarSessaoDemo() {
+            try {
+                const token = sessionStorage.getItem('picsaude_demo_token');
+                const role  = sessionStorage.getItem('picsaude_demo_role');
+                if (!token || !role) return;
+                if (role !== 'prescritor') {
+                    sessionStorage.clear();
+                    window.location.replace('/');
+                    return;
+                }
+                jwtAccessToken = token;
+                medicoLogado = {
+                    nome:      sessionStorage.getItem('picsaude_demo_nome') || 'Demo',
+                    cns:       sessionStorage.getItem('picsaude_demo_sub')  || '',
+                    conselhos: [],
+                };
+                _entrarNoDashboard();
+            } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
+        })();
+
         // ── DEV_PRESET_CONTEXT — login automático com prescritor de teste ──────
         // Só ativa se DEV_PRESET_CONTEXT=true e nenhum médico já estiver logado.
         // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
+        // Em sessão demo, medicoLogado já é populado pelo bloco acima → não dispara.
         if (DEV_PRESET_CONTEXT && !medicoLogado) {
             const idEl    = document.getElementById('acesso-identificador');
             const senhaEl = document.getElementById('acesso-senha');

@@ -53,8 +53,7 @@ class ValidarCodigoIn(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/paciente/enviar-codigo")
-def enviar_codigo(body: SolicitarCodigoIn):
-    _reject_if_demo()
+def enviar_codigo(body: SolicitarCodigoIn, _demo=Depends(_reject_if_demo)):
     cpf = normalize_cpf(body.cpf)
 
     if not cpf:
@@ -96,8 +95,7 @@ def enviar_codigo(body: SolicitarCodigoIn):
 # ---------------------------------------------------------------------------
 
 @router.post("/paciente/validar-codigo")
-def validar_codigo(body: ValidarCodigoIn):
-    _reject_if_demo()
+def validar_codigo(body: ValidarCodigoIn, _demo=Depends(_reject_if_demo)):
     cpf    = normalize_cpf(body.cpf)
     codigo = (body.codigo or "").strip()
 

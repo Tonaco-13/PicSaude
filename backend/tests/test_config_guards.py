@@ -78,6 +78,11 @@ def test_smoke_import_time_em_prod_falha():
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = {**os.environ, "PICSAUDE_ENV": "prod"}
     env.pop("PICSAUDE_JWT_SECRET", None)  # força uso do default
+    # TICKET-6.1 P1#3 — stub pg para passar pelo guard DATABASE_URL/SQLite
+    # (main.py:32) e atingir o guard JWT (main.py:88), que é o que estamos
+    # validando. NÃO usar sqlite:///:memory: (dispara _USE_SQLITE e o guard
+    # DB volta a abortar primeiro).
+    env["DATABASE_URL"] = "postgresql://stub:stub@localhost:5432/stub"
 
     result = subprocess.run(
         [sys.executable, "-c", "import app.main"],

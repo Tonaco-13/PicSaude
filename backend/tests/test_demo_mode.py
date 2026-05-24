@@ -146,18 +146,25 @@ def test_reject_if_demo_bloqueia_login_helper(monkeypatch):
 
 
 def test_handlers_login_chamam_reject_if_demo():
-    """Verificação estrutural: cada um dos 8 handlers deve conter
-    `_reject_if_demo()` no corpo. Garante que a regressão futura (alguém
-    remover o guard de um handler) seja capturada."""
+    """Verificação estrutural: cada um dos 8 handlers deve injetar
+    `Depends(_reject_if_demo)` na assinatura. Capturada regressão se
+    alguém remover o guard de um handler.
+
+    TICKET-6.1 P2#4 — o helper virou dependency (executada antes de
+    require_role); o padrão antigo `_reject_if_demo()` no corpo foi
+    descontinuado.
+    """
     from pathlib import Path
     base = Path(__file__).resolve().parent.parent / "app" / "routers"
     login_src = (base / "login.py").read_text()
     auth_src = (base / "auth.py").read_text()
-    # 6 chamadas no login.py + 2 no auth.py = 8. Cada arquivo também
-    # tem a definição `def _reject_if_demo() -> None:` que casa o grep,
-    # então o count total inclui +1 por arquivo (def + chamadas).
-    assert login_src.count("_reject_if_demo()") == 7   # def + 6 chamadas
-    assert auth_src.count("_reject_if_demo()") == 3    # def + 2 chamadas
+    # 6 dependencies em login.py + 2 em auth.py = 8.
+    assert login_src.count("Depends(_reject_if_demo)") == 6
+    assert auth_src.count("Depends(_reject_if_demo)") == 2
+    # `_reject_if_demo()` deve aparecer só na definição do helper (não há
+    # mais chamadas no corpo dos handlers).
+    assert login_src.count("_reject_if_demo()") == 1   # apenas o def
+    assert auth_src.count("_reject_if_demo()") == 1    # apenas o def
 
 
 # ===========================================================================
@@ -284,4 +291,109 @@ def test_pdf_sem_marca_dagua_quando_is_demo_false():
     streams = _extract_pdf_streams(pdf)
     assert not any(b"DEMO" in s for s in streams), (
         "sem is_demo, nenhum stream deveria conter 'DEMO'"
+    )
+
+
+# ===========================================================================
+# TICKET-6.1 — P1#1 isolamento CNES, P2#4 dependency order, P2#5 seed guard
+# ===========================================================================
+
+def test_cnes_conn_em_demo_usa_db_demo(tmp_path):
+    """
+    P1#1 TICKET-6.1 — em DEMO_MODE, _get_cnes_conn() deve abrir o DB demo
+    (via _resolve_sqlite_db_path), não o DB de produção.
+
+    Subprocess para isolamento total (P3#9 TICKET-6 — importlib.reload
+    poluiria as próximas centenas de testes da suite).
+    """
+    import os
+    import subprocess
+    import sys
+
+    demo_db = tmp_path / "test_demo.db"
+    demo_db.write_bytes(b"")
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = {**os.environ}
+    env.pop("DATABASE_URL", None)  # força _USE_SQLITE
+    env["PICSAUDE_DEMO_MODE"] = "true"
+    env["PIX_SAUDE_DEMO_DB"]   = str(demo_db)
+    env["PICSAUDE_ENV"]        = "dev"
+
+    script = (
+        "import sys, json;"
+        "from app.domain.cnes_prescritor import _get_cnes_conn;"
+        "c = _get_cnes_conn();"
+        "rows = c.execute('PRAGMA database_list').fetchall();"
+        "paths = [r[2] for r in rows if r[1] == 'main'];"
+        "c.close();"
+        "print(json.dumps({'paths': paths}))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        env=env, cwd=backend_dir,
+        capture_output=True, text=True, timeout=15,
+    )
+    assert result.returncode == 0, (
+        f"subprocess falhou. stderr={result.stderr!r}"
+    )
+    import json
+    data = json.loads(result.stdout.strip().splitlines()[-1])
+    paths = data["paths"]
+    assert paths and str(demo_db) in paths[0], (
+        f"esperava {demo_db} no PRAGMA database_list, obtido: {paths}"
+    )
+
+
+def test_registrar_em_demo_retorna_403_demo_mode_ativo(monkeypatch):
+    """
+    P2#4 TICKET-6.1 — POST /auth/registrar em DEMO_MODE deve devolver
+    403 demo_mode_ativo, não 401 'Not authenticated'. O bug pré-fix era:
+    require_role(admin) rodava primeiro (sem token) → 401 antes do 403.
+
+    Fix: _reject_if_demo virou dependency e ficou ANTES de require_role.
+    """
+    # Monta TestClient mínimo com o login router, depois de monkeypatch do flag.
+    from app.routers import login as login_mod
+    monkeypatch.setattr(login_mod, "PICSAUDE_DEMO_MODE", True)
+
+    from fastapi import FastAPI
+    app = FastAPI()
+    app.include_router(login_mod.router)
+    client = TestClient(app)
+
+    r = client.post("/auth/registrar", json={
+        "identificador": "12345678901",
+        "senha":          "qualquer",
+        "role":           "prescritor",
+        "nome":           "Teste",
+    })
+    assert r.status_code == 403, (r.status_code, r.text)
+    body = r.json()
+    assert body.get("detail", {}).get("codigo") == "demo_mode_ativo"
+
+
+def test_seed_demo_aborta_sem_demo_mode_flag():
+    """
+    P2#5 TICKET-6.1 — `python3 seed_demo.py` sem PICSAUDE_DEMO_MODE=true
+    deve abortar com exit != 0 e mensagem citando a flag. Espelha o guard
+    duplo já existente em scripts/reset_demo_db.py.
+    """
+    import os
+    import subprocess
+    import sys
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = {**os.environ}
+    env.pop("PICSAUDE_DEMO_MODE", None)
+    env["PICSAUDE_ENV"] = "dev"
+    result = subprocess.run(
+        [sys.executable, "seed_demo.py"],
+        env=env, cwd=backend_dir,
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode != 0, (
+        f"esperava exit code != 0; stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    combined = result.stdout + result.stderr
+    assert "PICSAUDE_DEMO_MODE" in combined, (
+        f"esperava menção a PICSAUDE_DEMO_MODE; combined={combined!r}"
     )

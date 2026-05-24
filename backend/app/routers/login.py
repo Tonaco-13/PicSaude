@@ -90,7 +90,10 @@ def _normalizar_identificador(role: str, identificador: str) -> str:
 # ---------------------------------------------------------------------------
 
 @router.post("/token", summary="Login — obtém access token e refresh token")
-def login(form: OAuth2PasswordRequestForm = Depends()):
+def login(
+    form: OAuth2PasswordRequestForm = Depends(),
+    _demo=Depends(_reject_if_demo),
+):
     """
     Autentica um usuário e retorna os tokens JWT.
 
@@ -100,7 +103,6 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
     O token retornado deve ser enviado como `Authorization: Bearer <token>`
     nos endpoints protegidos.
     """
-    _reject_if_demo()
     with get_tx() as conn:
         usuario = conn.execute(
             "SELECT id, role, identificador, nome, senha_hash, ativo FROM usuarios WHERE identificador = ?",
@@ -142,8 +144,7 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
 # ---------------------------------------------------------------------------
 
 @router.post("/refresh", summary="Renova o access token com o refresh token")
-def refresh_token(body: RefreshIn):
-    _reject_if_demo()
+def refresh_token(body: RefreshIn, _demo=Depends(_reject_if_demo)):
     try:
         sub = verificar_refresh_token(body.refresh_token)
     except ValueError as exc:
@@ -168,7 +169,14 @@ def refresh_token(body: RefreshIn):
 # ---------------------------------------------------------------------------
 
 @router.post("/registrar", status_code=201, summary="Registra novo usuário")
-def registrar(body: RegistrarIn, _admin=Depends(require_role("admin"))):
+def registrar(
+    body: RegistrarIn,
+    # TICKET-6.1 P2#4: demo guard PRIMEIRO. Sem isso, require_role devolve
+    # 401 'Not authenticated' antes do 403 demo_mode_ativo. FastAPI resolve
+    # dependencies na ordem declarada.
+    _demo=Depends(_reject_if_demo),
+    _admin=Depends(require_role("admin")),
+):
     """
     Cria um novo usuário no sistema.
 
@@ -177,12 +185,11 @@ def registrar(body: RegistrarIn, _admin=Depends(require_role("admin"))):
     Bootstrap: o primeiro usuário pode ser criado via `POST /auth/bootstrap`
     sem autenticação (disponível apenas quando não há nenhum usuário no banco).
     """
-    _reject_if_demo()
     return _criar_usuario(body)
 
 
 @router.post("/bootstrap", status_code=201, summary="Cria o primeiro usuário admin (bootstrap)")
-def bootstrap(body: RegistrarIn):
+def bootstrap(body: RegistrarIn, _demo=Depends(_reject_if_demo)):
     """
     Cria o primeiro usuário admin quando o banco está vazio.
     Retorna 409 se já existir qualquer usuário.
@@ -190,7 +197,6 @@ def bootstrap(body: RegistrarIn):
     Use este endpoint uma única vez para inicializar o sistema.
     Após isso, use `POST /auth/registrar` (requer auth de admin).
     """
-    _reject_if_demo()
     with get_tx() as conn:
         total = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
 
@@ -324,7 +330,10 @@ def contexto_institucional(usuario: dict = Depends(require_role("dispensador", "
 
 @router.post("/paciente/solicitar-codigo", status_code=200,
              summary="Solicita código OTP para autenticação do cidadão")
-def solicitar_codigo_paciente(body: _SolicitarCodigoIn):
+def solicitar_codigo_paciente(
+    body: _SolicitarCodigoIn,
+    _demo=Depends(_reject_if_demo),
+):
     """
     Gera e armazena um OTP de 6 dígitos para o CPF informado.
 
@@ -335,7 +344,6 @@ def solicitar_codigo_paciente(body: _SolicitarCodigoIn):
 
     Expiração: 5 minutos. Uso único.
     """
-    _reject_if_demo()
     from app.utils.helpers import normalize_cpf
     cpf = normalize_cpf(body.cpf)
     if not cpf:
@@ -372,7 +380,10 @@ def solicitar_codigo_paciente(body: _SolicitarCodigoIn):
 
 @router.post("/paciente/validar-codigo", status_code=200,
              summary="Valida o OTP e emite token JWT para o cidadão")
-def validar_codigo_paciente(body: _ValidarCodigoIn):
+def validar_codigo_paciente(
+    body: _ValidarCodigoIn,
+    _demo=Depends(_reject_if_demo),
+):
     """
     Valida o OTP informado e emite um JWT com role=paciente.
 
@@ -380,7 +391,6 @@ def validar_codigo_paciente(body: _ValidarCodigoIn):
     - Códigos expirados são rejeitados.
     - Retorna access_token para ser usado como Bearer em endpoints protegidos.
     """
-    _reject_if_demo()
     from app.utils.helpers import normalize_cpf
     cpf = normalize_cpf(body.cpf)
     codigo = (body.codigo or "").strip()

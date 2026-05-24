@@ -41,7 +41,7 @@ import unicodedata
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.config import CBO_PREFIXES, CNES_SNAPSHOT_MES, CNES_SNAPSHOT_REF, DB_PATH
+from app.config import CBO_PREFIXES, CNES_SNAPSHOT_MES, CNES_SNAPSHOT_REF
 from app.domain.nome_validator import NomeValidator
 
 _nome_validator = NomeValidator()
@@ -50,14 +50,23 @@ _nome_validator = NomeValidator()
 def _get_cnes_conn() -> sqlite3.Connection:
     """Abre conexão SQLite read-only ao banco CNES.
 
-    As tabelas CNES (profissionais_cnes, relacao_prof_estab, estabelecimentos_cnes)
-    residem no SQLite (data/pix_saude_pe.db) independentemente de o backend
-    usar PostgreSQL ou SQLite para as tabelas da aplicação.
+    Usa `_resolve_sqlite_db_path()` (TICKET-6 P1#1 / 6.1) — em demo, abre
+    o DB demo (sem tabelas CNES → toda validação retorna `nao_encontrado`,
+    aceitável porque persona demo usa CNS sintético e a validação CNES é
+    não-bloqueante).
+
+    As tabelas CNES (profissionais_cnes, relacao_prof_estab,
+    estabelecimentos_cnes) residem no SQLite independentemente de o
+    backend usar PostgreSQL ou SQLite para as tabelas da aplicação.
     """
     import os
-    if not os.path.exists(DB_PATH):
-        raise FileNotFoundError(f"Banco CNES não encontrado: {DB_PATH}")
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    # Import lazy para evitar ciclo com app.database em import-time.
+    from app.database import _resolve_sqlite_db_path
+
+    db_path = _resolve_sqlite_db_path()
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"Banco CNES não encontrado: {db_path}")
+    conn = sqlite3.connect(db_path, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
 

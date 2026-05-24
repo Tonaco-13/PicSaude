@@ -119,11 +119,16 @@ class _CnesDbHelper:
 @pytest.fixture
 def cnes_db(tmp_path: Path, monkeypatch) -> _CnesDbHelper:
     """
-    SQLite tmp com o schema CNES + patch de `app.domain.cnes_prescritor.DB_PATH`.
+    SQLite tmp com o schema CNES + patch de `_resolve_sqlite_db_path`.
+
+    TICKET-6.1 P1#1: `cnes_prescritor._get_cnes_conn()` agora resolve o
+    path via `app.database._resolve_sqlite_db_path()` (mesmo helper do
+    engine SQLAlchemy). Para isolar o teste, patcheamos a função para
+    retornar o arquivo tmp — vale para todas as chamadas a `get_conn`
+    e `_get_cnes_conn` dentro do escopo do teste.
 
     Use os helpers `add_profissional`, `add_relacao`, `add_estabelecimento`
-    para seedar. `_get_cnes_conn()` em produção abrirá este arquivo a cada
-    chamada (sem ser intercalado com a `conn` de aplicação).
+    para seedar.
     """
     db_file = tmp_path / "cnes_test.db"
     conn = sqlite3.connect(str(db_file))
@@ -132,14 +137,16 @@ def cnes_db(tmp_path: Path, monkeypatch) -> _CnesDbHelper:
         conn.commit()
     finally:
         conn.close()
-    monkeypatch.setattr("app.domain.cnes_prescritor.DB_PATH", str(db_file))
+    monkeypatch.setattr(
+        "app.database._resolve_sqlite_db_path", lambda: str(db_file)
+    )
     return _CnesDbHelper(str(db_file))
 
 
 @pytest.fixture
 def cnes_db_sem_tabelas(tmp_path: Path, monkeypatch) -> str:
     """
-    SQLite tmp VAZIO (sem CREATE TABLE) + patch de DB_PATH.
+    SQLite tmp VAZIO (sem CREATE TABLE) + patch de `_resolve_sqlite_db_path`.
 
     Usado pelo teste que cobre o ramo `except Exception` em
     `validar_cns_prescritor` — quando o arquivo existe mas as tabelas
@@ -148,5 +155,7 @@ def cnes_db_sem_tabelas(tmp_path: Path, monkeypatch) -> str:
     """
     db_file = tmp_path / "cnes_vazio.db"
     sqlite3.connect(str(db_file)).close()  # cria arquivo vazio
-    monkeypatch.setattr("app.domain.cnes_prescritor.DB_PATH", str(db_file))
+    monkeypatch.setattr(
+        "app.database._resolve_sqlite_db_path", lambda: str(db_file)
+    )
     return str(db_file)
