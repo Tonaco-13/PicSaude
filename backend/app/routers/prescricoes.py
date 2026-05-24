@@ -997,6 +997,9 @@ def get_pdf_prescricao(
     from app.domain.assinatura import calcular_nivel_formal as _calc
     nivel = _calc(row["assinatura_modo"], row["tipo_emissao"])
 
+    # TICKET-6: marca d'água "DEMO" runtime via PICSAUDE_DEMO_MODE.
+    from app.config import PICSAUDE_DEMO_MODE as _DEMO
+
     pdf_bytes = gerar_pdf_prescricao(
         protocolo       = row["protocolo"],
         status          = row["status"],
@@ -1010,6 +1013,7 @@ def get_pdf_prescricao(
         nome_paciente   = row["nome_paciente"],
         cpf_paciente    = row["cpf_paciente"],
         itens           = itens,
+        is_demo         = _DEMO,
     )
 
     filename = f"receita_{protocolo[:8]}.pdf"

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import require_role
 from app.auth.jwt import criar_access_token
+from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
@@ -19,6 +20,18 @@ from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf
 
 router = APIRouter()
+
+
+# TICKET-6 P1#2 — em DEMO_MODE, OTP legado devolve 403 demo_mode_ativo.
+def _reject_if_demo() -> None:
+    if PICSAUDE_DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "demo_mode_ativo",
+                "mensagem": "Login real desabilitado em modo demo. Use o seletor em /.",
+            },
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +54,7 @@ class ValidarCodigoIn(BaseModel):
 
 @router.post("/paciente/enviar-codigo")
 def enviar_codigo(body: SolicitarCodigoIn):
+    _reject_if_demo()
     cpf = normalize_cpf(body.cpf)
 
     if not cpf:
@@ -83,6 +97,7 @@ def enviar_codigo(body: SolicitarCodigoIn):
 
 @router.post("/paciente/validar-codigo")
 def validar_codigo(body: ValidarCodigoIn):
+    _reject_if_demo()
     cpf    = normalize_cpf(body.cpf)
     codigo = (body.codigo or "").strip()
 

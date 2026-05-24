@@ -309,6 +309,8 @@ def gerar_pdf_prescricao(
     cpf_paciente:    str,
     # itens
     itens: list,   # list[dict]: nome_medicamento, concentracao, quantidade, posologia
+    # TICKET-6: marca d'água "DEMO" diagonal quando True
+    is_demo:         bool = False,
 ) -> bytes:
     """
     Gera o PDF da receita médica e retorna os bytes.
@@ -487,7 +489,24 @@ def gerar_pdf_prescricao(
         st["rodape"],
     ))
 
-    doc.build(story)
+    # TICKET-6 — marca d'água "DEMO" diagonal em cada página quando is_demo=True.
+    # Importado lazy para evitar overhead no caminho normal.
+    if is_demo:
+        from reportlab.lib import colors as _colors
+        from reportlab.lib.pagesizes import A4 as _A4
+
+        def _draw_demo_watermark(canvas, _doc):
+            canvas.saveState()
+            canvas.setFont("Helvetica-Bold", 96)
+            canvas.setFillColorRGB(0.85, 0.85, 0.85)  # cinza claro translúcido
+            canvas.translate(_A4[0] / 2, _A4[1] / 2)
+            canvas.rotate(45)
+            canvas.drawCentredString(0, 0, "DEMO")
+            canvas.restoreState()
+
+        doc.build(story, onFirstPage=_draw_demo_watermark, onLaterPages=_draw_demo_watermark)
+    else:
+        doc.build(story)
     return buf.getvalue()
 
 

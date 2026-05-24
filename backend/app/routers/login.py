@@ -37,11 +37,25 @@ from app.auth.jwt import (
     verificar_refresh_token,
     verificar_senha,
 )
+from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
 from app.domain.roles import PERFIS_VALIDOS
 from app.utils.helpers import normalize_cnpj, normalize_cns, normalize_nome
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# TICKET-6 P1#2 — em DEMO_MODE, endpoints de login real / OTP devolvem
+# 403 demo_mode_ativo. Helper local (inline KISS, sem dependency externa).
+def _reject_if_demo() -> None:
+    if PICSAUDE_DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "demo_mode_ativo",
+                "mensagem": "Login real desabilitado em modo demo. Use o seletor em /.",
+            },
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +100,7 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
     O token retornado deve ser enviado como `Authorization: Bearer <token>`
     nos endpoints protegidos.
     """
+    _reject_if_demo()
     with get_tx() as conn:
         usuario = conn.execute(
             "SELECT id, role, identificador, nome, senha_hash, ativo FROM usuarios WHERE identificador = ?",
@@ -128,6 +143,7 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
 
 @router.post("/refresh", summary="Renova o access token com o refresh token")
 def refresh_token(body: RefreshIn):
+    _reject_if_demo()
     try:
         sub = verificar_refresh_token(body.refresh_token)
     except ValueError as exc:
@@ -161,6 +177,7 @@ def registrar(body: RegistrarIn, _admin=Depends(require_role("admin"))):
     Bootstrap: o primeiro usuário pode ser criado via `POST /auth/bootstrap`
     sem autenticação (disponível apenas quando não há nenhum usuário no banco).
     """
+    _reject_if_demo()
     return _criar_usuario(body)
 
 
@@ -173,6 +190,7 @@ def bootstrap(body: RegistrarIn):
     Use este endpoint uma única vez para inicializar o sistema.
     Após isso, use `POST /auth/registrar` (requer auth de admin).
     """
+    _reject_if_demo()
     with get_tx() as conn:
         total = conn.execute("SELECT COUNT(*) FROM usuarios").fetchone()[0]
 
@@ -317,6 +335,7 @@ def solicitar_codigo_paciente(body: _SolicitarCodigoIn):
 
     Expiração: 5 minutos. Uso único.
     """
+    _reject_if_demo()
     from app.utils.helpers import normalize_cpf
     cpf = normalize_cpf(body.cpf)
     if not cpf:
@@ -361,6 +380,7 @@ def validar_codigo_paciente(body: _ValidarCodigoIn):
     - Códigos expirados são rejeitados.
     - Retorna access_token para ser usado como Bearer em endpoints protegidos.
     """
+    _reject_if_demo()
     from app.utils.helpers import normalize_cpf
     cpf = normalize_cpf(body.cpf)
     codigo = (body.codigo or "").strip()
