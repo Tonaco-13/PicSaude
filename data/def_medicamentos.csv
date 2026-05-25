@@ -1,42 +1,82 @@
 principio_ativo,nome_normalizado,forma_farmaceutica,unidade_dispensavel,concentracao_texto,via_administracao,aliases,fonte,versao_base
-amoxicilina,amoxicilina 500 mg capsula,capsula,capsula,500 mg,oral,amoxicilina 500|amoxil 500|amoxifar 500,DEF/BASE_LOCAL,2026-03
-amoxicilina,amoxicilina 250 mg/5 ml po para suspensao oral,frasco,frasco,250 mg/5 mL,oral,amoxicilina suspensao|amoxicilina xarope 250,DEF/BASE_LOCAL,2026-03
-amoxicilina + clavulanato de potassio,amoxicilina clavulanato 875 mg 125 mg comprimido,comprimido,comprimido,875+125 mg,oral,amoxiclav|clavulin 875|augmentin 875|amoxicilina clavulanato,DEF/BASE_LOCAL,2026-03
-metformina,metformina 500 mg comprimido,comprimido,comprimido,500 mg,oral,metformina 500|glifage 500|glucoformin 500,DEF/BASE_LOCAL,2026-03
-metformina,metformina 850 mg comprimido,comprimido,comprimido,850 mg,oral,metformina 850|glifage 850,DEF/BASE_LOCAL,2026-03
-losartana potassica,losartana 50 mg comprimido,comprimido,comprimido,50 mg,oral,losartana 50|cozaar 50|aradois 50,DEF/BASE_LOCAL,2026-03
-losartana potassica,losartana 100 mg comprimido,comprimido,comprimido,100 mg,oral,losartana 100|cozaar 100,DEF/BASE_LOCAL,2026-03
-atorvastatina calcica,atorvastatina 20 mg comprimido,comprimido,comprimido,20 mg,oral,atorvastatina 20|lipimax 20|lipitor 20,DEF/BASE_LOCAL,2026-03
-atorvastatina calcica,atorvastatina 40 mg comprimido,comprimido,comprimido,40 mg,oral,atorvastatina 40|lipitor 40,DEF/BASE_LOCAL,2026-03
-omeprazol,omeprazol 20 mg capsula,capsula,capsula,20 mg,oral,omeprazol 20|losec 20|peprazol 20,DEF/BASE_LOCAL,2026-03
-omeprazol,omeprazol 40 mg capsula,capsula,capsula,40 mg,oral,omeprazol 40|losec 40,DEF/BASE_LOCAL,2026-03
-dipirona sodica,dipirona 500 mg comprimido,comprimido,comprimido,500 mg,oral,dipirona 500|novalgina 500|analgina 500,DEF/BASE_LOCAL,2026-03
-dipirona sodica,dipirona 500 mg/ml solucao oral gotas,frasco,frasco,500 mg/mL,oral,dipirona gotas|novalgina gotas|dipirona liquida,DEF/BASE_LOCAL,2026-03
-paracetamol,paracetamol 500 mg comprimido,comprimido,comprimido,500 mg,oral,paracetamol 500|tylenol 500|acetaminofeno 500,DEF/BASE_LOCAL,2026-03
-paracetamol,paracetamol 200 mg/ml solucao oral gotas,frasco,frasco,200 mg/mL,oral,paracetamol gotas|tylenol gotas|paracetamol liquido,DEF/BASE_LOCAL,2026-03
-ibuprofeno,ibuprofeno 400 mg comprimido,comprimido,comprimido,400 mg,oral,ibuprofeno 400|advil 400|alivium 400,DEF/BASE_LOCAL,2026-03
-ibuprofeno,ibuprofeno 50 mg/ml suspensao oral,frasco,frasco,50 mg/mL,oral,ibuprofeno suspensao|advil suspensao|ibuprofeno infantil,DEF/BASE_LOCAL,2026-03
-insulina glargina,insulina glargina 100 ui/ml solucao injetavel,frasco-ampola,frasco-ampola,100 UI/mL,subcutanea,lantus|insulina glargina basica|insulina noturna,DEF/BASE_LOCAL,2026-03
-insulina regular humana,insulina regular humana 100 ui/ml solucao injetavel,frasco-ampola,frasco-ampola,100 UI/mL,subcutanea|intravenosa,insulina regular|insulina rapida|insulina r,DEF/BASE_LOCAL,2026-03
-insulina nph humana,insulina nph humana 100 ui/ml suspensao injetavel,frasco-ampola,frasco-ampola,100 UI/mL,subcutanea,insulina nph|insulina intermediaria|insulina n,DEF/BASE_LOCAL,2026-03
-metoprolol succinato,metoprolol 50 mg comprimido,comprimido,comprimido,50 mg,oral,metoprolol 50|selozok 50|lopressor 50,DEF/BASE_LOCAL,2026-03
-enalapril maleato,enalapril 10 mg comprimido,comprimido,comprimido,10 mg,oral,enalapril 10|renitec 10|vasopril 10,DEF/BASE_LOCAL,2026-03
-amlodipino besilato,amlodipino 5 mg comprimido,comprimido,comprimido,5 mg,oral,amlodipino 5|norvasc 5|amlodipina 5,DEF/BASE_LOCAL,2026-03
-hidroclorotiazida,hidroclorotiazida 25 mg comprimido,comprimido,comprimido,25 mg,oral,hidroclorotiazida 25|hctz 25|clorotiazida 25,DEF/BASE_LOCAL,2026-03
-azitromicina,azitromicina 500 mg comprimido,comprimido,comprimido,500 mg,oral,azitromicina 500|zitromax 500|aztrin 500,DEF/BASE_LOCAL,2026-03
-azitromicina,azitromicina 600 mg/15 ml po para suspensao oral,frasco,frasco,600 mg/15 mL,oral,azitromicina suspensao|zitromax suspensao,DEF/BASE_LOCAL,2026-03
-prednisona,prednisona 20 mg comprimido,comprimido,comprimido,20 mg,oral,prednisona 20,DEF/BASE_LOCAL,2026-03
-prednisona,prednisona 5 mg comprimido,comprimido,comprimido,5 mg,oral,prednisona 5,DEF/BASE_LOCAL,2026-03
-dexametasona,dexametasona 4 mg/ml solucao injetavel,ampola,ampola,4 mg/mL,intravenosa|intramuscular,dexametasona injetavel|decadron injetavel,DEF/BASE_LOCAL,2026-03
-fluoxetina,fluoxetina 20 mg capsula,capsula,capsula,20 mg,oral,fluoxetina 20|prozac 20|floxet 20,DEF/BASE_LOCAL,2026-03
-clonazepam,clonazepam 2 mg comprimido,comprimido,comprimido,2 mg,oral,clonazepam 2|rivotril 2,DEF/BASE_LOCAL,2026-03
-clonazepam,clonazepam 0.5 mg comprimido,comprimido,comprimido,0,5 mg,oral,clonazepam 0 5|rivotril 0 5,DEF/BASE_LOCAL,2026-03
-haloperidol,haloperidol 1 mg comprimido,comprimido,comprimido,1 mg,oral,haloperidol 1|haldol 1,DEF/BASE_LOCAL,2026-03
-ciprofloxacino,ciprofloxacino 500 mg comprimido,comprimido,comprimido,500 mg,oral,ciprofloxacino 500|cipro 500|ciproflox 500,DEF/BASE_LOCAL,2026-03
-ciprofloxacino,ciprofloxacino 3 mg/ml colirio solucao,frasco,frasco,3 mg/mL,oftalmica,ciprofloxacino colirio|ciloxan|ciprofloxacino oftalmo,DEF/BASE_LOCAL,2026-03
-sinvastatina,sinvastatina 20 mg comprimido,comprimido,comprimido,20 mg,oral,sinvastatina 20|zocor 20|sinvastin 20,DEF/BASE_LOCAL,2026-03
-levotiroxina sodica,levotiroxina 25 mcg comprimido,comprimido,comprimido,25 mcg,oral,levotiroxina 25|puran t4 25|euthyrox 25,DEF/BASE_LOCAL,2026-03
-levotiroxina sodica,levotiroxina 50 mcg comprimido,comprimido,comprimido,50 mcg,oral,levotiroxina 50|puran t4 50|euthyrox 50,DEF/BASE_LOCAL,2026-03
-salbutamol,salbutamol 100 mcg/dose aerossol inalatorio,frasco,frasco,100 mcg/dose,inalatoria,salbutamol spray|aerolin|ventolin|salbutamol inalador,DEF/BASE_LOCAL,2026-03
-budesonida,budesonida 200 mcg/dose aerossol inalatorio,frasco,frasco,200 mcg/dose,inalatoria,budesonida spray|pulmicort|budesonida inalador,DEF/BASE_LOCAL,2026-03
-tramadol,tramadol 50 mg capsula,capsula,capsula,50 mg,oral,tramadol 50|tramal 50|tramal retard 50,DEF/BASE_LOCAL,2026-03
+amoxicilina,amoxicilina 500 mg capsula,capsula,capsula,500 mg,oral,amoxicilina 500|amoxil 500|amoxifar 500,DEF/BASE_LOCAL,2026-05
+amoxicilina,amoxicilina 250 mg/5 ml po para suspensao oral,frasco,frasco,250 mg/5 mL,oral,amoxicilina suspensao|amoxicilina xarope 250,DEF/BASE_LOCAL,2026-05
+amoxicilina + clavulanato de potassio,amoxicilina clavulanato 875 mg 125 mg comprimido,comprimido,comprimido,875+125 mg,oral,amoxiclav|clavulin 875|augmentin 875|amoxicilina clavulanato,DEF/BASE_LOCAL,2026-05
+metformina,metformina 500 mg comprimido,comprimido,comprimido,500 mg,oral,metformina 500|glifage 500|glucoformin 500,DEF/BASE_LOCAL,2026-05
+metformina,metformina 850 mg comprimido,comprimido,comprimido,850 mg,oral,metformina 850|glifage 850,DEF/BASE_LOCAL,2026-05
+losartana potassica,losartana 50 mg comprimido,comprimido,comprimido,50 mg,oral,losartana 50|cozaar 50|aradois 50,DEF/BASE_LOCAL,2026-05
+losartana potassica,losartana 100 mg comprimido,comprimido,comprimido,100 mg,oral,losartana 100|cozaar 100,DEF/BASE_LOCAL,2026-05
+atorvastatina calcica,atorvastatina 20 mg comprimido,comprimido,comprimido,20 mg,oral,atorvastatina 20|lipimax 20|lipitor 20,DEF/BASE_LOCAL,2026-05
+atorvastatina calcica,atorvastatina 40 mg comprimido,comprimido,comprimido,40 mg,oral,atorvastatina 40|lipitor 40,DEF/BASE_LOCAL,2026-05
+omeprazol,omeprazol 20 mg capsula,capsula,capsula,20 mg,oral,omeprazol 20|losec 20|peprazol 20,DEF/BASE_LOCAL,2026-05
+omeprazol,omeprazol 40 mg capsula,capsula,capsula,40 mg,oral,omeprazol 40|losec 40,DEF/BASE_LOCAL,2026-05
+dipirona sodica,dipirona 500 mg comprimido,comprimido,comprimido,500 mg,oral,dipirona 500|novalgina 500|analgina 500,DEF/BASE_LOCAL,2026-05
+dipirona sodica,dipirona 500 mg/ml solucao oral gotas,frasco,frasco,500 mg/mL,oral,dipirona gotas|novalgina gotas|dipirona liquida,DEF/BASE_LOCAL,2026-05
+paracetamol,paracetamol 500 mg comprimido,comprimido,comprimido,500 mg,oral,paracetamol 500|tylenol 500|acetaminofeno 500,DEF/BASE_LOCAL,2026-05
+paracetamol,paracetamol 200 mg/ml solucao oral gotas,frasco,frasco,200 mg/mL,oral,paracetamol gotas|tylenol gotas|paracetamol liquido,DEF/BASE_LOCAL,2026-05
+ibuprofeno,ibuprofeno 400 mg comprimido,comprimido,comprimido,400 mg,oral,ibuprofeno 400|advil 400|alivium 400,DEF/BASE_LOCAL,2026-05
+ibuprofeno,ibuprofeno 50 mg/ml suspensao oral,frasco,frasco,50 mg/mL,oral,ibuprofeno suspensao|advil suspensao|ibuprofeno infantil,DEF/BASE_LOCAL,2026-05
+insulina glargina,insulina glargina 100 ui/ml solucao injetavel,frasco-ampola,frasco-ampola,100 UI/mL,subcutanea,lantus|insulina glargina basica|insulina noturna,DEF/BASE_LOCAL,2026-05
+insulina regular humana,insulina regular humana 100 ui/ml solucao injetavel,frasco-ampola,frasco-ampola,100 UI/mL,subcutanea|intravenosa,insulina regular|insulina rapida|insulina r,DEF/BASE_LOCAL,2026-05
+insulina nph humana,insulina nph humana 100 ui/ml suspensao injetavel,frasco-ampola,frasco-ampola,100 UI/mL,subcutanea,insulina nph|insulina intermediaria|insulina n,DEF/BASE_LOCAL,2026-05
+metoprolol succinato,metoprolol 50 mg comprimido,comprimido,comprimido,50 mg,oral,metoprolol 50|selozok 50|lopressor 50,DEF/BASE_LOCAL,2026-05
+enalapril maleato,enalapril 10 mg comprimido,comprimido,comprimido,10 mg,oral,enalapril 10|renitec 10|vasopril 10,DEF/BASE_LOCAL,2026-05
+amlodipino besilato,amlodipino 5 mg comprimido,comprimido,comprimido,5 mg,oral,amlodipino 5|norvasc 5|amlodipina 5,DEF/BASE_LOCAL,2026-05
+hidroclorotiazida,hidroclorotiazida 25 mg comprimido,comprimido,comprimido,25 mg,oral,hidroclorotiazida 25|hctz 25|clorotiazida 25,DEF/BASE_LOCAL,2026-05
+azitromicina,azitromicina 500 mg comprimido,comprimido,comprimido,500 mg,oral,azitromicina 500|zitromax 500|aztrin 500,DEF/BASE_LOCAL,2026-05
+azitromicina,azitromicina 600 mg/15 ml po para suspensao oral,frasco,frasco,600 mg/15 mL,oral,azitromicina suspensao|zitromax suspensao,DEF/BASE_LOCAL,2026-05
+prednisona,prednisona 20 mg comprimido,comprimido,comprimido,20 mg,oral,prednisona 20,DEF/BASE_LOCAL,2026-05
+prednisona,prednisona 5 mg comprimido,comprimido,comprimido,5 mg,oral,prednisona 5,DEF/BASE_LOCAL,2026-05
+dexametasona,dexametasona 4 mg/ml solucao injetavel,ampola,ampola,4 mg/mL,intravenosa|intramuscular,dexametasona injetavel|decadron injetavel,DEF/BASE_LOCAL,2026-05
+fluoxetina,fluoxetina 20 mg capsula,capsula,capsula,20 mg,oral,fluoxetina 20|prozac 20|floxet 20,DEF/BASE_LOCAL,2026-05
+clonazepam,clonazepam 2 mg comprimido,comprimido,comprimido,2 mg,oral,clonazepam 2|rivotril 2,DEF/BASE_LOCAL,2026-05
+clonazepam,clonazepam 0.5 mg comprimido,comprimido,comprimido,0,5 mg,oral,clonazepam 0 5|rivotril 0 5,DEF/BASE_LOCAL,2026-05
+haloperidol,haloperidol 1 mg comprimido,comprimido,comprimido,1 mg,oral,haloperidol 1|haldol 1,DEF/BASE_LOCAL,2026-05
+ciprofloxacino,ciprofloxacino 500 mg comprimido,comprimido,comprimido,500 mg,oral,ciprofloxacino 500|cipro 500|ciproflox 500,DEF/BASE_LOCAL,2026-05
+ciprofloxacino,ciprofloxacino 3 mg/ml colirio solucao,frasco,frasco,3 mg/mL,oftalmica,ciprofloxacino colirio|ciloxan|ciprofloxacino oftalmo,DEF/BASE_LOCAL,2026-05
+sinvastatina,sinvastatina 20 mg comprimido,comprimido,comprimido,20 mg,oral,sinvastatina 20|zocor 20|sinvastin 20,DEF/BASE_LOCAL,2026-05
+levotiroxina sodica,levotiroxina 25 mcg comprimido,comprimido,comprimido,25 mcg,oral,levotiroxina 25|puran t4 25|euthyrox 25,DEF/BASE_LOCAL,2026-05
+levotiroxina sodica,levotiroxina 50 mcg comprimido,comprimido,comprimido,50 mcg,oral,levotiroxina 50|puran t4 50|euthyrox 50,DEF/BASE_LOCAL,2026-05
+salbutamol,salbutamol 100 mcg/dose aerossol inalatorio,frasco,frasco,100 mcg/dose,inalatoria,salbutamol spray|aerolin|ventolin|salbutamol inalador,DEF/BASE_LOCAL,2026-05
+budesonida,budesonida 200 mcg/dose aerossol inalatorio,frasco,frasco,200 mcg/dose,inalatoria,budesonida spray|pulmicort|budesonida inalador,DEF/BASE_LOCAL,2026-05
+tramadol,tramadol 50 mg capsula,capsula,capsula,50 mg,oral,tramadol 50|tramal 50|tramal retard 50,DEF/BASE_LOCAL,2026-05
+diazepam,diazepam 5 mg comprimido,comprimido,comprimido,5 mg,oral,diazepam 5|valium 5|diazefar 5|noan 5,DEF/BASE_LOCAL,2026-05
+diazepam,diazepam 10 mg comprimido,comprimido,comprimido,10 mg,oral,diazepam 10|valium 10|diazefar 10,DEF/BASE_LOCAL,2026-05
+sertralina,sertralina 50 mg comprimido,comprimido,comprimido,50 mg,oral,sertralina 50|zoloft 50|tolrest 50|assert 50,DEF/BASE_LOCAL,2026-05
+sertralina,sertralina 100 mg comprimido,comprimido,comprimido,100 mg,oral,sertralina 100|zoloft 100|tolrest 100,DEF/BASE_LOCAL,2026-05
+escitalopram,escitalopram 10 mg comprimido,comprimido,comprimido,10 mg,oral,escitalopram 10|lexapro 10|exodus 10|reconter 10,DEF/BASE_LOCAL,2026-05
+escitalopram,escitalopram 20 mg comprimido,comprimido,comprimido,20 mg,oral,escitalopram 20|lexapro 20|exodus 20,DEF/BASE_LOCAL,2026-05
+alprazolam,alprazolam 1 mg comprimido,comprimido,comprimido,1 mg,oral,alprazolam 1|frontal 1|alpraz 1|tranquinal 1,DEF/BASE_LOCAL,2026-05
+captopril,captopril 25 mg comprimido,comprimido,comprimido,25 mg,oral,captopril 25|capoten 25|captosen 25,DEF/BASE_LOCAL,2026-05
+captopril,captopril 50 mg comprimido,comprimido,comprimido,50 mg,oral,captopril 50|capoten 50,DEF/BASE_LOCAL,2026-05
+anlodipino,anlodipino 5 mg comprimido,comprimido,comprimido,5 mg,oral,anlodipino 5|amlodipino 5|norvasc 5|presilam 5|anlo 5,DEF/BASE_LOCAL,2026-05
+anlodipino,anlodipino 10 mg comprimido,comprimido,comprimido,10 mg,oral,anlodipino 10|amlodipino 10|norvasc 10,DEF/BASE_LOCAL,2026-05
+valsartana,valsartana 80 mg comprimido,comprimido,comprimido,80 mg,oral,valsartana 80|diovan 80|valpression 80,DEF/BASE_LOCAL,2026-05
+valsartana,valsartana 160 mg comprimido,comprimido,comprimido,160 mg,oral,valsartana 160|diovan 160,DEF/BASE_LOCAL,2026-05
+atenolol,atenolol 50 mg comprimido,comprimido,comprimido,50 mg,oral,atenolol 50|angipress 50|atenoltrat 50,DEF/BASE_LOCAL,2026-05
+furosemida,furosemida 40 mg comprimido,comprimido,comprimido,40 mg,oral,furosemida 40|lasix 40|neosemid 40,DEF/BASE_LOCAL,2026-05
+pantoprazol,pantoprazol 20 mg comprimido,comprimido,comprimido,20 mg,oral,pantoprazol 20|pantozol 20|peprazol 20,DEF/BASE_LOCAL,2026-05
+pantoprazol,pantoprazol 40 mg comprimido,comprimido,comprimido,40 mg,oral,pantoprazol 40|pantozol 40|eupantol 40,DEF/BASE_LOCAL,2026-05
+esomeprazol,esomeprazol 20 mg comprimido,comprimido,comprimido,20 mg,oral,esomeprazol 20|nexium 20,DEF/BASE_LOCAL,2026-05
+esomeprazol,esomeprazol 40 mg comprimido,comprimido,comprimido,40 mg,oral,esomeprazol 40|nexium 40,DEF/BASE_LOCAL,2026-05
+metoclopramida,metoclopramida 10 mg comprimido,comprimido,comprimido,10 mg,oral,metoclopramida 10|plasil 10|eucil 10,DEF/BASE_LOCAL,2026-05
+ondansetrona,ondansetrona 4 mg comprimido,comprimido,comprimido,4 mg,oral,ondansetrona 4|zofran 4|vonau 4|nausedron 4,DEF/BASE_LOCAL,2026-05
+loratadina,loratadina 10 mg comprimido,comprimido,comprimido,10 mg,oral,loratadina 10|claritin 10|alergaliv 10|histadin 10,DEF/BASE_LOCAL,2026-05
+desloratadina,desloratadina 5 mg comprimido,comprimido,comprimido,5 mg,oral,desloratadina 5|desalex 5|leg 5,DEF/BASE_LOCAL,2026-05
+cefalexina,cefalexina 500 mg capsula,capsula,capsula,500 mg,oral,cefalexina 500|keflex 500|keflin 500,DEF/BASE_LOCAL,2026-05
+sulfametoxazol + trimetoprima,sulfametoxazol trimetoprima 400 80 mg comprimido,comprimido,comprimido,400+80 mg,oral,sulfametoxazol trimetoprima|bactrim|bacteracin|sulfatrim,DEF/BASE_LOCAL,2026-05
+clindamicina,clindamicina 300 mg capsula,capsula,capsula,300 mg,oral,clindamicina 300|clindacin 300|dalacin 300,DEF/BASE_LOCAL,2026-05
+doxiciclina,doxiciclina 100 mg comprimido,comprimido,comprimido,100 mg,oral,doxiciclina 100|vibramicina 100|doxiclat 100,DEF/BASE_LOCAL,2026-05
+fluconazol,fluconazol 150 mg capsula,capsula,capsula,150 mg,oral,fluconazol 150|zoltec 150|fluzol 150|candinaten 150,DEF/BASE_LOCAL,2026-05
+nistatina,nistatina 100000 ui/ml suspensao oral,suspensao oral,frasco,100000 UI/mL,oral,nistatina 100000|micostatin|candistat,DEF/BASE_LOCAL,2026-05
+aciclovir,aciclovir 200 mg comprimido,comprimido,comprimido,200 mg,oral,aciclovir 200|zovirax 200,DEF/BASE_LOCAL,2026-05
+aciclovir,aciclovir 400 mg comprimido,comprimido,comprimido,400 mg,oral,aciclovir 400|zovirax 400,DEF/BASE_LOCAL,2026-05
+glibenclamida,glibenclamida 5 mg comprimido,comprimido,comprimido,5 mg,oral,glibenclamida 5|daonil 5|glimaxol 5,DEF/BASE_LOCAL,2026-05
+gliclazida,gliclazida 30 mg comprimido,comprimido,comprimido,30 mg,oral,gliclazida 30|diamicron 30,DEF/BASE_LOCAL,2026-05
+gliclazida,gliclazida 60 mg comprimido,comprimido,comprimido,60 mg,oral,gliclazida 60|diamicron 60,DEF/BASE_LOCAL,2026-05
+empagliflozina,empagliflozina 10 mg comprimido,comprimido,comprimido,10 mg,oral,empagliflozina 10|jardiance 10,DEF/BASE_LOCAL,2026-05
+empagliflozina,empagliflozina 25 mg comprimido,comprimido,comprimido,25 mg,oral,empagliflozina 25|jardiance 25,DEF/BASE_LOCAL,2026-05
+rosuvastatina,rosuvastatina 10 mg comprimido,comprimido,comprimido,10 mg,oral,rosuvastatina 10|crestor 10|vivacor 10,DEF/BASE_LOCAL,2026-05
+rosuvastatina,rosuvastatina 20 mg comprimido,comprimido,comprimido,20 mg,oral,rosuvastatina 20|crestor 20,DEF/BASE_LOCAL,2026-05
+aas,aas 100 mg comprimido,comprimido,comprimido,100 mg,oral,aas 100|acido acetilsalicilico 100|aspirina prevent 100|somalgin 100,DEF/BASE_LOCAL,2026-05
+clopidogrel,clopidogrel 75 mg comprimido,comprimido,comprimido,75 mg,oral,clopidogrel 75|plavix 75|iscover 75,DEF/BASE_LOCAL,2026-05
