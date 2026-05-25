@@ -59,7 +59,10 @@ _BASE_CSV = os.path.join(
 )
 _BASE_CSV = os.path.normpath(_BASE_CSV)
 
-THRESHOLD_APROXIMADO: int = 82   # score mínimo (0–100) para aceitar match fuzzy
+THRESHOLD_APROXIMADO: int = 88   # 2026-05-25 — subido de 82
+                                  # após bug WRatio "N mg" empate
+                                  # em 85.5 (todas as queries
+                                  # fora da base viravam amoxicilina)
 
 
 # ---------------------------------------------------------------------------
