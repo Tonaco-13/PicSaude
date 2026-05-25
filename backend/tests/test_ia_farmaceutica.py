@@ -217,10 +217,23 @@ class TestLookup:
         assert resultado["principio_ativo"] is None
 
     def test_query_fora_da_base_nao_retorna_falso_positivo(self):
-        """Regressão: WRatio empatava em 85.5 para X mg vs Y mg.
-        Threshold 88 deve barrar todas as 5 queries reportadas."""
-        for q in ['diazepam 5mg', 'captopril 25mg', 'pantoprazol 40mg',
-                  'sertralina 50mg', 'metoclopramida 10mg']:
+        """
+        Invariante: medicamentos plausíveis (não-junk) fora do dicionário
+        não devem virar match via WRatio. Protege contra o bug que motivou
+        o threshold 88 (commit c548be5).
+
+        Queries escolhidas após a expansão TICKET-IA-EXPANSAO-DEF-HOTFIX —
+        medicamentos REAIS que NÃO fazem parte da base ambulatorial do MVP:
+          - tadalafila 5mg / sildenafila 50mg → disfunção erétil
+          - hidroxicloroquina 400mg → anti-malárico
+          - glucosamina 1500mg / vitamina B12 1000mcg → suplementos
+            não-controlados
+
+        Revisitar esta lista quando GFI #62 expandir a base novamente.
+        """
+        for q in ['tadalafila 5mg', 'sildenafila 50mg',
+                  'hidroxicloroquina 400mg', 'glucosamina 1500mg',
+                  'vitamina B12 1000mcg']:
             r = buscar_medicamento(q)
             assert r['match_tipo'] == 'nenhum', \
                 f'{q} deveria ser nenhum, virou {r["principio_ativo"]}'
