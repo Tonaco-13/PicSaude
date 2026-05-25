@@ -251,5 +251,55 @@ git push origin main
 
 ---
 
-*Após push, me retorne para eu validar diff + atualizar GFI #62 (que diminuiu de "200 entradas a partir de 41" para "200 entradas a partir de 81") + atualizar `CONTRIBUTING-EXTENSAO.md` (mudar referência "41 medicamentos" para "81 medicamentos cobertos no MVP estendido").*
+## §11 Fechamento — 2026-05-25 (mesma noite)
+
+Status: **fechado**. Implementação consolidada no commit `579b619` (após amend sobre `3a33cc6` para substituir `nimesulida 100mg` por `glucosamina 1500mg` no teste).
+
+### §11.1 Commits envolvidos
+
+| Commit | Conteúdo |
+|---|---|
+| `c548be5` | Pré-requisito — threshold 82→88 + teste de regressão original (queries: diazepam, captopril, pantoprazol, sertralina, metoclopramida) |
+| `579b619` | Expansão — 41→81 entradas em 5 lotes + reformulação do teste (queries finais: tadalafila, sildenafila, hidroxicloroquina, glucosamina, vitamina B12) + bump `versao_base` 2026-03→2026-05 |
+
+### §11.2 Resultados validados
+
+| Critério §9 | Estado |
+|---|---|
+| 40 linhas novas no CSV, schema correto, 0 duplicatas | ✅ |
+| `versao_base` = `2026-05` em todas as 81 linhas | ✅ |
+| `pytest tests/test_ia_farmaceutica.py -v` verde | ✅ — 65/65 (correção da §11.4 abaixo) |
+| Smoke §5 — todos os 18 cenários ✅ | ✅ — 8 preservados + 5 novos matches + 5 fora-da-base |
+| `GET /ia/status` mostra `total_registros: 81`, `versao_base: "2026-05"` | ✅ |
+| Commit + push autorizados (mensagem padrão §7) | ✅ |
+
+### §11.3 Cuidados do Code que merecem registro
+
+- **Margem do `lantus 100UI` preservada em 0.020 do início ao fim** da expansão. Score 0.9 mantido contra threshold 0.88 em todos os 5 lotes (esperado risco de queda, não materializou).
+- **Decisão correta de amend (vs commit follow-up)** após escolha final da query substituta — commit `3a33cc6` original nunca foi pushado, então amend manteve história limpa em um commit por ticket.
+- **Anlodipino DCB convivendo com amlodipino besilato** registrado como observação não-bloqueante. Vira 2º bullet da GFI #62 (consolidação semântica).
+
+### §11.4 Erro do Arquiteto (mea culpa pequeno)
+
+§5 do ticket estimava `pytest` em **66/66** após o ciclo. Real foi **65/65**. Causa: presumi que o teste `test_query_fora_da_base_nao_retorna_falso_positivo` seria *adicionado* na expansão, mas ele já existia desde `c548be5` (Arquiteto também). O ciclo apenas *reformulou* as queries do teste existente, não adicionou um teste novo. **+0 contagem, não +1.** Não afeta funcionamento — só aritmética narrativa. Registrado aqui para futura calibração quando especificar tickets que tocam testes pré-existentes.
+
+### §11.5 Achado bloqueador resolvido durante o ciclo (Opção A do Arquiteto)
+
+Durante o Lote 1, o Code identificou que as 5 queries do teste de regressão (`diazepam`, `captopril`, `pantoprazol`, `sertralina`, `metoclopramida`) eram exatamente os medicamentos que o ticket adicionaria à base — invariante do teste ficava logicamente impossível. Code reverteu o lote, reportou e pediu decisão.
+
+Arquiteto decidiu **Opção A** (atualizar queries do teste, preservar invariante semântica): substituir as 5 queries por medicamentos plausíveis em categorias "definitely-out" do MVP ambulatorial (ED, anti-malárico especializado, suplementos). Code aplicou após validar com grep contra base completa que nenhuma substituta colidia.
+
+Refinamento posterior do Arquiteto: trocar `nimesulida 100mg` (sugestão inicial — Code apontou risco de inevitabilidade por ser top-3 AINE prescrito no Brasil) por `glucosamina 1500mg` (suplemento articular não-prescrição-controlada — categoria coerente com vitamina B12). Aplicado via amend.
+
+### §11.6 Itens deferidos
+
+- **`aviso_base` em `routers/ia.py:211`** ainda diz "41 medicamentos" — Code respeitou §8 anti-escopo ("NÃO TOCAR código"). Vai junto com a spec do seed do Cidadão demo (próxima rodada).
+- **GFI #62 atualizado** com 2 bullets: (a) atenção ao teste de regressão antes de expandir; (b) consolidação de entradas semanticamente próximas (anlodipino × amlodipino besilato).
+- **`CONTRIBUTING-EXTENSAO.md` atualizado** — referência mudou de "41 medicamentos" para "81 medicamentos (subset MVP estendido — expansão completa via GFI #62)".
+- **Estratégia de teste "fora-da-base"** monitorada como dívida arquitetural longa: enquanto ED, anti-malárico especializado e suplementos permanecerem fora do escopo do MVP ambulatorial, queries são robustas. Se algum desses entrar por demanda regulatória futura, repensar para gerar queries aleatórias a partir de whitelist "definitely-out" mantida separadamente do CSV.
+
+### §11.7 Próximos passos imediatos
+
+1. Code aplica `aviso_base` "41 → 81" em commit junto com seed do Cidadão demo (spec na fila).
+2. Quando CODEX rodada 3 sobre `origin/main` consolidado entregar zero P1, Etapa 6 fecha formalmente. Este ticket de hotfix é satélite da Etapa 6 — não bloqueia o fechamento dela.
 — Arquiteto (Opus 4.7)

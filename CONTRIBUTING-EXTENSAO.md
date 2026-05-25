@@ -156,12 +156,12 @@ A "IA" do PicSaúde é **lookup determinístico contra bases CSV locais**, com r
 
 | Endpoint | Base local | Tamanho atual (MVP) |
 |---|---|---|
-| `/ia/medicamentos/sugerir` | `data/def_medicamentos.csv` | 41 medicamentos (top RENAME) |
+| `/ia/medicamentos/sugerir` | `data/def_medicamentos.csv` | **81 medicamentos** (subset MVP estendido — expansão completa via GFI #62) |
 | `/ia/exames/normalizar` | `BASE_TUSS` (in-code) | 38 exames |
 | `/ia/cid/buscar` | `BASE_CID` (in-code) | ~240 códigos CID-10 |
 | `/ia/documentos/atestado/validar` | Regras determinísticas (sem base) | — |
 
-**Quando o backend responde `match_tipo: "nenhum"`**, significa que o termo que você digitou não está na base. **Não é bug — é cobertura limitada do MVP.** Por exemplo, "rivotril" funciona (é alias de clonazepam, está na base); "diazepam" não funciona (não está na base inicial).
+**Quando o backend responde `match_tipo: "nenhum"`**, significa que o termo que você digitou não está na base. **Não é bug — é cobertura limitada do MVP.** Por exemplo, "rivotril" funciona (é alias de clonazepam, está na base); "tadalafila" não funciona (categoria de disfunção erétil está deliberadamente fora do MVP ambulatorial — vire GFI se quiser propor inclusão).
 
 A primeira good-first-issue dessa categoria é a **GFI #62** (expandir `def_medicamentos.csv` para top-200 RENAME) — veja em `docs/issues/ISSUE-expandir-def-medicamentos.md`.
 
