@@ -65,6 +65,38 @@ Antes de abrir o PR, confira:
 - [ ] Manual: subir o servidor (`PICSAUDE_DEMO_MODE=true python3 scripts/reset_demo_db.py && PICSAUDE_DEMO_MODE=true uvicorn app.main:app --reload --app-dir .`), chamar `GET /ia/status` e confirmar `total_registros >= 200`.
 - [ ] Manual: testar 5 medicamentos que estavam fora antes (ex: diazepam, captopril, anlodipino, pantoprazol, sertralina) e confirmar que retornam `match_tipo: "exato"` ou `"alias"`.
 
+## ⚠️ Atenção crítica antes de adicionar entradas (atualizado 2026-05-25)
+
+Existe um teste de regressão chamado `test_query_fora_da_base_nao_retorna_falso_positivo` em `backend/tests/test_ia_farmaceutica.py` que protege contra o bug do `WRatio` que estava confundindo classes terapêuticas (corrigido em `c548be5`).
+
+Esse teste contém uma lista de medicamentos **plausíveis** que devem continuar retornando `match_tipo: "nenhum"` mesmo depois da expansão da base. Lista atual (após hotfix 2026-05-25):
+
+```
+tadalafila 5mg, sildenafila 50mg, hidroxicloroquina 400mg,
+glucosamina 1500mg, vitamina B12 1000mcg
+```
+
+**Antes de adicionar qualquer medicamento ao CSV:** rode `grep -i "<medicamento>" backend/tests/test_ia_farmaceutica.py` para confirmar que ele não está na lista de "fora-da-base esperado".
+
+Se uma das suas adições colidir com a lista do teste:
+- **NÃO remova o teste** — ele protege contra bug crítico já reportado.
+- **NÃO troque a lista para junk** (`'xyz 999'`) — `test_nenhum_para_junk` já cobre isso.
+- **SUBSTITUA** a query colidida por outra medicamento da MESMA categoria de "definitely-out" (ED, suplementos, anti-malárico especializado, etc).
+
+Veja o histórico: no hotfix de 25/05, a lista original do teste (`diazepam, captopril, pantoprazol, sertralina, metoclopramida`) precisou ser renovada porque todos esses 5 entraram na base. Lista nova foi escolhida nas categorias acima por improbabilidade de entrar em rodadas próximas — mas o próximo grande aumento (esta GFI) precisa reverificar.
+
+### Consolidação de entradas semanticamente próximas (segunda atenção)
+
+A expansão de 25/05 (commit `579b619`) adicionou `anlodipino` (DCB brasileira, sem **M**) como princípio ativo principal, com `amlodipino` (com **M**) como alias. Mas a base já tinha a linha legada `amlodipino besilato 5 mg comprimido` (ID original do MVP). **Hoje a base tem 2 entradas semanticamente próximas convivendo**, uma puxando pela DCB nova brasileira e outra pelo nome antigo do princípio ativo + sal.
+
+Isso é tolerável (lookup encontra ambos via aliases cruzados), mas é dívida arquitetural pequena. Ao trabalhar nesta GFI, considere:
+
+1. **Auditar entradas duplicadas** — rodar `grep` por princípio ativo na coluna `nome_normalizado` e identificar onde há mais de uma entrada para o mesmo PA com forma+concentração diferentes (esperado: várias linhas legítimas) vs onde há entradas redundantes (mesmo PA + mesma forma + mesma concentração com naming diferente — caso do anlodipino).
+2. **Decidir convenção** — para cada caso, escolher **uma** convenção de nome (preferência: DCB atual da Anvisa) e listar variações antigas como aliases.
+3. **Não consolidar agressivamente** — entradas que servem propósitos clínicos diferentes (ex: amoxicilina vs amoxicilina+clavulanato) devem permanecer separadas. Consolidação só onde há clara redundância semântica.
+
+Resultado esperado: base ≥ 200 entradas com **0 duplicatas semânticas redundantes**, mantendo riqueza de aliases para cobrir variações coloquiais e nomes comerciais.
+
 ## O que NÃO está no escopo (não faça)
 
 - **Não tocar no código** (`backend/app/ai/lookup_def.py`, `ia_farmaceutica.py`, etc.). É 100% trabalho de dados.
