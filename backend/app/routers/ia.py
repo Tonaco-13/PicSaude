@@ -208,6 +208,7 @@ def status_ia(
             "versao_base":     versao,
             "fonte":           "DEF/BASE_LOCAL",
             "modelo":          "lookup + regras (v1 — sem ML)",
+            "aviso_base":      "Subset MVP (41 medicamentos). Será expandido para top-200 RENAME em GFI #62.",
         },
         "exames": {
             "base_carregada":  BASE_TUSS.total > 0,
