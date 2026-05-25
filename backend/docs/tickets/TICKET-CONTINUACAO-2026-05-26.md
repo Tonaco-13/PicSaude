@@ -174,3 +174,5 @@ ls backend/docs/tickets/TICKET-*.md | tail -10
 
 *Fim do ticket de continuação. Boa sessão amanhã.*
 — Arquiteto (Opus 4.7), 25/05/2026 19h
+
+- GFI #63 aberta em `fef824f`: `docs/issues/ISSUE-alias-cid-wratio-cruzado.md`, com alternativa heurística de filtro por capítulo CID-10 para secundárias WRatio cruzadas.
