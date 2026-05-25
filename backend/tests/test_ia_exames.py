@@ -204,6 +204,14 @@ class TestNormalizarExame:
         assert resp["fonte"] is None
         assert resp["versao_base"] is None
 
+    def test_query_curta_nao_retorna_tuss_aleatorio(self):
+        """Regressão Jules 2026-05-25: 'rx' virava 40901060
+        (Radiografia Torax) com score 0.90. Threshold 0.80 era frágil."""
+        r = normalizar_exame("rx")
+        assert r["match_tipo"] == "nenhum", \
+            f'rx deveria ser nenhum (entrada ambígua), virou ' \
+            f'{r.get("codigo_tuss")} {r.get("nome_padronizado")}'
+
     def test_aviso_presente(self):
         resp = normalizar_exame("hemograma")
         assert resp["aviso"]

@@ -96,12 +96,19 @@ def normalizar_exame(
             match_tipo = "alias"
             score = 1.0
     else:
-        # --- Lookup fuzzy ---
-        registro_fuzzy, score_fuzzy = BASE_TUSS.buscar_fuzzy(nome_norm)
-        if registro_fuzzy:
-            registro = registro_fuzzy
-            match_tipo = "aproximado"
-            score = score_fuzzy
+        # Guard: entradas com <3 chars que NÃO bateram em alias exato são
+        # ambíguas. Ex: "rx" → o normalizador expande para "radiografia"
+        # → WRatio bate "radiografia do torax" com score 0.90, gerando
+        # falso positivo (JULES-AUDIT 2026-05-25). Aliases curtos legítimos
+        # (tsh, ecg, hdl, etc.) passam por buscar_exato acima e não chegam
+        # aqui.
+        if len((nome_exame or "").strip()) >= 3:
+            # --- Lookup fuzzy ---
+            registro_fuzzy, score_fuzzy = BASE_TUSS.buscar_fuzzy(nome_norm)
+            if registro_fuzzy:
+                registro = registro_fuzzy
+                match_tipo = "aproximado"
+                score = score_fuzzy
 
     # --- Consolidar alertas ---
     alertas: list[str] = list(registro["alertas_base"]) if registro else []

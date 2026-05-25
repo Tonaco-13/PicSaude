@@ -503,7 +503,10 @@ class _BaseCID:
         self,
         texto_normalizado: str,
         max_resultados: int = 5,
-        threshold: float = 0.75,
+        threshold: float = 0.88,   # 2026-05-25 JULES-AUDIT — subido de 0.75
+                                    # apos bug WRatio "dor de cabeca" -> A09
+                                    # (Diarreia) e "infeccao urinaria" -> A56
+                                    # (Clamidia). Mesmo padrao c548be5.
     ) -> list[tuple[dict, float, str]]:
         """
         Busca registros compatíveis com o texto normalizado.
