@@ -216,6 +216,15 @@ class TestLookup:
         assert resultado["score"] == 0.0
         assert resultado["principio_ativo"] is None
 
+    def test_query_fora_da_base_nao_retorna_falso_positivo(self):
+        """Regressão: WRatio empatava em 85.5 para X mg vs Y mg.
+        Threshold 88 deve barrar todas as 5 queries reportadas."""
+        for q in ['diazepam 5mg', 'captopril 25mg', 'pantoprazol 40mg',
+                  'sertralina 50mg', 'metoclopramida 10mg']:
+            r = buscar_medicamento(q)
+            assert r['match_tipo'] == 'nenhum', \
+                f'{q} deveria ser nenhum, virou {r["principio_ativo"]}'
+
     def test_alias_novalgina(self):
         resultado = buscar_medicamento("novalgina 500")
         assert resultado["match_tipo"] in ("alias", "exato", "aproximado")
