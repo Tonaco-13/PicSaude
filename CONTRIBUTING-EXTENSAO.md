@@ -148,6 +148,34 @@ Não é uma regra rígida. Se ficar em dúvida, pergunte na issue ou no PR. O im
 
 ---
 
+## Sobre a "IA" do PicSaúde — o que é e o que não é
+
+O PicSaúde tem endpoints chamados `/ia/medicamentos/sugerir`, `/ia/cid/buscar`, `/ia/exames/normalizar` e `/ia/documentos/atestado/validar`. O nome induz expectativa de que existe um modelo de linguagem (tipo GPT/ChatGPT) por trás. **Não existe.**
+
+A "IA" do PicSaúde é **lookup determinístico contra bases CSV locais**, com regras de fuzzy match (rapidfuzz). Mesma entrada → mesma saída, sempre. Sem chamadas externas, sem custo de API, sem aprendizado, sem alucinação.
+
+| Endpoint | Base local | Tamanho atual (MVP) |
+|---|---|---|
+| `/ia/medicamentos/sugerir` | `data/def_medicamentos.csv` | 41 medicamentos (top RENAME) |
+| `/ia/exames/normalizar` | `BASE_TUSS` (in-code) | 38 exames |
+| `/ia/cid/buscar` | `BASE_CID` (in-code) | ~240 códigos CID-10 |
+| `/ia/documentos/atestado/validar` | Regras determinísticas (sem base) | — |
+
+**Quando o backend responde `match_tipo: "nenhum"`**, significa que o termo que você digitou não está na base. **Não é bug — é cobertura limitada do MVP.** Por exemplo, "rivotril" funciona (é alias de clonazepam, está na base); "diazepam" não funciona (não está na base inicial).
+
+A primeira good-first-issue dessa categoria é a **GFI #62** (expandir `def_medicamentos.csv` para top-200 RENAME) — veja em `docs/issues/ISSUE-expandir-def-medicamentos.md`.
+
+Por que escolhemos lookup determinístico em vez de LLM:
+
+1. **Auditável.** Cada sugestão tem origem rastreável (linha do CSV, score do match) — exigência regulatória da Anvisa para prescrição digital.
+2. **Determinístico.** Mesma entrada → mesma saída. Crítico para reproduzibilidade em saúde pública.
+3. **Sem custo recorrente.** SMS rodando o sistema local não paga API.
+4. **Sem alucinação.** LLM pode sugerir medicamento que não existe. Lookup nunca.
+
+O preço pago: **base precisa ser expandida manualmente**, e a UX precisa sinalizar claramente quando "nenhum match" significa "não sabemos" em vez de "nada existe". Esse é o cuidado contínuo que esperamos da equipe.
+
+---
+
 ## Primeiros tickets sugeridos (`good-first-issue`)
 
 Três issues abertas e dimensionadas para primeira contribuição. Escolha **uma** para começar e comente "eu pego" na issue.

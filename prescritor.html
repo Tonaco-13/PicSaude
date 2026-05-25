@@ -96,6 +96,9 @@
         .ia-bloco + .ia-bloco { margin-top: 6px; }
         .ia-bloco-sugestao { background: #f0fdf4; border: 1px solid #86efac; padding: 10px 14px; }
         .ia-bloco-alerta   { background: #fffbeb; border: 1px solid #fcd34d; padding: 8px 12px; }
+        .ia-bloco-neutro   { background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 12px; }
+        .ia-bloco-neutro .ia-header { color: #475569; }
+        .ia-neutro-msg     { font-size: 11px; color: #475569; line-height: 1.4; }
         .ia-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #166534; margin-bottom: 7px; }
         .ia-chips  { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .ia-chip   { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
@@ -2052,9 +2055,14 @@
             const score    = typeof data.score === 'number' ? data.score : 0;
             const fonte    = data.fonte || '';
 
-            // Sem nada útil → limpar silenciosamente
+            // Sem match e sem alertas → feedback neutro (não silenciar; evita percepção
+            // "IA quebrou" quando o usuário busca fora da base local de 41 medicamentos).
             if (!forma && !unidade && alertas.length === 0) {
-                container.innerHTML = '';
+                container.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro">' +
+                    '<div class="ia-header">Sem correspondência na base</div>' +
+                    '<div class="ia-neutro-msg">Nenhuma sugestão na base local (MVP — 41 medicamentos cobertos). Continue digitando livremente.</div>' +
+                    '</div>';
                 return;
             }
 
