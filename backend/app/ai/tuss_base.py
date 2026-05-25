@@ -424,7 +424,14 @@ class _BaseTUSS:
     def buscar_exato(self, nome_normalizado: str) -> Optional[dict]:
         return self._por_nome.get(nome_normalizado) or self._por_alias.get(nome_normalizado)
 
-    def buscar_fuzzy(self, nome_normalizado: str, threshold: float = 0.80) -> tuple[Optional[dict], float]:
+    def buscar_fuzzy(
+        self,
+        nome_normalizado: str,
+        threshold: float = 0.88,   # 2026-05-25 JULES-AUDIT — subido de 0.80
+                                    # apos bug WRatio "rx" -> 40901060
+                                    # (Radiografia Torax) score=0.90.
+                                    # Mesmo padrao c548be5.
+    ) -> tuple[Optional[dict], float]:
         """
         Retorna (registro, score) ou (None, 0.0) se abaixo do threshold.
         """

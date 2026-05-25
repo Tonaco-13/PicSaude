@@ -1999,7 +1999,14 @@
             })
             .then(r => { if (!r.ok) throw new Error('ia_err'); return r.json(); })
             .then(data => _renderizarSugestaoIA(n, data))
-            .catch(() => { const c = card.querySelector('.ia-container'); if (c) c.innerHTML = ''; });
+            .catch(() => {
+                const c = card.querySelector('.ia-container');
+                if (c) c.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro">' +
+                    '<div class="ia-header">IA indispon&iacute;vel</div>' +
+                    '<div class="ia-neutro-msg">N&atilde;o foi poss&iacute;vel consultar a base agora. Tente novamente em alguns segundos.</div>' +
+                    '</div>';
+            });
         }
 
         /**
@@ -2161,7 +2168,14 @@
             })
             .then(r => { if (!r.ok) throw new Error('ia_cid_err'); return r.json(); })
             .then(data => _renderizarSugestoesCid(containerId, hiddenId, data))
-            .catch(() => { const c = document.getElementById(containerId); if (c) c.innerHTML = ''; });
+            .catch(() => {
+                const c = document.getElementById(containerId);
+                if (c) c.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro">' +
+                    '<div class="ia-header">IA indispon&iacute;vel</div>' +
+                    '<div class="ia-neutro-msg">N&atilde;o foi poss&iacute;vel consultar a base agora. Tente novamente em alguns segundos.</div>' +
+                    '</div>';
+            });
         }
 
         /**
@@ -2368,7 +2382,14 @@
             })
             .then(r => { if (!r.ok) throw new Error('ia_exame_err'); return r.json(); })
             .then(data => _renderizarNormalizacaoExame(n, data))
-            .catch(() => { const c = document.querySelector(`#exame-item-${n} .ia-exame-container`); if (c) c.innerHTML = ''; });
+            .catch(() => {
+                const c = document.querySelector(`#exame-item-${n} .ia-exame-container`);
+                if (c) c.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro">' +
+                    '<div class="ia-header">IA indispon&iacute;vel</div>' +
+                    '<div class="ia-neutro-msg">N&atilde;o foi poss&iacute;vel consultar a base agora. Tente novamente em alguns segundos.</div>' +
+                    '</div>';
+            });
         }
 
         /**

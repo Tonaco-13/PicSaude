@@ -252,6 +252,20 @@ class TestBuscarCid:
         # Na v1 o comportamento é idêntico
         assert res_geral["cid_sugeridos"] == res_prescricao["cid_sugeridos"]
 
+    def test_query_clinica_plausivel_nao_retorna_cid_de_outra_categoria(self):
+        """Regressão Jules 2026-05-25: 'dor de cabeca' virava A09
+        (Diarreia), 'infeccao urinaria' virava A56.0 (Clamidia).
+        Threshold 0.75 era frágil."""
+        casos = [
+            ('dor de cabeca',      ['A09', 'A09.0', 'A09.9']),  # categorias A09 são GI
+            ('infeccao urinaria',  ['A56', 'A56.0']),           # A56 é DST clamidia
+        ]
+        for query, codigos_proibidos in casos:
+            r = buscar_cid(query)
+            for sugestao in r.get('cid_sugeridos', []):
+                assert sugestao['codigo'] not in codigos_proibidos, \
+                    f'{query} sugeriu {sugestao["codigo"]} ({sugestao.get("descricao")})'
+
 
 # ---------------------------------------------------------------------------
 # Classe 4 — Endpoints FastAPI
