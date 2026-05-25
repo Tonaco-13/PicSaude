@@ -1,12 +1,12 @@
 # PicSaúde
 
 [![Licença: AGPL v3](https://img.shields.io/badge/Licença-AGPL_v3-blue.svg)](LICENSE)
-[![Testes](https://img.shields.io/badge/testes-146%20passando-brightgreen.svg)](#)
+[![Testes](https://img.shields.io/badge/testes-1267%20passando-brightgreen.svg)](#)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 Sistema brasileiro de prescrição digital com assinatura ICP-Brasil PAdES-B, motor regulatório RDC 1.000/2025 e ledger de auditoria imutável.
 
-> **Status:** backend funcional (146/146 testes passando). Demo público e deploy em URL pública estão em preparação. Veja `docs/PROJETO-PICSAUDE-OPUS.md` para o roadmap.
+> **Status:** backend funcional (1267 testes passando). Modo demo público (`PICSAUDE_DEMO_MODE`) implementado — veja Quick Start abaixo. Deploy em URL pública em preparação. Roadmap em `docs/PLANO-PRODUCAO-V2.md`.
 
 ---
 
@@ -37,30 +37,48 @@ Funcionalidades implementadas:
 - Assinatura digital PAdES-B com pyHanko
 - Cofre AES-256-GCM para certificados `.pfx`
 - Ledger de auditoria imutável e cadeia de custódia explícita
-- 146 testes (unitários + integração)
+- Modo demo público com sessões pré-semeadas (`PICSAUDE_DEMO_MODE`) — isolado do banco de produção, reset horário
+- 1267 testes (unitários + integração + E2E)
 
 ---
 
 ## Quick Start (5 min)
 
 ```bash
-git clone https://github.com/tonaco-13/picsaude.git
-cd picsaude/backend
+git clone https://github.com/Tonaco-13/PicSaude.git
+cd PicSaude/backend
 
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-DEMO_MODE=true uvicorn app.main:app --reload
-# Abra http://localhost:8000/docs (Swagger interativo)
+# 1) Criar e popular o banco demo (3 personas pré-semeadas)
+PICSAUDE_DEMO_MODE=true python3 scripts/reset_demo_db.py
+
+# 2) Subir o backend em modo demo
+PICSAUDE_DEMO_MODE=true uvicorn app.main:app --reload --app-dir .
 ```
+
+Abra `http://localhost:8000` no navegador — a tela inicial mostra o seletor de personas com banner amarelo **MODO DEMO**. O endpoint `/docs` continua disponível para explorar a API (Swagger).
 
 Para rodar os testes:
 
 ```bash
-cd backend && pytest
+cd backend && pytest -q
 ```
 
 Pré-requisitos: Python 3.10+. Em produção, PostgreSQL 15+. Em demo, SQLite (sem configuração adicional).
+
+### O que você verá no demo
+
+- Banner amarelo no topo de todas as páginas: **MODO DEMO** com horário do próximo reset
+- 3 cards de persona na tela inicial: **Prescritor** (Dra. Demo Maria Souza), **Dispensador** (Farmácia Demo Central), **Cidadão** (João Demo da Silva) — login real fica desabilitado em demo
+- Marca d'água "DEMO" diagonal em todas as receitas PDF geradas (impede uso fraudulento)
+- Banco demo é arquivo separado (`data/pix_saude_demo.db`) — fisicamente isolado do banco de produção
+- Reset horário automático: a cada hora cheia o estado do demo volta ao inicial (cron entra na Etapa 8/deploy)
+
+### Para extensionistas UFPE
+
+Este projeto também é projeto de extensão do CTG/UFPE. Se você está chegando agora pela equipe de extensão, leia [`CONTRIBUTING-EXTENSAO.md`](CONTRIBUTING-EXTENSAO.md) primeiro — tem mapa do repo, primeiros tickets sugeridos (`good-first-issue`), explicação da convenção de naming híbrido pt-BR / en, e o roteiro de homologação manual para validar o demo.
 
 ---
 
