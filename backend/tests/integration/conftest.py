@@ -39,18 +39,36 @@ from __future__ import annotations
 import os
 import sys
 
+import pytest  # importado cedo para permitir skip module-level
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
 # ---------------------------------------------------------------------------
-# GUARDRAIL — recusar rodar fora do banco de teste
+# Skip de plataforma — extensionistas Windows/SQLite sem PostgreSQL
+# (Jules audit P2#10, 2026-05-25). Posicionado ANTES dos imports pesados
+# (psycopg2, alembic) para não exigir que sejam instaláveis em todas as
+# plataformas. Quem quiser rodar os testes de integração precisa de PG.
+# ---------------------------------------------------------------------------
+if not DATABASE_URL.startswith("postgresql"):
+    pytest.skip(
+        "backend/tests/integration/ requer PostgreSQL. "
+        "Configure DATABASE_URL=postgresql://user:senha@localhost/picsaude_test "
+        "ou rode pytest excluindo essa pasta: "
+        "pytest --ignore=backend/tests/integration/",
+        allow_module_level=True,
+    )
+
+# ---------------------------------------------------------------------------
+# Guardrail rígido — recusar rodar fora do banco de teste
 # ---------------------------------------------------------------------------
 # Deve acontecer ANTES de qualquer `from app...` porque `app.database` lê
 # DATABASE_URL no import e cacheia o engine.
 
-DATABASE_URL_TEST = os.environ.get("DATABASE_URL", "")
-if "test" not in DATABASE_URL_TEST.lower():
+if "test" not in DATABASE_URL.lower():
     raise RuntimeError(
         "ABORTANDO: DATABASE_URL não contém 'test'. "
         "Recuse-se a rodar testes de integração fora do banco de teste. "
-        f"DATABASE_URL atual: {DATABASE_URL_TEST[:60]}..."
+        f"DATABASE_URL atual: {DATABASE_URL[:60]}..."
     )
 
 # ---------------------------------------------------------------------------
@@ -65,7 +83,6 @@ from pathlib import Path
 
 import psycopg2
 import psycopg2.extensions
-import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
@@ -224,7 +241,7 @@ _ROUTERS_COM_GET_CONN_LOCAL = (
 @pytest.fixture
 def outer_conn():
     """Uma raw psycopg2 conn por teste, com outer tx aberto. Roll back no final."""
-    raw = psycopg2.connect(DATABASE_URL_TEST)
+    raw = psycopg2.connect(DATABASE_URL)
     raw.autocommit = False  # garante que BEGIN implícito acontece
     try:
         # Força um BEGIN explícito para que os savepoints tenham envelope

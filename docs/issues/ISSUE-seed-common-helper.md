@@ -111,6 +111,29 @@ PICSAUDE_ENV=dev PICSAUDE_DEMO_MODE=true python3 seed_demo.py
 - **Não tocar** em `seed_demo.py:39-56` (constantes das personas: CNS, CNPJ, CPF, nomes). São dados, não helpers.
 - Tests existentes (`pytest -q`) devem continuar verdes.
 
+## Como rodar em diferentes sistemas
+
+Os exemplos com `PICSAUDE_DEMO_MODE=true uvicorn ...` (ou `PICSAUDE_DEMO_MODE=true python3 seed_demo.py`) assumem bash (Linux/macOS/WSL). Em Windows nativo, use uma das variantes abaixo:
+
+**PowerShell (Windows):**
+```powershell
+$env:PICSAUDE_DEMO_MODE="true"
+uvicorn app.main:app --reload
+```
+
+**CMD (Windows):**
+```cmd
+set PICSAUDE_DEMO_MODE=true
+uvicorn app.main:app --reload
+```
+
+**Bash (Linux / macOS / WSL):**
+```bash
+PICSAUDE_DEMO_MODE=true uvicorn app.main:app --reload
+```
+
+Para desligar o modo demo, feche o terminal ou faça `unset PICSAUDE_DEMO_MODE` (bash) / `Remove-Item Env:PICSAUDE_DEMO_MODE` (PowerShell) / `set PICSAUDE_DEMO_MODE=` (CMD).
+
 ## Critério de aceite
 
 - 1 commit, mensagem `refactor(seed): extrair helpers compartilhados para seed_common.py`

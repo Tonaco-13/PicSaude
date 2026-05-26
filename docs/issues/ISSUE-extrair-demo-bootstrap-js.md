@@ -35,6 +35,29 @@ Se a gente quiser mudar o layout do banner, hoje precisa editar 5+ arquivos. Tod
 - O `validar.html` tem comportamento ligeiramente diferente (selo "DEMO" em vez de banner). Verificar se o helper compartilhado serve ou se esse arquivo continua inline.
 - **Não tocar em `clinica.html`** além do banner — o redirect para `/index.html` em demo é específico desse arquivo.
 
+## Como rodar em diferentes sistemas
+
+Os exemplos com `PICSAUDE_DEMO_MODE=true uvicorn ...` assumem bash (Linux/macOS/WSL). Em Windows nativo, use uma das variantes abaixo:
+
+**PowerShell (Windows):**
+```powershell
+$env:PICSAUDE_DEMO_MODE="true"
+uvicorn app.main:app --reload
+```
+
+**CMD (Windows):**
+```cmd
+set PICSAUDE_DEMO_MODE=true
+uvicorn app.main:app --reload
+```
+
+**Bash (Linux / macOS / WSL):**
+```bash
+PICSAUDE_DEMO_MODE=true uvicorn app.main:app --reload
+```
+
+Para desligar o modo demo, feche o terminal ou faça `unset PICSAUDE_DEMO_MODE` (bash) / `Remove-Item Env:PICSAUDE_DEMO_MODE` (PowerShell) / `set PICSAUDE_DEMO_MODE=` (CMD).
+
 ## Critério de aceite
 
 - 1 commit, mensagem `refactor(frontend): extrair demo bootstrap para js/demo-bootstrap.js`
