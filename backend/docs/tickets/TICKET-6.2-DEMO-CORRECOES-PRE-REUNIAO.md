@@ -254,9 +254,17 @@ Após o commit, preencher §10 deste ticket com:
 
 ---
 
-## §9 Reservado — CODEX rodada 3 sobre este ticket
+## §9 CODEX rodada 3 sobre este ticket (2026-05-27) — integrado
 
-*Será preenchido se CODEX rodada 3 absorver este commit (esperado). Caso CODEX traga P1, abrir TICKET-6.3 conforme pacto.*
+CODEX rodada 3 revisou o range `9eb7228..6c0da36` (cobre TICKET-6.1 + TICKET-DX-PRE-EXTENSAO + TICKET-6.2). Resultado: **zero P1 + 1 P2 de calibração documental**.
+
+| # | Severidade | Achado | Decisão | Aplicado em |
+|---|---|---|---|---|
+| 1 | — | Fix A graceful CNES validado | ✅ confirmado | try/except só engole "no such table"; outras OperationalError re-raise; smoke com SQLite temporário confirmou `false` sem tabela e `true` com CNES compatível |
+| 2 | — | Fix B rate limit validado | ✅ confirmado | multiplicador import-time aceitável; brute force OTP em demo bloqueado por `demo_mode_ativo` em `/auth/token` |
+| 3 | P2 | Fix C cenário "física online → UUID sem hint" não atingível no comprovante imediato | ✅ Aceito como calibração documental (não fix técnico) | §3.4 do escopo atualizado: receita física **sempre** REC-XXXX + hint amber; calibração completa em §11.4 do TICKET-6 |
+
+Como **zero P1** veio na rodada, este ticket fechou junto com o TICKET-6 e TICKET-6.1 no marco da Etapa 6 (2026-05-27). Não há TICKET-6.3 a abrir.
 
 ## §10 Output do Code pós-impl (2026-05-26)
 
@@ -348,9 +356,8 @@ PICSAUDE_DEMO_MODE not set:
 - HTML: `<p id="print-protocolo-hint">` inserido em `prescritor.html:729`
 - JS: lógica condicional em `prescritor.html:1818-1838` discrimina `rec.protocolo_backend` vs `rec.id`
 - Receita digital → comprovante mostra UUID, sem hint
-- Receita física com backend online (após resolver fire-and-forget): comprovante mostra UUID, sem hint
-- Receita física sem backend ou pré-resolver: comprovante mostra REC-XXXX + hint amber
-- Validação visual completa fica para checklist manual antes da reunião 27/05
+- Receita física → comprovante **sempre** mostra REC-XXXX + hint amber (calibração registrada em §11.4 do TICKET-6 após CODEX rodada 3 — o cenário "física online → UUID sem hint" não é atingível no comprovante imediato sem violar o contrato fire-and-forget do CLAUDE.md §6; `exibirSucessoEImpressao` roda antes do `.then()` da promessa `/prescricoes/fisica` resolver).
+- Validação visual confirmou empiricamente o que CODEX rodada 3 apontou no parecer P2.
 
 ### Observações inesperadas
 
