@@ -4,7 +4,7 @@
 >
 > **Classe (CLAUDE.md §10):** `docs`
 >
-> **Versão:** 2.1 (2026-05-26 — Etapa 5C-bis inserida)
+> **Versão:** 2.3 (2026-05-27 — Etapa 6 fechada + Motor Regulatório como frente paralela + decisão deploy=demo)
 
 ---
 
@@ -31,6 +31,7 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 | 5 — Bloqueadores pré-deploy | ✅ **Fechada (2026-05-24)** | **5A** ✅ `e09dc3e`+`66547e4`+`f82b0da`, **5B** ✅ `5fa6902`, **5C** ✅ `01c67fa`+`b020770` (CODEX rodada 2 zero P1; 3 follow-ups #52/#53/#54 em §11 do ticket), **5D** ✅ `6ff6910`. Ver §5 abaixo. |
 | 6 — `DEMO_MODE` + seletor de papéis | ✅ **Fechada (2026-05-27)** | **TICKET-6** ✅ `94f73cd` (feat demo mode + 7 decisões), **TICKET-6.1** ✅ `9eb7228` (3 P1 + 2 P2 da CODEX rodada 2), arquivamento `a01fec6`, **TICKET-DX-PRE-EXTENSAO** ✅ `5db20ef` (Jules audit P2#4 + P2#10), **TICKET-6.2** ✅ `6c0da36` (3 fixes pré-reunião: CNES graceful + rate limit demo + UUID/REC no comprovante). CODEX rodada 3 zero P1; 1 P2 de calibração documental do Fix C (não bug — fire-and-forget). Ver §11 do TICKET-6. |
 | 5C-bis — Autorização nos 5 subdomínios sucessores | ⛔ **Próximo bloqueador** | **Decisão de 2026-05-26.** MVP ampliado para incluir exames, agendamentos, laudos, hospitalar e circulação antes do deploy público. Spike TICKET-5C-BIS-0 (v0.2 após CODEX rodada 0) + 5 tickets A-E paralelos. Ver §5C-bis abaixo. |
+| Motor Regulatório (demo-grade) — paralelo ao 5C-bis | ⛔ **Em paralelo** | **Decisão de 2026-05-27.** Motor já implementado 70-80% (TICKET-15 + 18 + 20). Falta: auditoria do `catalogo_seed.py` (55 substâncias) pelos extensionistas, UI dos alertas no `prescritor.html`, integração IA DEF ↔ catálogo. Tickets sucessores: **TICKET-MOTOR-REGULATORIO-AUDITORIA-CATALOGO** (extensionistas) + **TICKET-MOTOR-REGULATORIO-UI-ALERTAS** (Code + Arquiteto). Ver §Motor Regulatório abaixo. |
 | 7 — Dockerfile | ⛔ Não feito | |
 | 8 — Deploy Render + frontend Cloudflare | ⛔ Não feito | |
 | 9 — Labels + issues `good-first-issue` | ⛔ Não feito | **Expandido para 12 issues — ver §9 abaixo** |
@@ -49,6 +50,8 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 - **CPF sentinela `00000000000`** + máscara de CPF: issue redigida em `docs/issues/ISSUE-mascara-cpf.md`.
 - **Modelo de licenciamento comercial:** Caminho 2 (Opção A fixa por porte + Opção B com piso R$15k/teto R$600k + 7 sub-cláusulas de salvaguarda).
 - **MVP estendido antes do deploy público (2026-05-26):** o deploy do Render (Etapa 8) incluirá autorização mínima fechada nos 5 subdomínios sucessores do 5C (exames, laudos, agendamentos, circulação diagnóstica, hospitalar), não apenas o ambulatorial. Coerência com a essência do PicSaúde como plataforma de circulação de objetos sanitários (receitas + agendamentos + pedidos de exame). Operacionalizada na **Etapa 5C-bis** (entre Etapa 6 e Etapa 7). Carteira de paciente fica como ticket independente entre Etapas 7 e 8.
+- **Deploy público = sempre modo demo enquanto não houver parceiro de produção real (2026-05-27):** todos os deploys públicos do PicSaúde (Render, futuros mirrors) operam exclusivamente em `PICSAUDE_DEMO_MODE=true` com dados fictícios e banner amarelo "MODO DEMO" visível. Produção com dados reais exige parceiro institucional (clínica-escola UFPE, USF/UBS Recife, laboratório universitário) com discussão própria de LGPD + onboarding + integração CFM/CRF/CNES. Sem parceiro, sem produção. Onboarding institucional como funcionalidade vira dívida documentada pós-MVP, ativada quando parceiro real aparecer.
+- **Motor regulatório como frente paralela ao 5C-bis (2026-05-27):** o motor regulatório está 70-80% implementado em código (TICKET-15 base + TICKET-18 vocabulário + TICKET-20 oráculo + catalogo_seed com 55 substâncias). O trabalho restante é **auditoria do seed pelos extensionistas** + **UI dos alertas no prescritor.html** + **integração IA DEF ↔ catálogo**. Demo-grade suficiente (não production-grade) — coerente com a decisão deploy=demo. Operacionalizado em §Motor Regulatório abaixo.
 
 ---
 
@@ -253,6 +256,58 @@ O 5C levou ~5-7 dias úteis (rodada 0 + 3 ciclos CODEX pré-impl + impl + rodada
 
 ---
 
+## Motor Regulatório (demo-grade) — frente paralela ao 5C-bis (decidida 2026-05-27)
+
+### Motivação
+
+O motor regulatório é o que distingue o PicSaúde de "Word digital com QR code" — sem ele, a demonstração mostra circulação e custódia mas não mostra o que o sistema **incorpora estruturalmente** que faz dele infraestrutura sanitária. Articulação de Fabiano em 2026-05-27 pré-reunião com extensionistas: *"Sabe o que está faltando no demo? o motor regulatório."*
+
+### Estado real (investigado 2026-05-27)
+
+O motor regulatório está **70-80% implementado** em código. Levantamento:
+
+| Componente | Arquivo | Linhas | Status |
+|---|---|---|---|
+| Motor base (TICKET-15) | `backend/app/domain/motor_regulatorio.py` | 437 | ✅ Implementado — classifica itens por grupo regulatório a partir de `classe_controle`; determina tipo de receituário (amarela/azul/branca/especial/simples); agrupa itens em N receituários; valida nível de assinatura (qualificada/avançada/nenhuma) |
+| Vocabulário retenção (TICKET-18) | `backend/app/domain/retencao.py` | 79 | ⚠️ Apenas constantes — `TIPOS_RETENCAO_VALIDOS = {"antimicrobiano", "glp1_agonista"}` + lista de 5 GLP-1 (IN 360/2025). Falta roteamento operacional do Grupo Retenção como grupo distinto |
+| Oráculo de validação (TICKET-20) | `backend/app/domain/catalogo_regulatorio.py` | 417 | ✅ Implementado — severidades `info`/`warning`/`critical`; princípio de cautela; validação cruzada da declaração do prescritor contra catálogo |
+| Catálogo seed | `backend/app/domain/catalogo_seed.py` | 203 | ✅ Implementado com **55 substâncias seed**: 5 GLP-1 (IN 360/2025) + 30 antimicrobianos da atenção primária (IN 83/2021) + 20 substâncias da Portaria 344/1998. Nota crítica do próprio arquivo: *"REVISÃO REGULATÓRIA NECESSÁRIA antes de produção"* |
+| Modelo SQLAlchemy | `backend/app/models/catalogo_substancia.py` | 85 | ✅ Implementado |
+| Endpoints regulatórios | `backend/app/routers/receituarios.py` + `catalogo.py` | — | ✅ `POST /prescricoes/{proto}/receituarios/gerar` + endpoints catalogo |
+| UI no `prescritor.html` | — | — | ⛔ Zero matches de `classe_controle`/`grupo_regulatorio`/`tipo_retencao` no frontend. Motor calcula, mas não aparece ao usuário |
+| Integração IA DEF ↔ catálogo | — | — | ⛔ Quando DEF sugere medicamento, não preenche `tipo_retencao` automaticamente |
+
+### Gap real (o trabalho restante)
+
+1. **Auditoria do `catalogo_seed.py`** — as 55 substâncias precisam ser conferidas contra fontes oficiais (Portaria 344/1998, IN 83/2021, IN 360/2025). Trabalho 100% domínio-específico — perfil sanitarista/farmácia/medicina.
+2. **UI dos alertas no `prescritor.html`** — quando o item de prescrição é classificado pelo motor, mostrar severidade visual (cor + ícone + mensagem) + tipo de receituário esperado.
+3. **Integração IA DEF ↔ catálogo regulatório** — quando DEF sugere "amoxicilina", já preencher `tipo_retencao = antimicrobiano` na sugestão.
+4. **Expansão incremental do catálogo** — adicionar mais substâncias frequentes (anti-hipertensivos, anticonvulsivantes, ansiolíticos, antidepressivos, etc.) — fica como atividade contínua dos extensionistas pós-MVP.
+
+### Tickets sucessores
+
+| Ticket | Responsável | Volume | Status |
+|---|---|---|---|
+| **TICKET-MOTOR-REGULATORIO-AUDITORIA-CATALOGO** | Extensionistas (sanitaristas / farmácia / medicina / biomedicina) | 55 substâncias divididas em lotes de 5-10 por extensionista | ⛔ A redigir hoje 27/05 — entrega para os 7 na reunião 14h |
+| **TICKET-MOTOR-REGULATORIO-UI-ALERTAS** | Arquiteto (spec) + Code (impl) + 1-2 extensionistas técnicos (mentoria) | ~150-200 linhas frontend + integração | ⛔ A redigir após auditoria do catálogo amadurecer |
+
+### Participação dos extensionistas — divisão natural por perfil
+
+- **5-6 sanitaristas / farmacêuticos / médicos / biomédicos** (sem perfil técnico de programação): dividem as 55 substâncias do seed em lotes de ~10. Cada um audita: confirma classificação, corrige, marca para revisão. Output: PR único por extensionista atualizando `catalogo_seed.py` + nota explicativa com fonte primária citada (DOU, RDC, IN específica + data). **Trabalho 100% domínio-específico, zero programação.**
+- **1-2 extensionistas com perfil mais técnico** (informática biomédica, talvez): ajudam com integração IA DEF ↔ catálogo + UI dos alertas no `prescritor.html`. Sob mentoria sincronizada (Arquiteto + Code revisam JUNTOS antes do CODEX).
+
+### Por que esta frente é paralela ao 5C-bis (sem competir por recurso)
+
+- Trabalho de catálogo é dos extensionistas sanitaristas — perfil exato deles, **perpendicular ao código de autorização** que CODEX/Code estão lapidando no 5C-bis. Não competem por recurso humano.
+- Catálogo regulatório não toca os routers do 5C-bis (toca `domain/catalogo_seed.py` + `models/catalogo_substancia.py` + `prescritor.html` para UI). **Sem colisão de merge.**
+- A UI dos alertas pode ser desenvolvida em paralelo aos tickets A-E do 5C-bis.
+
+### Estimativa
+
+Auditoria do catálogo: **1-2 semanas** com 5-6 extensionistas em paralelo (cada um audita 5-10 substâncias). UI dos alertas: **1 semana** após auditoria amadurecer (precisa do catálogo estável para testar alertas). Total estimado: **2-3 semanas em paralelo ao 5C-bis**.
+
+---
+
 ## Etapa 9 — Labels + issues `good-first-issue` (expandida)
 
 A Etapa 9 agora cria **12 issues** (eram 7), das quais **5 são novas a partir da revisão CODEX**.
@@ -332,6 +387,7 @@ A entrada do CODEX no ciclo de revisão evidenciou padrão útil: cada revisor t
 | **2.0** | **2026-05-06** | **Revisão CODEX integrada — Etapa 5 expandida (B1 + Fix OTP + testes mínimos de autorização), Etapa 9 expandida (7 → 12 issues)** |
 | **2.1** | **2026-05-26** | **Etapa 5C-bis inserida entre Etapa 6 e Etapa 7 — MVP estendido para incluir autorização nos 5 subdomínios sucessores (exames, laudos, agendamentos, circulação diagnóstica, hospitalar) antes do deploy público. Coerência com definição do PicSaúde como plataforma de circulação de objetos sanitários. Spike TICKET-5C-BIS-0 v0.2 (CODEX rodada 0 integrada) + 5 tickets A-E paralelos. Extensionistas UFPE entram como QA + validação semântica desde semana 1. Carteira de paciente vira ticket independente entre 7 e 8.** |
 | **2.2** | **2026-05-27** | **Etapa 6 fechada formalmente.** 4 commits (`94f73cd` + `9eb7228` + `a01fec6` + `5db20ef` + `6c0da36`). 3 rodadas CODEX + Jules-audit + 3 ciclos de fix. Calibração P2 Fix C documentada como achado pedagógico (critério §3.4 do TICKET-6.2 incoerente com contrato fire-and-forget do CLAUDE.md §6 — corrigido). Relatório HTML em `docs/relatorios/RELATORIO-FECHAMENTO-ETAPA-6.html`. Próximo bloqueador: Etapa 5C-bis. |
+| **2.3** | **2026-05-27** | **Motor Regulatório inserido como frente paralela ao 5C-bis** + **decisão "deploy público = sempre demo enquanto sem parceiro real"** registrada como item permanente. Articulação de Fabiano pré-reunião: motor regulatório é o que distingue PicSaúde de "Word digital com QR code". Investigação revelou que motor já está 70-80% implementado (TICKET-15 base 437 linhas + TICKET-18 vocabulário + TICKET-20 oráculo 417 linhas + catalogo_seed 203 linhas com 55 substâncias). Trabalho restante reformulado como **auditoria do seed pelos extensionistas** (perfil sanitarista, 100% domínio-específico) + **UI dos alertas no prescritor.html** (perfil técnico, sob mentoria) + **integração IA DEF ↔ catálogo**. Dois tickets sucessores: TICKET-MOTOR-REGULATORIO-AUDITORIA-CATALOGO (extensionistas) e TICKET-MOTOR-REGULATORIO-UI-ALERTAS (Code+Arquiteto). Onboarding institucional vira dívida documentada pós-MVP, ativada quando parceiro real (clínica-escola UFPE, USF/UBS Recife, laboratório) aparecer. |
 
 ---
 
