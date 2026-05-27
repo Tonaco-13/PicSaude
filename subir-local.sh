@@ -12,7 +12,7 @@
 #   3. Instala dependências do PicSaúde
 #   4. Inicializa o banco (SQLite local)
 #   5. Cria admin a partir do .env
-#   6. Sobe o servidor em http://localhost:8080
+#   6. Sobe o servidor em http://localhost:8000
 #
 # Para parar: pressione Ctrl+C nesta janela.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -185,7 +185,7 @@ fi
 step 6 "Subindo o servidor"
 # ─────────────────────────────────────────────────────────────────────────────
 
-PORT=${PICSAUDE_PORT:-8080}
+PORT=${PICSAUDE_PORT:-8000}
 echo ""
 echo "════════════════════════════════════════════════════════════════"
 echo -e "  🌐  ${GREEN}PicSaúde no ar!${NC}"

@@ -8,18 +8,18 @@
  *
  * Estratégia:
  *   - Se a página foi aberta via http(s) — backend é a mesma origem.
- *   - Se a página foi aberta via file:// — fallback para localhost:8080.
+ *   - Se a página foi aberta via file:// — fallback para localhost:8000.
  *
- * Antes este arquivo apontava para :8000, mas em desenvolvimento via
- * uvicorn nativo a porta padrão é 8080 (definida em .env). Como o
- * frontend agora é servido pelo próprio backend (StaticFiles mount),
- * usar window.location.origin é o mais correto.
+ * O fallback 8000 alinha com o dev nativo (uvicorn default, subir-local.sh
+ * e o Quick Start do CONTRIBUTING-EXTENSAO). No empacotamento Docker o
+ * frontend é servido pelo próprio backend (StaticFiles na mesma origem),
+ * então window.location.origin cobre a porta externa 8080 sem este fallback.
  */
 
 const _isFileProtocol = window.location.protocol === 'file:';
 
 const BACKEND_URL = _isFileProtocol
-    ? 'http://127.0.0.1:8080'
+    ? 'http://127.0.0.1:8000'
     : window.location.origin;
 
 // ─────────────────────────────────────────────────────────────────────────

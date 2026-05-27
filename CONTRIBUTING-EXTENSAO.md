@@ -22,6 +22,28 @@ A equipe é interprofissional por design: você pode ter formação em informát
 
 Não precisa de Docker, PostgreSQL, ou nenhum banco de dados extra para o modo demo — usamos SQLite (arquivo local).
 
+### Autenticação no GitHub (repositório privado)
+
+O repositório é **privado** enquanto está em desenvolvimento. Você precisa estar autenticado para o `git clone` funcionar — senão recebe `Authentication failed` ou `repository not found`. Confirme primeiro que o Prof. Fabiano te adicionou como colaborador (convite chega por e-mail; aceite antes de clonar).
+
+Escolha **um** dos dois caminhos:
+
+**Opção A — Personal Access Token (PAT), mais simples para quem usa HTTPS:**
+
+1. No GitHub: **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token**.
+2. Marque o escopo **`repo`** e gere. Copie o token (só aparece uma vez).
+3. No `git clone`, quando pedir senha, **cole o token** no lugar da senha (o usuário é seu login do GitHub).
+   - Para não digitar toda vez: `git config --global credential.helper store` (salva após o primeiro uso) ou, no macOS, `osxkeychain`.
+
+**Opção B — Chave SSH (recomendado se você já usa git com frequência):**
+
+1. Gere a chave: `ssh-keygen -t ed25519 -C "seu-email@exemplo.com"` (Enter em tudo para os padrões).
+2. Copie a chave pública: `cat ~/.ssh/id_ed25519.pub` e cole em **GitHub → Settings → SSH and GPG keys → New SSH key**.
+3. Clone usando a URL SSH em vez da HTTPS:
+   `git clone git@github.com:Tonaco-13/PicSaude.git`
+
+Guia oficial GitHub: [Sobre autenticação](https://docs.github.com/pt/authentication) (em português).
+
 ### Passo a passo
 
 ```bash
@@ -35,14 +57,15 @@ source .venv/bin/activate     # Linux/macOS
 # .venv\Scripts\activate      # Windows PowerShell
 
 # 3. Instalar dependências (vai baixar ~80MB, leva 1-2 min)
-pip install -r requirements.txt
+#    requirements.txt fica na RAIZ do repo, por isso o ../
+pip install -r ../requirements.txt
 
 # 4. Criar e popular o banco demo
 PICSAUDE_DEMO_MODE=true python3 scripts/reset_demo_db.py
 # Saída esperada: "✅ schema recriado" + "✅ seed demo concluído (3 personas)"
 
 # 5. Subir o backend
-PICSAUDE_DEMO_MODE=true uvicorn app.main:app --reload --app-dir .
+PICSAUDE_DEMO_MODE=true python -m uvicorn app.main:app --reload --app-dir .
 # Saída esperada: "Uvicorn running on http://127.0.0.1:8000"
 
 # 6. Abra o navegador em http://localhost:8000
@@ -71,11 +94,11 @@ PicSaude/
 ├── CONTRIBUTING.md                 ← Guia genérico para qualquer contribuidor
 ├── CONTRIBUTING-EXTENSAO.md        ← Este arquivo
 ├── LICENSE                         ← AGPL v3
+├── requirements.txt                ← Dependências Python (na RAIZ — use ../ a partir de backend/)
 ├── *.html                          ← Frontends (vanilla JS, sem build step)
 │
 ├── backend/
 │   ├── CLAUDE.md                   ← Briefing para agentes Claude (foco no Code)
-│   ├── requirements.txt            ← Dependências Python
 │   │
 │   ├── app/
 │   │   ├── main.py                 ← Entry point FastAPI (rotas registradas aqui)
@@ -252,8 +275,14 @@ R: Confirme `python3 --version` — precisa ser 3.10 ou superior. Se você tem P
 **P: Subi o backend mas `http://localhost:8000` mostra erro 404 ou tela em branco.**
 R: Em modo demo o frontend mora no diretório-raiz do repo (não dentro de `backend/`). O comando do Quick Start usa `--app-dir .` para servir os HTMLs. Se você usou outro comando, abra direto `http://localhost:8000/index.html`.
 
+**P: Em que porta o backend sobe?**
+R: **8000** em desenvolvimento — tanto pelo comando manual do Quick Start (passo 5) quanto pelo `./subir-local.sh`. Para mudar: `PICSAUDE_PORT=8001 ./subir-local.sh`. (No empacotamento Docker de produção a porta externa é 8080, mapeada para a 8000 interna do container — mas isso só importa se você for fazer deploy, não para rodar o demo localmente.)
+
 **P: Não consigo fazer login. A tela só mostra os 3 cards.**
 R: Isso é o comportamento correto em demo — login real está desabilitado. Clique em um dos 3 cards (Prescritor / Dispensador / Cidadão) e você entra direto como a persona pré-semeada.
+
+**P: Tentei o login real do paciente e estou esperando o SMS/e-mail com o código (OTP). Não chega.**
+R: Em desenvolvimento não há envio real de SMS/e-mail. O código OTP é **impresso no terminal onde o uvicorn está rodando** (procure por uma linha tipo `[PICSAUDE-OTP] CPF=... | CODIGO=123456`). Copie de lá. No demo, o caminho normal é clicar nos cards de persona — o OTP só aparece se você seguir o fluxo de login real do cidadão.
 
 **P: Quero ver dados reais ou meus próprios dados.**
 R: Demo é demo. Não use seu CPF real, não cadastre dados que você não quer perder no próximo reset horário. Para desenvolvimento "normal" (sem demo), tire a env var `PICSAUDE_DEMO_MODE` e use `seed_dev.py` em vez do `reset_demo_db.py`.
