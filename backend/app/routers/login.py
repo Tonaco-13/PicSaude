@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -308,16 +309,25 @@ def contexto_institucional(usuario: dict = Depends(require_role("dispensador", "
         tipo_prestador = (prestador["tipo"] or "").lower()
         tipos_cnes = _TP_FARMACIA if tipo_prestador == "farmacia" else _TP_CLINICA
         placeholders = ", ".join("?" * len(tipos_cnes))
-        cnes_row = conn.execute(
-            f"""
-            SELECT CO_CNES FROM estabelecimentos_cnes
-            WHERE REPLACE(REPLACE(REPLACE(REPLACE(NU_CNPJ, '.', ''), '/', ''), '-', ''), ' ', '') = ?
-              AND TP_UNIDADE IN ({placeholders})
-            LIMIT 1
-            """,
-            (cnpj, *tipos_cnes),
-        ).fetchone()
-        cnes_verificado = cnes_row is not None
+
+        # Graceful fallback: em demo (SQLite sem tabela CNES carregada),
+        # cnes_verificado fica False. Em prod (PostgreSQL com CNES), valida.
+        try:
+            cnes_row = conn.execute(
+                f"""
+                SELECT CO_CNES FROM estabelecimentos_cnes
+                WHERE REPLACE(REPLACE(REPLACE(REPLACE(NU_CNPJ, '.', ''), '/', ''), '-', ''), ' ', '') = ?
+                  AND TP_UNIDADE IN ({placeholders})
+                LIMIT 1
+                """,
+                (cnpj, *tipos_cnes),
+            ).fetchone()
+            cnes_verificado = cnes_row is not None
+        except sqlite3.OperationalError as exc:
+            if "no such table" in str(exc).lower():
+                cnes_verificado = False  # CNES não carregado (demo) — fail open
+            else:
+                raise
 
     return {
         "org_id":          prestador["org_id"],

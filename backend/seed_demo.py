@@ -200,6 +200,20 @@ def main() -> None:
 
     conn = get_conn()
     try:
+        # Schema cinturão: garante que tabelas opcionais (CNES) existam vazias
+        # para que endpoints de contexto institucional não quebrem em demo.
+        # Defense in depth: o fallback em login.py:311 já pega o cenário, mas
+        # o CREATE garante schema correto para novos bancos demo.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS estabelecimentos_cnes (
+                CO_CNES      TEXT,
+                NU_CNPJ      TEXT,
+                TP_UNIDADE   TEXT,
+                NO_FANTASIA  TEXT,
+                CO_MUNICIPIO TEXT
+            )
+        """)
+
         # Prescritor
         _garantir_usuario(conn, PRESCRITOR["cns"], PRESCRITOR["nome"], PRESCRITOR["role"])
         _garantir_prescritor(conn, PRESCRITOR["cns"], PRESCRITOR["nome"])

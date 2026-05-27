@@ -726,6 +726,7 @@
                     <h2 style="font-size: 22px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Receituário Médico</h2>
                     <p style="font-size: 12px; color: #333;">PIX SAÚDE - TRANSFERÊNCIA ELETRÔNICA DE DADOS</p>
                     <p style="font-size: 12px; margin-top: 5px;">Protocolo: <span id="print-protocolo" style="font-weight: bold;">...</span></p>
+                    <p id="print-protocolo-hint" style="font-size: 10px; margin-top: 4px;"></p>
                 </div>
                 <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #000;">
                     <p style="font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Identificação do Emitente</p>
@@ -1814,7 +1815,26 @@
                 _renderizarValidacaoCNES(rec.cnes_validacao || null) +
                 _renderizarScoreConfianca(rec.score_confianca || null);
 
-            document.getElementById('print-protocolo').textContent = rec.id;
+            // Comprovante: discrimina protocolo verificável vs ID local fire-and-forget
+            const printProtocolo = document.getElementById('print-protocolo');
+            const printProtocoloHint = document.getElementById('print-protocolo-hint');
+            if (rec.protocolo_backend) {
+                // Receita digital OU receita física com backend online —
+                // protocolo está no banco, consulta pública funciona
+                printProtocolo.textContent = rec.protocolo_backend;
+                if (printProtocoloHint) printProtocoloHint.textContent = '';
+            } else {
+                // Receita física fire-and-forget sem confirmação do backend —
+                // ID local não é consultável publicamente
+                printProtocolo.textContent = rec.id; // REC-AAAA-XXXXXX
+                if (printProtocoloHint) {
+                    printProtocoloHint.textContent =
+                        'ID local — receita registrada apenas neste dispositivo. ' +
+                        'Para verificação pública, emita nova receita digital.';
+                    printProtocoloHint.style.color = '#92400e'; // amber-800
+                    printProtocoloHint.style.fontSize = '0.85em';
+                }
+            }
             document.getElementById('print-medico-nome').textContent = rec.medico_nome;
             document.getElementById('print-medico-registros').textContent = formatarConselhosDisplay(rec.medico_conselhos);
             document.getElementById('print-medico-endereco').textContent = rec.medico_endereco;
