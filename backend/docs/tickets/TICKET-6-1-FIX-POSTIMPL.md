@@ -740,5 +740,22 @@ NÃO ESQUEÇA
 > Verificações pré/pós (§5) ✅
 > Anti-escopo (§6) ✅
 > Prompt operacional (§7) ✅
-> Code — aguarda implementação
-> CODEX rodada 3 (pós-impl 6.1) — pendente, fecha §11 do TICKET-6 original
+> Code — implementação ✅ commit `9eb7228` (2026-05-24)
+> CODEX rodada 3 — ✅ zero P1 sobre range `9eb7228..6c0da36` (2026-05-27)
+> Status — **FECHADO em 2026-05-27**. Trilha completa em §11 do TICKET-6 (TICKET-6-DEMO-MODE.md §11.1-§11.7).
+
+---
+
+## §11 Status final — TICKET-6.1 FECHADO (2026-05-27)
+
+Validado pelo CODEX rodada 3 (range `9eb7228..6c0da36`). Os 3 P1 da rodada 2 do CODEX (originais do TICKET-6) foram resolvidos integralmente em `9eb7228`:
+
+- **P1#1 — isolamento CNES** ✅ — `_get_cnes_conn()` usa `_resolve_sqlite_db_path()` em `backend/app/domain/cnes_prescritor.py:50`; fixture `tests/cnes_fixtures.py:140` patcha o helper compartilhado. Suite CNES/identidade: **83 passed** na rodada 3.
+- **P1#2 — hidratação demo no frontend** ✅ — `prescritor/dispensador/cidadao.html` hidratam sessão demo do `sessionStorage` antes do bloco `DEV_PRESET_CONTEXT`. Sem race com `/config/public` (que só injeta banner). Role divergente limpa sessão e redireciona.
+- **P1#3 — guard JWT hermético** ✅ — `test_smoke_import_time_em_prod_falha` dispara guard em `backend/app/main.py:88`. Boot `app.main` validado.
+- **P2#4 — `_reject_if_demo` como dependency** ✅ — aplicado em 6 endpoints conforme §3.3 do ticket.
+- **P2#5 — `seed_demo.py` exige `PICSAUDE_DEMO_MODE=true`** ✅ — guard idêntico ao `reset_demo_db.py`.
+
+**Dívida documentada (#55 — `roles.py:PERFIS_VALIDOS`):** aceitar `paciente` além de `cidadao`. Origem P3#6 CODEX rodada 2 do TICKET-6. Não bloqueia deploy ambulatorial; vira issue follow-up pós-Etapa 8.
+
+Para trilha de auditoria completa da Etapa 6 (TICKET-6 + 6.1 + 6.2), ver §11 do `TICKET-6-DEMO-MODE.md`.

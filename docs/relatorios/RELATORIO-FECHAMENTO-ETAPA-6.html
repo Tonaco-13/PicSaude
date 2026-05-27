@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>PicSaúde — Fechamento da Etapa 6 (DEMO_MODE + seletor de papéis)</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --accent: #0f4a8a;
+    --accent-soft: #dbeafe;
+    --green: #047857;
+    --green-soft: #d1fae5;
+    --amber: #92400e;
+    --amber-soft: #fef3c7;
+    --rule: #e5e7eb;
+    --code-bg: #f3f4f6;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 32px 72px;
+    line-height: 1.55;
+    font-size: 16px;
+  }
+  header {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+  }
+  header .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  header h1 {
+    font-size: 32px;
+    margin: 8px 0 4px;
+    color: var(--ink);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  header .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+  }
+  h2 {
+    margin-top: 40px;
+    margin-bottom: 12px;
+    font-size: 22px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    margin-top: 28px;
+    margin-bottom: 8px;
+    font-size: 17px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  p, li {
+    color: var(--ink);
+  }
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 6px;
+    vertical-align: 2px;
+  }
+  .pill.green { background: var(--green-soft); color: var(--green); }
+  .pill.amber { background: var(--amber-soft); color: var(--amber); }
+  .pill.blue  { background: var(--accent-soft); color: var(--accent); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    color: var(--accent);
+  }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  blockquote {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    margin: 16px 0;
+    padding: 12px 18px;
+    border-radius: 0 6px 6px 0;
+    color: var(--ink);
+  }
+  .callout-amber {
+    border-left: 3px solid var(--amber);
+    background: var(--amber-soft);
+    margin: 16px 0;
+    padding: 12px 18px;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout-amber strong { color: var(--amber); }
+  .marco-card {
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+  .marco-card .marco-head {
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .marco-card .marco-meta {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+  .epigrafe {
+    font-style: italic;
+    color: var(--muted);
+    text-align: center;
+    margin: 48px 0 16px;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">PicSaúde · Relatório de fechamento de etapa</div>
+  <h1>Etapa 6 — DEMO_MODE + seletor de papéis</h1>
+  <div class="subtitle">
+    Aberta em 2026-05-24 · Fechada em 2026-05-27 ·
+    <span class="pill green">✅ Fechada</span>
+    <span class="pill blue">3 rodadas CODEX + Jules-audit</span>
+  </div>
+</header>
+
+<h2>Por que esta etapa existia</h2>
+
+<p>
+A Etapa 6 é o último marco antes do deploy público do PicSaúde se concentrar em
+ambiente de produção. Sem ela, qualquer pessoa interessada em conhecer o
+sistema teria que clonar o repositório e configurar credenciais reais — barreira
+incompatível com a vocação de extensão universitária do projeto.
+</p>
+
+<p>
+A solução foi um <strong>modo demo</strong> com três personas pré-semeadas
+(prescritora, dispensador, paciente) que pode ser ativado por uma única
+variável de ambiente (<code>PICSAUDE_DEMO_MODE=true</code>) e nunca pode
+subir junto com produção. O isolamento entre demo e prod é estrutural — não
+depende de disciplina operacional para funcionar.
+</p>
+
+<h2>Marcos da etapa</h2>
+
+<div class="marco-card">
+  <div class="marco-head">TICKET-6 — feat demo mode + 7 decisões + isolamento DB</div>
+  <div class="marco-meta">commit <code>94f73cd</code> · 2026-05-24</div>
+  <p>
+    Implementação inicial. Sete decisões fechadas em §3 do ticket: arquitetura
+    do isolamento, formato do banner, fluxo do seletor, semântica do reset,
+    estrutura das personas, contrato do <code>/demo/login</code>, e regra de
+    guardrail no boot. CODEX rodada 1 (pré-impl) integrada na rodada 0 do
+    ticket: 3 P1 + 4 P2 + 3 P3, taxa 10/10.
+  </p>
+</div>
+
+<div class="marco-card">
+  <div class="marco-head">TICKET-6.1 — follow-up X.Y após CODEX rodada 2</div>
+  <div class="marco-meta">commit <code>9eb7228</code> · 2026-05-24</div>
+  <p>
+    CODEX rodada 2 (pós-impl) trouxe 3 P1 + 2 P2 + 1 P3. Os 3 P1 viraram
+    fixes cirúrgicos em commit único: isolamento CNES via helper compartilhado
+    (<code>_resolve_sqlite_db_path</code>), hidratação demo no frontend
+    (<code>prescritor/dispensador/cidadao.html</code> leem
+    <code>sessionStorage</code> antes do <code>DEV_PRESET_CONTEXT</code>),
+    e guard JWT hermético para que o boot em produção falhe em vez de carregar
+    placeholder. O P3 sobre <code>roles.py:PERFIS_VALIDOS</code> ficou como
+    dívida documentada (#55).
+  </p>
+</div>
+
+<div class="marco-card">
+  <div class="marco-head">Arquivamento documental + renumeração de issues</div>
+  <div class="marco-meta">commit <code>a01fec6</code> · 2026-05-24</div>
+  <p>
+    Tickets 6 e 6.1 arquivados em <code>backend/docs/tickets/</code>;
+    briefings CODEX rodada 2 e Jules-audit em <code>backend/docs/codex/</code>.
+    Renumeração de three good-first-issues (#56-58 → #59-61) para evitar
+    colisão com GFIs canônicos do plano de extensão.
+  </p>
+</div>
+
+<div class="marco-card">
+  <div class="marco-head">TICKET-DX-PRE-EXTENSAO — Regra 3 (Jules audit P2#4 + P2#10)</div>
+  <div class="marco-meta">commit <code>5db20ef</code> · 2026-05-26</div>
+  <p>
+    Dois pequenos fixes de DX antes da reunião com os extensionistas: o
+    <code>conftest.py</code> de <code>tests/integration/</code> passou a
+    <code>pytest.skip(allow_module_level=True)</code> quando
+    <code>DATABASE_URL</code> não aponta para PostgreSQL (evita crash em
+    Windows com SQLite); e os dois <code>ISSUE-*.md</code> ganharam bloco
+    "Como rodar em diferentes sistemas" cobrindo PowerShell, CMD e Bash/WSL.
+    Bug colateral identificado pelo Code: variável <code>DATABASE_URL_TEST</code>
+    renomeada para <code>DATABASE_URL</code> em outra linha onde estava stale.
+  </p>
+</div>
+
+<div class="marco-card">
+  <div class="marco-head">TICKET-6.2 — follow-up após checklist manual + CODEX rodada 0 sobre logs</div>
+  <div class="marco-meta">commit <code>6c0da36</code> · 2026-05-27</div>
+  <p>
+    Três fixes consolidados encontrados durante o teste end-to-end do fluxo
+    prescritor → paciente → dispensador. <strong>Fix A:</strong> graceful
+    fallback em <code>/auth/me/institucional</code> (<code>login.py:311</code>)
+    com try/except <code>sqlite3.OperationalError</code> para "no such table",
+    e cinturão <code>CREATE TABLE IF NOT EXISTS estabelecimentos_cnes</code>
+    no <code>seed_demo.py</code>. <strong>Fix B:</strong> multiplicador 10x no
+    rate limit quando <code>PICSAUDE_DEMO_MODE=true</code> — evita 429s
+    quando múltiplos extensionistas usam o mesmo IP institucional UFPE.
+    <strong>Fix C:</strong> distinção visual entre UUID e ID local
+    (<code>REC-AAAA-XXXXXX</code>) no comprovante físico, com hint amber
+    explicando que o ID local não é consultável publicamente.
+  </p>
+</div>
+
+<h2>Trilha CODEX + Jules</h2>
+
+<table>
+  <thead>
+    <tr><th>Revisão</th><th>Sobre</th><th>Resultado</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>CODEX rodada 1</strong> (pré-impl)</td>
+      <td>Rodada 0 do TICKET-6</td>
+      <td>3 P1 + 4 P2 + 3 P3 — taxa 10/10, integrados em §10 do TICKET-6</td>
+    </tr>
+    <tr>
+      <td><strong>CODEX rodada 2</strong> (pós-impl)</td>
+      <td><code>94f73cd</code></td>
+      <td>3 P1 + 2 P2 + 1 P3 — gerou TICKET-6.1</td>
+    </tr>
+    <tr>
+      <td><strong>Jules-audit</strong> (fim de etapa)</td>
+      <td>Paralelo à rodada 2</td>
+      <td>Resposta lateral; 6 órfãos triados (4 dívida documentada, 2 viraram README + CONTRIBUTING-EXTENSAO)</td>
+    </tr>
+    <tr>
+      <td><strong>CODEX rodada 0 ad-hoc</strong></td>
+      <td>Logs do demo durante checklist manual</td>
+      <td>3 achados emergentes — gerou TICKET-6.2</td>
+    </tr>
+    <tr>
+      <td><strong>CODEX rodada 3</strong> (pós-pós-impl)</td>
+      <td>Range <code>9eb7228..6c0da36</code></td>
+      <td><strong>Zero P1.</strong> 1 P2 de calibração documental (não bug)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Lição pedagógica — o P2 do CODEX rodada 3</h2>
+
+<blockquote>
+  <p>
+    "Fix C — cenário 'física online → UUID sem hint' não atingível no comprovante
+    imediato. Em <code>prescritor.html:1740</code>, o registro em
+    <code>/prescricoes/fisica</code> continua fire-and-forget;
+    <code>exibirSucessoEImpressao</code> roda antes do <code>.then()</code>
+    preencher <code>novaReceitaObj.protocolo_backend</code>. Então a
+    condicional do comprovante cai em <code>REC-...</code> + hint mesmo se
+    o backend responder com UUID logo depois. Não é P1 porque o erro é
+    conservador, não mostra um REC como verificável."
+  </p>
+  <p style="text-align: right; margin: 0; font-size: 13px; color: var(--muted);">
+    — CODEX, parecer rodada 3 (2026-05-27)
+  </p>
+</blockquote>
+
+<p>
+O CODEX revelou que o critério de aceite §3.4 escrito pelo Arquiteto era
+<strong>incoerente com o contrato arquitetural</strong> declarado no
+<code>CLAUDE.md §6</code>. O critério dizia que receita física com backend
+online deveria mostrar UUID no comprovante; o contrato diz que o fluxo físico
+é fire-and-forget e a impressão acontece <em>antes</em> do backend confirmar.
+Para atender o critério como escrito, teria que tornar a impressão síncrona —
+violando o princípio de que receita física não pode depender de backend
+online.
+</p>
+
+<div class="callout-amber">
+  <p><strong>Calibração correta:</strong> receita física <strong>sempre</strong>
+  exibe <code>REC-XXXX</code> + hint amber no comprovante imediato. O hint
+  é o sistema sendo honesto sobre o trade-off arquitetural — não é bug, é
+  documentação visual de que essa receita é menos rastreável publicamente
+  que uma receita digital.</p>
+</div>
+
+<p>
+Esse tipo de tensão aparece quando se escreve critério sem revisar contrato.
+A função de um revisor independente como o CODEX é exatamente captar essas
+incoerências antes que virem código. <strong>O critério estava errado, não o
+código.</strong> A discussão entrou em §11.4 do TICKET-6 como achado documentado.
+</p>
+
+<h2>Fluxo end-to-end validado</h2>
+
+<p>
+Durante o checklist manual §4.2 do TICKET-6.1, o fluxo completo de circulação
+de uma prescrição foi exercitado em ambiente demo:
+</p>
+
+<ol>
+  <li>Prescritora "Dra. Demo Maria Souza" abre o painel de prescrição.</li>
+  <li>Emite receita digital para "João Demo da Silva" — <code>POST /prescricoes → 201</code>.</li>
+  <li>Paciente abre sua carteira digital e visualiza a receita.</li>
+  <li>Paciente envia a receita para a "Farmácia Demo Central" — <code>POST /paciente/prescricoes/{uuid}/transferir-farmacia → 201</code>.</li>
+  <li>Dispensador abre o painel da farmácia e visualiza a receita pendente.</li>
+  <li>Dispensador resolve o token de apresentação e dispensa.</li>
+</ol>
+
+<p>
+Cada passo deixa traços imutáveis no <em>ledger</em> de eventos. A custódia
+da receita é rastreável a todo momento — quem é o detentor, há quanto tempo,
+e qual o evento que justificou cada transferência. <strong>Esta é a essência
+do PicSaúde como plataforma de circulação de objetos sanitários</strong>, e
+ela está funcionando integralmente no demo.
+</p>
+
+<h2>O que vem em seguida</h2>
+
+<p>
+Próximo bloqueador é a <strong>Etapa 5C-bis</strong> — autorização mínima
+nos 5 subdomínios sucessores (pedidos de exame, laudos, agendamentos,
+circulação diagnóstica, fluxo hospitalar). A Etapa 5C fechou autorização
+para o MVP ambulatorial (11 endpoints de prescrição); a 5C-bis estende para
+os outros 30 endpoints clínicos antes do deploy público, em coerência com
+a definição operacional do PicSaúde formalizada em 2026-05-26:
+</p>
+
+<blockquote>
+  <p>
+    "plataforma de circulação de objetos sanitários (receitas, agendamentos,
+    pedidos de exame) com normalização na ponta, auditável e 100% transparente,
+    onde a beleza é o retorno integral ou atômico"
+  </p>
+</blockquote>
+
+<p>
+Sete extensionistas da UFPE entram a partir da reunião de 2026-05-27 como
+QA + validação semântica da matriz de ownership, com calibração por
+formação. Quem programar pode pegar endpoints menores sob mentoria
+sincronizada na semana 2. Estimativa: 2-3 semanas para fechar os 5
+tickets do 5C-bis.
+</p>
+
+<p>
+Depois do 5C-bis vem Dockerfile (Etapa 7), Deploy Render (Etapa 8), labels
++ issues good-first-issue (Etapa 9) e teste E2E na URL pública (Etapa 10).
+</p>
+
+<p class="epigrafe">"O SUS é o maior sistema universal de saúde do mundo. Merece software à altura."</p>
+
+<footer>
+  Relatório gerado em 2026-05-27 pelo Arquiteto-Coordenador (Opus 4.7). ·
+  Primeira aplicação do padrão híbrido md↔html (decisão de 2026-05-24). ·
+  Documento de audiência humana — para acompanhar a trilha técnica completa,
+  ver <code>backend/docs/tickets/TICKET-6-DEMO-MODE.md §11</code>.
+</footer>
+
+</body>
+</html>

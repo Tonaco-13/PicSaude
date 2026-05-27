@@ -135,7 +135,7 @@ Briefings separados (em `backend/docs/codex/`), cada um com **anti-escopo explí
 5. **Cada clique desperdiçado é um paciente a menos** — UX mínima é saúde pública
 6. **Código público porque SUS é público** — AGPL não é ideologia, é estratégia
 
-## Estado atual (2026-05-24)
+## Estado atual (2026-05-27)
 
 ### Etapa 4 — instance_id canônico — ✅ **Fechada (2026-05-21)**
 
@@ -164,7 +164,37 @@ Briefings separados (em `backend/docs/codex/`), cada um com **anti-escopo explí
 | 5C — Autorização mínima em 11 endpoints clínicos (V1-V11, 3 ciclos CODEX pré-impl + rodada 2 pós-impl zero P1) | ✅ | `01c67fa` + `b020770` |
 | 5D — Guard de produção para JWT_SECRET | ✅ | `6ff6910` |
 
-**Estado:** 17/17 testes focais do 5C verdes; suite completa sem regressão; CODEX rodada 2 zero P1 + 3 follow-ups não-bloqueantes abertos (#52 info disclosure 400 vs 403, #53 V6 instance_id antes de checks, #54 V9 TOCTOU teórico). Tickets sucessores fora do MVP ambulatorial: #47-51 (exames, agendamentos, laudos, hospitalar, circulação, carteira paciente). **Próxima etapa: 6** (DEMO_MODE + seletor de papéis — bloqueador deploy).
+**Estado:** 17/17 testes focais do 5C verdes; suite completa sem regressão; CODEX rodada 2 zero P1 + 3 follow-ups não-bloqueantes abertos (#52 info disclosure 400 vs 403, #53 V6 instance_id antes de checks, #54 V9 TOCTOU teórico). Tickets sucessores fora do MVP ambulatorial: #47-51 (exames, agendamentos, laudos, hospitalar, circulação, carteira paciente).
+
+### Etapa 6 — DEMO_MODE + seletor de papéis — ✅ **Fechada (2026-05-27)**
+
+| Sub-tarefa | Status | Commit |
+|---|---|---|
+| TICKET-6 — feat demo mode + 7 decisões + isolamento DB | ✅ | `94f73cd` |
+| TICKET-6.1 — follow-up X.Y após CODEX rodada 2 (3 P1 + 2 P2) | ✅ | `9eb7228` |
+| Arquivamento docs (TICKET-6 + 6.1 + briefings CODEX/Jules + renumeração #56-58 → #59-61) | ✅ | `a01fec6` |
+| TICKET-DX-PRE-EXTENSAO — Regra 3 (Jules audit P2#4 + P2#10: conftest skip module-level + bloco Windows nos ISSUEs) | ✅ | `5db20ef` |
+| TICKET-6.2 — follow-up X.Y após checklist §4.2 + CODEX rodada 0 sobre logs (3 fixes: CNES graceful + rate limit 10x demo + UUID/REC-XXXX no comprovante físico) | ✅ | `6c0da36` |
+| CODEX rodada 3 sobre range `9eb7228..6c0da36` | ✅ zero P1 + 1 P2 calibração documental |
+
+**Estado:** Etapa 6 fechada com 3 rodadas CODEX (1+2+3) + Jules-audit (fim de etapa) + 3 ciclos de fix. Calibração P2 Fix C documentada como achado pedagógico — critério §3.4 do TICKET-6.2 era incoerente com o contrato fire-and-forget do CLAUDE.md §6; corrigido no §11.4 do TICKET-6. Relatório HTML de fechamento em `docs/relatorios/RELATORIO-FECHAMENTO-ETAPA-6.html` (primeira aplicação do padrão `decisao_artefatos_md_vs_html`). **Próximo bloqueador: Etapa 5C-bis** (autorização nos 5 subdomínios sucessores — decisão estratégica 2026-05-26 para MVP estendido).
+
+### Etapa 5C-bis — Autorização mínima nos 5 subdomínios sucessores — ⛔ **Próxima**
+
+Decidida em 2026-05-26 entre Arquiteto e Fabiano. Insere entre Etapa 6 e Etapa 7. Cobre os 30 endpoints com padrão `_=Depends(...)` em pedidos_exame.py (11), laudos.py (11), agendamentos.py (6), circulacao_diagnostica.py (1), hospitalares.py (1). Estrutura: spike TICKET-5C-BIS-0-HELPER-OWNERSHIP (v0.2 — CODEX rodada 0 integrada) + 5 tickets A-E paralelos.
+
+| Ticket | Subdomínio | Status |
+|---|---|---|
+| TICKET-5C-BIS-0 — spike avaliativo do helper de ownership | 🔄 v0.2 amadurece quinta 28/05 com leitura concreta dos 5 routers; output: ADR-002 em `backend/docs/decisoes/` |
+| TICKET-5C-BIS-A — pedidos_exame.py (11 endpoints) | ⛔ após spike fechar |
+| TICKET-5C-BIS-B — laudos.py (11 endpoints) | ⛔ paralelo a C |
+| TICKET-5C-BIS-C — agendamentos.py (6 endpoints) | ⛔ paralelo a B |
+| TICKET-5C-BIS-D — circulacao_diagnostica.py (1 endpoint) | ⛔ pode rodar com C |
+| TICKET-5C-BIS-E — hospitalares.py (1 endpoint + absorve TICKET-5C-FOLLOWUP-CUSTODIA-HOSPITALAR) | ⛔ último |
+
+Extensionistas UFPE entram desde semana 1 como QA + validação semântica da matriz de ownership (perspectiva sanitarista). Quem programar pode pegar endpoints menores sob mentoria sincronizada na semana 2. Estimativa: 2-3 semanas para fechar os 5 tickets.
+
+Carteira de paciente (`/pacientes/{cpf}/carteira` — information disclosure LGPD) fora do 5C-bis; vira ticket próprio entre Etapa 7 e Etapa 8.
 
 ### Etapas do plano de produção
 
@@ -175,18 +205,23 @@ Briefings separados (em `backend/docs/codex/`), cada um com **anti-escopo explí
 | 3 — 7 docs de licenciamento | ✅ |
 | 4 — instance_id canônico | ✅ **Fechada (2026-05-21)** |
 | 5 — Bloqueadores pré-deploy (5A/5B/5C/5D) | ✅ **Fechada (2026-05-24)** |
-| 6 — DEMO_MODE + seletor papéis | ⛔ **Próxima** — bloqueador deploy |
+| 6 — DEMO_MODE + seletor papéis | ✅ **Fechada (2026-05-27)** |
+| 5C-bis — Autorização nos 5 subdomínios sucessores | ⛔ **Próxima** — bloqueador deploy |
 | 7 — Dockerfile | ⛔ |
 | 8 — Deploy Render + frontend | ⛔ |
 | 9 — Labels + 12 issues good-first-issue | ⛔ |
 | 10 — Teste E2E URL pública | ⛔ |
+| TICKET-PACIENTES-CARTEIRA-INFO-DISCLOSURE | ⛔ pré-Etapa 8 (LGPD/UX, fora do 5C-bis) |
 
-### Tickets registrados pós-Etapa 4 / pós-Etapa 5 (não bloqueiam Etapa 6)
+### Tickets registrados pós-Etapa 4 / pós-Etapa 5 / pós-Etapa 6 (não bloqueiam Etapa 5C-bis)
 
 - `TICKET-COBERTURA-LEDGER-COMPLEMENTAR.md` — achado #6 CODEX 4E.2 (receituarios/hospitalares/assinaturas sem cobertura focal)
 - `TICKET-COERENCIA-DEVOLUCOES.md` — achado #4 CODEX + NOTA em states.py:153
 - Follow-ups 5C #52/#53/#54 — abertos em §11.3 do `TICKET-5C-AUTORIZACAO-MINIMA.md` (P2 + 2× P3, nenhum bloqueia deploy ambulatorial)
-- Tickets sucessores 5C #47-51 — exames, agendamentos, laudos, hospitalar, circulação, carteira paciente (todos fora do MVP ambulatorial)
+- Tickets sucessores 5C #47-51 — exames, agendamentos, laudos, hospitalar, circulação (5 endereçados pelo 5C-bis A-E); carteira paciente fica ticket próprio entre Etapa 7 e 8
+- Dívida #55 — `roles.py:PERFIS_VALIDOS` aceitar `paciente` além de `cidadao` (P3 CODEX rodada 2 do TICKET-6, registrado no §11 do TICKET-6.1)
+- `TICKET-BINDING-ICP-CPF-OID-PARSING` — 7 falhas pré-existentes em `test_binding_icp.py` identificadas pelo CODEX rodada 3 da Etapa 6, fora do escopo daquela rodada (a abrir)
+- Órfãos do Jules-audit fim de Etapa 6 — §3.1 complexidade `/demo/login`, §3.2/§3.8 duplicação `_reject_if_demo`, §3.3 naming `PIX_SAUDE_` vs `PICSAUDE_` (todos como GFI eventual ou refactor pós-Etapa 8)
 
 ### Segurança (Relatório CODEX 2026-05-06) — ✅ Resolvido em `5fa6902` (2026-05-12)
 

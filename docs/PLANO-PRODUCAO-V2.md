@@ -4,7 +4,7 @@
 >
 > **Classe (CLAUDE.md §10):** `docs`
 >
-> **Versão:** 2.0 (2026-05-06)
+> **Versão:** 2.1 (2026-05-26 — Etapa 5C-bis inserida)
 
 ---
 
@@ -20,7 +20,7 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 
 ---
 
-## Status atual (2026-05-24)
+## Status atual (2026-05-27)
 
 | Etapa | Status | Notas |
 |---|---|---|
@@ -29,11 +29,13 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 | 3 — 7 arquivos de licenciamento | ✅ Feito | LICENSE (AGPL-3.0 + preâmbulo), README, CONTRIBUTING, CONTRIBUTOR-LICENSE, COMMERCIAL-LICENSE, DATA-PROTECTION, DISCLAIMER — todos na raiz |
 | 4 — `instance_id` canônico | ✅ **Fechada (2026-05-21)** | **4A** ✅ `d8abf7e`, **4B-prequel** ✅ `2dce4f8`, **4B** ✅ `89f064a`, **4C** ✅ `2fbcf43`+`983359f`, **4D.1** ✅ `60382d2`+`0056c93`, **4D.2** ✅ `3db4060`+`79f2f4f`, **4E.1** ✅ `65181dc`+`a53d5ba`, **4E.2** ✅ `ab1c897` (CODEX+Jules + tickets) + `9ef3bb2` (fix custódia, vocabulário canônico + ator JWT) + `9cc339f` (batch lapidações pós-Regra 5). Critérios §7 do `TICKET-4E-2-RELATORIO-INTEGRADO.md` cumpridos. 124 testes verdes. |
 | 5 — Bloqueadores pré-deploy | ✅ **Fechada (2026-05-24)** | **5A** ✅ `e09dc3e`+`66547e4`+`f82b0da`, **5B** ✅ `5fa6902`, **5C** ✅ `01c67fa`+`b020770` (CODEX rodada 2 zero P1; 3 follow-ups #52/#53/#54 em §11 do ticket), **5D** ✅ `6ff6910`. Ver §5 abaixo. |
-| 6 — `DEMO_MODE` + seletor de papéis | ⛔ **Próximo bloqueador** | Bloqueador do deploy |
+| 6 — `DEMO_MODE` + seletor de papéis | ✅ **Fechada (2026-05-27)** | **TICKET-6** ✅ `94f73cd` (feat demo mode + 7 decisões), **TICKET-6.1** ✅ `9eb7228` (3 P1 + 2 P2 da CODEX rodada 2), arquivamento `a01fec6`, **TICKET-DX-PRE-EXTENSAO** ✅ `5db20ef` (Jules audit P2#4 + P2#10), **TICKET-6.2** ✅ `6c0da36` (3 fixes pré-reunião: CNES graceful + rate limit demo + UUID/REC no comprovante). CODEX rodada 3 zero P1; 1 P2 de calibração documental do Fix C (não bug — fire-and-forget). Ver §11 do TICKET-6. |
+| 5C-bis — Autorização nos 5 subdomínios sucessores | ⛔ **Próximo bloqueador** | **Decisão de 2026-05-26.** MVP ampliado para incluir exames, agendamentos, laudos, hospitalar e circulação antes do deploy público. Spike TICKET-5C-BIS-0 (v0.2 após CODEX rodada 0) + 5 tickets A-E paralelos. Ver §5C-bis abaixo. |
 | 7 — Dockerfile | ⛔ Não feito | |
 | 8 — Deploy Render + frontend Cloudflare | ⛔ Não feito | |
 | 9 — Labels + issues `good-first-issue` | ⛔ Não feito | **Expandido para 12 issues — ver §9 abaixo** |
 | 10 — Teste E2E URL pública | ⛔ Não feito | |
+| TICKET-PACIENTES-CARTEIRA-INFO-DISCLOSURE | ⛔ Pré-Etapa 8 | Information disclosure em `/pacientes/{cpf}/carteira` (qualquer prescritor autenticado descobre se CPF tem conta). Fora do 5C-bis (LGPD/UX, não ownership clínico). Fecha antes da URL pública. |
 
 ---
 
@@ -46,6 +48,7 @@ A revisão CODEX expandiu **Etapa 5** (adicionou fixes de segurança crítica) e
 - **Fix B1 (carteira digital):** retorna 422 com `{detail: "patient_no_digital_wallet", ...}`. Sem silenciamento.
 - **CPF sentinela `00000000000`** + máscara de CPF: issue redigida em `docs/issues/ISSUE-mascara-cpf.md`.
 - **Modelo de licenciamento comercial:** Caminho 2 (Opção A fixa por porte + Opção B com piso R$15k/teto R$600k + 7 sub-cláusulas de salvaguarda).
+- **MVP estendido antes do deploy público (2026-05-26):** o deploy do Render (Etapa 8) incluirá autorização mínima fechada nos 5 subdomínios sucessores do 5C (exames, laudos, agendamentos, circulação diagnóstica, hospitalar), não apenas o ambulatorial. Coerência com a essência do PicSaúde como plataforma de circulação de objetos sanitários (receitas + agendamentos + pedidos de exame). Operacionalizada na **Etapa 5C-bis** (entre Etapa 6 e Etapa 7). Carteira de paciente fica como ticket independente entre Etapas 7 e 8.
 
 ---
 
@@ -199,7 +202,54 @@ if os.getenv("PICSAUDE_ENV") == "prod" and JWT_SECRET.startswith("TROQUE_EM_PROD
 
 **Realidade (fechamento 2026-05-24):** 5B fechado em 12/05 (`5fa6902`); 5D fechado em 22/05 (`6ff6910`); 5A fechado em 21/05 + P2 follow-up em 23/05; 5C consumiu 3 dias (23–24/05) por causa da reformulação semântica de "cobertura de teste" para "vulnerabilidades ativas" — 11 vulnerabilidades cobertas, 3 ciclos CODEX pré-impl + rodada 2 pós-impl, zero P1 na entrega.
 
-**Etapa 5 fechada em 2026-05-24.** Próximo bloqueador de deploy: Etapa 6 (DEMO_MODE + seletor de papéis).
+**Etapa 5 fechada em 2026-05-24. Etapa 6 fechada em 2026-05-27.** Próximos bloqueadores em ordem: **Etapa 5C-bis** (autorização nos 5 subdomínios sucessores — decisão 2026-05-26) → Etapa 7 (Dockerfile) → Etapa 8 (Deploy Render) → Etapa 9 (labels + issues) → Etapa 10 (E2E URL pública).
+
+---
+
+## Etapa 5C-bis — Autorização mínima nos 5 subdomínios sucessores (decidida 2026-05-26)
+
+A Etapa 5C fechou autorização mínima no MVP **ambulatorial** (11 endpoints clínicos em `prescricoes`, `custodia`, `validacao`, `assinaturas`, `dispensacoes`). Os endpoints equivalentes em **exames, laudos, agendamentos, circulação diagnóstica e hospitalar** seguem com o padrão vulnerável (`_=Depends(require_role(...))`) — 30 endpoints distribuídos em 5 routers, identificados em varredura de 2026-05-26.
+
+### Motivação da inserção entre Etapa 6 e Etapa 7
+
+A definição operacional do PicSaúde formalizada por Fabiano em 2026-05-26 é **plataforma de circulação de objetos sanitários (receitas, agendamentos, pedidos de exame) com normalização na ponta, auditável e 100% transparente, onde a beleza é o retorno integral ou atômico**. Subir o demo público (Etapa 8) com exames, agendamentos e laudos visíveis na UI mas com autorização semi-aberta seria incoerente com essa definição. Decisão: fechar autorização nos 5 sucessores antes do deploy.
+
+### Estrutura: spike + 5 tickets paralelos
+
+| Ticket | Subdomínio | Volume estimado | Status |
+|---|---|---|---|
+| **TICKET-5C-BIS-0** | Spike avaliativo do helper compartilhado de ownership | ~150 linhas de ADR | 🔄 v0.2 (CODEX rodada 0 integrada 2026-05-26); amadurece quinta 28/05 com leitura concreta dos 5 routers |
+| TICKET-5C-BIS-A | `pedidos_exame.py` | 11 endpoints | ⛔ Após spike fechar |
+| TICKET-5C-BIS-B | `laudos.py` | 11 endpoints | ⛔ Após spike (paralelo a C) |
+| TICKET-5C-BIS-C | `agendamentos.py` | 6 endpoints | ⛔ Após spike (paralelo a B) |
+| TICKET-5C-BIS-D | `circulacao_diagnostica.py` | 1 endpoint + auditoria de matriz | ⛔ Após spike (pode rodar com C) |
+| TICKET-5C-BIS-E | `hospitalares.py` | 1 endpoint + absorve TICKET-5C-FOLLOWUP-CUSTODIA-HOSPITALAR (§7.1 do 5C) | ⛔ Último — complexidade `detentor_id = unidade_id` |
+
+Carteira de paciente (`/pacientes/{cpf}/carteira`) **não entra no 5C-bis** — é information disclosure (LGPD/UX), não ownership clínico. Ticket próprio entre Etapa 7 e Etapa 8.
+
+### Spike TICKET-5C-BIS-0 — decide A/B/C
+
+O spike avalia se faz sentido extrair um helper compartilhado de ownership (`_assert_or_403` ou similar) ou se cada subdomínio deve manter checagem local. Output é a `ADR-002-OWNERSHIP-HELPER.md` (cria a pasta `backend/docs/decisoes/` no commit; ADR-001 está embutida no relatório 4E-2).
+
+Três opções estruturadas:
+- **A — helper completo** (atende ≥ 4 classes de operação com ≤ 2 parâmetros por classe)
+- **B — manter local** (helper viraria builder)
+- **C — helper mínimo** (`_assert_or_403` compartilhado + queries locais de ownership) — registrado como **cenário mais provável** pelo parecer CODEX rodada 0 de 2026-05-26
+
+A decisão é vinculante para os 5 tickets A-E e não revisitada.
+
+### Participação dos extensionistas UFPE
+
+Os 7 extensionistas (reunião 27/05) entram no 5C-bis como atividade real de QA + validação semântica desde a semana 1, com calibração por formação:
+
+- **Sanitaristas júnior (sem código)** — papel pleno em QA: rodar testes, ler reviews CODEX, discutir matriz de ownership com perspectiva clínica (quem deve ler um laudo, em que momento, sob qual vínculo).
+- **Quem programa** — após decisão A/B/C, pode pegar endpoints individuais sob mentoria sincronizada (Arquiteto + Code revisam JUNTOS antes do CODEX), limitado a 1-2 endpoints por extensionista programador, nunca em transferência de custódia ou metadados de assinatura.
+
+Calibração precisa fechar após reunião 27/05 quando as formações dos 7 forem conhecidas.
+
+### Estimativa
+
+O 5C levou ~5-7 dias úteis (rodada 0 + 3 ciclos CODEX pré-impl + impl + rodada 2 zero P1). O 5C-bis tem 3x o volume mas herda padrão estabelecido — estimativa: **2-3 semanas** para fechar os 5 tickets, com extensionistas integrados a partir da semana 2.
 
 ---
 
@@ -280,6 +330,8 @@ A entrada do CODEX no ciclo de revisão evidenciou padrão útil: cada revisor t
 | 1.2 | 2026-05-05 | TICKET-70 spec v1.5 consolidada |
 | 1.3 | 2026-05-06 | Sem UFPE — projeto como propriedade pessoal de Fabiano |
 | **2.0** | **2026-05-06** | **Revisão CODEX integrada — Etapa 5 expandida (B1 + Fix OTP + testes mínimos de autorização), Etapa 9 expandida (7 → 12 issues)** |
+| **2.1** | **2026-05-26** | **Etapa 5C-bis inserida entre Etapa 6 e Etapa 7 — MVP estendido para incluir autorização nos 5 subdomínios sucessores (exames, laudos, agendamentos, circulação diagnóstica, hospitalar) antes do deploy público. Coerência com definição do PicSaúde como plataforma de circulação de objetos sanitários. Spike TICKET-5C-BIS-0 v0.2 (CODEX rodada 0 integrada) + 5 tickets A-E paralelos. Extensionistas UFPE entram como QA + validação semântica desde semana 1. Carteira de paciente vira ticket independente entre 7 e 8.** |
+| **2.2** | **2026-05-27** | **Etapa 6 fechada formalmente.** 4 commits (`94f73cd` + `9eb7228` + `a01fec6` + `5db20ef` + `6c0da36`). 3 rodadas CODEX + Jules-audit + 3 ciclos de fix. Calibração P2 Fix C documentada como achado pedagógico (critério §3.4 do TICKET-6.2 incoerente com contrato fire-and-forget do CLAUDE.md §6 — corrigido). Relatório HTML em `docs/relatorios/RELATORIO-FECHAMENTO-ETAPA-6.html`. Próximo bloqueador: Etapa 5C-bis. |
 
 ---
 

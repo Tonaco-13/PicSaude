@@ -643,9 +643,65 @@ Nenhum no momento. A rodada 1 cobriu o ticket inteiro. Rodada 2 atacará o commi
 
 ---
 
-## §11 Reservado — Status final
+## §11 Status final — Etapa 6 FECHADA (2026-05-27)
 
-*A ser preenchido após CODEX rodada 2 (pós-implementação) confirmar zero P1.*
+### §11.1 Marcos da Etapa 6
+
+| Marco | Commit | Data | Conteúdo |
+|---|---|---|---|
+| TICKET-6 — rodada 0 + impl | `94f73cd` | 2026-05-24 | feat(6) DEMO_MODE com sessões pré-semeadas + 7 decisões + isolamento DB + boot guards |
+| TICKET-6.1 — follow-up X.Y após CODEX rodada 2 (3 P1 + 2 P2) | `9eb7228` | 2026-05-24 | fix(6.1) isolamento CNES via helper compartilhado + hidratação demo no frontend + guard JWT hermético |
+| TICKET-6 — arquivamento docs | `a01fec6` | 2026-05-24 | docs(6) arquivar TICKET-6 + TICKET-6.1 + briefings CODEX/Jules + renumeração #56-58 → #59-61 |
+| TICKET-DX-PRE-EXTENSAO — Regra 3 (Jules audit P2#4 + P2#10) | `5db20ef` | 2026-05-26 | fix(dx) conftest skip module-level sem PG + bloco Windows nos ISSUEs |
+| TICKET-6.2 — follow-up X.Y após checklist §4.2 + CODEX rodada 0 sobre logs | `6c0da36` | 2026-05-27 | fix(6.2) demo correções pré-reunião — CNES graceful + rate limit 10x demo + UUID/REC-XXXX no comprovante físico |
+
+### §11.2 Trilha CODEX
+
+- **Rodada 1** (pré-impl, sobre rodada 0 do TICKET-6) — integrada em §10 do TICKET-6: 3 P1 + 4 P2 + 3 P3, taxa 10/10.
+- **Rodada 2** (pós-impl, sobre `94f73cd`) — briefing em `backend/docs/codex/CODEX-RODADA-2-6-POSTIMPL.md`: 3 P1 + 2 P2 + 1 P3. P1#1 (CNES), P1#2 (hidratação frontend), P1#3 (guard JWT) → resolvidos em `9eb7228` (TICKET-6.1).
+- **Jules** (fim de etapa, em paralelo à rodada 2) — briefing em `backend/docs/codex/JULES-RODADA-FIM-ETAPA6.md`: resposta lateral, 6 órfãos triados (4 para §11.5 abaixo; 2 para README + CONTRIBUTING-EXTENSAO).
+- **Rodada 0 ad-hoc** (sobre logs do demo, 2026-05-26) — 3 achados emergentes do checklist manual §4.2: CNES schema/fallback, rate limit hostil, mismatch REC-XXXX vs UUID → resolvidos em `6c0da36` (TICKET-6.2).
+- **Rodada 3** (pós-pós-impl, sobre range `9eb7228..6c0da36`, 2026-05-27) — **zero P1**. 1 P2 emergente sobre Fix C (calibração do critério, não bug do código — ver §11.4 abaixo).
+
+### §11.3 Achados do CODEX rodada 3 (2026-05-27) integrados
+
+| # | Severidade | Achado | Decisão | Aplicado em |
+|---|---|---|---|---|
+| 1 | — | TICKET-6.1 P1#1 CNES validado | ✅ confirmado | helper `_resolve_sqlite_db_path` + fixture patcha helper |
+| 2 | — | TICKET-6.1 P1#2 hidratação frontend validado | ✅ confirmado | sem race com `/config/public`, role divergente limpa sessão |
+| 3 | — | TICKET-6.1 P1#3 guard JWT validado | ✅ confirmado | smoke `test_smoke_import_time_em_prod_falha` passa |
+| 4 | — | TICKET-6.2 Fix A graceful CNES validado | ✅ confirmado | try/except só engole "no such table"; outras OperationalError re-raise |
+| 5 | — | TICKET-6.2 Fix B rate limit validado | ✅ confirmado | multiplicador import-time aceitável; brute force OTP em demo bloqueado por `demo_mode_ativo` |
+| 6 | P2 | TICKET-6.2 Fix C — cenário "física online → UUID sem hint" não atingível no comprovante imediato (fire-and-forget viola sincronia) | ✅ Aceito como calibração documental, não fix técnico | §11.4 abaixo + nota inline em §3.4 do TICKET-6.2 |
+
+### §11.4 Lapidação documentada — Fix C e o contrato fire-and-forget
+
+O critério §3.4 do TICKET-6.2 dizia que receita física com backend online deveria exibir UUID sem hint no comprovante. CODEX rodada 3 demonstrou que esse cenário **não é atingível** no comprovante imediato sem violar o contrato fire-and-forget do CLAUDE.md §6: `exibirSucessoEImpressao` roda **antes** do `.then()` da promessa `/prescricoes/fisica` resolver, então `protocolo_backend` está sempre undefined no momento da impressão, independente do backend estar online.
+
+**Calibração correta:** receita física **sempre** exibe REC-XXXX + hint amber no comprovante imediato, por design. O paciente acessa o UUID depois, via outro caminho (entrar como paciente, abrir a receita no histórico, copiar protocolo dali). Isso é coerente com:
+
+- CLAUDE.md §6 — emissão física é fire-and-forget; impressão não pode depender de backend online.
+- Princípio do PicSaúde como plataforma de circulação auditável: receita física tem trade-off explícito de menor rastreabilidade pública, e o hint amber **é o sistema sendo honesto sobre essa diferença** (não bug).
+
+**Achado pedagógico** (para a reunião com extensionistas 2026-05-27 e além): o P2 do CODEX revelou uma incoerência entre o critério de aceite (escrito pelo Arquiteto) e o contrato arquitetural (escrito no CLAUDE.md ontem). O critério estava errado, não o código. Esse é o tipo de tensão que aparece quando se escreve critério sem revisar contrato — e exemplo bonito de como CODEX como revisor independente captura inconsistências que o próprio Arquiteto não percebe.
+
+Atualização do critério §3.4 do TICKET-6.2: trocar "Receita física com backend online → comprovante mostra UUID, sem hint" por "Receita física → comprovante **sempre** mostra REC-XXXX + hint amber, por contrato fire-and-forget". Nota inline já registrada no §10 do TICKET-6.2.
+
+### §11.5 Órfãos do Jules-audit (registrados, não bloqueiam)
+
+Quatro órfãos do briefing do Jules que viraram dívida documentada (não entraram em ticket próprio porque escopo pequeno):
+
+- §3.1 Jules — diagnóstico `radon cc` sobre `/demo/login` (complexidade declarada pelo próprio Code, sem ação imediata).
+- §3.2/§3.8 Jules — duplicação de `_reject_if_demo` em 6 endpoints. Aceitável; fica como GFI eventual.
+- §3.3 Jules — naming `PIX_SAUDE_` (legado) vs `PICSAUDE_` (canônico). Vira issue de naming refactor pós-Etapa 8.
+
+### §11.6 Achado lateral identificado pelo CODEX rodada 3 (fora do escopo)
+
+CODEX reportou 7 falhas pré-existentes em `test_binding_icp.py` (CPF OID parsing) **fora do range/escopo** desta etapa. Vira ticket próprio pós-reunião: `TICKET-BINDING-ICP-CPF-OID-PARSING` (a abrir). Não bloqueia Etapa 6.
+
+### §11.7 Bloqueador seguinte
+
+Etapa 5C-bis — autorização mínima nos 5 subdomínios sucessores (pedidos de exame, laudos, agendamentos, circulação diagnóstica, hospitalar). Decidida em 2026-05-26 (ver §11.1 do TICKET-5C-BIS-0-HELPER-OWNERSHIP e PLANO-PRODUCAO-V2 v2.1).
 
 ---
 
