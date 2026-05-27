@@ -39,6 +39,11 @@ ROUTE_LIMITS: list[tuple[str, int]] = [
 ]
 DEFAULT_LIMIT = 30
 
+# Multiplicador para modo demo (TICKET-6.2): demo presencial com vários
+# extensionistas no mesmo IP institucional bate o limite em poucos minutos.
+# 10x mantém proteção mínima contra abuso sem hostilizar a demo.
+_DEMO_MULTIPLIER = 10 if os.getenv("PICSAUDE_DEMO_MODE", "").lower() == "true" else 1
+
 # Threshold para limpeza global do dicionário de IPs
 _MAX_IPS = 10_000
 
@@ -68,8 +73,8 @@ def _get_limit(path: str) -> int:
     normalized = path.rstrip("/")
     for prefix, limit in ROUTE_LIMITS:
         if normalized == prefix or normalized.startswith(prefix + "/"):
-            return limit
-    return DEFAULT_LIMIT
+            return limit * _DEMO_MULTIPLIER
+    return DEFAULT_LIMIT * _DEMO_MULTIPLIER
 
 
 def _purge_ip(timestamps: Deque[float], now: float) -> None:
