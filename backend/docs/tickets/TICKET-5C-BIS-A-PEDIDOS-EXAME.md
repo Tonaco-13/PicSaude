@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Status** | Rodada 0 (spec) — aguarda CODEX rodada 1 antes de qualquer linha de código |
+| **Status** | **CODEX rodada 1 integrada (2026-05-30) — pronta para implementação.** Histórico: rodada 0 → leitura de sanidade pré-CODEX (§8.4) → CODEX rodada 1 (2×P1 + 1×P2 + vereditos §8.1/§8.2/§8.4) |
 | **Classe** | `module` (estende módulo de exames com semântica de autorização) |
 | **Volume estimado** | ~250 linhas (código + testes), distribuídas em 11 endpoints |
 | **Autor** | Engenheiro-Arquiteto (Code workspace), calibração 2026-05-28 |
@@ -16,8 +16,8 @@
 > um mantenedor sucessor ou um auditor INPI. Não é caderno de execução pessoal.
 
 > **Convenção de honestidade desta spec:** tudo marcado **[VERIFICADO]** saiu de código lido no
-> commit `6439e4a`. Tudo marcado **[PROPOSTA]** é decisão de design a validar na CODEX rodada 1 —
-> não afirmo como sólido o que não verifiquei. Ver §8.
+> commit `6439e4a`. As propostas de design foram **resolvidas na CODEX rodada 1** — ver §8, onde
+> cada uma está marcada `[RESOLVIDO]` / `[CONFIRMADO]` / `[DECIDIDO]` / `[MANTIDO]`.
 
 ---
 
@@ -79,7 +79,7 @@ CODEX rodada 1.
 
 | Arquivo | Natureza da mudança |
 |---|---|
-| `app/routers/pedidos_exame.py` | Adicionar ownership check inline em 9 dos 11 endpoints (ver §7); trocar `_=Depends(...)` por `usuario=Depends(...)` onde necessário |
+| `app/routers/pedidos_exame.py` | (a) Caminho de ownership nos **11 dos 11** endpoints — cada um passa a capturar `usuario=Depends(...)` e a chamar `_normalizar_identidade_jwt(usuario)` (ver §7/§10; correção do achado P2 da CODEX rodada 1 — não é "9 dos 11"). (b) **Normalizar o CNPJ na escrita do `agendar`** (`para = normalize_cnpj(payload.cnpj_prestador)`) — opção A do §8.4, decidida pela CODEX rodada 1. (c) Importar `normalize_cnpj` (hoje ausente, §8.2). |
 | `app/utils/helpers.py` | **Criar** `_assert_or_403` e `_normalizar_identidade_jwt` (Helpers 1 e 2 da ADR-002 — 5C-bis-A é o primeiro ticket da série, logo é quem os introduz) |
 | `tests/integration/test_pedidos_exame_autorizacao.py` | **Criar** — suíte de ownership (mirror de `test_custodia_autorizacao.py`) |
 | `tests/unit/test_helpers_ownership.py` | **Criar** — teste unitário dos 2 helpers antes do uso (ADR-002 §7, mitigação do risco "mudar formato e quebrar 30 calls") |
@@ -267,18 +267,25 @@ def _assert_paciente_dono_pedido(conn, protocolo: str, ident_cpf: str) -> None:
     )
 
 def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
-    # [PROPOSTA §8.1] vínculo do prestador = registro de custódia para=CNPJ (criado no 'agendar').
-    # [PENDENTE §8.4] o `para` é gravado CRU pelo agendar; comparar contra ident_cnpj normalizado
-    #   causa 403 falso-negativo se o agendar recebeu CNPJ mascarado. A forma final da comparação
-    #   (normalizar na escrita = opção A, ou normalizar ambos no lookup = opção B) é decisão da
-    #   CODEX rodada 1. O código abaixo assume opção B até o veredito.
-    vinc = conn.execute(
-        "SELECT 1 FROM pedido_exame_custodia "
-        "WHERE pedido_id = ? AND para = ? LIMIT 1",
-        (pedido_id, ident_cnpj),
+    # Dono = prestador na CUSTÓDIA ATUAL do pedido inteiro (item_id IS NULL),
+    #   pós-'agendar'. NÃO "qualquer custódia histórica" (correção do P1(b) da
+    #   CODEX rodada 1): um prestador que já foi custodiante e perdeu a custódia
+    #   não pode continuar passando. Por isso ORDER BY id DESC LIMIT 1.
+    # Comparação direta (opção A, §8.4): o 'agendar' agora grava o CNPJ já
+    #   normalizado, então não normalizamos o lado lido. Guard len==14 é
+    #   defensivo: ident não-CNPJ (ex.: admin já fez bypass; mas paranoia)
+    #   nunca casa, e a custódia 'paciente' (carteira) também não casa.
+    if len(ident_cnpj) != 14:
+        _assert_or_403(False, codigo="nao_e_dono_do_pedido_exame",
+                       mensagem="Pedido de exame sob responsabilidade de outro prestador.")
+    atual = conn.execute(
+        "SELECT para FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id IS NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (pedido_id,),
     ).fetchone()
     _assert_or_403(
-        vinc is not None,
+        atual is not None and atual["para"] == ident_cnpj,
         codigo="nao_e_dono_do_pedido_exame",
         mensagem="Pedido de exame sob responsabilidade de outro prestador.",
     )
@@ -346,47 +353,39 @@ if papel == "prescritor":
 
 ---
 
-## §8 Decisões abertas para a CODEX rodada 1 [PROPOSTAS — não afirmadas como sólidas]
+## §8 Decisões — RESOLVIDAS na CODEX rodada 1 (2026-05-30)
 
-> O vocabulário de `codigo` **não está nesta lista**: foi decidido pelo Conselheiro (§6.3). A CODEX
-> revisa coerência/segurança do uso, não arbitra o vocabulário.
+> Vocabulário de `codigo`: decidido pelo Conselheiro (§6.3) — fora desta lista. A CODEX revisou
+> coerência/segurança do uso, não arbitrou vocabulário.
 
-1. **§8.1 — Semântica de ownership do dispensador em exames.** Proponho vínculo via
-   `pedido_exame_custodia.para = CNPJ`. Risco a validar: um pedido só ganha registro de custódia
-   *após* `agendar`; antes disso (`emitido`), nenhum dispensador é dono — comportamento desejado?
-   Além disso, `para` mistura `'paciente'` (custódia carteira digital, `pedidos_exame.py:351`) com o
-   CNPJ do prestador (`:639`). O lookup por CNPJ não colide com `'paciente'`, mas a CODEX deve
-   confirmar que não há outro valor de `para` que cause falso-positivo.
-2. **§8.2 — Helper 2 e CNPJ** (§6.2): ramo `dispensador` deve usar `normalize_cnpj` (que remove
-   sufixo `.0`), não o strip genérico de dígitos — sob pena de drift silencioso na comparação de CNPJ.
-3. **§8.3 — `resultado` (8) é prescritor+admin, sem dispensador.** [VERIFICADO] No mundo real o
-   prestador registra resultado. Mas mudar o conjunto de papéis violaria a invariante §4.4 (este
-   ticket não mexe em RBAC). Mantenho como está; registro como observação para ticket futuro, não
-   para 5C-bis-A.
-4. **§8.4 — Assimetria de normalização do CNPJ entre escrita e leitura (falso-NEGATIVO).**
-   [VERIFICADO em `511b9fc` — achado da leitura de sanidade pré-CODEX, 2026-05-30] Distinto do
-   falso-positivo do §8.1. A escrita e a leitura do CNPJ do prestador são **assimétricas**:
-   - **Escrita (`agendar`):** `pedido_exame_custodia.para = payload.cnpj_prestador` **cru**
-     (`pedidos_exame.py:639`). `AgendarIn` (`:584-587`) **não tem validator**, e o router **não
-     importa `normalize_cnpj`** (`:40` importa só `normalize_cns/cpf/nome`; zero usos de
-     `normalize_cnpj` no arquivo).
-   - **Leitura (helper proposto §7.0):** compararia `para` contra o `ident` do JWT já passado por
-     `normalize_cnpj` (§6.2/§8.2 — remove máscara e sufixo `.0`).
-   - **Consequência:** se o `agendar` foi chamado com CNPJ mascarado (`12.345.678/0001-90`) ou com
-     artefato `…90.0`, o `para` armazenado **não casa** com o `ident` normalizado → **403 falso
-     contra o prestador legítimo**. O critério §9 "dispensador com CNPJ correto → 2xx" pode falhar
-     conforme o fixture grave o CNPJ.
+1. **§8.1 — Ownership do dispensador. [RESOLVIDO]** Vínculo via `pedido_exame_custodia`, **com o
+   refinamento da CODEX rodada 1**: "dono" = prestador na **custódia ATUAL do pedido inteiro**
+   (`item_id IS NULL`, último registro), **pós-`agendar`**; antes de agendar → 403. NÃO "qualquer
+   custódia histórica" — o lookup `WHERE para = ?` da proposta original passava um prestador que já
+   perdera a custódia. Corrigido no helper §7.0 (`ORDER BY id DESC LIMIT 1`). Falso-positivo do
+   `'paciente'` também fica fechado: a custódia de carteira (`para='paciente'`) nunca casa com um
+   ident de 14 dígitos.
+2. **§8.2 — Helper 2 e CNPJ. [CONFIRMADO]** ramo `dispensador` usa `normalize_cnpj` (remove máscara e
+   sufixo `.0`), não o strip genérico. `pedidos_exame.py` passa a importar `normalize_cnpj` (§3).
+3. **§8.3 — `resultado` (8) é prescritor+admin, sem dispensador. [MANTIDO]** [VERIFICADO] No mundo
+   real o prestador registra resultado, mas mudar o conjunto de papéis violaria a invariante §4.4
+   (este ticket não mexe em RBAC). Observação para ticket futuro, não para 5C-bis-A.
+4. **§8.4 — Assimetria de normalização do CNPJ (falso-NEGATIVO). [DECIDIDO: opção A]**
+   [VERIFICADO em `511b9fc` — achado da leitura de sanidade pré-CODEX] A escrita gravava o CNPJ
+   **cru** (`pedidos_exame.py:639`; `AgendarIn:584-587` sem validator; router sem `normalize_cnpj`)
+   enquanto a leitura compararia contra ident normalizado → 403 falso-negativo se o CNPJ veio
+   mascarado.
 
-   **Decisão para a CODEX rodada 1** (não decido unilateralmente — tem dimensão de escopo):
-   - **Opção A — normalizar na escrita:** `agendar` passa a gravar `normalize_cnpj(payload.cnpj_prestador)`.
-     Mais limpo (dado consistente na tabela), **mas toca o write path do `agendar`**, que está fora do
-     "só ownership" deste ticket. NÃO viola §1 (imutabilidade): custódia é dado novo, não objeto
-     emitido sendo editado.
-   - **Opção B — normalizar ambos os lados no lookup do helper** (`normalize_cnpj(para) == ident`):
-     mantém a mudança dentro da camada de ownership (escopo mínimo de 5C-bis-A), **mas** deixa dado
-     heterogêneo na tabela para outros consumidores futuros.
-   - **Recomendação (fraca):** B, por minimalidade de escopo; A se a CODEX preferir corrigir a raiz.
-     Não dispara R6 (normalização de CNPJ não toca serialização canônica nem assinatura).
+   **Decisão da CODEX rodada 1 — opção A (normalizar na raiz):** o `agendar` passa a gravar
+   `normalize_cnpj(payload.cnpj_prestador)`. Corrige a raiz, mantém o dado homogêneo na tabela para
+   consumidores futuros, e **não dispara R6** (normalização de CNPJ não toca serialização canônica
+   nem assinatura). Toca o write path do `agendar` — mudança pequena e justificada, aprovada na
+   revisão; §1 (imutabilidade) não é violada (custódia é dado novo, não objeto emitido editado).
+   Como A normaliza na escrita, o helper §7.0 **não** normaliza o lado lido (evita o problema de
+   `normalize_cnpj('paciente') → ''`); usa o **guard defensivo `len(ident) == 14`** apontado pela
+   CODEX para que ident não-CNPJ nunca case.
+   - **Nota de dado legado:** A normaliza apenas escritas novas. Em DB de demo (fresco) não há linha
+     antiga; se um dia houver base com `para` cru herdado, uma migração trataria — fora do escopo de A.
 
 ---
 
@@ -402,16 +401,22 @@ Suíte nova `tests/integration/test_pedidos_exame_autorizacao.py` — no mínimo
   2xx **sem** ownership, sem 403, sem quebra ao passar pelo Helper 2 (cobre o caso em que o
   identificador do admin é vazio/não-clínico). Pelo menos um teste de admin por padrão de endpoint
   (B, C, D, dispensador).
-- **Dispensador (GET/coletar) — quatro casos explícitos (P2 + §8.4 — anti-interpretação frouxa):**
-  > **Regra de fixture:** o registro de custódia deve ser criado **pelo endpoint real `agendar`**
-  > (não por `INSERT` manual normalizado), para o teste refletir como o `para` é de fato gravado
-  > (cru, §8.4). Um fixture que insere CNPJ já normalizado à mão **esconderia** o falso-negativo.
-  1. dispensador faz GET **antes** de o pedido ser agendado (sem registro de custódia) → `403`;
-  2. dispensador cujo **CNPJ é o prestador agendado** (agendado com CNPJ sem máscara) → 2xx;
-  3. dispensador com **CNPJ diferente** do prestador agendado (ou CNPJ antigo) → `403`;
-  4. **(§8.4 — expõe a assimetria)** pedido agendado com CNPJ **mascarado**
-     (`12.345.678/0001-90`) e dispensador autentica com o mesmo CNPJ → deve dar **2xx**. Este caso
-     **falha** se a normalização ficar só de um lado; passa quando a opção A ou B do §8.4 for aplicada.
+- **Dispensador (GET/coletar) — cinco casos explícitos (P1(b) + §8.4 — anti-interpretação frouxa):**
+  > **Regra de fixture:** a custódia de prestador deve ser criada **pelo endpoint real `agendar`**
+  > (não por `INSERT` manual), para o teste exercitar a normalização-na-escrita da opção A (§8.4).
+  > Um fixture que insere o CNPJ à mão burlaria a correção.
+  1. dispensador faz GET **antes** de `agendar` → `403`. Inclui a variante com pedido emitido
+     `enviar_ao_paciente=True` (custódia `para='paciente'` existe, mas não é prestador) → `403`.
+  2. dispensador cujo **CNPJ é o prestador agendado** (agendar com CNPJ sem máscara) → 2xx.
+  3. dispensador com **CNPJ diferente** do prestador agendado → `403`.
+  4. **(§8.4 — opção A)** `agendar` chamado com CNPJ **mascarado** (`12.345.678/0001-90`); dispensador
+     autentica com o mesmo CNPJ (em qualquer formatação) → **2xx**. Falha se a normalização-na-escrita
+     não for aplicada; passa com a opção A.
+  5. **(§8.1 — custódia atual, não histórica)** pedido com custódia de prestador X **seguida** de uma
+     custódia de prestador Y mais recente (ambas `item_id IS NULL`): Y (atual) → 2xx; **X (histórico)
+     → `403`**. Como o fluxo de endpoints do MVP não reexpõe re-transferência de prestador, este caso
+     simula a linha histórica com um segundo `INSERT` pedido-nível direto — aqui o alvo do teste é a
+     garantia de "custódia atual" do helper (`ORDER BY id DESC`), não o fluxo do `agendar`.
 - **Paciente (custodia/encerrar):** paciente com CPF ≠ dono → `403`; paciente dono → 2xx.
 - **Ordenação anti-leak (#52):** não-dono recebe `403` e **não** consegue distinguir, pela resposta,
   o estado/`tipo_emissao` do pedido (o 403 precede o 422 de estado).
@@ -448,7 +453,11 @@ grep -c '_normalizar_identidade_jwt(usuario)' backend/app/routers/pedidos_exame.
 grep -nE 'def _assert_(prescritor|paciente|dispensador)_dono_pedido' backend/app/routers/pedidos_exame.py
 #   → esperado: 3 definições
 
-# (4) Helpers globais criados e testados:
+# (4) Opção A (§8.4) — agendar normaliza o CNPJ na escrita + import presente:
+grep -n 'normalize_cnpj' backend/app/routers/pedidos_exame.py
+#   → esperado: ≥ 2 (1 no import da linha 40; ≥1 na escrita do `para` no agendar)
+
+# (5) Helpers globais criados e testados:
 grep -n 'def _assert_or_403\|def _normalizar_identidade_jwt' backend/app/utils/helpers.py
 pytest backend/tests/unit/test_helpers_ownership.py backend/tests/integration/test_pedidos_exame_autorizacao.py -q
 ```
@@ -463,9 +472,10 @@ pytest backend/tests/unit/test_helpers_ownership.py backend/tests/integration/te
 ## §11 Predecessoras e pendências de verificação
 
 - **Pré-requisito em main:** `01c67fa` (5C) e `6439e4a` (ADR-002). [VERIFICADO — ambos em `origin/main`.]
-- **Pendência de verificação para a rodada 1** (não afirmo como sólido): §8.1 (custódia do dispensador),
-  §8.2 (CNPJ no Helper 2), **§8.4 (assimetria de normalização CNPJ escrita×leitura — falso-negativo)**.
-  A implementação não começa antes de a CODEX rodada 1 fechar essas.
+- **Pendências da rodada 1 — TODAS RESOLVIDAS** (CODEX rodada 1, 2026-05-30): §8.1 (custódia atual,
+  não histórica — P1(b)), §8.2 (`normalize_cnpj` confirmado), §8.4 (opção A — normalizar na escrita).
+  Mais o P2 (escopo "11 dos 11", não "9 dos 11", §3) e os dois P1 do helper de dispensador (§7.0).
+  Com isso a spec está **pronta para implementação**.
 - **Leitura de sanidade pré-CODEX** (Engenheiro-executor, `511b9fc`, 2026-05-30): baseline §10
   confirmado (11 `_=Depends` / 0 normalizações), os 3 pontos de §5.1/§5/§8.1 verificados batendo
   com o código, e **descoberto o §8.4** (assimetria de normalização) — risco que esta rodada 0
@@ -476,25 +486,27 @@ pytest backend/tests/unit/test_helpers_ownership.py backend/tests/integration/te
 
 ---
 
-## §12 O que volta ao Conselheiro
+## §12 Estado de governança e o que volta ao Conselheiro
 
-- **Esta rodada 0**, pronta para disparar **CODEX rodada 1** (obrigatória: classe `module`, >100 linhas
-  — guard-rail Risco 1 da calibração). Nenhuma linha de código antes disso.
-- **Vocabulário de `codigo` (§6.3) — DECIDIDO pelo Conselheiro em 2026-05-30** (já incorporado): mirror
-  do 5C (`prescritor_mismatch`, `nao_e_dono_do_pedido_exame`) + nota emendando a ADR-002 §7 no commit
-  de implementação. A CODEX revisa coerência/segurança, não arbitra o vocabulário.
-- **Trade-off ainda aberto (§8.1):** a semântica de ownership do dispensador em exames (via custódia)
-  é design novo, não herdado — vale o olhar do Conselheiro sobre se "dispensador só é dono após
-  agendamento" é coerente com a narrativa de circulação de objetos sanitários. Os testes (§9) fixam
-  os quatro casos (antes/depois/CNPJ-errado/CNPJ-mascarado) para impedir interpretação frouxa.
-- **Achado da leitura de sanidade pré-CODEX (§8.4):** o Engenheiro-executor encontrou uma assimetria
-  de normalização do CNPJ (escrita crua × leitura normalizada → 403 falso-negativo) que esta rodada 0
-  inicial não destacara. Incorporado antes da CODEX. Bom sinal do valor da leitura pré-revisão.
-- **Não dispara R6:** nada neste ticket toca serialização canônica, assinatura, escopo público
-  anunciado, cronograma UFPE/SMS ou postura LGPD além do reforço de controle de acesso já previsto.
-  Confirmo o anti-escopo §2 como barreira mecânica.
+- **Ciclo de revisão — completo.** Rodada 0 → leitura de sanidade pré-CODEX (achou §8.4) → CODEX
+  rodada 1 (5 achados: 2×P1 + 1×P2 no helper/escopo, vereditos §8.1/§8.2/§8.4). Tudo integrado. A
+  spec está **pronta para implementação** — pode descer ao Engenheiro-executor.
+- **Vocabulário de `codigo` (§6.3) — decidido pelo Conselheiro** (mirror 5C + nota emendando ADR-002
+  §7 no commit de implementação). A CODEX revisou coerência, não arbitrou.
+- **§8.1 dispensador — refinado pela CODEX:** "dono" = custódia **atual** do pedido inteiro, não
+  histórica. Vale o registro ao Conselheiro de que a narrativa "dispensador só é dono após o
+  recebimento formal (agendar), e perde a custódia quando ela é transferida" ficou **explícita e
+  testada** (§9 caso 5) — coerente com circulação de objetos sanitários.
+- **Calibrar a mensagem do 403 pré-agendar** (seu próprio ponto da rodada anterior): o caso 1 do §9
+  hoje devolve `nao_e_dono_do_pedido_exame`. Para um lab consultando protocolo recém-emitido, a
+  mensagem genérica pode confundir ("feature, not bug"). **Sugiro** uma mensagem dedicada ("pedido
+  ainda não recebido por este prestador") — registro como ajuste de UX de erro a decidir na
+  integração, não bloqueante.
+- **Não dispara R6:** nada toca serialização canônica, assinatura, escopo público, cronograma
+  UFPE/SMS ou postura LGPD além do reforço de controle de acesso. Anti-escopo §2 confirmado — a
+  opção A (normalizar CNPJ na escrita) foi checada contra R6 e não cruza.
 
 ---
 
-*Rodada 0 redigida em 2026-05-30 pelo Engenheiro-Arquiteto, sobre código lido no commit `6439e4a`.
-Aguarda CODEX rodada 1 antes da implementação.*
+*Rodada 0 redigida em 2026-05-30 sobre código lido em `6439e4a`. Leitura de sanidade pré-CODEX e
+CODEX rodada 1 integradas no mesmo dia. Spec pronta para implementação após esta integração.*
