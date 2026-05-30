@@ -486,7 +486,10 @@ pytest backend/tests/unit/test_helpers_ownership.py backend/tests/integration/te
 - **Trade-off ainda aberto (§8.1):** a semântica de ownership do dispensador em exames (via custódia)
   é design novo, não herdado — vale o olhar do Conselheiro sobre se "dispensador só é dono após
   agendamento" é coerente com a narrativa de circulação de objetos sanitários. Os testes (§9) fixam
-  os três casos (antes/depois/CNPJ errado) para impedir interpretação frouxa.
+  os quatro casos (antes/depois/CNPJ-errado/CNPJ-mascarado) para impedir interpretação frouxa.
+- **Achado da leitura de sanidade pré-CODEX (§8.4):** o Engenheiro-executor encontrou uma assimetria
+  de normalização do CNPJ (escrita crua × leitura normalizada → 403 falso-negativo) que esta rodada 0
+  inicial não destacara. Incorporado antes da CODEX. Bom sinal do valor da leitura pré-revisão.
 - **Não dispara R6:** nada neste ticket toca serialização canônica, assinatura, escopo público
   anunciado, cronograma UFPE/SMS ou postura LGPD além do reforço de controle de acesso já previsto.
   Confirmo o anti-escopo §2 como barreira mecânica.
