@@ -157,7 +157,7 @@ Importante distinguir no critério: `admin` passa em todos os 5 padrões (A/B/C/
 
 ## §4 Output esperado
 
-Documento curto (~150 linhas) em `backend/docs/decisoes/ADR-002-OWNERSHIP-HELPER.md` com:
+Documento em `backend/docs/decisoes/ADR-002-helper-ownership-5c-bis.md` (fechada em 2026-05-30) com:
 
 - §1 Resumo da decisão (1 parágrafo)
 - §2 Material analisado — incluir **commit analisado** (`5db20ef` ou o HEAD vigente quando a ADR for redigida) e lista curta dos arquivos lidos (mínimo: os 5 routers do escopo + os 5 do 5C como base comparativa). Isso deixa a decisão auditável.
@@ -220,4 +220,19 @@ CODEX revisou o spike v0.1 sob o briefing `PROMPT-CODEX-5C-BIS-0.md` (Arquiteto,
 
 ---
 
-*Spike v0.2 — 2026-05-26 após CODEX rodada 0 integrada. Amadurece em sessão própria após reunião 27/05, quando soubermos quem na equipe de extensão tem perfil técnico para acompanhar a leitura do código.*
+*Spike v0.2 — 2026-05-26 após CODEX rodada 0 integrada.*
+
+---
+
+## §11 Status final — SPIKE FECHADO (2026-05-30)
+
+✅ **Fechado em [ADR-002-helper-ownership-5c-bis.md](../decisoes/ADR-002-helper-ownership-5c-bis.md).**
+
+- **Decisão:** **Opção C estendida** — três helpers compartilhados (`_assert_or_403`, `_normalizar_identidade_jwt` em `utils/helpers.py`; `_unidade_id_do_dispensador` em `auth/ownership.py` novo, usado só pelo TICKET-E hospitalar).
+- **Justificativa central:** 8 chaves de identidade distintas confirmadas na leitura dos 5 routers (commit `43664f4`). Helper completo (opção A) não cabe; manter local sem nenhum helper (opção B) reabre risco de drift no formato `{codigo, mensagem}` do 403. A opção C minimal foi estendida com 2 helpers mínimos que isolam **identidade pura** de **vínculo institucional** — correção principal do achado #4 do CODEX rodada 0 do spike.
+- **Gatilho CODEX rodada 0 sobre a ADR:** **não dispara** (§6 do spike previa rodada 0 só para opção A com assinatura concreta; opção C não dispara).
+- **Próximo gatilho CODEX:** rodada 1 sobre a spec do TICKET-5C-BIS-A (será >100 linhas, classe `core`, gatilho obrigatório do guard-rail da calibração 2026-05-28).
+- **Vinculante para:** TICKET-5C-BIS-A/B/C/D/E. Não revisitar (§1 do spike).
+- **Leitura realizada:** 5 routers (`pedidos_exame.py`, `laudos.py`, `agendamentos.py`, `circulacao_diagnostica.py`, `hospitalares.py`) — 39 endpoints reais (vs 30 estimados no PLANO), 30 dos quais com gap de ownership. Detalhes na §1.1 da ADR-002.
+
+*Status final registrado pelo Engenheiro-Arquiteto sob calibração 2026-05-28.*

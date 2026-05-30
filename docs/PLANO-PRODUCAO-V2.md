@@ -221,7 +221,7 @@ A definição operacional do PicSaúde formalizada por Fabiano em 2026-05-26 é 
 
 | Ticket | Subdomínio | Volume estimado | Status |
 |---|---|---|---|
-| **TICKET-5C-BIS-0** | Spike avaliativo do helper compartilhado de ownership | ~150 linhas de ADR | 🔄 v0.2 (CODEX rodada 0 integrada 2026-05-26); amadurece quinta 28/05 com leitura concreta dos 5 routers |
+| **TICKET-5C-BIS-0** | Spike avaliativo do helper compartilhado de ownership | ~150 linhas de ADR | ✅ Fechado em [ADR-002](../backend/docs/decisoes/ADR-002-helper-ownership-5c-bis.md) (2026-05-30) — **opção C estendida**: `_assert_or_403` + `_normalizar_identidade_jwt` (em `utils/helpers.py`) + `_unidade_id_do_dispensador` (em `auth/ownership.py`, só TICKET-E) |
 | TICKET-5C-BIS-A | `pedidos_exame.py` | 11 endpoints | ⛔ Após spike fechar |
 | TICKET-5C-BIS-B | `laudos.py` | 11 endpoints | ⛔ Após spike (paralelo a C) |
 | TICKET-5C-BIS-C | `agendamentos.py` | 6 endpoints | ⛔ Após spike (paralelo a B) |
@@ -232,7 +232,7 @@ Carteira de paciente (`/pacientes/{cpf}/carteira`) **não entra no 5C-bis** — 
 
 ### Spike TICKET-5C-BIS-0 — decide A/B/C
 
-O spike avalia se faz sentido extrair um helper compartilhado de ownership (`_assert_or_403` ou similar) ou se cada subdomínio deve manter checagem local. Output é a `ADR-002-OWNERSHIP-HELPER.md` (cria a pasta `backend/docs/decisoes/` no commit; ADR-001 está embutida no relatório 4E-2).
+O spike avalia se faz sentido extrair um helper compartilhado de ownership (`_assert_or_403` ou similar) ou se cada subdomínio deve manter checagem local. Output é a [ADR-002-helper-ownership-5c-bis.md](../backend/docs/decisoes/ADR-002-helper-ownership-5c-bis.md) — fechada em 2026-05-30 (cria a pasta `backend/docs/decisoes/` no commit; ADR-001 está embutida no relatório 4E-2).
 
 Três opções estruturadas:
 - **A — helper completo** (atende ≥ 4 classes de operação com ≤ 2 parâmetros por classe)
