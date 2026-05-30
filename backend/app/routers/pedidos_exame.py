@@ -37,7 +37,14 @@ from app.domain.states_exame import (
     eh_terminal_pedido,
     eh_terminal_item_exame,
 )
-from app.utils.helpers import normalize_cns, normalize_cpf, normalize_nome
+from app.utils.helpers import (
+    normalize_cns,
+    normalize_cpf,
+    normalize_nome,
+    normalize_cnpj,
+    _assert_or_403,
+    _normalizar_identidade_jwt,
+)
 
 router = APIRouter(prefix="/pedidos-exame", tags=["pedidos_exame"])
 
@@ -210,7 +217,7 @@ def _localizar_ou_criar_paciente(conn, cpf: str, nome: str, agora: str) -> int:
 @router.post("", status_code=201)
 def criar_pedido_exame(
     payload: PedidoExameIn,
-    _=Depends(require_role("prescritor")),
+    usuario=Depends(require_role("prescritor")),
 ):
     """
     Emite um pedido de exame digitalmente.
@@ -224,10 +231,20 @@ def criar_pedido_exame(
     6. Gera hash do documento canônico
     7. Grava evento 'pedido_emitido' no ledger
     """
+    # TICKET-5C-BIS-A §7.1 (Padrão A) — ownership por identidade nominal: o CNS
+    # declarado no payload deve coincidir com o do JWT. Primeiro efeito do
+    # handler, antes de qualquer escrita (prova de rollback, §9).
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     if not payload.itens:
         raise HTTPException(status_code=422, detail="O pedido deve conter ao menos um item.")
 
     cns       = normalize_cns(payload.cns_prescritor)
+    _assert_or_403(
+        ident == cns,
+        codigo="prescritor_mismatch",
+        mensagem="CNS do payload não coincide com prescritor autenticado.",
+    )
     cpf       = normalize_cpf(payload.cpf_paciente)
     nome_pac  = normalize_nome(payload.nome_paciente)
     protocolo = str(uuid.uuid4())
@@ -402,7 +419,7 @@ def criar_pedido_exame(
 @router.post("/fisica", status_code=201)
 def criar_pedido_exame_fisico(
     payload: FisicaExameIn,
-    _=Depends(require_role("prescritor")),
+    usuario=Depends(require_role("prescritor")),
 ):
     """
     Registra um pedido de exame emitido exclusivamente em papel.
@@ -416,10 +433,19 @@ def criar_pedido_exame_fisico(
 
     Fire-and-forget: o frontend imprime sem aguardar resposta.
     """
+    # TICKET-5C-BIS-A §7.1 (Padrão A) — mesma checagem da emissão digital:
+    # CNS do payload == CNS do JWT, antes de qualquer escrita.
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     if not payload.itens:
         raise HTTPException(status_code=422, detail="O pedido deve conter ao menos um item.")
 
     cns      = normalize_cns(payload.cns_prescritor)
+    _assert_or_403(
+        ident == cns,
+        codigo="prescritor_mismatch",
+        mensagem="CNS do payload não coincide com prescritor autenticado.",
+    )
     cpf      = normalize_cpf(payload.cpf_paciente) if payload.cpf_paciente else _CPF_NAO_IDENTIFICADO
     nome_pac = normalize_nome(payload.nome_paciente)
     protocolo = str(uuid.uuid4())
@@ -513,6 +539,64 @@ def _get_pedido_ou_404(conn, protocolo: str) -> dict:
     return dict(row)
 
 
+# ---------------------------------------------------------------------------
+# TICKET-5C-BIS-A §7.0 — Helpers locais privados de ownership (DRY no módulo).
+# As queries de ownership ficam locais ao subdomínio (ADR-002 opção C), mas sem
+# reescrever o mesmo JOIN em 5 endpoints. NÃO são abstração global (P2 do
+# Conselheiro). Usam o Helper 1 global `_assert_or_403`.
+# ---------------------------------------------------------------------------
+
+def _assert_prescritor_dono_pedido(conn, protocolo: str, ident_cns: str) -> None:
+    dono = conn.execute(
+        "SELECT pr.cns FROM pedidos_exame pe "
+        "JOIN prescritores pr ON pr.id = pe.prescritor_id "
+        "WHERE pe.protocolo = ?", (protocolo,),
+    ).fetchone()
+    _assert_or_403(
+        dono is not None and ident_cns == dono["cns"],
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Este pedido de exame foi emitido por outro prescritor.",
+    )
+
+
+def _assert_paciente_dono_pedido(conn, protocolo: str, ident_cpf: str) -> None:
+    dono = conn.execute(
+        "SELECT pa.cpf FROM pedidos_exame pe "
+        "JOIN pacientes pa ON pa.id = pe.paciente_id "
+        "WHERE pe.protocolo = ?", (protocolo,),
+    ).fetchone()
+    _assert_or_403(
+        dono is not None and ident_cpf == dono["cpf"],
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Este pedido de exame pertence a outro paciente.",
+    )
+
+
+def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
+    # Dono = prestador na CUSTÓDIA ATUAL do pedido inteiro (item_id IS NULL),
+    #   pós-'agendar'. NÃO "qualquer custódia histórica" (correção do P1(b) da
+    #   CODEX rodada 1): um prestador que já foi custodiante e perdeu a custódia
+    #   não pode continuar passando. Por isso ORDER BY id DESC LIMIT 1.
+    # Comparação direta (opção A, §8.4): o 'agendar' agora grava o CNPJ já
+    #   normalizado, então não normalizamos o lado lido. Guard len==14 é
+    #   defensivo: ident não-CNPJ (ex.: admin já fez bypass; mas paranoia)
+    #   nunca casa, e a custódia 'paciente' (carteira) também não casa.
+    if len(ident_cnpj) != 14:
+        _assert_or_403(False, codigo="nao_e_dono_do_pedido_exame",
+                       mensagem="Pedido de exame sob responsabilidade de outro prestador.")
+    atual = conn.execute(
+        "SELECT para FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id IS NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (pedido_id,),
+    ).fetchone()
+    _assert_or_403(
+        atual is not None and atual["para"] == ident_cnpj,
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Pedido de exame sob responsabilidade de outro prestador.",
+    )
+
+
 def _get_itens(conn, pedido_id: int) -> list:
     return [
         dict(r) for r in conn.execute(
@@ -540,10 +624,18 @@ def _recalcular_e_atualizar_status_pedido(conn, pedido_id: int, agora: str) -> s
 @router.get("/{protocolo}")
 def get_pedido_exame(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin", "dispensador")),  # dispensador = clínica/lab (MVP, futuro: prestador)
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),  # dispensador = clínica/lab (MVP, futuro: prestador)
 ):
+    # TICKET-5C-BIS-A §7.2 — bypass de admin; demais papéis validam ownership
+    # logo após o 404 e ANTES de devolver conteúdo (anti-leak #52).
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
+            elif papel == "dispensador":
+                _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
         itens  = _get_itens(conn, pedido["id"])
         eventos = [
             dict(r) for r in conn.execute(
@@ -562,10 +654,17 @@ def get_pedido_exame(
 @router.get("/{protocolo}/custodia")
 def get_custodia_exame(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin", "paciente")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente")),
 ):
+    # TICKET-5C-BIS-A §7.2 — matriz prescritor/paciente; admin bypassa.
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
+            elif papel == "paciente":
+                _assert_paciente_dono_pedido(conn, protocolo, ident)
         registros = conn.execute(
             "SELECT de, para, transferido_em, dados_json FROM pedido_exame_custodia "
             "WHERE pedido_id = ? ORDER BY id ASC",
@@ -591,7 +690,7 @@ class AgendarIn(BaseModel):
 def agendar_pedido_exame(
     protocolo: str,
     payload: AgendarIn,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     """
     Registra o agendamento de um pedido com um prestador de exames.
@@ -603,8 +702,16 @@ def agendar_pedido_exame(
     """
     agora = datetime.utcnow().isoformat()
 
+    # TICKET-5C-BIS-A §7.2 — ownership (prescritor; admin bypassa) ANTES das
+    # checagens de estado 422 (anti-leak #52).
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
@@ -629,6 +736,12 @@ def agendar_pedido_exame(
                 (item["id"],),
             )
 
+        # TICKET-5C-BIS-A §8.4 (opção A) — normalizar o CNPJ na ESCRITA, na raiz.
+        # A custódia (e ledger/retorno) guardam o CNPJ homogêneo (sem máscara,
+        # sem sufixo .0), para que o ownership do dispensador (§7.0) compare
+        # contra um valor já canônico. AgendarIn permanece sem validator.
+        cnpj_prestador_norm = normalize_cnpj(payload.cnpj_prestador)
+
         conn.execute(
             """
             INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json)
@@ -636,7 +749,7 @@ def agendar_pedido_exame(
             """,
             (
                 pedido["id"],
-                payload.cnpj_prestador,
+                cnpj_prestador_norm,
                 agora,
                 json.dumps({
                     "nome_prestador":   payload.nome_prestador,
@@ -655,7 +768,7 @@ def agendar_pedido_exame(
             tipo_evento="pedido_agendado",
             instance_id=instance_id,
             payload={
-                "cnpj_prestador":   payload.cnpj_prestador,
+                "cnpj_prestador":   cnpj_prestador_norm,
                 "nome_prestador":   payload.nome_prestador,
                 "data_agendamento": payload.data_agendamento,
                 "itens_agendados":  len(itens_agendar),
@@ -666,7 +779,7 @@ def agendar_pedido_exame(
             "protocolo":       protocolo,
             "status":          novo_status,
             "itens_agendados": len(itens_agendar),
-            "cnpj_prestador":  payload.cnpj_prestador,
+            "cnpj_prestador":  cnpj_prestador_norm,
         }
 
 
@@ -680,7 +793,7 @@ def agendar_pedido_exame(
 def coletar_item_exame(
     protocolo: str,
     item_id: int,
-    _=Depends(require_role("prescritor", "admin", "dispensador")),  # dispensador = clínica/lab (MVP, futuro: prestador)
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),  # dispensador = clínica/lab (MVP, futuro: prestador)
 ):
     """
     Registra a coleta de um item específico.
@@ -690,8 +803,18 @@ def coletar_item_exame(
     """
     agora = datetime.utcnow().isoformat()
 
+    # TICKET-5C-BIS-A §7.2 — prescritor/dispensador validam ownership; admin
+    # bypassa. 404 → 403 → 422 de estado (anti-leak #52).
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
+            elif papel == "dispensador":
+                _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(status_code=422, detail=f"Pedido '{protocolo}' está em estado terminal.")
@@ -754,15 +877,22 @@ class CancelarIn(BaseModel):
 def cancelar_pedido_exame(
     protocolo: str,
     payload: CancelarIn,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     """
     Cancela o pedido e todos os itens não terminais.
     """
     agora = datetime.utcnow().isoformat()
 
+    # TICKET-5C-BIS-A §7.2 — só o prescritor dono cancela; admin bypassa.
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
@@ -827,7 +957,7 @@ def registrar_resultado_item(
     protocolo: str,
     item_id: int,
     payload: ResultadoIn,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     """
     Registra o resultado de um item de exame.
@@ -840,8 +970,16 @@ def registrar_resultado_item(
     """
     agora = datetime.utcnow().isoformat()
 
+    # TICKET-5C-BIS-A §7.2 — só o prescritor dono registra resultado; admin
+    # bypassa. Conjunto de papéis inalterado (§4.4/§8.3: sem dispensador aqui).
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
@@ -936,7 +1074,7 @@ def registrar_resultado_item(
 @router.post("/{protocolo}/encerrar", status_code=200)
 def encerrar_pedido_exame(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin", "paciente")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente")),
 ):
     """
     Registra a ciência formal do resultado.
@@ -950,8 +1088,17 @@ def encerrar_pedido_exame(
     """
     agora = datetime.utcnow().isoformat()
 
+    # TICKET-5C-BIS-A §7.2 — matriz prescritor/paciente; admin bypassa.
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
+            elif papel == "paciente":
+                _assert_paciente_dono_pedido(conn, protocolo, ident)
 
         if pedido["status"] != "resultado_disponivel":
             raise HTTPException(
@@ -1009,11 +1156,14 @@ def encerrar_pedido_exame(
 @router.get("/{protocolo}/pdf")
 def get_pdf_pedido_exame(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     from fastapi.responses import StreamingResponse
     from app.domain.pdf_pedido_exame import gerar_pdf_pedido_exame
     import io as _io
+
+    # TICKET-5C-BIS-A §7.3 (Padrão C) — reusa o row (a query já faz JOIN pr.cns).
+    papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
         row = conn.execute(
@@ -1034,6 +1184,15 @@ def get_pdf_pedido_exame(
 
         if not row:
             raise HTTPException(status_code=404, detail=f"Pedido '{protocolo}' não encontrado.")
+
+        # §7.3 — owner check só para 'prescritor'; admin passa. Não há
+        # paciente/dispensador no require_role do pdf — não adicionar (§4.4).
+        if papel == "prescritor":
+            _assert_or_403(
+                ident == row["cns_prescritor"],
+                codigo="nao_e_dono_do_pedido_exame",
+                mensagem="Este pedido de exame foi emitido por outro prescritor.",
+            )
 
         itens = conn.execute(
             """
@@ -1080,20 +1239,22 @@ def get_pdf_pedido_exame(
 @router.get("/{protocolo}/qr")
 def qr_code_pedido_exame(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     import io as _io
     import qrcode
     from fastapi.responses import Response as _Response
     from app.config import BASE_URL
 
-    with get_tx() as conn:
-        existe = conn.execute(
-            "SELECT 1 FROM pedidos_exame WHERE protocolo = ?", (protocolo,)
-        ).fetchone()
+    # TICKET-5C-BIS-A §7.2/§5.1(3) — QR precisa de query nova (Padrão B): a
+    # versão anterior só fazia SELECT 1. 404 → 403 (prescritor dono; admin bypassa).
+    papel, ident = _normalizar_identidade_jwt(usuario)
 
-    if not existe:
-        raise HTTPException(status_code=404, detail="Protocolo não encontrado.")
+    with get_tx() as conn:
+        _get_pedido_ou_404(conn, protocolo)
+        if papel != "admin":
+            if papel == "prescritor":
+                _assert_prescritor_dono_pedido(conn, protocolo, ident)
 
     url = f"{BASE_URL}/public/exames/{protocolo}"
     qr  = qrcode.QRCode(
