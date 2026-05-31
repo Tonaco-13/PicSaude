@@ -300,6 +300,27 @@ def test_disp_caso4_cnpj_mascarado_no_agendar_2xx(client, seed_usuario, seed_pac
     assert r.status_code == 200, r.text
 
 
+def test_disp_coletar_cnpj_agendado_2xx_cnpj_diferente_403(client, seed_usuario, seed_paciente):
+    """Endpoint #6: dispensador só coleta se for o prestador na custódia atual."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto = _criar_pedido(client, token_a)
+    item_id = _item_id(client, token_a, proto)
+    assert _agendar(client, token_a, proto, _CNPJ_A).status_code == 201
+
+    errado = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/coletar",
+        headers=_headers(_token(_CNPJ_B, "dispensador")),
+    )
+    assert errado.status_code == 403, errado.text
+    assert errado.json()["detail"]["codigo"] == "nao_e_dono_do_pedido_exame"
+
+    certo = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/coletar",
+        headers=_headers(_token(_CNPJ_A, "dispensador")),
+    )
+    assert certo.status_code == 201, certo.text
+
+
 def test_disp_caso5_custodia_atual_nao_historica(client, outer_conn, seed_usuario, seed_paciente):
     """§8.1: custódia X (histórica) seguida de Y (atual) → Y 2xx, X 403.
 
@@ -317,10 +338,16 @@ def test_disp_caso5_custodia_atual_nao_historica(client, outer_conn, seed_usuari
     with outer_conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, dados_json)
-            VALUES (%s, NULL, 'paciente', %s, %s)
+            INSERT INTO pedido_exame_custodia
+              (pedido_id, item_id, de, para, transferido_em, dados_json)
+            VALUES (%s, NULL, 'paciente', %s, %s, %s)
             """,
-            (pedido_id, _CNPJ_B, '{"motivo": "re-transferencia historica (teste)"}'),
+            (
+                pedido_id,
+                _CNPJ_B,
+                datetime.utcnow(),
+                '{"motivo": "re-transferencia historica (teste)"}',
+            ),
         )
 
     # Y (atual) → 200
