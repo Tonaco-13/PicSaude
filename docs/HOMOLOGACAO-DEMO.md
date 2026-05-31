@@ -5,6 +5,8 @@
 > **Quando:** primeiro exercício prático da reunião de abertura (2026-05-26) e tarefa contínua de QA da equipe.
 > **Objetivo:** validar o comportamento do PicSaúde em ambiente real de DEMO, **caçando falhas que os testes automatizados (pytest) não enxergam** — testes de UX, rede, navegador, regra de negócio.
 
+> ⚠️ **Dados são efêmeros:** o banco demo é resetado **a cada hora cheia** (`scripts/reset_demo_db.py` via cron, ver Cenário 2). Um teste deixado pela metade pode não estar lá após a virada da hora. Conclua cada cenário de uma vez ou anote o que precisa preservar.
+
 ---
 
 ## Como funciona
