@@ -143,6 +143,45 @@ def test_a_fisica_cns_mismatch_403_com_rollback(client, outer_conn, seed_usuario
         assert depois[t] == baseline[t], f"{t}: rollback incompleto"
 
 
+def test_a_derivacao_origem_de_outro_prescritor_403(client, outer_conn, seed_usuario, seed_paciente):
+    """P1 (CODEX r2): correcao/renovacao só pode derivar de pedido do PRÓPRIO
+    prescritor. B (CNS-B coerente com o JWT) tenta derivar do pedido de A → 403 +
+    rollback. Sem o JOIN na origem, B ligaria um objeto à cadeia clínica de A."""
+    token_a = obter_token_prescritor(client, seed_usuario)        # dono A (CNS seed)
+    proto_a = _criar_pedido(client, token_a)
+    pedido_a_id = _pedido_id(outer_conn, proto_a)
+
+    baseline = _contagens(outer_conn)
+    payload = {
+        **_PAYLOAD_BASE,
+        "cns_prescritor":   _CNS_PRESCRITOR_B,   # B coerente com seu próprio JWT (passa §7.1)
+        "tipo_emissao":     "correcao",
+        "origem_pedido_id": pedido_a_id,         # ...mas a origem é de A
+    }
+    r = client.post(
+        "/pedidos-exame", json=payload,
+        headers=_headers(_token(_CNS_PRESCRITOR_B, "prescritor")),
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["codigo"] == "nao_e_dono_do_pedido_exame"
+
+    depois = _contagens(outer_conn)
+    for t in _TABELAS_PEDIDO:
+        assert depois[t] == baseline[t], f"{t}: rollback incompleto"
+
+
+def test_a_derivacao_origem_propria_201(client, outer_conn, seed_usuario, seed_paciente):
+    """O próprio prescritor A deriva correcao do seu pedido → 201."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto_a = _criar_pedido(client, token_a)
+    pedido_a_id = _pedido_id(outer_conn, proto_a)
+
+    payload = {**_PAYLOAD_BASE, "tipo_emissao": "correcao", "origem_pedido_id": pedido_a_id}
+    r = client.post("/pedidos-exame", json=payload, headers=_headers(token_a))
+    assert r.status_code == 201, r.text
+    assert r.json()["tipo_emissao"] == "correcao"
+
+
 # ===========================================================================
 # Padrão B — GET / qr / agendar / cancelar / resultado (prescritor)
 # ===========================================================================

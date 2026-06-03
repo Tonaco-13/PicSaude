@@ -260,14 +260,25 @@ def criar_pedido_exame(
         prescritor_id = _localizar_ou_criar_prescritor(conn, cns, payload.nome_prescritor, agora)
 
         if payload.origem_pedido_id is not None:
+            # P1 (CODEX rodada 2) — derivação (correcao/renovacao) só pode apontar
+            # para pedido do PRÓPRIO prescritor: 404 se não existe, 403 se pertence a
+            # outro CNS. Sem o JOIN, A derivaria objeto ligado à cadeia clínica de B.
             origem = conn.execute(
-                "SELECT id FROM pedidos_exame WHERE id = ?", (payload.origem_pedido_id,)
+                "SELECT pr.cns FROM pedidos_exame pe "
+                "JOIN prescritores pr ON pr.id = pe.prescritor_id "
+                "WHERE pe.id = ?",
+                (payload.origem_pedido_id,),
             ).fetchone()
             if not origem:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Pedido de origem id={payload.origem_pedido_id} não encontrado.",
                 )
+            _assert_or_403(
+                origem["cns"] == ident,
+                codigo="nao_e_dono_do_pedido_exame",
+                mensagem="O pedido de exame de origem foi emitido por outro prescritor.",
+            )
 
         # Ticket 63: verificar se paciente já existe antes de criar
         _pac_row = conn.execute("SELECT id FROM pacientes WHERE cpf = ?", (cpf,)).fetchone()
