@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Status** | Rodada 0 (spec) — martelos da revisão CODEX integrados; aguarda CODEX rodada 1 antes de qualquer código |
+| **Status** | **CODEX rodada 1 integrada (P2+P3) — apta para implementação.** Histórico: rodada 0 → revisão CODEX (martelos §8) → CODEX rodada 1 (P2 sentinela + P3 contagem) |
 | **Classe** | `module` (estende o módulo de laudos com semântica de autorização) |
 | **Volume estimado** | ~300 linhas (código + testes), 12 endpoints |
 | **Base da leitura** | `main` em `1b68ad7` (leitura de sanidade do Engenheiro-executor) |
@@ -30,7 +30,7 @@ Não há `dispensador` em nenhum endpoint de laudo → **não há branch de owne
 ## §3 Escopo de arquivos
 | Arquivo | Mudança |
 |---|---|
-| `app/routers/laudos.py` | Ownership inline nos **12/12** endpoints (`_=`/`usuario=` → `usuario=`); 3 helpers locais; guards de `origem_laudo_id` e `pedido_protocolo` na criação |
+| `app/routers/laudos.py` | Ownership inline nos **12/12** endpoints (`_=`/`usuario=` → `usuario=`); **3 resolvers + 4 asserts** locais; guards de `origem_laudo_id` e `pedido_protocolo` na criação |
 | `tests/integration/test_laudos_autorizacao.py` | **Criar** — suíte de ownership (mirror do A) |
 
 **NÃO toca:** `helpers.py` (helpers globais já existem, mergeados do A), `states_laudo.py` (estados intocados), `prescricoes.py`/`pedidos_exame.py`, tudo do §2.
@@ -64,7 +64,7 @@ Não há `dispensador` em nenhum endpoint de laudo → **não há branch de owne
 ## §6 Helpers
 **Globais (já em `main`, reuso):** `_assert_or_403`, `_normalizar_identidade_jwt`.
 
-**Locais em `laudos.py` (§7.0) — resolução das 3 chaves + asserts:**
+**Locais em `laudos.py` (§7.0) — 3 resolvers de chave + 4 asserts:**
 ```python
 def _cns_autor(conn, protocolo):          # JOIN prescritores via autor_id → cns
 def _cns_solicitante(conn, protocolo):    # JOIN pedidos_exame via pedido_id → prescritores.cns (None se sem pedido)
@@ -84,7 +84,10 @@ def _assert_leitura_prescritor(conn, protocolo, ident):   # autor OU solicitante
                    "nao_e_dono_do_laudo", "Este laudo pertence a outro prescritor/serviço.")
 
 def _assert_paciente_dono(conn, protocolo, ident):
-    _assert_or_403(_cpf_paciente_laudo(conn, protocolo) == ident,
+    cpf = _cpf_paciente_laudo(conn, protocolo)
+    # P2 (CODEX r1): CPF sentinela ('00000000000') nunca representa cidadão real —
+    # nega mesmo que ident seja a própria sentinela (laudo físico/sem paciente id).
+    _assert_or_403(cpf != _CPF_NAO_IDENTIFICADO and cpf == ident,
                    "nao_e_dono_do_laudo", "Este laudo pertence a outro paciente.")
 ```
 
@@ -150,6 +153,7 @@ if papel != "admin":
 2. **§8.2 `encerrar` → autor apenas** (admin bypass). [DECIDIDO] Solicitante usa `ciencia-prescritor`; `encerrar` é fechamento operacional do produtor.
 3. **§8.3 `criar/fisica` com admin → bypass do `cns_autor==JWT`, mas NÃO de invariantes.** [DECIDIDO] Mesmo admin criando em nome de alguém, `origem_laudo_id` deve pertencer ao mesmo `cns_autor` do payload.
 4. **§8.4 `pedido_protocolo` é guard obrigatório, não só existência.** [DECIDIDO — P1 CODEX] Ao vincular, validar `pedido.paciente.cpf == laudo.cpf_paciente`. **Não** exigir `cns_autor == pedido.prescritor` (autor técnico ≠ solicitante são distintos). Vínculo errado concederia leitura/ciência ao prescritor errado.
+5. **§8.5 `_assert_paciente_dono` nega o CPF sentinela.** [DECIDIDO — P2 CODEX rodada 1] `cpf != _CPF_NAO_IDENTIFICADO and cpf == ident`. Sem isso, um token `sub=00000000000` acessaria laudos físicos/sem paciente identificado — o sentinela nunca representa cidadão real (convenção 6a do CLAUDE.md).
 
 ## §9 Critérios de aceite (testes PG — `test_laudos_autorizacao.py`)
 - **A (criar/fisica):** autor-A declarando CNS-B → `403 autor_mismatch` + rollback.
@@ -159,6 +163,7 @@ if papel != "admin":
 - **Autor-only (5,6,9,10):** solicitante (não-autor) → 403; autor → 2xx.
 - **ciencia-prescritor (8):** solicitante → 2xx; autor (não-solicitante) → 403; **laudo sem pedido → 403**.
 - **ciencia-paciente (7) — BUG ATIVO:** paciente ≠ dono → 403; paciente dono → 2xx.
+- **CPF sentinela (P2 §8.5):** laudo físico/sem paciente identificado (`cpf=00000000000`); token `paciente` com `sub=00000000000` → **403** (nunca acessa via sentinela).
 - **admin:** 2xx sem ownership em todos os endpoints que aceitam admin, **sem** quebrar invariantes de domínio (origem/pedido continuam validados).
 - **Anti-leak #52:** não-dono recebe 403 antes do 422 de estado.
 
@@ -173,4 +178,9 @@ DATABASE_URL=postgresql://.../picsaude_test pytest tests/integration/test_laudos
 
 ---
 
-*Rodada 0 redigida em 2026-06-03 pelo Engenheiro-executor sobre `1b68ad7`, com os martelos da revisão CODEX integrados. Aguarda CODEX rodada 1 antes da implementação.*
+## §11 Fora de escopo (follow-up separado)
+**Autorização por estado de publicação** ("paciente/solicitante só acessa depois de `liberado`") é **autz por estado, não ownership mínimo** — fora do 5C-BIS-B (nota CODEX rodada 1). Registrar como follow-up próprio se/quando virar requisito.
+
+---
+
+*Rodada 0 redigida em 2026-06-03 pelo Engenheiro-executor sobre `1b68ad7`. Martelos da revisão CODEX + ajustes da CODEX rodada 1 (P2 sentinela, P3 contagem) integrados. **Apta para implementação.***
