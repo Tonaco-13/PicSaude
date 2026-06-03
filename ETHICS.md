@@ -35,7 +35,41 @@ nunca a venda individual.
 
 ---
 
-## 2. Como isto é protegido (defesa em profundidade)
+## 2. Não-objetivo nº 2 — Venda ou monetização por empresas e detentores
+
+> **Nenhum detentor de dados — licenciado, instituição (`org_id`), dispensador,
+> prestador, operador terceirizado ou integrador — vende, comercializa, monetiza,
+> cede ou transfere a terceiros os dados processados pelo PicSaúde.**
+
+Este não-objetivo **já é a "Regra de Ouro" da [`DATA-PROTECTION.md`](DATA-PROTECTION.md)**
+— **essa é a fonte operativa** (com foro em Recife/PE e sanção contratual). Aqui ele
+é elevado à carta ética para ficar ao lado do nº 1: os dois fecham os dois lados do
+mesmo princípio — **nem o titular vende, nem quem detém comercializa.**
+
+### Mecanismos já existentes (detalhados em `DATA-PROTECTION.md`)
+- **Sem exportação em massa** — sem endpoints de dump/lote; consultas individuais por
+  protocolo (UUID); relatórios anonimizados e agregados.
+- **Marca d'água `instance_id`** — watermark forense (`backend/app/instance.py`) que
+  identifica a instalação de origem em caso de vazamento.
+- **Ledger imutável** + **AGPL-3.0** — qualquer endpoint de exportação oculto fica
+  visível para auditoria pública.
+
+### Ponto de controle futuro — G4A (publicação de eventos)
+A venda por empresa, se acontecesse, ocorreria na **camada de publicação de eventos
+(G4A)** — que **ainda não existe** (hoje não há porta de egressão externa). Quando for
+desenhada, a prevenção de revenda (escopo por finalidade, outorga auditável, sem
+egressão em massa) deve nascer como **controle de primeira classe** dela, não como
+remendo posterior. **Esta é a verificação real do não-objetivo nº 2.**
+
+> **Limite honesto:** "sem exportação em massa" é hoje **princípio + transparência
+> AGPL**, ainda **não** uma tripwire de CI dedicada (diferente do nº 1, que já tem
+> `test_guardrail_sem_monetizacao.py`). Converter isso em teste executável — alertar
+> sobre qualquer rota nova que devolva coleção/dump — é o próximo guard-rail técnico
+> recomendado.
+
+---
+
+## 3. Como isto é protegido (defesa em profundidade)
 
 Nada disto torna impossível a um fork malicioso — código aberto é assim, e só a
 **licença (AGPL)** tem força jurídica. O objetivo é elevar o piso: tornar a
