@@ -61,6 +61,10 @@
 | **B** | Assumir `resultado = fim` e **depreciar** `encerrar`. | Perde o passo de ciência — avaliar peso regulatório (CFM/laudo, contrarreferência futura). |
 | **C** | Separar **terminalidade de item** da **agregação de pedido**: introduzir status de pedido `resultado_disponivel` explícito, distinto do item terminal. | Mais correto, mais invasivo — mexe na máquina de estados e no `CLAUDE.md §5a/§7`. |
 
+> **Preferência da revisão CODEX (rodada 2, 2026-05-31):** **opção C** — pedido com
+> todos os itens em `resultado_disponivel` deriva `resultado_disponivel`; só `encerrar`
+> leva a `encerrado` + evento `pedido_encerrado`. Decisão final permanece `core`.
+
 ---
 
 ## §4 Governança
