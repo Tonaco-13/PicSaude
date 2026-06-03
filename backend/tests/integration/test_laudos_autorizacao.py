@@ -174,6 +174,22 @@ def test_get_autor_e_solicitante_2xx_terceiro_403(client):
     assert r.json()["detail"]["codigo"] == "nao_e_dono_do_laudo"
 
 
+def test_leitura_custodia_pdf_qr_matriz_explicita(client):
+    """CODEX r2 — prova explícita das 3 superfícies de leitura que reusam o mesmo
+    ramo (custodia/pdf/qr): autor/solicitante/paciente-dono → 200; terceiro
+    prescritor e paciente não-dono → 403."""
+    ped = _criar_pedido(client, _CNS_SOLIC_S, paciente_cpf=_CPF_PAC)
+    proto = _criar_laudo(client, autor_cns=_CNS_AUTOR_A, paciente_cpf=_CPF_PAC, pedido_protocolo=ped)
+
+    for sufixo in ("/custodia", "/pdf", "/qr"):
+        url = f"/laudos/{proto}{sufixo}"
+        assert client.get(url, headers=_headers(_tok(_CNS_AUTOR_A, "prescritor"))).status_code == 200, sufixo
+        assert client.get(url, headers=_headers(_tok(_CNS_SOLIC_S, "prescritor"))).status_code == 200, sufixo
+        assert client.get(url, headers=_headers(_tok(_CNS_OUTRO, "prescritor"))).status_code == 403, sufixo
+        assert client.get(url, headers=_headers(_tok(_CPF_PAC, "paciente"))).status_code == 200, sufixo
+        assert client.get(url, headers=_headers(_tok(_CPF_OUTRO_PAC, "paciente"))).status_code == 403, sufixo
+
+
 # ===========================================================================
 # Autor-only — assinar/liberar/cancelar/encerrar
 # ===========================================================================
