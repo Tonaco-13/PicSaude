@@ -101,6 +101,7 @@ _transicionar(conn, protocolo, novo, agora)     # 409 (transição) + update
 
 ## §8 Decisões — RESOLVIDAS (CODEX rodada 1)
 - **§D1 [DECIDIDO]** dispensador **fail-closed 403** via `prestadores.cnpj → org_id`; ownership **org-level** (JWT não carrega `unidade_id`). CNPJ ausente/NULL/inativo/ambíguo (→ >1 org) → 403.
+  - **Nota de implementação (gate PG):** o schema `org_id` de `prestadores` + `unidades` (Ticket 30) **não está migrado na PG/prod** (só via `init_tables`/SQLite). `_org_id_do_dispensador` é **fail-closed**: se a query falha (schema ausente), retorna `None` → 403. Logo, hoje, **todo dispensador é negado na PG** — a resolução positiva ativa quando a migration existir (**TICKET-5C-BIS-C.1**).
 - **§D2 [DECIDIDO]** normalizar **read-side** no helper (`normalize_cnpj(row["cnpj"])`). Normalizar-on-write em `prestadores.py` é **follow-up** separado.
 - **§D3 [DECIDIDO]** `criar`: prescritor/paciente devem ser donos do **pedido**; dispensador deve resolver para **`payload.org_id`**; admin bypassa. `remarcar`: prescritor/paciente donos do agendamento (via pedido); admin bypassa; **sem** dispensador (RBAC não inclui).
 - **§D4 [DECIDIDO]** `listar` por pedido: **dispensador → 403** (pedido não tem `org_id`; lista histórico inteiro).
@@ -108,7 +109,7 @@ _transicionar(conn, protocolo, novo, agora)     # 409 (transição) + update
 - **§D6 [DECIDIDO]** `criado_por` é só informativo; fora do ownership.
 
 ## §9 Critérios de aceite (testes PG — `test_agendamentos_autorizacao.py`)
-- **Dispensador:** CNPJ **não cadastrado** em prestadores → 403; CNPJ **mascarado** no banco e/ou JWT, mesmo prestador → 2xx (prova da normalização read-side); CNPJ que **normaliza para ≥2 orgs distintas** → 403; prestador **inativo** → 403.
+- **Dispensador (PG, fail-closed):** sem schema institucional na PG, **todo dispensador → 403** (get/criar/confirmar/listar). Os casos de **resolução positiva** (mascarado→2xx, org match, ambíguo→403, inativo→403) ficam no **TICKET-5C-BIS-C.1**, para quando a migration existir.
 - **criar:** por prescritor/paciente **donos do pedido** → 201; por dispensador cujo org == `payload.org_id` → 201; por **não-dono** (prescritor/paciente de outro pedido, ou dispensador de outra org) → **403 + rollback**.
 - **listar por pedido:** prescritor/paciente do pedido → 200; **dispensador → 403**.
 - **transições (confirmar/realizar/cancelar/nao-compareceu):** não-dono → 403; dono (prescritor ∨ dispensador-org ∨ paciente onde aplicável) → 2xx.
