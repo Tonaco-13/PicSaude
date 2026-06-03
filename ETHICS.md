@@ -61,11 +61,12 @@ desenhada, a prevenção de revenda (escopo por finalidade, outorga auditável, 
 egressão em massa) deve nascer como **controle de primeira classe** dela, não como
 remendo posterior. **Esta é a verificação real do não-objetivo nº 2.**
 
-> **Limite honesto:** "sem exportação em massa" é hoje **princípio + transparência
-> AGPL**, ainda **não** uma tripwire de CI dedicada (diferente do nº 1, que já tem
-> `test_guardrail_sem_monetizacao.py`). Converter isso em teste executável — alertar
-> sobre qualquer rota nova que devolva coleção/dump — é o próximo guard-rail técnico
-> recomendado.
+> **Nota técnica:** "sem exportação em massa" é protegido em duas camadas — (a)
+> princípio + transparência AGPL (este documento e `DATA-PROTECTION.md §1`) e (b)
+> **tripwires de CI** que falham o build se surgir superfície de egressão não
+> revisada: `backend/tests/test_guardrail_sem_monetizacao.py` (nº 1) e
+> `backend/tests/test_guardrail_sem_exportacao_massa.py` (nº 2). A camada (b) não
+> trava um fork malicioso — eleva o piso e torna a adição conspícua.
 
 ---
 
