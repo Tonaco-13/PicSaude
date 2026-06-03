@@ -361,6 +361,26 @@ contexto_operacional_negado       — operação só permitida em contexto X (ex
 
 Novos códigos exigem PR + nota no §7 desta ADR.
 
+### Emenda — reconciliação do vocabulário no TICKET-5C-BIS-A (2026-05-30)
+
+A implementação do **TICKET-5C-BIS-A** (`pedidos_exame.py`) **não** adotou o
+vocabulário fechado proposto acima (`ownership_negada`, etc.). Decisão de
+governança do Conselheiro (2026-05-30, registrada em §6.3 do ticket): por
+**estender contrato de erro herdado de um predecessor fechado** (TICKET-5C §3.5),
+os valores de `codigo` espelham o **estilo 5C**, adaptados a exame:
+
+- `prescritor_mismatch` — POST criar/fisica, CNS do payload ≠ CNS do JWT
+  (reuso literal do código do 5C, `prescricoes.py:237`).
+- `nao_e_dono_do_pedido_exame` — prescritor/paciente/dispensador não-dono em
+  GET/mutação (código único, mensagem específica por papel).
+
+O **mecanismo** `_assert_or_403(cond, codigo, mensagem)` desta ADR permanece
+inalterado — muda apenas o conjunto de valores de `codigo`. Esta emenda satisfaz
+a regra acima ("Novos códigos exigem PR + nota no §7"). A reconciliação evita
+**dois dialetos de erro** no mesmo sistema; o vocabulário fechado original segue
+válido como referência para os tickets B–E, que devem avaliar caso a caso se
+estendem contrato 5C (estilo 5C) ou introduzem código novo (estilo ADR).
+
 ---
 
 ## §8 Decisão sobre CODEX rodada 0 desta ADR

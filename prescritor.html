@@ -814,6 +814,23 @@
             return h;
         }
 
+        // Extrai mensagem legível de um corpo de erro do backend. Cobre os três
+        // formatos que a API devolve em `detail`:
+        //   - string            → erros simples / 403 RBAC
+        //   - {codigo,mensagem} → nosso contrato de ownership (5C / 5C-BIS-A) e 422
+        //   - [{loc,msg},...]   → erro de validação nativo do FastAPI
+        // Sem isto, concatenar o objeto de erro direto gerava texto ilegível na UI.
+        function _extrairMsgErro(errData, fallback) {
+            const d = errData && errData.detail;
+            if (d == null) return fallback;
+            if (typeof d === "string") return d;
+            if (Array.isArray(d)) {
+                return d.map(e => (e && e.msg) ? e.msg : JSON.stringify(e)).join("; ");
+            }
+            if (typeof d === "object") return d.mensagem || d.msg || JSON.stringify(d);
+            return String(d);
+        }
+
         if (DEV_MODE) document.getElementById('dev-mode-badge').style.display = 'inline-block';
 
         function labelAssinaturaModo(modo) {
@@ -1115,7 +1132,7 @@
 
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    _mostrarLoginErro('Login inválido: ' + (err.detail || 'Verifique suas credenciais.'));
+                    _mostrarLoginErro('Login inválido: ' + _extrairMsgErro(err, 'Verifique suas credenciais.'));
                     return;
                 }
 
@@ -1340,7 +1357,7 @@
                 });
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
-                    throw new Error(err.detail || res.statusText);
+                    throw new Error(_extrairMsgErro(err, res.statusText));
                 }
                 atualizarPainel();
             } catch (err) {
@@ -1660,13 +1677,14 @@
                 });
 
                 if (!resp.ok) {
-                    if (resp.status === 401 || resp.status === 403) {
-                        mostrarMensagemFormulario('Sessão expirada ou sem permissão. Faça login novamente.', 'error');
+                    if (resp.status === 401) {
+                        mostrarMensagemFormulario('Sessão expirada. Faça login novamente.', 'error');
                         sair();
                         return;
                     }
+                    // 403 (ownership) NÃO desloga: mostra a mensagem em PT do backend.
                     const errData = await resp.json().catch(() => ({}));
-                    mostrarMensagemFormulario('Erro ao registrar prescrição: ' + (errData.detail || resp.statusText), 'error');
+                    mostrarMensagemFormulario('Erro ao registrar prescrição: ' + _extrairMsgErro(errData, resp.statusText), 'error');
                     return;
                 }
 
@@ -2083,12 +2101,12 @@
             const fonte    = data.fonte || '';
 
             // Sem match e sem alertas → feedback neutro (não silenciar; evita percepção
-            // "IA quebrou" quando o usuário busca fora da base local de 41 medicamentos).
+            // "IA quebrou" quando o usuário busca fora da base local de medicamentos).
             if (!forma && !unidade && alertas.length === 0) {
                 container.innerHTML =
                     '<div class="ia-bloco ia-bloco-neutro">' +
                     '<div class="ia-header">Sem correspondência na base</div>' +
-                    '<div class="ia-neutro-msg">Nenhuma sugestão na base local (MVP — 41 medicamentos cobertos). Continue digitando livremente.</div>' +
+                    '<div class="ia-neutro-msg">Nenhuma sugestão na base local (MVP). Continue digitando livremente.</div>' +
                     '</div>';
                 return;
             }
@@ -2595,9 +2613,10 @@
                 });
 
                 if (!resp.ok) {
-                    if (resp.status === 401 || resp.status === 403) { _mostrar('Sessão expirada ou sem permissão. Faça login novamente.', 'error'); sair(); return; }
+                    if (resp.status === 401) { _mostrar('Sessão expirada. Faça login novamente.', 'error'); sair(); return; }
+                    // 403 (ownership) NÃO desloga: mostra a mensagem em PT do backend.
                     const errData = await resp.json().catch(() => ({}));
-                    _mostrar('Erro ao emitir pedido: ' + (errData.detail || resp.statusText), 'error');
+                    _mostrar('Erro ao emitir pedido: ' + _extrairMsgErro(errData, resp.statusText), 'error');
                     return;
                 }
 
@@ -2777,7 +2796,7 @@
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
                     container.innerHTML = `<p style="font-size:12px;color:#dc2626;padding:8px 0;">
-                        Erro na validação: ${_escDoc(err.detail || String(resp.status))}</p>`;
+                        Erro na validação: ${_escDoc(_extrairMsgErro(err, String(resp.status)))}</p>`;
                     return;
                 }
 
