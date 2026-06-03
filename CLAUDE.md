@@ -483,6 +483,7 @@ A classificação determina o nível de revisão exigido.
 Qualquer mudança nas seguintes áreas é `core` e **não pode ser feita sem aprovação**:
 - `NUCLEO_SANITARIO.md`
 - `CLAUDE.md`
+- `ETHICS.md` — não-objetivos éticos (ex.: sem monetização de dado do paciente; ver guard-rail em `backend/tests/test_guardrail_sem_monetizacao.py`)
 - Máquinas de estados oficiais (`domain/states*.py`)
 - Ledger (`*_eventos` — qualquer nova tabela ou alteração de semântica)
 - Cadeia de custódia (`prescricao_custodia` ou equivalente)
