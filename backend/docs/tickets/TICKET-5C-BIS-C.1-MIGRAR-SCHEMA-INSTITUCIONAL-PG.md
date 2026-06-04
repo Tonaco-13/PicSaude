@@ -73,6 +73,10 @@ Mas **todo o código usa o schema Ticket-30** (`org_id`/`unidades`): `login.py:2
 - **Pós-merge (C.1 + #9 + #10):** os testes positivos do dispensador (CNPJ mascarado→2xx, ambíguo→403, inativo→403, org match) entram — follow-up de teste, não de código.
 - **Pré-requisito do E** (hospitalar, hop extra `unidade_id`).
 
+## §7 Achado adjacente (FORA de escopo — follow-up)
+O gate do smoke revelou que **`estabelecimentos_cnes`** (base CNES bruta) **também está ausente na PG** — o login-prestador (`/auth/me/institucional`, "Tratamento 3") cruza o CNPJ contra ela e levanta `UndefinedTable` no caminho 200. A query de `prestadores.org_id` em si **funciona** (o 404 com CNPJ não cadastrado roda antes do CNES). Isso é **outra tabela dev-only/reference**, distinta do schema Ticket-30 — **não** entra no C.1. Registrar follow-up próprio (carga/migração ou tolerância graciosa à ausência de `estabelecimentos_cnes`).
+
 ---
 
-*Martelos integrados em 2026-06-04 sobre `c6529e6`. **Apta para implementação.***
+*Martelos integrados em 2026-06-04 sobre `c6529e6`. Ajustes da CODEX rodada 2
+(idempotência 3 caminhos + smoke login/api_keys) integrados. **Apta.***
