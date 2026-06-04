@@ -341,7 +341,7 @@ def criar_unidade(org_id: str, body: UnidadeIn, _=Depends(require_role("admin"))
         conn.execute(
             """
             INSERT INTO unidades (id, prestador_id, unidade_id, nome, tipo, ativo, criado_em)
-            VALUES (?, ?, ?, ?, ?, 1, ?)
+            VALUES (?, ?, ?, ?, ?, true, ?)
             """,
             (uid, prestador["id"], unidade_id, nome, tipo, agora),
         )
