@@ -15,7 +15,7 @@ Regras:
 
 from __future__ import annotations
 
-from sqlalchemy import Column, ForeignKey, Integer, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Text, UniqueConstraint
 
 from app.database import Base
 
@@ -33,5 +33,5 @@ class Unidade(Base):
     unidade_id   = Column(Text, nullable=False)
     nome         = Column(Text, nullable=False)
     tipo         = Column(Text, nullable=True)    # ambulatorio|enfermaria|laboratorio|farmacia|administrativo|usf
-    ativo        = Column(Integer, nullable=False, default=1)
+    ativo        = Column(Boolean, nullable=False, default=True)   # C.1: Boolean (código usa ativo=true)
     criado_em    = Column(Text, nullable=False)
