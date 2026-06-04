@@ -54,3 +54,58 @@ def test_ja_tem_org_id_nao_aborta():
 def test_sem_tabela_nao_aborta():
     mig = _carregar_migration()
     assert mig.linhas_baseline_a_preservar(_conn()) == 0
+
+
+# ===========================================================================
+# Idempotência nos 3 caminhos (CODEX rodada 2) — exercita o upgrade() real
+# via Operations sobre SQLite, sem precisar do runtime completo do Alembic.
+# ===========================================================================
+
+import pytest
+from sqlalchemy import inspect as _inspect
+from alembic.runtime.migration import MigrationContext
+from alembic.operations import Operations
+
+
+def _run_upgrade(mig, conn):
+    # Rebind do `op` global que a migration usa para uma Operations ligada à conn.
+    mig.op = Operations(MigrationContext.configure(conn))
+    mig.upgrade()
+
+
+def _tem_col(conn, tabela, col):
+    insp = _inspect(conn)
+    return insp.has_table(tabela) and col in {c["name"] for c in insp.get_columns(tabela)}
+
+
+def test_idempotencia_baseline_vazio_recria():
+    mig = _carregar_migration(); conn = _conn()
+    conn.execute(text("CREATE TABLE prestadores (id INTEGER PRIMARY KEY, cnpj TEXT)"))
+    _run_upgrade(mig, conn)
+    assert _tem_col(conn, "prestadores", "org_id")
+    assert _inspect(conn).has_table("unidades")
+
+
+def test_idempotencia_ja_migrado_noop():
+    mig = _carregar_migration(); conn = _conn()
+    conn.execute(text("CREATE TABLE prestadores (id TEXT PRIMARY KEY, org_id TEXT, cnpj TEXT)"))
+    conn.execute(text("CREATE TABLE unidades (id TEXT PRIMARY KEY, prestador_id TEXT)"))
+    _run_upgrade(mig, conn)  # no-op, não levanta nem destrói
+    assert _tem_col(conn, "prestadores", "org_id")
+    assert _inspect(conn).has_table("unidades")
+
+
+def test_idempotencia_parcial_cria_unidades():
+    mig = _carregar_migration(); conn = _conn()
+    conn.execute(text("CREATE TABLE prestadores (id TEXT PRIMARY KEY, org_id TEXT, cnpj TEXT)"))
+    # 'unidades' ausente → caminho parcial
+    _run_upgrade(mig, conn)
+    assert _inspect(conn).has_table("unidades")
+
+
+def test_idempotencia_baseline_com_linhas_aborta():
+    mig = _carregar_migration(); conn = _conn()
+    conn.execute(text("CREATE TABLE prestadores (id INTEGER PRIMARY KEY, cnpj TEXT)"))
+    conn.execute(text("INSERT INTO prestadores (id, cnpj) VALUES (1, 'x')"))
+    with pytest.raises(RuntimeError):
+        _run_upgrade(mig, conn)

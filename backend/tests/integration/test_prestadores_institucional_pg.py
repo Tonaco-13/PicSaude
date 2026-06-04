@@ -60,3 +60,27 @@ def test_org_id_unico(client):
         "org_id": "org-dup", "nome": "Y", "tipo": "clinica",
     }, headers=h)
     assert r.status_code in (409, 422), r.text
+
+
+def test_smoke_login_prestador_e_api_keys(client):
+    """Smoke (CODEX rodada 2): os caminhos que consultavam `prestadores.org_id` e
+    quebravam na PG funcionam após a migration.
+
+    Nota: o caminho 200 do login-prestador (com prestador cadastrado) cruza com
+    `estabelecimentos_cnes`, outra tabela ausente na PG (FORA do escopo do C.1 —
+    ver follow-up no ticket). Por isso o smoke usa o caminho 404 (CNPJ não
+    cadastrado), que exercita a query de `prestadores.org_id` e levanta 404 ANTES
+    do cruzamento CNES — provando que a coluna org_id existe e a query roda."""
+    h = _admin()
+    assert client.post("/prestadores", json={
+        "org_id": "org-sm", "nome": "Lab SM", "tipo": "laboratorio",
+        "cnpj": "99999999000191",
+    }, headers=h).status_code == 201
+
+    # login-prestador com CNPJ NÃO cadastrado → 404 (query org_id rodou, sem CNES)
+    disp = {"Authorization": f"Bearer {criar_access_token(sub='00000000000000', role='dispensador', nome='X')}"}
+    assert client.get("/auth/me/institucional", headers=disp).status_code == 404
+
+    # api_keys: criar para org existente → 201 (verifica org_id em prestadores)
+    rk = client.post("/admin/api-keys", json={"org_id": "org-sm", "nome": "Integrador X"}, headers=h)
+    assert rk.status_code == 201, rk.text
