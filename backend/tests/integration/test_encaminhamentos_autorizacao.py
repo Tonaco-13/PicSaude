@@ -174,7 +174,16 @@ def test_publico_nao_vaza_dados_sensiveis(client, seed_usuario, seed_paciente):
     proto = _criar(client, seed_usuario)
     r = client.get(f"/public/encaminhamentos/{proto}")
     assert r.status_code == 200, r.text
-    body = str(r.json())
+    data = r.json()
+    body = str(data)
     assert SEED_PACIENTE_CPF not in body
-    assert "I10" not in body
-    assert "Avaliacao especializada" not in body
+    assert "I10" not in body                       # CID
+    assert "Avaliacao especializada" not in body   # justificativa
+    # neutralização core: nenhuma clínica no aberto
+    assert "Cardiologia" not in body               # especialidade / especialidade_destino
+    assert "Consulta especializada" not in body    # procedimento
+    assert "especialidade" not in data and "especialidade_destino" not in data
+    assert all("especialidade" not in it and "procedimento" not in it for it in data["itens"])
+    # o job (validação) é preservado:
+    assert data["status_encaminhamento"] == "emitido"
+    assert data["itens"][0]["status_item"] == "pendente"
