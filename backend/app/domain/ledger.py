@@ -11,7 +11,7 @@ o **fluxo centralizado** que recusa inserções sem ``instance_id``.
 
 Por que helper único e não 5 helpers por subdomínio
 ---------------------------------------------------
-Encapsula o **drift de schema** pré-existente entre as 5 tabelas de
+Encapsula o **drift de schema** pré-existente entre as tabelas de
 eventos clínicos (ex.: ``agendamento_eventos.evento`` é outlier — usa
 ``evento`` em vez de ``tipo_evento``) num único mapping privado. Routers
 ficam com API uniforme. Padronização do drift vira ticket separado.
@@ -52,6 +52,7 @@ ObjetoSanitario = Literal[
     "laudo",
     "agendamento",
     "circulacao_diagnostica",
+    "encaminhamento",
 ]
 
 
@@ -104,6 +105,14 @@ _LEDGER_SCHEMA: dict[str, dict[str, Any]] = {
         "coluna_data":     "criado_em",
         "tem_ator":        False,
     },
+    "encaminhamento": {
+        "tabela":          "encaminhamento_eventos",
+        "coluna_fk":       "encaminhamento_id",
+        "coluna_tipo":     "tipo_evento",
+        "coluna_payload":  "payload",
+        "coluna_data":     "created_at",
+        "tem_ator":        True,
+    },
 }
 
 
@@ -125,7 +134,7 @@ def registrar_evento_ledger(
     """
     Insere um evento no ledger interno do subdomínio.
 
-    Encapsula o drift de schema entre as 5 tabelas de eventos clínicos
+    Encapsula o drift de schema entre as tabelas de eventos clínicos
     (nome de coluna de tipo, nome do payload, presença de coluna de ator).
 
     Parâmetros
@@ -133,8 +142,9 @@ def registrar_evento_ledger(
     conn : conexão raw (``sqlite3.Connection`` em dev / ``_PgConnection``
         em prod). Mesma transação clínica do router caller.
     objeto_tipo : ``"prescricao" | "pedido_exame" | "laudo" |
-        "agendamento" | "circulacao_diagnostica"``. Validado em runtime
-        (defesa em camadas além do ``Literal`` para o type-checker).
+        "agendamento" | "circulacao_diagnostica" | "encaminhamento"``.
+        Validado em runtime (defesa em camadas além do ``Literal`` para
+        o type-checker).
     objeto_id : ID inteiro do objeto sanitário (FK para a tabela do
         subdomínio).
     tipo_evento : nome do evento (string livre — vocabulário em
@@ -145,10 +155,9 @@ def registrar_evento_ledger(
         argumento levantam ``TypeError``.
     payload : dict opcional. ``None`` é normalizado para ``{}`` no banco
         (semântica explícita: payload vazio, não NULL).
-    ator_tipo, ator_id : apenas ``"prescricao"`` aceita esses campos.
-        Para outros subdomínios, passar valor → ``ValueError``.
-        Para ``"prescricao"``, ``ator_tipo`` é obrigatório (ator_id pode
-        ser ``None`` por design da tabela).
+    ator_tipo, ator_id : aceitos apenas nos subdomínios cujo schema possui
+        colunas de ator. Para esses subdomínios, ``ator_tipo`` é obrigatório
+        (ator_id pode ser ``None`` por design das tabelas).
 
     Levanta
     -------
@@ -158,7 +167,7 @@ def registrar_evento_ledger(
     ValueError
         - ``objeto_tipo`` não está em ``_LEDGER_SCHEMA``.
         - ``ator_tipo``/``ator_id`` em subdomínio que não suporta ator.
-        - ``"prescricao"`` chamado sem ``ator_tipo``.
+        - subdomínio com colunas de ator chamado sem ``ator_tipo``.
     Exception
         Qualquer falha do ``conn.execute`` (SQLite ``OperationalError``,
         ``IntegrityError`` etc.). **Não é silenciada** — ledger é fonte
@@ -183,7 +192,7 @@ def registrar_evento_ledger(
     if not schema["tem_ator"] and (ator_tipo is not None or ator_id is not None):
         raise ValueError(
             f"objeto_tipo {objeto_tipo!r} não suporta ator_tipo/ator_id. "
-            "Apenas 'prescricao' tem essas colunas."
+            "Apenas subdomínios com colunas de ator aceitam esses campos."
         )
     if schema["tem_ator"] and not ator_tipo:
         raise ValueError(

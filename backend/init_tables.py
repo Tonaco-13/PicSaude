@@ -54,6 +54,7 @@ _TABELAS_LEDGER = [
     "laudo_eventos",
     "agendamento_eventos",
     "circulacao_diagnostica_eventos",
+    "encaminhamento_eventos",
 ]
 
 # ---------------------------------------------------------------------------
@@ -94,6 +95,10 @@ _TABELAS_APP = [
     "circulacoes_diagnosticas",           # Ticket 52 — circulação diagnóstica
     "circulacao_diagnostica_itens",       # Ticket 52
     "circulacao_diagnostica_eventos",     # Ticket 52 — ledger de circulação diagnóstica
+    "encaminhamentos",                    # TICKET-ENCAMINHAMENTO-E1
+    "encaminhamento_itens",               # TICKET-ENCAMINHAMENTO-E1
+    "encaminhamento_eventos",             # TICKET-ENCAMINHAMENTO-E1 — ledger
+    "encaminhamento_custodia",            # TICKET-ENCAMINHAMENTO-E1 — cadeia de custódia
 ]
 
 

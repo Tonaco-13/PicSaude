@@ -34,6 +34,10 @@ from app.models.circulacao_diagnostica_evento import CirculacaoDiagnosticaEvento
 from app.models.receituario import Receituario, ReceituarioItem                   # Ticket 15
 from app.models.catalogo_substancia import CatalogoSubstancia                       # Ticket 20
 from app.models.prescritor_certificado import PrescritorCertificado                  # Ticket 21
+from app.models.encaminhamento import Encaminhamento                                 # TICKET-ENCAMINHAMENTO-E1
+from app.models.encaminhamento_item import EncaminhamentoItem                         # TICKET-ENCAMINHAMENTO-E1
+from app.models.encaminhamento_evento import EncaminhamentoEvento                     # TICKET-ENCAMINHAMENTO-E1
+from app.models.encaminhamento_custodia import EncaminhamentoCustodia                 # TICKET-ENCAMINHAMENTO-E1
 
 __all__ = [
     "Paciente",
@@ -73,4 +77,8 @@ __all__ = [
     "ReceituarioItem",             # Ticket 15
     "CatalogoSubstancia",          # Ticket 20
     "PrescritorCertificado",       # Ticket 21
+    "Encaminhamento",              # TICKET-ENCAMINHAMENTO-E1
+    "EncaminhamentoItem",          # TICKET-ENCAMINHAMENTO-E1
+    "EncaminhamentoEvento",        # TICKET-ENCAMINHAMENTO-E1
+    "EncaminhamentoCustodia",      # TICKET-ENCAMINHAMENTO-E1
 ]
