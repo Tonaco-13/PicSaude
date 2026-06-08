@@ -39,6 +39,7 @@ from app.domain.states_agendamento import (
     eh_terminal,
 )
 from app.domain.states_exame import derivar_status_pedido
+from app.utils.helpers import normalize_cnpj, _assert_or_403, _normalizar_identidade_jwt
 
 router = APIRouter(tags=["agendamentos"])
 
@@ -96,6 +97,93 @@ def _get_agendamento_ou_404(conn, protocolo: str) -> dict:
     if not row:
         raise HTTPException(status_code=404, detail=f"Agendamento '{protocolo}' não encontrado.")
     return dict(row)
+
+
+# ---------------------------------------------------------------------------
+# TICKET-5C-BIS-C §6 — ownership local (4 resolvers + asserts).
+# Reusa o Helper 1 global `_assert_or_403`. O prestador (role `dispensador`) é
+# INSTITUCIONAL: liga-se ao agendamento por `org_id`, resolvido de
+# `prestadores.cnpj → org_id` (two-hop, fail-closed, org-level — §D1/D2).
+# `criado_por` é informativo e NUNCA entra em ownership (§D6).
+# ---------------------------------------------------------------------------
+
+def _cns_prescritor_de_pedido(conn, pedido_id: int) -> str | None:
+    row = conn.execute(
+        "SELECT pr.cns FROM pedidos_exame pe JOIN prescritores pr ON pr.id = pe.prescritor_id "
+        "WHERE pe.id = ?", (pedido_id,),
+    ).fetchone()
+    return row["cns"] if row else None
+
+
+def _cpf_paciente_de_pedido(conn, pedido_id: int) -> str | None:
+    row = conn.execute(
+        "SELECT pa.cpf FROM pedidos_exame pe JOIN pacientes pa ON pa.id = pe.paciente_id "
+        "WHERE pe.id = ?", (pedido_id,),
+    ).fetchone()
+    return row["cpf"] if row else None
+
+
+def _org_id_ag(conn, protocolo: str) -> str | None:
+    row = conn.execute(
+        "SELECT org_id FROM agendamentos WHERE protocolo = ?", (protocolo,)
+    ).fetchone()
+    return row["org_id"] if row else None
+
+
+def _org_id_do_dispensador(conn, cnpj_norm: str) -> str | None:
+    # §D1/D2 — two-hop fail-closed: prestadores.cnpj (gravado cru) → org_id.
+    # Normaliza READ-SIDE; só prestador ativo; org único (0 ou >1 ambíguo → None
+    # → 403). Sem JWT carregando unidade_id, o vínculo é no nível da ORG.
+    #
+    # FAIL-CLOSED institucional: o schema org_id de prestadores (Ticket 30) NÃO
+    # está migrado no PostgreSQL/prod hoje (só existe via init_tables/SQLite) —
+    # ver TICKET-5C-BIS-C.1. Enquanto ausente, a query falha e QUALQUER
+    # dispensador é negado (None → 403). É o comportamento seguro do §D1; a
+    # resolução positiva só ativa quando a migration institucional existir.
+    if len(cnpj_norm) != 14:
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT org_id, cnpj FROM prestadores WHERE cnpj IS NOT NULL AND ativo = true"
+        ).fetchall()
+    except Exception:
+        return None  # schema institucional ausente → fail-closed
+    orgs = {r["org_id"] for r in rows if normalize_cnpj(r["cnpj"]) == cnpj_norm}
+    return orgs.pop() if len(orgs) == 1 else None
+
+
+def _assert_ag_owner(conn, ag: dict, papel: str, ident: str) -> None:
+    """Ownership sobre um agendamento existente (endpoints 2,4,5,6,7,8)."""
+    if papel == "prescritor":
+        cond = ident == _cns_prescritor_de_pedido(conn, ag["pedido_id"])
+        msg = "Este agendamento pertence a outro prescritor."
+    elif papel == "paciente":
+        cond = ident == _cpf_paciente_de_pedido(conn, ag["pedido_id"])
+        msg = "Este agendamento pertence a outro paciente."
+    elif papel == "dispensador":
+        org = _org_id_do_dispensador(conn, ident)
+        cond = org is not None and org == _org_id_ag(conn, ag["protocolo"])
+        msg = "Agendamento sob responsabilidade de outro prestador."
+    else:
+        cond, msg = False, "Papel sem vínculo com este agendamento."
+    _assert_or_403(cond, codigo="nao_e_dono_do_agendamento", mensagem=msg)
+
+
+def _assert_pedido_owner_criar(conn, pedido: dict, papel: str, ident: str, payload_org: str) -> None:
+    """Ownership sobre o PEDIDO ao criar agendamento (endpoint 1, §D3)."""
+    if papel == "prescritor":
+        cond = ident == _cns_prescritor_de_pedido(conn, pedido["id"])
+    elif papel == "paciente":
+        cond = ident == _cpf_paciente_de_pedido(conn, pedido["id"])
+    elif papel == "dispensador":
+        org = _org_id_do_dispensador(conn, ident)
+        cond = org is not None and org == payload_org
+    else:
+        cond = False
+    _assert_or_403(
+        cond, codigo="nao_e_dono_do_pedido",
+        mensagem="Você não tem vínculo com o pedido deste agendamento.",
+    )
 
 
 def _get_pedido_por_protocolo(conn, protocolo: str) -> dict:
@@ -213,9 +301,14 @@ def criar_agendamento(
     """
     agora = datetime.utcnow().isoformat()
     protocolo = str(uuid.uuid4())
+    # §7 — ownership ANTES de duplicidade/estado: pedido 404 → 403 → 409 (§D3).
+    papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
         pedido = _get_pedido_por_protocolo(conn, payload.pedido_protocolo)
+
+        if papel != "admin":
+            _assert_pedido_owner_criar(conn, pedido, papel, ident, payload.org_id)
 
         # Verificar se há agendamento ativo para este pedido
         ativo = conn.execute(
@@ -302,10 +395,13 @@ def criar_agendamento(
 @router.get("/agendamentos/{protocolo}")
 def get_agendamento(
     protocolo: str,
-    _=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
+    usuario=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
 ):
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         ag = _get_agendamento_ou_404(conn, protocolo)
+        if papel != "admin":
+            _assert_ag_owner(conn, ag, papel, ident)
         return _serializar_agendamento(conn, ag)
 
 
@@ -316,11 +412,25 @@ def get_agendamento(
 @router.get("/pedidos-exame/{protocolo_pedido}/agendamentos")
 def listar_agendamentos_pedido(
     protocolo_pedido: str,
-    _=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
+    usuario=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
 ):
     """Lista todos os agendamentos (incluindo cancelados) de um pedido de exame."""
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         pedido = _get_pedido_por_protocolo(conn, protocolo_pedido)
+        if papel != "admin":
+            # §D4 — listagem é sobre o PEDIDO; dispensador não tem vínculo de org aqui.
+            if papel == "prescritor":
+                _assert_or_403(ident == _cns_prescritor_de_pedido(conn, pedido["id"]),
+                               codigo="nao_e_dono_do_pedido",
+                               mensagem="Este pedido foi emitido por outro prescritor.")
+            elif papel == "paciente":
+                _assert_or_403(ident == _cpf_paciente_de_pedido(conn, pedido["id"]),
+                               codigo="nao_e_dono_do_pedido",
+                               mensagem="Este pedido pertence a outro paciente.")
+            else:  # dispensador → 403
+                _assert_or_403(False, codigo="nao_e_dono_do_pedido",
+                               mensagem="Prestador não lista agendamentos por pedido.")
         rows = conn.execute(
             """
             SELECT * FROM agendamentos
@@ -360,10 +470,14 @@ def _transicionar(conn, protocolo: str, novo_status: str, agora: str) -> dict:
 @router.post("/agendamentos/{protocolo}/confirmar", status_code=200)
 def confirmar_agendamento(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin", "dispensador")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
+        ag0 = _get_agendamento_ou_404(conn, protocolo)        # 404
+        if papel != "admin":
+            _assert_ag_owner(conn, ag0, papel, ident)          # 403 antes do 409
         ag = _transicionar(conn, protocolo, "confirmado", agora)
         instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_confirmado",
@@ -379,7 +493,7 @@ def confirmar_agendamento(
 @router.post("/agendamentos/{protocolo}/realizar", status_code=200)
 def realizar_agendamento(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin", "dispensador")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     """
     Registra a realização do agendamento.
@@ -389,7 +503,11 @@ def realizar_agendamento(
     eventos distintos (ex.: coleta parcial, preparo inadequado).
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
+        ag0 = _get_agendamento_ou_404(conn, protocolo)
+        if papel != "admin":
+            _assert_ag_owner(conn, ag0, papel, ident)
         ag = _transicionar(conn, protocolo, "realizado", agora)
 
         # MVP: realizado → itens agendado → coletado
@@ -428,10 +546,14 @@ def realizar_agendamento(
 @router.post("/agendamentos/{protocolo}/cancelar", status_code=200)
 def cancelar_agendamento(
     protocolo: str,
-    _=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
+    usuario=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
 ):
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
+        ag0 = _get_agendamento_ou_404(conn, protocolo)
+        if papel != "admin":
+            _assert_ag_owner(conn, ag0, papel, ident)
         ag = _transicionar(conn, protocolo, "cancelado", agora)
 
         # Itens agendado → pendente
@@ -463,10 +585,14 @@ def cancelar_agendamento(
 @router.post("/agendamentos/{protocolo}/nao-compareceu", status_code=200)
 def nao_compareceu(
     protocolo: str,
-    _=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin")),
 ):
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
+        ag0 = _get_agendamento_ou_404(conn, protocolo)
+        if papel != "admin":
+            _assert_ag_owner(conn, ag0, papel, ident)
         ag = _transicionar(conn, protocolo, "nao_compareceu", agora)
 
         # Itens agendado → pendente
@@ -509,9 +635,15 @@ def remarcar_agendamento(
     """
     agora = datetime.utcnow().isoformat()
     novo_protocolo = str(uuid.uuid4())
+    # §7 — ownership após o 404, antes das regras de estado (409). Sem dispensador
+    # no RBAC; _assert_ag_owner cobre prescritor/paciente.
+    papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
         ag = _get_agendamento_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            _assert_ag_owner(conn, ag, papel, ident)
 
         if eh_terminal(ag["status"]) and ag["status"] != "cancelado":
             raise HTTPException(
