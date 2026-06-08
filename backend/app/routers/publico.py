@@ -48,9 +48,6 @@ WHERE p.protocolo = ?
 
 _SQL_ITENS_PUBLICOS = """
 SELECT
-    i.id          AS item_id,
-    i.nome_medicamento AS medicamento,
-    i.concentracao AS dose,
     i.status_item
 FROM prescricao_itens i
 JOIN prescricoes p ON p.id = i.prescricao_id
@@ -73,14 +70,13 @@ def consulta_publica(protocolo: str):
     """
     Retorna o estado atual de uma prescrição identificada pelo protocolo (UUID).
 
-    **Dados retornados (mínimos e seguros):**
-    - protocolo
-    - status da prescrição
-    - tipo de emissão
-    - lista de itens: medicamento, dose e status do item
+    **Job: validação por QR — existência + estado. Payload NEUTRO (sem clínica).**
 
-    **Nunca retorna:** CPF, nome do paciente, CNS do prescritor, lote,
-    fabricante, estabelecimento, comprador ou eventos do ledger.
+    **Retorna apenas:** protocolo, status da prescrição, tipo de emissão e, por item,
+    `ordem` + `status_item`.
+
+    **Nunca retorna:** medicamento, dose ou qualquer conteúdo clínico; CPF, nome do
+    paciente, CNS do prescritor, lote, fabricante, estabelecimento ou eventos do ledger.
     """
     with get_tx() as conn:
         pres = conn.execute(_SQL_PRESCRICAO_PUBLICA, (protocolo,)).fetchone()
@@ -93,10 +89,7 @@ def consulta_publica(protocolo: str):
 
     itens = [
         {
-            "item_id":     r["item_id"],
             "ordem":       idx + 1,
-            "medicamento": r["medicamento"],
-            "dose":        r["dose"] or None,
             "status_item": r["status_item"],
         }
         for idx, r in enumerate(itens_rows)
@@ -178,20 +171,19 @@ def consulta_publica_exame(protocolo: str):
     """
     Retorna o estado atual de um pedido de exame identificado pelo protocolo.
 
-    **Dados retornados (mínimos e seguros):**
-    - protocolo
-    - status do pedido
-    - tipo de emissão
-    - prioridade
-    - lista de itens: nome do exame, código TUSS e status do item
+    **Job: validação por QR — existência + estado. Payload NEUTRO (sem clínica).**
 
-    **Nunca retorna:** CPF, nome do paciente, CNS do prescritor,
-    indicação clínica, resultados, eventos do ledger.
+    **Retorna apenas:** protocolo, status do pedido, tipo de emissão e, por item,
+    `ordem` + `status_item`.
+
+    **Nunca retorna:** nome do exame, código TUSS ou qualquer conteúdo clínico; CPF,
+    nome do paciente, CNS do prescritor, indicação clínica, resultados, prioridade,
+    eventos do ledger.
     """
     with get_tx() as conn:
         pedido = conn.execute(
             """
-            SELECT protocolo, status, tipo_emissao, prioridade
+            SELECT protocolo, status, tipo_emissao
             FROM pedidos_exame
             WHERE protocolo = ?
             """,
@@ -203,7 +195,7 @@ def consulta_publica_exame(protocolo: str):
 
         itens_rows = conn.execute(
             """
-            SELECT i.id AS item_id, i.nome_exame, i.codigo_tuss, i.status_item
+            SELECT i.status_item
             FROM pedido_exame_itens i
             JOIN pedidos_exame pe ON pe.id = i.pedido_id
             WHERE pe.protocolo = ?
@@ -215,10 +207,7 @@ def consulta_publica_exame(protocolo: str):
 
     itens = [
         {
-            "item_id":    r["item_id"],
             "ordem":      idx + 1,
-            "nome_exame": r["nome_exame"],
-            "codigo_tuss": r["codigo_tuss"] or None,
             "status_item": r["status_item"],
         }
         for idx, r in enumerate(itens_rows)
@@ -228,7 +217,6 @@ def consulta_publica_exame(protocolo: str):
         "protocolo":    pedido["protocolo"],
         "status_pedido": pedido["status"],
         "tipo_emissao": pedido["tipo_emissao"],
-        "prioridade":   pedido["prioridade"],
         "itens":        itens,
     }
 
@@ -247,14 +235,14 @@ def consulta_publica_laudo(protocolo: str):
     """
     Retorna o estado atual de um laudo identificado pelo protocolo.
 
-    **Dados retornados (mínimos e seguros):**
-    - protocolo
-    - status do laudo
-    - tipo de emissão
-    - lista de itens: nome do exame, conclusão (se disponível) e status do item
+    **Job: validação por QR — existência + estado. Payload NEUTRO (sem clínica).**
 
-    **Nunca retorna:** CPF, nome do paciente, CNS do responsável técnico,
-    resultado completo, valor de referência, resultado_url, eventos do ledger.
+    **Retorna apenas:** protocolo, status do laudo, tipo de emissão e, por item,
+    `ordem` + `status_item`.
+
+    **Nunca retorna:** nome do exame, conclusão diagnóstica ou qualquer conteúdo clínico;
+    CPF, nome do paciente, CNS do responsável técnico, resultado, valor de referência,
+    resultado_url, eventos do ledger.
     """
     with get_tx() as conn:
         laudo = conn.execute(
@@ -271,7 +259,7 @@ def consulta_publica_laudo(protocolo: str):
 
         itens_rows = conn.execute(
             """
-            SELECT li.id AS item_id, li.nome_exame, li.conclusao, li.status_item
+            SELECT li.status_item
             FROM laudo_itens li
             JOIN laudos l ON l.id = li.laudo_id
             WHERE l.protocolo = ?
@@ -283,10 +271,7 @@ def consulta_publica_laudo(protocolo: str):
 
     itens = [
         {
-            "item_id":    r["item_id"],
             "ordem":      idx + 1,
-            "nome_exame": r["nome_exame"],
-            "conclusao":  r["conclusao"] or None,   # pode ser None se ainda em produção
             "status_item": r["status_item"],
         }
         for idx, r in enumerate(itens_rows)
@@ -314,13 +299,18 @@ def consulta_publica_encaminhamento(protocolo: str):
     """
     Retorna o estado atual de um encaminhamento identificado pelo protocolo.
 
-    **Nunca retorna:** CPF, nome do paciente, CNS de origem/destino, CID,
-    justificativa clínica ou eventos do ledger.
+    **Job: validação por QR — existência + estado. Payload NEUTRO (sem clínica).**
+
+    **Retorna apenas:** protocolo, status, tipo de emissão e, por item, `ordem` +
+    `status_item`.
+
+    **Nunca retorna:** especialidade, procedimento, CID, justificativa clínica, CPF,
+    nome do paciente, CNS de origem/destino ou eventos do ledger.
     """
     with get_tx() as conn:
         enc = conn.execute(
             """
-            SELECT protocolo, status, tipo_emissao, especialidade_destino
+            SELECT protocolo, status, tipo_emissao
             FROM encaminhamentos
             WHERE protocolo = ?
             """,
@@ -332,7 +322,7 @@ def consulta_publica_encaminhamento(protocolo: str):
 
         itens_rows = conn.execute(
             """
-            SELECT ei.id AS item_id, ei.especialidade, ei.procedimento, ei.status_item
+            SELECT ei.status_item
             FROM encaminhamento_itens ei
             JOIN encaminhamentos e ON e.id = ei.encaminhamento_id
             WHERE e.protocolo = ?
@@ -343,10 +333,7 @@ def consulta_publica_encaminhamento(protocolo: str):
 
     itens = [
         {
-            "item_id":       r["item_id"],
             "ordem":         idx + 1,
-            "especialidade": r["especialidade"],
-            "procedimento":  r["procedimento"] or None,
             "status_item":   r["status_item"],
         }
         for idx, r in enumerate(itens_rows)
@@ -356,6 +343,5 @@ def consulta_publica_encaminhamento(protocolo: str):
         "protocolo":               enc["protocolo"],
         "status_encaminhamento":   enc["status"],
         "tipo_emissao":            enc["tipo_emissao"],
-        "especialidade_destino":   enc["especialidade_destino"],
         "itens":                   itens,
     }
