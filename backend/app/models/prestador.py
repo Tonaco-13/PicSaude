@@ -15,7 +15,7 @@ Regras:
 
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, Text
+from sqlalchemy import Boolean, Column, Text
 
 from app.database import Base
 
@@ -33,5 +33,5 @@ class Prestador(Base):
     nome       = Column(Text, nullable=False)
     tipo       = Column(Text, nullable=False)          # dispensador: farmacia|hospital|usf  /  laboratorio  /  clinica
     cnpj       = Column(Text, nullable=True)
-    ativo      = Column(Integer, nullable=False, default=1)
+    ativo      = Column(Boolean, nullable=False, default=True)   # C.1: Boolean (código usa ativo=true)
     criado_em  = Column(Text, nullable=False)
