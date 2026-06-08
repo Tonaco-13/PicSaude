@@ -102,6 +102,30 @@ PAYLOAD_HOSP = {
 }
 
 
+@pytest.fixture(autouse=True)
+def prestador_hospitalar_padrao(db_path):
+    """Vínculo institucional mínimo para o dispensador padrão dos testes."""
+    import sqlite3
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO prestadores
+          (id, org_id, nome, tipo, cnpj, ativo, criado_em)
+        VALUES (?, ?, ?, ?, ?, 1, ?)
+        """,
+        (
+            "prestador-hospitalar-padrao",
+            PAYLOAD_HOSP["org_id"],
+            "Hospital Teste",
+            "hospital",
+            "12345678000195",
+            "2026-01-01T00:00:00",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
 def _hosp_url(protocolo: str, item_id: int) -> str:
     return f"/prescricoes/{protocolo}/itens/{item_id}/dispensar/hospitalar"
 

@@ -31,6 +31,7 @@ from app.auth.dependencies import require_role
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.instance import get_instance_id_conn
+from app.utils.helpers import normalize_cnpj, _assert_or_403, _normalizar_identidade_jwt
 
 router = APIRouter(prefix="/prescricoes", tags=["farmacia_hospitalar"])
 
@@ -116,6 +117,22 @@ def _get_prescricao(conn, protocolo: str) -> dict:
     if not row:
         raise HTTPException(status_code=404, detail=f"Prescrição '{protocolo}' não encontrada.")
     return dict(row)
+
+
+def _org_id_do_dispensador(conn, cnpj_norm: str) -> str | None:
+    # §6b — leitura institucional para ownership payload-vs-JWT: resolve
+    # prestadores.cnpj (gravado cru) → org_id. Normaliza READ-SIDE; só ativo;
+    # org única (0 ou >1 ambíguo → None → 403). Fail-closed se schema ausente.
+    if len(cnpj_norm) != 14:
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT org_id, cnpj FROM prestadores WHERE cnpj IS NOT NULL AND ativo = true"
+        ).fetchall()
+    except Exception:
+        return None
+    orgs = {r["org_id"] for r in rows if normalize_cnpj(r["cnpj"]) == cnpj_norm}
+    return orgs.pop() if len(orgs) == 1 else None
 
 
 def _fechar_custodia_ativa(conn, prescricao_id: int, item_id, agora: str) -> None:
@@ -242,7 +259,7 @@ def dispensar_hospitalar(
     protocolo: str,
     item_id: int,
     payload: DispensarHospitalarIn,
-    _=Depends(require_role("dispensador", "admin")),
+    usuario=Depends(require_role("dispensador", "admin")),
 ):
     """
     Registra dispensação hospitalar de um item da prescrição.
@@ -261,6 +278,7 @@ def dispensar_hospitalar(
     - Ledger imutável (INSERT em prescricao_eventos, nunca UPDATE/DELETE)
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
 
     # CNPJ para o registro base: usa cnpj_estabelecimento se informado,
     # caso contrário usa org_id (hospitalar pode não ter CNPJ no payload MVP)
@@ -272,6 +290,14 @@ def dispensar_hospitalar(
 
         # ── 1. Validar prescrição ──────────────────────────────────────────
         presc = _get_prescricao(conn, protocolo)
+
+        if papel != "admin":
+            org_disp = _org_id_do_dispensador(conn, ident)
+            _assert_or_403(
+                org_disp is not None and org_disp == payload.org_id,
+                codigo="dispensador_de_outra_org",
+                mensagem="Dispensação sob org distinta da do dispensador.",
+            )
 
         # Prescrições terminais não podem ser dispensadas
         _TERMINAIS = {"dispensada", "cancelada", "expirada", "encerrada_localmente"}
@@ -354,7 +380,7 @@ def dispensar_hospitalar(
                 dispensacao_id, item_id, protocolo,
                 payload.org_id, payload.unidade_id,
                 payload.setor, payload.leito, payload.modalidade,
-                1 if payload.dose_unitaria else 0,
+                payload.dose_unitaria,   # bool nativo: PG=boolean, SQLite=0/1 (convergência)
                 payload.quantidade_doses if payload.dose_unitaria else None,
                 payload.dispensado_por or "farmaceutico_hospitalar",
                 agora, agora,
