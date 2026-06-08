@@ -68,8 +68,31 @@ PAYLOAD_CIRC_BASE = {
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _seed_prestador_lab(db_path, org_id="LAB-TESTE", cnpj="12345678000195"):
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO prestadores
+          (id, org_id, nome, tipo, cnpj, ativo, criado_em)
+        VALUES (?, ?, ?, ?, ?, 1, ?)
+        """,
+        (f"prestador-{org_id}", org_id, f"Laboratorio {org_id}", "laboratorio", cnpj, "2026-01-01T00:00:00"),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def prestador_lab(db_path):
+    _seed_prestador_lab(db_path)
+
 
 @pytest.fixture()
 def pedido_1_item(prescritor):
@@ -93,7 +116,7 @@ def pedido_2_itens(prescritor):
 
 
 @pytest.fixture()
-def circulacao(paciente, pedido_1_item, prescritor):
+def circulacao(paciente, pedido_1_item, prescritor, prestador_lab):
     """Cria circulação com o único item do pedido. Retorna response JSON."""
     # Obtém item_id
     r = prescritor.get(f"/pedidos-exame/{pedido_1_item}")
@@ -254,6 +277,14 @@ class TestAcesso:
         r = dispensador.post(f"/pedidos-exame/{pedido_1_item}/circulacao", json=payload)
         assert r.status_code == 403
 
+    def test_paciente_nao_dono_nao_pode_criar_circulacao(
+            self, outro_paciente, prescritor, pedido_1_item):
+        r = prescritor.get(f"/pedidos-exame/{pedido_1_item}")
+        item_id = r.json()["itens"][0]["id"]
+        payload = {**PAYLOAD_CIRC_BASE, "item_ids": [item_id]}
+        r = outro_paciente.post(f"/pedidos-exame/{pedido_1_item}/circulacao", json=payload)
+        assert r.status_code == 403
+
 
 # ---------------------------------------------------------------------------
 # 16. Ledger
@@ -343,6 +374,20 @@ class TestConsultaPorChave:
     def test_dispensador_pode_consultar_por_chave(self, dispensador, circulacao):
         r = dispensador.get(f"/circulacao/{circulacao['chave_circulacao']}")
         assert r.status_code == 200
+
+    def test_paciente_nao_dono_nao_consulta_por_chave(self, outro_paciente, circulacao):
+        r = outro_paciente.get(f"/circulacao/{circulacao['chave_circulacao']}")
+        assert r.status_code == 403
+
+    def test_dispensador_sem_org_mapeada_falha_fechado(
+            self, dispensador, circulacao, db_path):
+        conn = sqlite3.connect(db_path)
+        conn.execute("DELETE FROM prestadores WHERE org_id = ?", (PAYLOAD_CIRC_BASE["org_id"],))
+        conn.commit()
+        conn.close()
+
+        r = dispensador.get(f"/circulacao/{circulacao['chave_circulacao']}")
+        assert r.status_code == 403
 
 
 # ---------------------------------------------------------------------------

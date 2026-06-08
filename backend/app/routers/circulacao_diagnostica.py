@@ -54,11 +54,13 @@ from app.domain.states_circulacao_diagnostica import (
     ESTADOS_TERMINAIS_CIRCULACAO_DIAGNOSTICA,
     validar_transicao_circulacao_diagnostica,
 )
+from app.utils.helpers import _assert_or_403, _normalizar_identidade_jwt, normalize_cnpj
 
 router = APIRouter(tags=["circulacao_diagnostica"])
 
 # Janela padrão de validade da chave quando não informada pelo chamador
 _VALIDADE_PADRAO_DIAS = 30
+_CPF_NAO_IDENTIFICADO = "00000000000"
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +196,109 @@ def _itens_da_circulacao(conn, circulacao_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _erro_schema_org_prestador(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return (
+        "org_id" in msg
+        and (
+            "prestadores" in msg
+            or "no such column" in msg
+            or "does not exist" in msg
+            or "undefinedcolumn" in msg
+        )
+    )
+
+
+def _org_id_do_dispensador(conn, ident_cnpj: str) -> str | None:
+    if len(ident_cnpj) != 14:
+        return None
+    try:
+        rows = conn.execute(
+            "SELECT org_id, cnpj FROM prestadores WHERE cnpj IS NOT NULL AND ativo = true"
+        ).fetchall()
+    except Exception as exc:
+        # C.1/D.2: enquanto a coluna org_id não estiver migrada em PG,
+        # dispensadores falham fechado (403) em vez de ganhar acesso por chave.
+        if _erro_schema_org_prestador(exc):
+            return None
+        raise
+    # §D2 — normalização read-side: prestadores.cnpj é gravado cru/mascarado
+    #   (prestadores.py:103), enquanto o ident do JWT já vem normalizado.
+    # §D1 — ambiguidade: mesmo CNPJ em >1 org ativa → None → 403 (fail-closed).
+    orgs = {r["org_id"] for r in rows if r["org_id"] and normalize_cnpj(r["cnpj"]) == ident_cnpj}
+    return orgs.pop() if len(orgs) == 1 else None
+
+
+def _assert_paciente_dono_pedido(conn, pedido_id: int, ident_cpf: str) -> None:
+    row = conn.execute(
+        "SELECT pa.cpf FROM pedidos_exame pe "
+        "JOIN pacientes pa ON pa.id = pe.paciente_id "
+        "WHERE pe.id = ?",
+        (pedido_id,),
+    ).fetchone()
+    cpf = row["cpf"] if row else None
+    _assert_or_403(
+        cpf is not None and cpf != _CPF_NAO_IDENTIFICADO and ident_cpf == cpf,
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Este pedido de exame pertence a outro paciente.",
+    )
+
+
+def _assert_paciente_dono_circulacao(conn, circ: dict, ident_cpf: str) -> None:
+    row = conn.execute(
+        "SELECT cpf FROM pacientes WHERE id = ?",
+        (circ["paciente_id"],),
+    ).fetchone()
+    cpf = row["cpf"] if row else None
+    _assert_or_403(
+        cpf is not None and cpf != _CPF_NAO_IDENTIFICADO and ident_cpf == cpf,
+        codigo="nao_e_dono_da_circulacao_diagnostica",
+        mensagem="Esta circulação diagnóstica pertence a outro paciente.",
+    )
+
+
+def _assert_prescritor_dono_circulacao(conn, circ: dict, ident_cns: str) -> None:
+    row = conn.execute(
+        "SELECT pr.cns FROM pedidos_exame pe "
+        "JOIN prescritores pr ON pr.id = pe.prescritor_id "
+        "WHERE pe.id = ?",
+        (circ["pedido_id"],),
+    ).fetchone()
+    _assert_or_403(
+        row is not None and ident_cns == row["cns"],
+        codigo="nao_e_dono_da_circulacao_diagnostica",
+        mensagem="Esta circulação diagnóstica pertence a outro prescritor.",
+    )
+
+
+def _assert_dispensador_dono_circulacao(conn, circ: dict, ident_cnpj: str) -> None:
+    org_id = _org_id_do_dispensador(conn, ident_cnpj)
+    _assert_or_403(
+        org_id is not None and org_id == circ["org_id"],
+        codigo="nao_e_dono_da_circulacao_diagnostica",
+        mensagem="Esta circulação diagnóstica pertence a outro prestador.",
+    )
+
+
+def _assert_usuario_pode_acessar_circulacao(conn, circ: dict, papel: str, ident: str) -> None:
+    if papel == "admin":
+        return
+    if papel == "paciente":
+        _assert_paciente_dono_circulacao(conn, circ, ident)
+        return
+    if papel == "prescritor":
+        _assert_prescritor_dono_circulacao(conn, circ, ident)
+        return
+    if papel == "dispensador":
+        _assert_dispensador_dono_circulacao(conn, circ, ident)
+        return
+    _assert_or_403(
+        False,
+        codigo="papel_sem_acesso_a_circulacao_diagnostica",
+        mensagem="Este perfil não pode acessar esta circulação diagnóstica.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # POST /pedidos-exame/{protocolo}/circulacao
 # ---------------------------------------------------------------------------
@@ -219,9 +324,13 @@ def criar_circulacao(
     """
     agora = datetime.utcnow().isoformat()
     protocolo_circ = str(uuid.uuid4())
+    papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            _assert_paciente_dono_pedido(conn, pedido["id"], ident)
 
         # Pedido não pode estar em estado terminal
         _ESTADOS_TERMINAIS_PEDIDO = {"cancelado", "expirado", "encerrado_fisico"}
@@ -359,7 +468,7 @@ def criar_circulacao(
 @router.get("/circulacao/{chave}")
 def consultar_circulacao_por_chave(
     chave: str,
-    _=Depends(require_role("dispensador", "prescritor", "paciente", "admin")),
+    usuario=Depends(require_role("dispensador", "prescritor", "paciente", "admin")),
 ):
     """
     Consulta uma circulação diagnóstica pela chave de circulação.
@@ -376,8 +485,10 @@ def consultar_circulacao_por_chave(
     - Validade da chave
     - Status da circulação
     """
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         circ = _get_circulacao_por_chave_ou_404(conn, chave)
+        _assert_usuario_pode_acessar_circulacao(conn, circ, papel, ident)
 
         # Dados do paciente
         paciente = conn.execute(
@@ -454,8 +565,11 @@ def registrar_proposta(
     Não altera pedido_exame nem pedido_exame_itens.
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         circ = _get_circulacao_por_chave_ou_404(conn, chave)
+        if papel != "admin":
+            _assert_dispensador_dono_circulacao(conn, circ, ident)
 
         try:
             validar_transicao_circulacao_diagnostica(circ["status"], "proposta_recebida")
@@ -512,8 +626,11 @@ def confirmar_proposta(
     Não altera pedido_exame nem pedido_exame_itens.
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         circ = _get_circulacao_por_chave_ou_404(conn, chave)
+        if papel != "admin":
+            _assert_paciente_dono_circulacao(conn, circ, ident)
 
         try:
             validar_transicao_circulacao_diagnostica(circ["status"], "confirmado_paciente")
@@ -562,14 +679,17 @@ def desmarcar_circulacao(
     Não altera pedido_exame nem pedido_exame_itens.
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         circ = _get_circulacao_por_chave_ou_404(conn, chave)
 
-        role = usuario.get("role", "")
-        if role == "paciente":
+        if papel == "paciente":
+            _assert_paciente_dono_circulacao(conn, circ, ident)
             novo_status = "desmarcado_paciente"
             tipo_evento = "circulacao_desmarcada_paciente"
         else:
+            if papel != "admin":
+                _assert_dispensador_dono_circulacao(conn, circ, ident)
             # dispensador ou admin atuam como laboratório
             novo_status = "desmarcado_laboratorio"
             tipo_evento = "circulacao_desmarcada_laboratorio"
@@ -618,8 +738,11 @@ def realizar_circulacao(
     a atualização de itens ocorre via endpoint de coleta do pedido.
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         circ = _get_circulacao_por_chave_ou_404(conn, chave)
+        if papel != "admin":
+            _assert_dispensador_dono_circulacao(conn, circ, ident)
 
         try:
             validar_transicao_circulacao_diagnostica(circ["status"], "realizado")
@@ -666,8 +789,11 @@ def remarcar_circulacao(
       - protocolo_novo, chave_nova, status_novo  — nova circulação criada
     """
     agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         circ = _get_circulacao_por_chave_ou_404(conn, chave)
+        if papel != "admin":
+            _assert_dispensador_dono_circulacao(conn, circ, ident)
 
         # Valida que pode desmarcar como laboratório
         try:
