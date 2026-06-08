@@ -123,11 +123,18 @@ def test_publico_nao_vaza_cpf_cid_justificativa(prescritor, _shared_client):
     r = _shared_client.get(f"/public/encaminhamentos/{proto}")
     assert r.status_code == 200, r.text
     data = r.json()
-    dumped = str(data)
+    dumped = str(data).lower()
     assert "12345678901" not in dumped
-    assert "I10" not in dumped
-    assert "hipertensao" not in dumped.lower()
+    assert "i10" not in dumped
+    assert "hipertensao" not in dumped
+    # neutralização core: nenhuma clínica no aberto
+    assert "cardiologia" not in dumped              # especialidade / especialidade_destino
+    assert "consulta especializada" not in dumped   # procedimento
+    assert "especialidade" not in data and "especialidade_destino" not in data
+    assert all("especialidade" not in it and "procedimento" not in it for it in data["itens"])
+    # o job (validação) é preservado:
     assert data["status_encaminhamento"] == "emitido"
+    assert data["itens"][0]["status_item"] == "pendente"
 
 
 def test_pdf_e_qr_do_encaminhamento(prescritor):
