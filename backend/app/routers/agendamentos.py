@@ -144,7 +144,7 @@ def _org_id_do_dispensador(conn, cnpj_norm: str) -> str | None:
         return None
     try:
         rows = conn.execute(
-            "SELECT org_id, cnpj FROM prestadores WHERE cnpj IS NOT NULL AND ativo = 1"
+            "SELECT org_id, cnpj FROM prestadores WHERE cnpj IS NOT NULL AND ativo = true"
         ).fetchall()
     except Exception:
         return None  # schema institucional ausente → fail-closed

@@ -3,12 +3,11 @@
 Espelha o §9. Particularidade: o prestador (role `dispensador`) é institucional —
 ownership via `prestadores.cnpj → org_id`.
 
-NOTA DE AMBIENTE (gate PG): o schema institucional org_id (Ticket 30:
-`prestadores.org_id` + `unidades`) NÃO está migrado no PostgreSQL/prod hoje
-(ver TICKET-5C-BIS-C.1). Por isso o dispensador é **fail-closed (sempre 403)** neste
-ambiente — comportamento seguro do §D1. Os casos de resolução POSITIVA do dispensador
-(CNPJ mascarado→2xx, org match, ambiguidade, inativo) ficam no TICKET-5C-BIS-C.1,
-para quando a migration institucional existir.
+DISPENSADOR INSTITUCIONAL (pós-C.1): o schema org_id (Ticket 30:
+`prestadores.org_id` + `unidades`) já está migrado na PG (TICKET-5C-BIS-C.1, na main).
+O resolver `prestadores.cnpj → org_id` resolve de verdade: sem prestador cadastrado →
+fail-closed 403; com prestador cujo CNPJ casa a org do agendamento → 2xx; org distinta
+ou prestador inativo → 403. Ambos os lados são cobertos abaixo.
 
 Requer PostgreSQL (conftest de integração pula se DATABASE_URL não for PG).
 """
@@ -86,6 +85,65 @@ def test_dispensador_fail_closed_403(client):
         "org_id": _ORG_A, "unidade_id": "u1",
     }, headers=disp)
     assert r.status_code == 403, r.text
+
+
+# ===========================================================================
+# Dispensador — resolução POSITIVA (pós-C.1: schema org_id existe na PG).
+# Prestador semeado (org_id + cnpj); o resolver prestadores.cnpj→org_id liga
+# (ou nega) por igualdade de org. Espelho positivo do fail-closed acima.
+# ===========================================================================
+
+_CNPJ_MASC  = "98.765.432/0001-10"   # mesmo dígito-base de _CNPJ_LIMPO
+_CNPJ_LIMPO = "98765432000110"
+
+
+def _seed_prestador(client, org_id, cnpj, nome="Lab", tipo="laboratorio"):
+    r = client.post("/prestadores", json={
+        "org_id": org_id, "nome": nome, "tipo": tipo, "cnpj": cnpj,
+    }, headers=_headers(_tok("admin", "admin")))
+    assert r.status_code == 201, r.text
+
+
+def test_disp_org_match_confirma_200(client):
+    """Prestador cujo CNPJ resolve para a org do agendamento: GET e confirmar
+    liberados (2xx). Positivo simétrico ao fail-closed."""
+    _seed_prestador(client, _ORG_A, _CNPJ_A)
+    ag = _novo_ag(client, org_id=_ORG_A)
+    disp = _headers(_tok(_CNPJ_A, "dispensador"))
+    assert client.get(f"/agendamentos/{ag}", headers=disp).status_code == 200
+    assert client.post(f"/agendamentos/{ag}/confirmar", headers=disp).status_code == 200
+
+
+def test_disp_cnpj_mascarado_resolve_200(client):
+    """CNPJ gravado mascarado no cadastro e enviado limpo no JWT: a normalização
+    READ-SIDE do resolver faz o vínculo (prova o normalize_cnpj na leitura)."""
+    _seed_prestador(client, "org-masc", _CNPJ_MASC)
+    ag = _novo_ag(client, org_id="org-masc")
+    disp = _headers(_tok(_CNPJ_LIMPO, "dispensador"))
+    assert client.get(f"/agendamentos/{ag}", headers=disp).status_code == 200
+
+
+def test_disp_org_diferente_403(client):
+    """Prestador resolve para org distinta da do agendamento → 403 (vínculo existe,
+    mas é de outra org)."""
+    _seed_prestador(client, "org-outra", _CNPJ_A)
+    ag = _novo_ag(client, org_id=_ORG_A)   # agendamento em org-aaa, não org-outra
+    disp = _headers(_tok(_CNPJ_A, "dispensador"))
+    assert client.get(f"/agendamentos/{ag}", headers=disp).status_code == 403
+
+
+def test_disp_inativo_403(client, outer_conn):
+    """Prestador inativo não resolve (resolver filtra ativo = true) → 403.
+    Semeado direto via outer_conn — o CRUD só cria ativo=true."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO prestadores (id, org_id, nome, tipo, cnpj, ativo, criado_em) "
+            "VALUES (%s,%s,%s,%s,%s, false, %s)",
+            ("p-inativo", _ORG_A, "Lab Inativo", "laboratorio", _CNPJ_A, "2026-01-01"),
+        )
+    ag = _novo_ag(client, org_id=_ORG_A)
+    disp = _headers(_tok(_CNPJ_A, "dispensador"))
+    assert client.get(f"/agendamentos/{ag}", headers=disp).status_code == 403
 
 
 # ===========================================================================
