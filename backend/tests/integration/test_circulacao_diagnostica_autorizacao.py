@@ -4,9 +4,9 @@ Espelha os outros *_autorizacao.py. Particularidades:
 - O módulo não tinha ownership por identidade (só papel + estado) — fechado aqui.
 - `chave_circulacao` é capability; identidade é validada por cima (chave vazada
   para outro paciente → 403).
-- Dispensador liga-se por `org_id` (prestadores.cnpj → org_id), MESMO gap
-  institucional do C → **fail-closed (403) na PG** até a migration (TICKET-5C-BIS-C.1).
-  A resolução POSITIVA do dispensador é coberta na suíte SQLite (test_circulacao_*).
+- Dispensador liga-se por `org_id` (prestadores.cnpj → org_id). Pós-C.1 (na main),
+  o schema institucional existe na PG: sem prestador → fail-closed 403; com prestador
+  cujo CNPJ casa a org da circulação → 2xx; org distinta / inativo → 403 (cobertos abaixo).
 
 Requer PostgreSQL (conftest de integração pula se DATABASE_URL não for PG).
 """
@@ -132,6 +132,75 @@ def test_paciente_nao_dono_mutacoes_403(client, outer_conn):
     outro = _headers(_tok(_CPF_OUTRO, "paciente"))
     assert client.post(f"/circulacao/{chave}/confirmar", headers=outro).status_code == 403
     assert client.post(f"/circulacao/{chave}/desmarcar", json={}, headers=outro).status_code == 403
+
+
+# ===========================================================================
+# Dispensador — resolução POSITIVA (pós-C.1: schema org_id na PG).
+# Prestador semeado; resolver prestadores.cnpj→org_id liga por igualdade de org.
+# ===========================================================================
+
+_CNPJ_MASC  = "98.765.432/0001-10"
+_CNPJ_LIMPO = "98765432000110"
+
+
+def _seed_prestador(client, org_id, cnpj, nome="Lab", tipo="laboratorio"):
+    r = client.post("/prestadores", json={
+        "org_id": org_id, "nome": nome, "tipo": tipo, "cnpj": cnpj,
+    }, headers=_headers(_tok("admin", "admin")))
+    assert r.status_code == 201, r.text
+
+
+def test_disp_org_match_get_e_proposta_2xx(client, outer_conn):
+    """Prestador cujo CNPJ resolve para a org da circulação: GET 200 e a mutação de
+    domínio do laboratório (/proposta) → 200. O estado é conduzido a
+    'enviado_laboratorio' (pré-condição de /proposta) via setup, pois a transição
+    selecionado→enviado_laboratorio vem de outro fluxo, fora deste router."""
+    _seed_prestador(client, _ORG_A, _CNPJ_DISP)
+    ped = _criar_pedido(client)
+    chave = _criar_circulacao(client, outer_conn, ped, org_id=_ORG_A)
+    disp = _headers(_tok(_CNPJ_DISP, "dispensador"))
+    assert client.get(f"/circulacao/{chave}", headers=disp).status_code == 200
+    # pré-condição de /proposta: estado enviado_laboratorio
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE circulacoes_diagnosticas SET status = 'enviado_laboratorio' "
+            "WHERE chave_circulacao = %s", (chave,),
+        )
+    r = client.post(f"/circulacao/{chave}/proposta",
+                    json={"data_hora_proposta": "2026-07-01T10:00:00"}, headers=disp)
+    assert r.status_code == 200, r.text
+
+
+def test_disp_cnpj_mascarado_resolve_200(client, outer_conn):
+    """CNPJ mascarado no cadastro, limpo no JWT: normalização read-side liga."""
+    _seed_prestador(client, "org-masc", _CNPJ_MASC)
+    ped = _criar_pedido(client)
+    chave = _criar_circulacao(client, outer_conn, ped, org_id="org-masc")
+    disp = _headers(_tok(_CNPJ_LIMPO, "dispensador"))
+    assert client.get(f"/circulacao/{chave}", headers=disp).status_code == 200
+
+
+def test_disp_org_diferente_403(client, outer_conn):
+    """Prestador resolve para outra org que não a da circulação → 403."""
+    _seed_prestador(client, "org-outra", _CNPJ_DISP)
+    ped = _criar_pedido(client)
+    chave = _criar_circulacao(client, outer_conn, ped, org_id=_ORG_A)
+    disp = _headers(_tok(_CNPJ_DISP, "dispensador"))
+    assert client.get(f"/circulacao/{chave}", headers=disp).status_code == 403
+
+
+def test_disp_inativo_403(client, outer_conn):
+    """Prestador inativo não resolve → 403 (semeado direto; CRUD só cria ativo=true)."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO prestadores (id, org_id, nome, tipo, cnpj, ativo, criado_em) "
+            "VALUES (%s,%s,%s,%s,%s, false, %s)",
+            ("p-inativo", _ORG_A, "Lab Inativo", "laboratorio", _CNPJ_DISP, "2026-01-01"),
+        )
+    ped = _criar_pedido(client)
+    chave = _criar_circulacao(client, outer_conn, ped, org_id=_ORG_A)
+    disp = _headers(_tok(_CNPJ_DISP, "dispensador"))
+    assert client.get(f"/circulacao/{chave}", headers=disp).status_code == 403
 
 
 # ===========================================================================
