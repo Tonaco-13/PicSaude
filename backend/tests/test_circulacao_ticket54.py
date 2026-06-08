@@ -80,8 +80,31 @@ PAYLOAD_CIRC_BASE = {
 
 
 # ---------------------------------------------------------------------------
+# Helpers de teste
+# ---------------------------------------------------------------------------
+
+def _seed_prestador_lab(db_path, org_id="LAB-TESTE", cnpj="12345678000195"):
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO prestadores
+          (id, org_id, nome, tipo, cnpj, ativo, criado_em)
+        VALUES (?, ?, ?, ?, ?, 1, ?)
+        """,
+        (f"prestador-{org_id}", org_id, f"Laboratorio {org_id}", "laboratorio", cnpj, "2026-01-01T00:00:00"),
+    )
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def prestador_lab(db_path):
+    _seed_prestador_lab(db_path)
+
 
 @pytest.fixture()
 def pedido(prescritor):
@@ -92,7 +115,7 @@ def pedido(prescritor):
 
 
 @pytest.fixture()
-def circulacao(paciente, prescritor, pedido):
+def circulacao(paciente, prescritor, pedido, prestador_lab):
     """Circulação no estado inicial 'selecionado'."""
     r = prescritor.get(f"/pedidos-exame/{pedido}")
     item_id = r.json()["itens"][0]["id"]
@@ -276,6 +299,17 @@ class TestProposta:
         assert r.json()["local_texto"] is None
         assert r.json()["instrucoes_preparo"] is None
 
+    def test_dispensador_sem_org_mapeada_nao_pode_propor(
+            self, dispensador, circulacao_enviada, db_path):
+        conn = sqlite3.connect(db_path)
+        conn.execute("DELETE FROM prestadores WHERE org_id = ?", (PAYLOAD_CIRC_BASE["org_id"],))
+        conn.commit()
+        conn.close()
+
+        chave = circulacao_enviada["chave_circulacao"]
+        r = dispensador.post(f"/circulacao/{chave}/proposta", json=PAYLOAD_PROPOSTA)
+        assert r.status_code == 403
+
 
 # ---------------------------------------------------------------------------
 # 11–17. POST /circulacao/{chave}/confirmar
@@ -321,6 +355,12 @@ class TestConfirmar:
     def test_prescritor_nao_pode_confirmar(self, prescritor, circulacao_com_proposta):
         chave = circulacao_com_proposta["chave_circulacao"]
         r = prescritor.post(f"/circulacao/{chave}/confirmar")
+        assert r.status_code == 403
+
+    def test_paciente_nao_dono_nao_pode_confirmar(
+            self, outro_paciente, circulacao_com_proposta):
+        chave = circulacao_com_proposta["chave_circulacao"]
+        r = outro_paciente.post(f"/circulacao/{chave}/confirmar")
         assert r.status_code == 403
 
 
@@ -418,6 +458,70 @@ class TestDesmarcar:
         eventos = _get_eventos_db(db_path, circulacao_com_proposta["protocolo"])
         ev = next(e for e in eventos if e["tipo_evento"] == "circulacao_desmarcada_paciente")
         assert ev["dados"]["motivo"] == motivo
+
+    def test_paciente_nao_dono_nao_pode_desmarcar(
+            self, outro_paciente, circulacao_com_proposta):
+        chave = circulacao_com_proposta["chave_circulacao"]
+        r = outro_paciente.post(f"/circulacao/{chave}/desmarcar", json={})
+        assert r.status_code == 403
+
+    def test_dispensador_sem_org_mapeada_nao_pode_desmarcar(
+            self, dispensador, circulacao_com_proposta, db_path):
+        conn = sqlite3.connect(db_path)
+        conn.execute("DELETE FROM prestadores WHERE org_id = ?", (PAYLOAD_CIRC_BASE["org_id"],))
+        conn.commit()
+        conn.close()
+
+        chave = circulacao_com_proposta["chave_circulacao"]
+        r = dispensador.post(f"/circulacao/{chave}/desmarcar", json={})
+        assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# 35–38. Realização e remarcação com ownership
+# ---------------------------------------------------------------------------
+
+class TestRealizarRemarcarOwnership:
+
+    def test_dispensador_dono_pode_realizar(self, dispensador, circulacao_confirmada):
+        chave = circulacao_confirmada["chave_circulacao"]
+        r = dispensador.post(f"/circulacao/{chave}/realizar", json={})
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "realizado"
+
+    def test_dispensador_sem_org_mapeada_nao_pode_realizar(
+            self, dispensador, circulacao_confirmada, db_path):
+        conn = sqlite3.connect(db_path)
+        conn.execute("DELETE FROM prestadores WHERE org_id = ?", (PAYLOAD_CIRC_BASE["org_id"],))
+        conn.commit()
+        conn.close()
+
+        chave = circulacao_confirmada["chave_circulacao"]
+        r = dispensador.post(f"/circulacao/{chave}/realizar", json={})
+        assert r.status_code == 403
+
+    def test_dispensador_dono_pode_remarcar(self, dispensador, circulacao_enviada):
+        chave = circulacao_enviada["chave_circulacao"]
+        r = dispensador.post(
+            f"/circulacao/{chave}/remarcar",
+            json={"org_id": PAYLOAD_CIRC_BASE["org_id"], "unidade_id": "UNIDADE-002"},
+        )
+        assert r.status_code == 201, r.text
+        assert r.json()["status_anterior"] == "desmarcado_laboratorio"
+
+    def test_dispensador_sem_org_mapeada_nao_pode_remarcar(
+            self, dispensador, circulacao_enviada, db_path):
+        conn = sqlite3.connect(db_path)
+        conn.execute("DELETE FROM prestadores WHERE org_id = ?", (PAYLOAD_CIRC_BASE["org_id"],))
+        conn.commit()
+        conn.close()
+
+        chave = circulacao_enviada["chave_circulacao"]
+        r = dispensador.post(
+            f"/circulacao/{chave}/remarcar",
+            json={"org_id": PAYLOAD_CIRC_BASE["org_id"], "unidade_id": "UNIDADE-002"},
+        )
+        assert r.status_code == 403
 
 
 # ---------------------------------------------------------------------------
