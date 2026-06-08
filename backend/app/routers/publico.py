@@ -298,3 +298,64 @@ def consulta_publica_laudo(protocolo: str):
         "tipo_emissao": laudo["tipo_emissao"],
         "itens":        itens,
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /public/encaminhamentos/{protocolo}
+# Consulta pública mínima de encaminhamento — sem dados sensíveis
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/public/encaminhamentos/{protocolo}",
+    summary="Consulta pública mínima de protocolo de encaminhamento",
+    response_description="Protocolo, status e itens (sem dados sensíveis)",
+)
+def consulta_publica_encaminhamento(protocolo: str):
+    """
+    Retorna o estado atual de um encaminhamento identificado pelo protocolo.
+
+    **Nunca retorna:** CPF, nome do paciente, CNS de origem/destino, CID,
+    justificativa clínica ou eventos do ledger.
+    """
+    with get_tx() as conn:
+        enc = conn.execute(
+            """
+            SELECT protocolo, status, tipo_emissao, especialidade_destino
+            FROM encaminhamentos
+            WHERE protocolo = ?
+            """,
+            (protocolo,),
+        ).fetchone()
+
+        if not enc:
+            raise HTTPException(status_code=404, detail="Protocolo não encontrado.")
+
+        itens_rows = conn.execute(
+            """
+            SELECT ei.id AS item_id, ei.especialidade, ei.procedimento, ei.status_item
+            FROM encaminhamento_itens ei
+            JOIN encaminhamentos e ON e.id = ei.encaminhamento_id
+            WHERE e.protocolo = ?
+            ORDER BY ei.id
+            """,
+            (protocolo,),
+        ).fetchall()
+
+    itens = [
+        {
+            "item_id":       r["item_id"],
+            "ordem":         idx + 1,
+            "especialidade": r["especialidade"],
+            "procedimento":  r["procedimento"] or None,
+            "status_item":   r["status_item"],
+        }
+        for idx, r in enumerate(itens_rows)
+    ]
+
+    return {
+        "protocolo":               enc["protocolo"],
+        "status_encaminhamento":   enc["status"],
+        "tipo_emissao":            enc["tipo_emissao"],
+        "especialidade_destino":   enc["especialidade_destino"],
+        "itens":                   itens,
+    }
