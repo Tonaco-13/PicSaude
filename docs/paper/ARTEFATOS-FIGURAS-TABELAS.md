@@ -172,5 +172,42 @@ em SQLite, quebrados na PG. É, possivelmente, a contribuição de engenharia ma
 
 ---
 
+## REFERÊNCIAS — lista verificada na web (fecha as LACUNAs de [3]–[10], [12])
+
+Confere/preenche a seção References do draft (estilo IEEE). ✓ = dados confirmados.
+
+- **[3]** ✓ G. C. Coelho Neto, R. Andreazza, A. Chioro, "Integration among national health information
+  systems in Brazil: the case of e-SUS Primary Care," *Rev. Saúde Pública*, vol. 55, art. 93, 2021.
+  **doi:10.11606/s1518-8787.2021055002931** (PMID 34878089).
+- **[4]** ✓ I. M. P. Barbalho *et al.*, "Electronic health records in Brazil: Prospects and
+  technological challenges," *Front. Public Health*, vol. 10, art. 963841, 2022.
+  **doi:10.3389/fpubh.2022.963841**.
+- **[5]** ✓(título/veículo) "Digital Health: Context and Challenges in Brazil with Focus on Public
+  Health," *Proc. IEEE INDUSCON*, 2025. **IEEE Xplore doc. 11241578**. *(Conferir a grafia dos
+  autores direto no Xplore — o snippet não confirmou "L. F. Conrado".)*
+- **[6]** ✓ Conselho Federal de Medicina, *Resolução CFM nº 2.299/2021*, DOU 26/10/2021. Art. 4º
+  exige assinatura **ICP-Brasil NGS2** (autenticidade, autoria, não-repúdio).
+- **[7]** M. Fowler, "Event Sourcing," martinfowler.com, dez. 2005. *(citação canônica)*
+- **[8]** ✓ "Blockchain-Enabled Traceability in Pharmaceutical Supply Chains: A Mapping Review of
+  Evidence for Visibility, Anti-Counterfeiting, and Chain-of-Custody Control," *Logistics*, vol. 10,
+  no. 4, art. 85, 2024. **doi:10.3390/logistics10040085** *(autores: preencher do DOI)*.
+- **[9]** U.S. FDA, *Drug Supply Chain Security Act (DSCSA)*, Title II of Pub. L. 113-54, 2013; e
+  Parlamento Europeu, *Diretiva 2011/62/UE (Falsified Medicines Directive)*, 2011 + Reg. Delegado
+  (UE) 2016/161. *(referências legais estáveis)*
+- **[10]** ✓ **A. Duarte, J. Frost, L. Gambacorta, P. Koo Wilkens, H. S. Shin, "Central banks, the
+  monetary system and public payment infrastructures: lessons from Brazil's Pix," BIS Bulletin
+  No. 52, Bank for International Settlements, mar. 2022.** *(É a citação canônica de "Pix como
+  infraestrutura pública de pagamento" — ideal para a metáfora.)* Alternativa: IMF, "Pix: Brazil's
+  Successful Instant Payment System," *IMF Staff Country Report* 2023/289, 2023.
+- **[11]** Brasil, *Lei nº 13.709/2018 (LGPD)*, Art. 11. *(confirmado — dado pessoal sensível)*
+- **[12]** ✓ ANVISA, *RDC nº 1.000/2025* — prescrição eletrônica de medicamentos sob controle
+  especial; rastreabilidade + assinatura digital + SNCR; altera a Portaria 344/98. Vigência
+  13/02/2026.
+
+> **Resta verificar só:** datas de acesso de [1][2] (links RNDS gov.br) e a grafia dos autores de
+> [5] e [8]. Todo o resto está confirmado com fonte.
+
+---
+
 *Fonte: `backend/app/domain/states_{prescricao,exame,laudo,agendamento,circulacao_diagnostica,encaminhamento,contrarreferencia}.py`.
-Métricas de `backend/app` e `backend/tests`. Citações regulatórias verificadas na web. Verificado em 2026-06-14 — nada inventado.*
+Métricas de `backend/app` e `backend/tests`. Citações regulatórias e referências verificadas na web. Verificado em 2026-06-14 — nada inventado.*
