@@ -82,12 +82,15 @@ def registrar_outbox(
         )
         return evt_id
     except Exception:  # noqa: BLE001
-        # Falha de outbox nunca impacta o fluxo clínico (princípio G4A §2.4)
+        # Falha de outbox nunca impacta o fluxo clínico (princípio G4A §2.4).
+        # O engolir é intencional; `exc_info=True` preserva o traceback para
+        # diagnóstico (H8 da ultra-review 2026-06-14) — sem isso a falha é cega.
         import logging
         logging.getLogger(__name__).warning(
             "outbox: falha ao registrar evento '%s' para objeto '%s/%s'",
             tipo_evento,
             objeto_tipo,
             objeto_id,
+            exc_info=True,
         )
         return None
