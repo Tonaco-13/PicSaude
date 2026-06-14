@@ -185,6 +185,42 @@ Public neutrality & public endpoint projects no clinical field & \texttt{test\_p
 
 \textbf{Regulatory and licensing posture.} The design targets compliance with ANVISA RDC 1.000/2025---which governs the electronic prescription of medications under special control, emphasizing traceability, mandatory digital signature and integration with the National Controlled-Prescription System (SNCR), and which amends Ordinance SVS/MS 344/98---and with CFM 2.299/2021 \cite{cfm,rdc}. The reference implementation is released as open source under the AGPL, on the principle that infrastructure for a public health system should itself be public. The architecture is the subject of a Brazilian INPI filing (BR 51 2026 002267-3).
 
+\section{Robustness Evaluation}\label{sec:eval}
+The evaluation here is architectural, not clinical (a real-setting study is future work). We instead report structural and behavioral robustness checks that test whether the model's properties hold in the implementation. All scripts are released with the open-source code, so each number below is reproducible. Table~\ref{tab:eval} summarizes the results.
+
+\textit{A. Formal verification of the state machines.} The seven families comprise eleven object- and item-level machines (78 states, 99 transitions). We checked four structural properties exhaustively: every transition target is a declared state; the terminal set is a subset of the states; no non-terminal state is a dead-end; and terminal states are absorbing. The first three hold universally. The absorbing-terminal check surfaced two terminal states with a declared outgoing transition---a dispensed item that may be \emph{reversed}, and an item with an available result that may be explicitly \emph{closed}---revealing a tension between ``terminal as clinically complete'' and ``terminal as absorbing.'' Rather than hide it, we report it as a finding now tracked for refinement; that an exhaustive check over the formal contract surfaces such cases is precisely the benefit of treating the state machine as a verifiable artifact.
+
+\textit{B. Document integrity (tamper-evidence).} For the canonical document, the SHA-256 digest was identical across 1{,}000 recomputations of the same input (determinism), and a single-field mutation altered the digest for all 12 document fields (7 header, 5 per item)---i.e., any content change is tamper-evident.
+
+\textit{C. Authorization and anti-leak.} Across nine endpoint families, 96 authorization scenarios execute against PostgreSQL and all pass, each exercising the ordering 404 (not found) before 403 (not owner) before 409 (state conflict) that prevents disclosure of an object's existence or state to a non-owner.
+
+\textit{D. Dual-database divergence.} The dual-database gate caught defects invisible on SQLite: in two concrete instances a boolean column written with an integer literal passed every SQLite test yet raised a type-mismatch error on PostgreSQL---a defect class that example-based testing on the development database alone does not reveal.
+
+\textit{E. Public-endpoint neutrality (LGPD).} A static audit of all five public endpoints confirmed that none project a clinical field (only protocol, status, issuance type and per-item order/status), and tests assert that no seeded clinical value appears in any public response.
+
+\begin{table}[t]
+\caption{Robustness evaluation results}
+\label{tab:eval}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|p{2.3cm}|p{5.4cm}|}
+\hline
+\textbf{Check} & \textbf{Result} \\
+\hline
+State-machine verification & 11 machines, 78 states, 99 transitions; 3/4 properties universal; 2 non-absorbing terminals found and tracked \\
+\hline
+Hash tamper-evidence & deterministic over 1{,}000 runs; 12/12 fields alter the digest \\
+\hline
+Authorization / anti-leak & 96/96 scenarios pass on PostgreSQL (404$\rightarrow$403$\rightarrow$409) \\
+\hline
+Dual-database gate & 2 boolean-as-integer defects caught on PostgreSQL, invisible on SQLite \\
+\hline
+Public neutrality (LGPD) & 0/5 public endpoints project a clinical field \\
+\hline
+\end{tabular}
+\end{table}
+
 \section{Discussion, Limitations, and Ethics}\label{sec:disc}
 \textbf{Trade-offs.} Physical (paper-only) issuance uses a fire-and-forget call: the front end prints without waiting for the back end to confirm persistence. This favors availability of the clinical act over guaranteed central registration---if the back end is offline, printing still succeeds and the record may remain only on the client. The trade-off is accepted and documented; full traceability requires the back end to be reachable. Similarly, a mathematically invalid sentinel identifier is reserved for unidentified patients in paper flows and must be excluded from analytics, and institutional scope is rolled out incrementally rather than imposed on every table at once.
 

@@ -58,6 +58,8 @@
 | ❓ | **M3** CNES indisponível → as 5 camadas de validação caem como `invalido` (sem degradação graciosa) |
 | 📋 | **A.1** coerência `resultado→encerrado` (pedido_exame) | TICKET-5C-BIS-A.1 |
 | 📋 | **B.1** correção de laudo cross-patient | TICKET-5C-BIS-B.1 |
+| 🔴 | **SM1** terminal não-absorvente: item `resultado_disponivel` (pedido_exame) é terminal **e** transiciona p/ `encerrado` — **provável bug** (estado intermediário marcado terminal) | verificação formal (paper §VII) · `core` states_exame.py |
+| 🟡 | **SM2** terminal não-absorvente: item `dispensado` → `estornado` (estorno) — tensão semântica "terminal=completo" × "terminal=absorvente"; intencional, formalização inconsistente | verificação formal (paper §VII) · `core` states.py |
 
 ---
 
