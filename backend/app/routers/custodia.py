@@ -231,6 +231,31 @@ def _normalizar_id(detentor_tipo: str, raw_id: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Ownership (TICKET-5C-BIS-F) — espelha as regras V6 do transferir_custodia.
+# dispensador → detém custódia ATIVA (nível-prescrição OU nível-item);
+# prescritor  → é o autor da prescrição.
+# ---------------------------------------------------------------------------
+
+def _dispensador_detem_custodia(conn, prescricao_id: int, item_id: Optional[int], cnpj: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM prescricao_custodia "
+        "WHERE prescricao_id = ? AND detentor_tipo = 'dispensador' AND detentor_id = ? "
+        "AND encerrada_em IS NULL AND (item_id IS NULL OR item_id = ?) LIMIT 1",
+        (prescricao_id, cnpj, item_id),
+    ).fetchone()
+    return row is not None
+
+
+def _prescritor_e_autor(conn, prescricao_id: int, cns: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM prescricoes p JOIN prescritores pr ON pr.id = p.prescritor_id "
+        "WHERE p.id = ? AND pr.cns = ? LIMIT 1",
+        (prescricao_id, cns),
+    ).fetchone()
+    return row is not None
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -744,7 +769,7 @@ def dispensar_item(
 
 
 @router.post("/{protocolo}/itens/{item_id}/devolver", status_code=200)
-def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario=Depends(require_role("dispensador", "prescritor"))):
+def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario=Depends(require_role("dispensador", "prescritor", "admin"))):
     """
     Devolve um item ao paciente (abandono de compra) ou ao prescritor (erro clínico).
 
@@ -771,6 +796,23 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
         ).fetchone()
         if not item:
             raise HTTPException(status_code=404, detail=f"Item {item_id} não encontrado na prescrição.")
+
+        # TICKET-5C-BIS-F — ownership (espelha V6 do transferir): 404 → 403 → 409.
+        if usuario["role"] == "dispensador":
+            if not _dispensador_detem_custodia(conn, presc["id"], item_id, normalize_cnpj(usuario["sub"])):
+                raise HTTPException(
+                    status_code=403,
+                    detail={"codigo": "nao_detem_custodia",
+                            "mensagem": "Dispensador não detém custódia ativa deste item."},
+                )
+        elif usuario["role"] == "prescritor":
+            if not _prescritor_e_autor(conn, presc["id"], normalize_cns(usuario["sub"])):
+                raise HTTPException(
+                    status_code=403,
+                    detail={"codigo": "nao_e_autor_da_prescricao",
+                            "mensagem": "Prescritor não é o autor desta prescrição."},
+                )
+        # admin → bypass
 
         if item["status_item"] == "dispensado":
             raise HTTPException(status_code=409, detail="Item já dispensado não pode ser devolvido.")
