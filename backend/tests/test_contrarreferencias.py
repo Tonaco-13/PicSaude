@@ -86,6 +86,13 @@ def test_publico_cr_neutro(prescritor, _shared_client):
     proto, destino = _criar_e_atender(prescritor, _shared_client)
     cr_proto = destino.post(f"/encaminhamentos/{proto}/contrarreferir",
                             json={"conteudo_clinico": "SEGREDO_CLINICO_DIAGNOSTICO_XYZ"}).json()["protocolo_contrarreferencia"]
+    # contraprova positiva: o dono (destino) VÊ a clínica no GET autenticado —
+    # sem isto, o assert de ausência abaixo passaria mesmo se nada fosse gravado.
+    auth = destino.get(f"/contrarreferencias/{cr_proto}")
+    assert auth.status_code == 200, auth.text
+    assert "SEGREDO_CLINICO_DIAGNOSTICO_XYZ" in str(auth.json())
+
+    # público é NEUTRO: a mesma clínica NÃO aparece no aberto
     r = _shared_client.get(f"/public/contrarreferencias/{cr_proto}")
     assert r.status_code == 200, r.text
     data = r.json()
