@@ -156,7 +156,32 @@ Counter-referral (derived) & registered & cancelled & destination $\rightarrow$ 
 
 \textbf{Dual-database test gate.} A dual-database gate executes the suite against an ephemeral PostgreSQL instance in addition to SQLite. This is not redundant: SQLite's permissive typing (e.g., accepting an integer literal for a boolean column, or lax NULL handling) silently masks defects that surface only under PostgreSQL's strict typing. In our development this gate repeatedly caught latent defects invisible on SQLite---for instance, a boolean column written with an integer literal passed every SQLite test yet raised a type-mismatch error on PostgreSQL, meaning a code path that appeared fully tested was in fact broken under production-equivalent conditions. The methodological claim is narrow but practical: for dual-database clinical systems, the production database must be inside the test gate---a green bar on the development database is necessary but not sufficient.
 
-\textbf{Guarantees from the model.} Several safety properties follow directly from the pattern rather than from ad-hoc checks. Partial dispensing cannot exceed the prescription because the sum of dispensed quantities for an item is constrained to not exceed the prescribed quantity; an item that cannot be paid for simply returns to a pending state and remains dispensable elsewhere, without cancelling the prescription. Immutability together with the append-only ledger yields a non-repudiable audit trail: history is never overwritten, only extended. Terminal-state semantics are kept distinct, so a clinical cancellation is never conflated with a paper-only closure. Access control is enforced from creation, and public endpoints are neutral by construction, so verification never discloses clinical content.
+\textbf{Guarantees from the model.} Several safety properties follow directly from the pattern rather than from ad-hoc checks. Partial dispensing cannot exceed the prescription because the sum of dispensed quantities for an item is constrained to not exceed the prescribed quantity; an item that cannot be paid for simply returns to a pending state and remains dispensable elsewhere, without cancelling the prescription. Immutability together with the append-only ledger yields a non-repudiable audit trail: history is never overwritten, only extended. Terminal-state semantics are kept distinct, so a clinical cancellation is never conflated with a paper-only closure. Access control is enforced from creation, and public endpoints are neutral by construction, so verification never discloses clinical content. Table~\ref{tab:guarantees} maps each guarantee to the mechanism that enforces it and a representative test from the suite that exercises it.
+
+\begin{table}[t]
+\caption{Model guarantees, enforcing mechanism, and a representative test}
+\label{tab:guarantees}
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|p{2.1cm}|p{2.7cm}|p{2.5cm}|}
+\hline
+\textbf{Guarantee} & \textbf{Enforcing mechanism} & \textbf{Representative test} \\
+\hline
+Dispensed $\leq$ prescribed & per-item balance check before insert & \texttt{test\_supera\_saldo} (HTTP 422) \\
+\hline
+Append-only audit trail & insert-only event ledger (no update/delete) & \texttt{test\_retorna\_\allowbreak eventos\_inseridos} \\
+\hline
+Immutability with lineage & correction issues a new derived object & \texttt{test\_correcao\_\allowbreak aceita\_novos\_campos} \\
+\hline
+Valid transitions only & single source-of-truth transition tables & \texttt{test\_transicao\_\allowbreak invalida} (HTTP 409) \\
+\hline
+Ownership from creation & inline RBAC + identity assertion & \texttt{test\_dispensador\_\allowbreak sem\_custodia} (HTTP 403) \\
+\hline
+Public neutrality & public endpoint projects no clinical field & \texttt{test\_publico\_\allowbreak neutro} \\
+\hline
+\end{tabular}
+\end{table}
 
 \textbf{Regulatory and licensing posture.} The design targets compliance with ANVISA RDC 1.000/2025---which governs the electronic prescription of medications under special control, emphasizing traceability, mandatory digital signature and integration with the National Controlled-Prescription System (SNCR), and which amends Ordinance SVS/MS 344/98---and with CFM 2.299/2021 \cite{cfm,rdc}. The reference implementation is released as open source under the AGPL, on the principle that infrastructure for a public health system should itself be public. The architecture is the subject of a Brazilian INPI filing (BR 51 2026 002267-3).
 
