@@ -132,5 +132,45 @@ próprios**.
 
 ---
 
+## Citações regulatórias — VERIFICADAS na web (fecha LACUNAs [6] e [12])
+
+**[12] ANVISA, RDC nº 1.000/2025** — estabelece regras para a **prescrição eletrônica de
+medicamentos sujeitos a controle especial**, retenção e notificação de receita, em território
+nacional; altera pontos da **Portaria SVS/MS 344/98**. Foco em **rastreabilidade** e redução de
+fraude via **assinatura digital obrigatória** e integração ao **SNCR (Sistema Nacional de Controle
+de Receituários)**. Vigência para controlados a partir de **13/02/2026**; CPF do paciente
+obrigatório; SNCR pleno previsto até **30/09/2026**. *(Confere com o uso no projeto — "RDC
+1.000/2025" está correto.)*
+
+**[6] Resolução CFM nº 2.299/2021** — regulamenta a **emissão de documentos médicos eletrônicos**;
+publicada no **DOU de 26/10/2021** (aprovada em 30/09/2021), em vigor após 60 dias (~25/12/2021). O
+**Art. 4º** exige **assinatura digital ICP-Brasil com NGS2** (Nível de Garantia de Segurança 2),
+garantindo validade jurídica, autenticidade, autoria e **não-repúdio**. *(Confere com o draft —
+"[6] CFM 2.299/2021 mandates ICP-Brasil signing" está correto.)*
+
+> Fontes: gov.br/anvisa (webinar RDC 1.000/2025); Anfarmag / ITI / CFM (Resolução 2.299/2021,
+> Art. 4º). Verificado em 2026-06-14.
+
+---
+
+## Parágrafo de métodos — o gate dual-DB (sugestão de redação p/ §VI)
+
+> The reference implementation runs on PostgreSQL in production and SQLite in development under a
+> single Alembic-managed schema. A **dual-database test gate** executes the suite against an
+> ephemeral PostgreSQL instance, not only against SQLite. This is not redundant: SQLite's permissive
+> typing (e.g., accepting an integer literal for a boolean column, or lax NULL handling) silently
+> masks defects that surface only under PostgreSQL's strict typing. In our development this gate
+> repeatedly caught latent defects that were **invisible on SQLite** — for instance, a boolean column
+> written with an integer literal passed every SQLite test yet raised a type-mismatch error on
+> PostgreSQL, meaning a code path that *appeared* fully tested was in fact broken under
+> production-equivalent conditions. The methodological claim is narrow but practical: for
+> dual-database clinical systems, **the production database must be inside the test gate** — a green
+> bar on the development database is necessary but not sufficient.
+
+*(Honesto e vivido: foi exatamente assim que pegamos os bugs `dose_unitaria` e `ativo` — invisíveis
+em SQLite, quebrados na PG. É, possivelmente, a contribuição de engenharia mais defensável do paper.)*
+
+---
+
 *Fonte: `backend/app/domain/states_{prescricao,exame,laudo,agendamento,circulacao_diagnostica,encaminhamento,contrarreferencia}.py`.
-Métricas de `backend/app` e `backend/tests`. Verificado em 2026-06-14 — nada inventado.*
+Métricas de `backend/app` e `backend/tests`. Citações regulatórias verificadas na web. Verificado em 2026-06-14 — nada inventado.*
