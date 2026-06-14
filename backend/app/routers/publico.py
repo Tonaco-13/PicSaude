@@ -345,3 +345,45 @@ def consulta_publica_encaminhamento(protocolo: str):
         "tipo_emissao":            enc["tipo_emissao"],
         "itens":                   itens,
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /public/contrarreferencias/{protocolo}
+# Consulta pública mínima de contrarreferência — NEUTRO desde o nascimento (E2)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/public/contrarreferencias/{protocolo}",
+    summary="Consulta pública mínima de protocolo de contrarreferência",
+    response_description="Protocolo, status e tipo de emissão (sem dados sensíveis)",
+)
+def consulta_publica_contrarreferencia(protocolo: str):
+    """
+    Estado de uma contrarreferência pelo protocolo.
+
+    **Job: validação por QR — existência + estado. Payload NEUTRO.**
+
+    **Retorna apenas:** protocolo, status, tipo de emissão.
+
+    **NUNCA retorna:** `conteudo_clinico` (o retorno clínico — dado mais sensível do
+    módulo), CPF, nome do paciente, CNS de autor/origem ou eventos do ledger.
+    Neutro por construção: o SQL não projeta `conteudo_clinico`.
+    """
+    with get_tx() as conn:
+        cr = conn.execute(
+            """
+            SELECT protocolo, status, tipo_emissao
+            FROM contrarreferencias
+            WHERE protocolo = ?
+            """,
+            (protocolo,),
+        ).fetchone()
+
+        if not cr:
+            raise HTTPException(status_code=404, detail="Protocolo não encontrado.")
+
+    return {
+        "protocolo":                cr["protocolo"],
+        "status_contrarreferencia": cr["status"],
+        "tipo_emissao":             cr["tipo_emissao"],
+    }

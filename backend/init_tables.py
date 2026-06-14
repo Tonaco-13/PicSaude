@@ -99,6 +99,9 @@ _TABELAS_APP = [
     "encaminhamento_itens",               # TICKET-ENCAMINHAMENTO-E1
     "encaminhamento_eventos",             # TICKET-ENCAMINHAMENTO-E1 — ledger
     "encaminhamento_custodia",            # TICKET-ENCAMINHAMENTO-E1 — cadeia de custódia
+    "contrarreferencias",                 # TICKET-ENCAMINHAMENTO-E2 — objeto derivado
+    "contrarreferencia_eventos",          # TICKET-ENCAMINHAMENTO-E2 — ledger
+    "contrarreferencia_custodia",         # TICKET-ENCAMINHAMENTO-E2 — cadeia de custódia
 ]
 
 

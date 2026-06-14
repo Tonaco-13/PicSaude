@@ -14,7 +14,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.observabilidade import ObservabilidadeMiddleware
 from app.observabilidade.logging_config import configure_logging
-from app.routers import agendamentos, api_keys, auth, assinaturas, catalogo, circulacao_diagnostica, config_publico, custodia, demo, dispensacoes, dispensadores, encaminhamentos, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
+from app.routers import agendamentos, api_keys, auth, assinaturas, catalogo, circulacao_diagnostica, config_publico, contrarreferencias, custodia, demo, dispensacoes, dispensadores, encaminhamentos, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
 
 # Configura logging estruturado o mais cedo possível
 configure_logging()
@@ -227,6 +227,7 @@ app.include_router(solicitacoes.router)   # Ticket 13 — solicitações de reno
 app.include_router(pedidos_exame.router)  # Ticket 15 — módulo de pedidos de exame
 app.include_router(laudos.router)         # Ticket 20 — módulo de laudos
 app.include_router(encaminhamentos.router) # TICKET-ENCAMINHAMENTO-E1 — referência clínica
+app.include_router(contrarreferencias.router) # TICKET-ENCAMINHAMENTO-E2 — contrarreferência derivada
 app.include_router(ia.router)             # Ticket 22 — IA farmacêutica v1
 app.include_router(tokens.router)         # Ticket 24 — token de apresentação
 app.include_router(hospitalares.router)   # Ticket 27 — dispensação hospitalar

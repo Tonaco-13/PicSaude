@@ -38,6 +38,9 @@ from app.models.encaminhamento import Encaminhamento                            
 from app.models.encaminhamento_item import EncaminhamentoItem                         # TICKET-ENCAMINHAMENTO-E1
 from app.models.encaminhamento_evento import EncaminhamentoEvento                     # TICKET-ENCAMINHAMENTO-E1
 from app.models.encaminhamento_custodia import EncaminhamentoCustodia                 # TICKET-ENCAMINHAMENTO-E1
+from app.models.contrarreferencia import Contrarreferencia                             # TICKET-ENCAMINHAMENTO-E2
+from app.models.contrarreferencia_evento import ContrarreferenciaEvento               # TICKET-ENCAMINHAMENTO-E2
+from app.models.contrarreferencia_custodia import ContrarreferenciaCustodia           # TICKET-ENCAMINHAMENTO-E2
 
 __all__ = [
     "Paciente",
@@ -81,4 +84,7 @@ __all__ = [
     "EncaminhamentoItem",          # TICKET-ENCAMINHAMENTO-E1
     "EncaminhamentoEvento",        # TICKET-ENCAMINHAMENTO-E1
     "EncaminhamentoCustodia",      # TICKET-ENCAMINHAMENTO-E1
+    "Contrarreferencia",           # TICKET-ENCAMINHAMENTO-E2
+    "ContrarreferenciaEvento",     # TICKET-ENCAMINHAMENTO-E2
+    "ContrarreferenciaCustodia",   # TICKET-ENCAMINHAMENTO-E2
 ]
