@@ -7,6 +7,7 @@
 | **Origem** | Descoberto pelo Engenheiro-executor no **gate PostgreSQL do TICKET-5C-BIS-A** (2026-05-31) |
 | **Não bloqueia** | O 5C-BIS-A (ownership) — gate fechou 22/22; este achado é de **domínio**, ortogonal a autorização |
 | **Commit de leitura** | `842c985` |
+| **Corroboração independente** | A verificação formal exaustiva das máquinas de estado (paper CEBEB §VII, propriedade P2 "terminais são absorventes") **redescobriu este mesmo achado** por método distinto do gate PG (2026-06-15). Duas detecções independentes → alta confiança de que é real. |
 
 > **Por que existe este ticket:** ao escrever o happy-flow de ownership do 5C-BIS-A, o teste tropeçou
 > numa semântica de domínio **pré-existente**. Em vez de "consertar domínio dentro de um ticket de
