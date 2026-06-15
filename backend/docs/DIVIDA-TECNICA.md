@@ -59,7 +59,7 @@
 | 📋 | **A.1** coerência `resultado→encerrado` (pedido_exame) | TICKET-5C-BIS-A.1 |
 | 📋 | **B.1** correção de laudo cross-patient | TICKET-5C-BIS-B.1 |
 | 📋 | **SM1 = TICKET-5C-BIS-A.1** — `resultado_disponivel` terminal torna `encerrar` inalcançável. **Corroborado independentemente** pela verificação formal (paper §VII, propriedade P2) — duas detecções por métodos distintos (gate PG + checagem de absorvência) | TICKET-5C-BIS-A.1 · `core` states_exame.py |
-| 🟡 | **SM2** (novo) terminal não-absorvente: item `dispensado → estornado` (estorno) — tensão semântica "terminal=completo" × "terminal=absorvente". Provável **intencional** (estorno é reversão clínica real); decidir: documentar como exceção vs. remodelar. Sem ticket ainda | verificação formal (paper §VII) · `core` states.py |
+| 📋 | **SM2 → TICKET-ESTORNO-OBJETO-DERIVADO** — martelo de Fabiano (2026-06-15): estorno vira **objeto derivado** imutável (não transição `dispensado→estornado`). Resolve o SM2 tornando `dispensado` absorvente. Implementação `core` **adiada p/ pós-paper** (forks de domínio + desincronia com a §VII) | TICKET-ESTORNO-OBJETO-DERIVADO · `core` states.py |
 
 ---
 
