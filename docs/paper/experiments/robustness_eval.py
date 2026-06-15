@@ -70,7 +70,7 @@ def check_B_hash() -> None:
                         "unidade_quantidade": "comprimido", "posologia": "1x8h"}])
     h0 = montar_documento(**base).hash_sha256
     det = all(montar_documento(**base).hash_sha256 == h0 for _ in range(1000))
-    topo = ["protocolo", "data_emissao", "tipo_emissao", "cns_prescritor",
+    topo = ["assinatura_modo", "protocolo", "data_emissao", "tipo_emissao", "cns_prescritor",
             "nome_prescritor", "cpf_paciente", "nome_paciente"]
     mud = sum(1 for c in topo if montar_documento(**{**base, c: base[c] + "_X"}).hash_sha256 != h0)
     itc = ["nome_medicamento", "concentracao", "quantidade", "unidade_quantidade", "posologia"]
@@ -82,7 +82,7 @@ def check_B_hash() -> None:
     print("\n== B: integridade do documento (hash) ==")
     print(f"   determinismo (1000x): {'idêntico' if det else 'DIVERGIU'}")
     print(f"   tamper-evidence: {mud + mit}/{len(topo) + len(itc)} campos alteram o digest")
-    assert det and (mud + mit) == 12
+    assert det and (mud + mit) == 13
 
 
 def check_E_public_neutrality() -> None:
