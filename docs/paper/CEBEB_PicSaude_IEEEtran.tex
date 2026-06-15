@@ -190,7 +190,7 @@ The evaluation here is architectural, not clinical (a real-setting study is futu
 
 \textit{A. Formal verification of the state machines.} The seven families comprise eleven object- and item-level machines (78 states, 99 transitions). We checked four structural properties exhaustively: every transition target is a declared state; the terminal set is a subset of the states; no non-terminal state is a dead-end; and terminal states are absorbing. The first three hold universally. The absorbing-terminal check surfaced two terminal states with a declared outgoing transition---a dispensed item that may be \emph{reversed}, and an item with an available result that may be explicitly \emph{closed}---revealing a tension between ``terminal as clinically complete'' and ``terminal as absorbing.'' Rather than hide it, we report it as a finding now tracked for refinement; that an exhaustive check over the formal contract surfaces such cases is precisely the benefit of treating the state machine as a verifiable artifact.
 
-\textit{B. Document integrity (tamper-evidence).} For the canonical document, the SHA-256 digest was identical across 1{,}000 recomputations of the same input (determinism), and a single-field mutation altered the digest for all 12 document fields (7 header, 5 per item)---i.e., any content change is tamper-evident.
+\textit{B. Document integrity (tamper-evidence).} For the canonical document, the SHA-256 digest was identical across 1{,}000 recomputations of the same input (determinism), and a single-field mutation altered the digest for all 13 document fields (8 header, 5 per item)---i.e., any content change is tamper-evident.
 
 \textit{C. Authorization and anti-leak.} Across nine endpoint families, 96 authorization scenarios execute against PostgreSQL and all pass, each exercising the ordering 404 (not found) before 403 (not owner) before 409 (state conflict) that prevents disclosure of an object's existence or state to a non-owner.
 
@@ -210,7 +210,7 @@ The evaluation here is architectural, not clinical (a real-setting study is futu
 \hline
 State-machine verification & 11 machines, 78 states, 99 transitions; 3/4 properties universal; 2 non-absorbing terminals found and tracked \\
 \hline
-Hash tamper-evidence & deterministic over 1{,}000 runs; 12/12 fields alter the digest \\
+Hash tamper-evidence & deterministic over 1{,}000 runs; 13/13 fields alter the digest \\
 \hline
 Authorization / anti-leak & 96/96 scenarios pass on PostgreSQL (404$\rightarrow$403$\rightarrow$409) \\
 \hline
