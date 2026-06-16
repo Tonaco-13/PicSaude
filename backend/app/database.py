@@ -33,6 +33,12 @@ def _resolve_sqlite_db_path() -> str:
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
+# Render (e alguns PaaS) entregam a connection string como `postgres://`,
+# esquema que o SQLAlchemy 1.4+ rejeita ("Can't load plugin: ...:postgres").
+# Normaliza para `postgresql://` — idempotente para URLs já corretas.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+
 _USE_SQLITE = not DATABASE_URL
 
 if _USE_SQLITE:
