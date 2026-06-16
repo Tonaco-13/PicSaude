@@ -20,7 +20,9 @@ databases:
   - name: picsaude-db
     databaseName: picsaude
     user: picsaude
-    plan: free          # ajustar (free expira em 90 dias; usar starter+ p/ prod real)
+    plan: basic-256mb   # tier pago: não expira nem hiberna (decisão Fabiano 2026-06-16).
+                        #   Render renomeou os planos de Postgres — confira o slug na tela
+                        #   de "Apply" (basic-256mb / basic-1gb / ...) antes de criar.
 
 services:
   - type: web
@@ -28,7 +30,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: free          # ajustar conforme carga
+    plan: starter       # tier pago: sempre ligado, sem hibernação (decisão Fabiano 2026-06-16)
     healthCheckPath: /health
     # Migrations rodam antes de cada deploy (esquema único via Alembic).
     # O Dockerfile faz WORKDIR /app e copia backend/ → alembic.ini fica em /app.

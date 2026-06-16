@@ -21,8 +21,19 @@
 2. Render lê `render.yaml`: provisiona `picsaude-db` (Postgres) + `picsaude-backend` (Docker).
 3. Setar manualmente `PICSAUDE_BASE_URL` (a URL só existe após o 1º deploy — pode
    setar depois e re-deployar).
-4. **Apply**. O `preDeployCommand` roda `alembic upgrade head` (cria o schema).
+4. **Apply**. Na tela de Apply, conferir os **planos pagos** (web `starter`, Postgres
+   `basic-256mb` ou o slug equivalente que a Render mostrar) — escolha deliberada de
+   não-hibernar/não-expirar. O `preDeployCommand` roda `alembic upgrade head`.
 5. Verificar: `GET https://<serviço>.onrender.com/health` → `200`.
+
+### Ligar o domínio `picsaude.com.br` (depois do 1º deploy)
+
+1. Render → serviço `picsaude-backend` → **Settings → Custom Domains** → adicionar
+   `picsaude.com.br` (e/ou `www.picsaude.com.br`).
+2. A Render mostra um registro **CNAME** (ou A/ALIAS para o apex). Criar esse registro
+   no painel de DNS onde o `picsaude.com.br` foi comprado (ex: Registro.br).
+3. Esperar a propagação (minutos a horas) — a Render emite o **HTTPS automático**.
+4. Atualizar `PICSAUDE_BASE_URL` para `https://picsaude.com.br` e re-deployar.
 
 ## 3. Verificações pós-deploy
 
@@ -37,8 +48,9 @@
 
 - **`estabelecimentos_cnes` vazia na PG**: o login degrada graciosamente
   (`cnes_verificado: false`). Carga/migração do snapshot CNES é trabalho separado.
-- **Plano `free`**: o Postgres free do Render expira em ~90 dias e o web service
-  hiberna por inatividade. Para piloto real, subir para `starter`.
+- **Planos pagos** (web `starter` + Postgres `basic-256mb`): decisão de Fabiano
+  (2026-06-16) — domínio próprio `picsaude.com.br`, então a casa não pode hibernar
+  nem a gaveta expirar. Custo ~lanche/mês por serviço; confirmar slugs na tela de Apply.
 
 > ⚠️ O `render.yaml` é fiel ao código, mas **não foi validado contra um deploy
 > Render real**. Tratar o primeiro deploy como smoke test, conferindo os logs.
