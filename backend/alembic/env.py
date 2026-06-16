@@ -60,6 +60,10 @@ if config.config_file_name is not None:
 # ---------------------------------------------------------------------------
 _DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
+# Render entrega `postgres://`; SQLAlchemy 1.4+ exige `postgresql://` (idempotente).
+if _DATABASE_URL.startswith("postgres://"):
+    _DATABASE_URL = "postgresql://" + _DATABASE_URL[len("postgres://"):]
+
 if not _DATABASE_URL:
     # Dev: fallback para SQLite (banco de desenvolvimento local)
     _db_path = os.path.abspath(
