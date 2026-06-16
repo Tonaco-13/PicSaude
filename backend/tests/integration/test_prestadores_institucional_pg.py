@@ -84,3 +84,21 @@ def test_smoke_login_prestador_e_api_keys(client):
     # api_keys: criar para org existente → 201 (verifica org_id em prestadores)
     rk = client.post("/admin/api-keys", json={"org_id": "org-sm", "nome": "Integrador X"}, headers=h)
     assert rk.status_code == 201, rk.text
+
+
+def test_login_prestador_200_path_cnes_ausente_fail_open(client):
+    """Fechamento do gap C.1 §7: o caminho 200 do /auth/me/institucional (prestador
+    CADASTRADO) NÃO quebra na PG quando `estabelecimentos_cnes` está ausente — degrada
+    com `cnes_verificado=False`. Antes do fix retornava 500 (UndefinedTable na PG,
+    pois o except só capturava sqlite3.OperationalError)."""
+    h = _admin()
+    cnpj = "99888777000166"
+    assert client.post("/prestadores", json={
+        "org_id": "org-cnes", "nome": "Farmacia CNES", "tipo": "farmacia", "cnpj": cnpj,
+    }, headers=h).status_code == 201
+    disp = {"Authorization": f"Bearer {criar_access_token(sub=cnpj, role='dispensador', nome='X')}"}
+    r = client.get("/auth/me/institucional", headers=disp)
+    assert r.status_code == 200, r.text          # antes: 500
+    body = r.json()
+    assert body["org_id"] == "org-cnes"
+    assert body["cnes_verificado"] is False       # tabela CNES ausente → fail open
