@@ -46,6 +46,11 @@ PICSAUDE_VERSION: str = os.getenv("PICSAUDE_VERSION", "1.0.0")
 PICSAUDE_ENV: str = os.getenv("PICSAUDE_ENV", "dev")
 PICSAUDE_INSTANCE_ORG_ID: str = os.getenv("PICSAUDE_INSTANCE_ORG_ID", "")
 
+# Diretório dos HTMLs do frontend servidos pela própria casa (vitrine "uma casa só").
+# Vazio = layout de dev (raiz do repo). No Docker, apontar para onde os HTMLs foram
+# copiados (ex.: /app/frontend). Só tem efeito fora de prod — ver main.py.
+PICSAUDE_FRONTEND_DIR: str = os.getenv("PICSAUDE_FRONTEND_DIR", "")
+
 # ---------------------------------------------------------------------------
 # DEMO_MODE (TICKET-6) — ambiente público de demonstração
 # ---------------------------------------------------------------------------

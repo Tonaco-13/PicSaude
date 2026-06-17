@@ -12,6 +12,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Código da aplicação
 COPY backend/ .
 
+# Telas do frontend servidas pela própria casa em modo DEMO (vitrine "uma casa só").
+# Vivem na raiz do repo (fora de backend/); config.js usa window.location.origin,
+# então same-origin "só funciona" sem CORS. PICSAUDE_FRONTEND_DIR aponta o main.py.
+COPY *.html config.js logo-picsaude.png /app/frontend/
+ENV PICSAUDE_FRONTEND_DIR=/app/frontend
+
 # Banco em volume externo — nunca dentro da imagem
 ENV PIX_SAUDE_DB=/data/picsaude.db
 
