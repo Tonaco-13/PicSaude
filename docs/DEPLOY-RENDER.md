@@ -4,16 +4,26 @@
 > operacional. Pré-requisito fechado: gap `estabelecimentos_cnes` ausente na PG
 > (degradação graciosa no login-prestador — branch `fix/estabelecimentos-cnes-pg`).
 
-## 1. Variáveis de ambiente (prod)
+## 1. Variáveis de ambiente (vitrine de demonstração)
+
+> A vitrine pública roda em **modo demonstração** (`stg` + `DEMO_MODE`), **não** em
+> `prod`: o boot **proíbe** prod+demo simultâneos, e o objetivo é o visitante
+> percorrer o loop **sem barreira de login** (seletor de papéis), com dados fictícios.
+> A própria casa serve as telas (vitrine "uma casa só", mesma origem, sem CORS).
 
 | Variável | Origem | Obrigatória | Observação |
 |---|---|---|---|
-| `PICSAUDE_ENV` | `render.yaml` → `prod` | ✅ | Ativa o guard de boot (recusa SQLite + JWT default) |
+| `PICSAUDE_ENV` | `render.yaml` → `stg` | ✅ | Não-prod por design (prod+demo é recusado no boot) |
+| `PICSAUDE_DEMO_MODE` | `render.yaml` → `true` | ✅ | Seletor de papéis + dados fictícios + telas servidas pela casa |
 | `DATABASE_URL` | `fromDatabase` (auto) | ✅ | Render injeta do `picsaude-db`. Normalizado `postgres://`→`postgresql://` no código |
-| `PICSAUDE_JWT_SECRET` | `generateValue` (auto) | ✅ | ≥32 chars, sem `TROQUE_EM_PRODUCAO` — senão o boot falha (5D guard) |
+| `PICSAUDE_JWT_SECRET` | `generateValue` (auto) | ✅ | Render gera segredo forte (login real fica desligado no demo, mas mantido robusto) |
 | `PICSAUDE_BASE_URL` | manual (`sync: false`) | ✅ | `https://<serviço>.onrender.com` — usado em links/tokens |
-| `PICSAUDE_DEMO_MODE` | **não setar** | — | Ausente = `false`. Em prod real não há seletor de papéis demo |
+| `PICSAUDE_FRONTEND_DIR` | Dockerfile → `/app/frontend` | auto | Onde os HTMLs foram copiados; o `main.py` resolve daí |
 | `PFX_ENCRYPTION_KEY` | manual | ⛔ só se assinatura real | Hoje stub; setar quando sair do stub ICP-Brasil. NUNCA no repo |
+
+> **Para um deploy real `prod`** (login real, futuro piloto): `PICSAUDE_ENV=prod`
+> e **sem** `PICSAUDE_DEMO_MODE` — aí a casa expõe só a API e as telas ficam num
+> host estático. É outro deploy, com onboarding — fora do escopo da vitrine.
 
 ## 2. Passos
 
@@ -38,11 +48,12 @@
 ## 3. Verificações pós-deploy
 
 - [ ] `/health` retorna `200`.
-- [ ] Boot **não** caiu no guard (logs sem "JWT_SECRET inseguro" / "SQLite em prod").
+- [ ] **`GET /` abre a porta de entrada** (seletor de papéis: Prescritor · Dispensador
+      · Cidadão · Validação) — a vitrine "uma casa só" servindo o loop.
 - [ ] `alembic upgrade head` aplicou todas as migrations (logs do preDeploy).
 - [ ] Login-prestador (caminho 200) não dá 500 mesmo sem `estabelecimentos_cnes`
       carregada → `cnes_verificado: false` (degradação graciosa).
-- [ ] Um POST de emissão digital persiste e o ledger registra o evento.
+- [ ] Um POST de emissão digital persiste e o ledger registra o evento (vivo).
 
 ## 4. Pendências conhecidas (não bloqueiam o deploy)
 
