@@ -247,23 +247,27 @@ if PICSAUDE_DEMO_MODE:
     app.include_router(demo.router)
 
 # ---------------------------------------------------------------------------
-# Servir HTMLs do frontend (apenas em DEV/HML)
+# Servir HTMLs do frontend pela própria casa — vitrine "uma casa só".
 #
-# Em produção, os HTMLs ficam em Cloudflare Pages (picsaude.com.br) e o backend
-# expõe só a API. Mas em desenvolvimento local é prático servir tudo na mesma
-# porta para evitar setup de servidor estático separado.
+# As telas (index + prescritor/dispensador/cidadão/validar) e o config.js usam
+# window.location.origin como backend: servidas pela API na mesma origem, o
+# frontend aponta para si sozinho, sem CORS. Em prod expõe-se só a API; a vitrine
+# pública roda em DEMO (PICSAUDE_ENV != prod) — o guard de boot proíbe prod+demo.
 #
-# Este mount tem que vir DEPOIS de todos os routers — senão StaticFiles
-# captura as URLs da API. FastAPI prioriza rotas registradas antes do mount.
+# Este mount vem DEPOIS de todos os routers — senão StaticFiles captura as URLs
+# da API. FastAPI prioriza rotas registradas antes do mount.
 # ---------------------------------------------------------------------------
-if PICSAUDE_ENV != "prod":
-    from pathlib import Path
+from pathlib import Path as _Path
+
+from app.config import PICSAUDE_FRONTEND_DIR
+from app.domain.frontend_serving import resolve_frontend_dir
+
+_frontend_dir = resolve_frontend_dir(
+    PICSAUDE_ENV,
+    PICSAUDE_FRONTEND_DIR,
+    _Path(__file__).resolve().parent.parent.parent,  # PicSaude_Dev/ (layout de dev)
+)
+if _frontend_dir is not None:
     from fastapi.staticfiles import StaticFiles
 
-    FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent  # PicSaude_Dev/
-    if FRONTEND_DIR.exists() and (FRONTEND_DIR / "index.html").exists():
-        app.mount(
-            "/",
-            StaticFiles(directory=str(FRONTEND_DIR), html=True),
-            name="frontend",
-        )
+    app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
