@@ -64,5 +64,5 @@ jobs:
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes"
           -q
