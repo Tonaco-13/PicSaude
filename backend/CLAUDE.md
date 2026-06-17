@@ -80,7 +80,10 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 | 4E.1 (testes E2E consolidados, 6 cenários, 780 linhas, 5 rodadas) | ✅ | 65181dc + a53d5ba |
 | 4E.2 (Regra 5: CODEX+Jules + ticket integrado + ADR-001 + fix custódia + batch lapidações) | ✅ | ab1c897 + 9ef3bb2 + 9cc339f |
 
-**Próxima etapa:** **Etapa 5** — Fix B1 (carteira digital 422) + 5B (OTP, já resolvido) + 5C (testes autorização) + 5D (guard JWT_SECRET). Ver `docs/PLANO-PRODUCAO-V2.md §5`.
+**Próxima etapa:** **Etapa 8** — config de deploy (`render.yaml`) + deploy no Render. Etapas 5–7 já fechadas (ver tabela). Antes do deploy: fechar o gap `estabelecimentos_cnes` ausente na PG (login-prestador). Ver `docs/PLANO-PRODUCAO-V2.md` e `docs/DIVIDA-TECNICA.md`.
+
+> **Auditoria de prontidão (2026-06-16):** o plano estava desatualizado — Etapas 5–7
+> já estavam implementadas e testadas no código. Estado real abaixo.
 
 ### Plano de produção (10 etapas)
 
@@ -90,10 +93,10 @@ CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
 | 2 — GitHub repo | ✅ |
 | 3 — docs licenciamento | ✅ |
 | 4 — instance_id | ✅ **Fechada** (3 commits 4E.2: ab1c897 + 9ef3bb2 + 9cc339f) |
-| 5 — Fix B1 (carteira digital 422) | ⛔ Próxima — bloqueador deploy |
-| 6 — DEMO_MODE + seletor papéis | ⛔ Bloqueador deploy |
-| 7 — Dockerfile | ⛔ |
-| 8 — Deploy Render | ⛔ |
+| 5 — Etapa 5 (5A carteira 422 · 5B OTP · 5C autorização 5C-BIS A–F · 5D guard JWT_SECRET) | ✅ **Fechada** — código + testes verdes (verificado 2026-06-16) |
+| 6 — DEMO_MODE + seletor papéis | ✅ Implementado (TICKET-6, `config.py` `PICSAUDE_DEMO_MODE`) |
+| 7 — Dockerfile | ✅ Existe (`Dockerfile`, python:3.11-slim) |
+| 8 — Deploy Render | ⛔ **Próxima** — falta `render.yaml` + deploy. Pré-req: gap `estabelecimentos_cnes` na PG |
 | 9 — Labels + issues | ⛔ |
 | 10 — Teste E2E | ⛔ |
 
