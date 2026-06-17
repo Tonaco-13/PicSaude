@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PicSaúde — Render Blueprint (Etapa 8 — deploy)
+# ─────────────────────────────────────────────────────────────────────────────
+# Como usar:
+#   1. Render Dashboard → New → Blueprint → conectar este repositório.
+#   2. O Render lê este arquivo e provisiona o web service + o PostgreSQL.
+#   3. Revisar as env vars (checklist em docs/DEPLOY-RENDER.md) antes do "Apply".
+#
+# Notas de robustez já no código (não confiar só neste arquivo):
+#   • Dockerfile escuta em $PORT (Render injeta a porta) — CMD com ${PORT:-8000}.
+#   • database.py + alembic/env.py normalizam `postgres://` → `postgresql://`.
+#   • main.py recusa boot se PICSAUDE_ENV=prod e o JWT_SECRET for o default/curto.
+#
+# ⚠️ Este blueprint NÃO foi validado contra um deploy Render real (sem conta no
+#    ambiente de dev). É um ponto de partida fiel ao código — ajustar plano/region
+#    conforme a conta de Fabiano.
+# ─────────────────────────────────────────────────────────────────────────────
+
+databases:
+  - name: picsaude-db
+    databaseName: picsaude
+    user: picsaude
+    plan: basic-256mb   # tier pago: não expira nem hiberna (decisão Fabiano 2026-06-16).
+                        #   Render renomeou os planos de Postgres — confira o slug na tela
+                        #   de "Apply" (basic-256mb / basic-1gb / ...) antes de criar.
+
+services:
+  - type: web
+    name: picsaude-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter       # tier pago: sempre ligado, sem hibernação (decisão Fabiano 2026-06-16)
+    healthCheckPath: /health
+    # Migrations rodam antes de cada deploy (esquema único via Alembic).
+    # O Dockerfile faz WORKDIR /app e copia backend/ → alembic.ini fica em /app.
+    preDeployCommand: "alembic upgrade head"
+    envVars:
+      - key: PICSAUDE_ENV
+        value: prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: picsaude-db
+          property: connectionString
+      - key: PICSAUDE_JWT_SECRET
+        generateValue: true     # Render gera segredo forte (passa no guard de boot)
+      - key: PICSAUDE_BASE_URL
+        sync: false             # setar manualmente = https://<seu-serviço>.onrender.com
+      # PICSAUDE_DEMO_MODE deliberadamente NÃO setado → false (prod real, sem seletor demo)

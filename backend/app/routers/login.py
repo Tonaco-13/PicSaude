@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import os
 import secrets
-import sqlite3
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -39,6 +38,7 @@ from app.auth.jwt import (
     verificar_senha,
 )
 from app.config import PICSAUDE_DEMO_MODE
+from app.database import _USE_SQLITE
 from app.database_tx import get_tx
 from app.domain.roles import PERFIS_VALIDOS
 from app.utils.helpers import normalize_cnpj, normalize_cns, normalize_nome
@@ -310,9 +310,21 @@ def contexto_institucional(usuario: dict = Depends(require_role("dispensador", "
         tipos_cnes = _TP_FARMACIA if tipo_prestador == "farmacia" else _TP_CLINICA
         placeholders = ", ".join("?" * len(tipos_cnes))
 
-        # Graceful fallback: em demo (SQLite sem tabela CNES carregada),
-        # cnes_verificado fica False. Em prod (PostgreSQL com CNES), valida.
-        try:
+        # Graceful fallback: a tabela de referência CNES pode não estar carregada
+        # (demo SQLite, ou PostgreSQL/prod sem carga). Pré-checamos a EXISTÊNCIA da
+        # tabela — cross-DB e sem abortar a transação (na PG, um SELECT em tabela
+        # inexistente aborta a transação inteira, o que o except sqlite3 não cobria).
+        # Tabela ausente → cnes_verificado=False (fail open).
+        if _USE_SQLITE:
+            _cnes_existe = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='estabelecimentos_cnes' LIMIT 1"
+            ).fetchone() is not None
+        else:
+            _cnes_existe = conn.execute(
+                "SELECT 1 FROM information_schema.tables WHERE table_name = 'estabelecimentos_cnes' LIMIT 1"
+            ).fetchone() is not None
+
+        if _cnes_existe:
             cnes_row = conn.execute(
                 f"""
                 SELECT CO_CNES FROM estabelecimentos_cnes
@@ -323,11 +335,8 @@ def contexto_institucional(usuario: dict = Depends(require_role("dispensador", "
                 (cnpj, *tipos_cnes),
             ).fetchone()
             cnes_verificado = cnes_row is not None
-        except sqlite3.OperationalError as exc:
-            if "no such table" in str(exc).lower():
-                cnes_verificado = False  # CNES não carregado (demo) — fail open
-            else:
-                raise
+        else:
+            cnes_verificado = False  # tabela CNES ausente — fail open
 
     return {
         "org_id":          prestador["org_id"],
