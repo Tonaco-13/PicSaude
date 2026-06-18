@@ -149,6 +149,15 @@
         .ia-cid-aviso        { font-size: 10px; color: #94a3b8; margin-top: 5px; font-style: italic; }
         .ia-cid-alerta-item  { font-size: 12px; color: #92400e; font-weight: 600; padding: 2px 0; }
         .ia-cid-alerta-item + .ia-cid-alerta-item { margin-top: 3px; }
+        /* CID multi-seleção (etiquetas/chips) — área persistente, separada da busca */
+        .ia-cid-chips        { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .ia-cid-chips:empty  { display: none; }
+        .ia-cid-chip         { display: inline-flex; align-items: center; gap: 6px; background: #ede9fe; border: 1px solid #c4b5fd; color: #4c1d95; border-radius: 14px; padding: 3px 6px 3px 10px; font-size: 12px; }
+        .ia-cid-chip strong  { color: #4c1d95; }
+        .ia-cid-chip-desc    { color: #6d28d9; font-weight: 400; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ia-cid-chip-x       { background: #ddd6fe; border: none; color: #4c1d95; cursor: pointer; width: 18px; height: 18px; border-radius: 50%; font-size: 14px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+        .ia-cid-chip-x:hover { background: #c4b5fd; }
+        .ia-cid-busca-label  { font-size: 11px; color: #7c3aed; font-weight: 600; margin: 4px 0 2px; }
 
         /* IA Documental v1 — Atestado Assistido (Ticket 39) — paleta cinza institucional */
         /* Distinta de: verde=farmacêutica · azul=exames · roxo=CID                       */
@@ -472,16 +481,14 @@
                             <div class="form-group" style="margin: 0;"><label class="form-label">CEP *</label><input type="text" id="pac-cep" class="form-input" required></div>
                         </div>
 
-                        <!-- Indicação Clínica — IA CID v1 (Ticket 34) + backend (Ticket 36).
-                             indicacao_clinica e codigo_cid são enviados ao backend quando presentes.
-                             Campos opcionais — a emissão não é bloqueada pela ausência deles. -->
+                        <!-- Indicação Clínica (texto livre). O CID foi movido para
+                             Atestado e Pedido de Exame (decisão de produto 2026-06):
+                             a receita raramente exige CID. -->
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
                             <label class="form-label" style="color: #6d28d9;">Indicação Clínica
-                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — assistida por IA CID)</span>
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional)</span>
                             </label>
-                            <textarea id="prescricao-indicacao" class="form-input" style="height: 56px; resize: none; font-size: 13px;" placeholder="Hipótese diagnóstica, CID ou motivo da prescrição"></textarea>
-                            <input type="hidden" id="prescricao-cid-escolhido" value="">
-                            <div class="ia-cid-container" id="ia-cid-prescricao"></div>
+                            <textarea id="prescricao-indicacao" class="form-input" style="height: 56px; resize: none; font-size: 13px;" placeholder="Hipótese diagnóstica ou motivo da prescrição"></textarea>
                         </div>
                     </div>
 
@@ -578,9 +585,10 @@
                             <label class="form-label" style="color: #6d28d9;">Indicação Clínica
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(assistida por IA CID)</span>
                             </label>
-                            <textarea id="exam-indicacao" class="form-input" style="height: 60px; resize: none;" placeholder="CID, hipótese diagnóstica ou motivo da solicitação"></textarea>
+                            <textarea id="exam-indicacao" class="form-input" style="height: 60px; resize: none;" placeholder="Hipótese diagnóstica ou motivo — busque o CID pelo texto"></textarea>
                             <input type="hidden" id="exam-cid-escolhido" value="">
                             <div class="ia-cid-container" id="ia-cid-exame"></div>
+                            <div class="ia-cid-chips" id="ia-cid-exame-chips"></div>
                         </div>
                     </div>
 
@@ -648,8 +656,11 @@
                     <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label">CID *</label>
-                            <input type="text" id="atestado-cid" class="form-input"
-                                   placeholder="ex: I10" style="text-transform: uppercase;">
+                            <input type="text" id="atestado-cid-busca" class="form-input"
+                                   placeholder="Busque por código ou descrição (ex: I10, hipertensão)">
+                            <input type="hidden" id="atestado-cid" value="">
+                            <div class="ia-cid-container" id="ia-cid-atestado"></div>
+                            <div class="ia-cid-chips" id="ia-cid-atestado-chips"></div>
                         </div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label">Dias de Afastamento *</label>
@@ -2188,7 +2199,7 @@
          * @param {string} containerId - id do div ia-cid-container
          * @param {string} hiddenId    - id do input[type=hidden] que guarda o CID escolhido
          */
-        function _consultarIaCid(contexto, texto, containerId, hiddenId) {
+        function _consultarIaCid(contexto, texto, containerId, chipsId, hiddenId) {
             if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
 
             const container = document.getElementById(containerId);
@@ -2205,7 +2216,7 @@
                 body:    JSON.stringify({ texto_clinico: t, contexto: contexto })
             })
             .then(r => { if (!r.ok) throw new Error('ia_cid_err'); return r.json(); })
-            .then(data => _renderizarSugestoesCid(containerId, hiddenId, data))
+            .then(data => _renderizarSugestoesCid(containerId, chipsId, hiddenId, data))
             .catch(() => {
                 const c = document.getElementById(containerId);
                 if (c) c.innerHTML =
@@ -2222,27 +2233,33 @@
          * - Substitui o bloco de sugestões por confirmação visual.
          * - NÃO altera o texto de indicacao_clinica — ação puramente aditiva.
          */
-        function _usarCid(containerId, hiddenId, codigo, descricao) {
-            const hiddenEl = document.getElementById(hiddenId);
-            if (hiddenEl) hiddenEl.value = codigo;
+        // CID multi-seleção: o CID escolhido vira ETIQUETA num container persistente
+        // (separado da busca). Editar a busca NUNCA apaga as etiquetas já escolhidas.
+        // O hidden guarda os códigos separados por '|'.
+        function _syncCidHidden(chipsId, hiddenId) {
+            const hidden = document.getElementById(hiddenId);
+            if (!hidden) return;
+            const chips = document.getElementById(chipsId);
+            const codigos = chips
+                ? Array.from(chips.querySelectorAll('[data-cid]')).map(e => e.getAttribute('data-cid'))
+                : [];
+            hidden.value = codigos.join('|');
+        }
 
-            const container = document.getElementById(containerId);
-            if (!container) return;
-
-            const descEsc = descricao.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            container.innerHTML = `
-                <div class="ia-cid-bloco ia-cid-bloco-norm">
-                    <div class="ia-cid-selecionado">
-                        <span>✓ CID escolhido: <strong>${codigo}</strong> — ${descEsc}</span>
-                        <button type="button" class="ia-cid-btn-usar"
-                            style="border-color:#dc2626; color:#dc2626;"
-                            onclick="document.getElementById('${hiddenId}').value=''; document.getElementById('${containerId}').innerHTML='';">
-                            Remover
-                        </button>
-                    </div>
-                    <div class="ia-cid-aviso">Sugestões de CID baseadas no texto informado. A escolha clínica permanece com o profissional.</div>
-                </div>
-            `;
+        function _usarCid(chipsId, hiddenId, codigo, descricao) {
+            const chips = document.getElementById(chipsId);
+            if (!chips) return;
+            if (chips.querySelector('[data-cid="' + codigo + '"]')) return;   // já adicionado
+            const descEsc = (descricao || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const chip = document.createElement('span');
+            chip.className = 'ia-cid-chip';
+            chip.setAttribute('data-cid', codigo);
+            chip.innerHTML =
+                '<strong>' + codigo + '</strong><span class="ia-cid-chip-desc">' + descEsc + '</span>' +
+                '<button type="button" class="ia-cid-chip-x" title="Remover" ' +
+                'onclick="this.parentNode.remove(); _syncCidHidden(\'' + chipsId + '\',\'' + hiddenId + '\');">&times;</button>';
+            chips.appendChild(chip);
+            _syncCidHidden(chipsId, hiddenId);
         }
 
         /**
@@ -2251,7 +2268,7 @@
          * Bloco de alertas (âmbar): nunca bloqueante.
          * Aviso fixo obrigatório.
          */
-        function _renderizarSugestoesCid(containerId, hiddenId, data) {
+        function _renderizarSugestoesCid(containerId, chipsId, hiddenId, data) {
             const container = document.getElementById(containerId);
             if (!container) return;
 
@@ -2289,7 +2306,7 @@
                     html += `<span class="ia-cid-descricao">${descEsc}</span>`;
                     html += `<span class="ia-cid-meta">${labelMatch} · ${confianca}</span>`;
                     html += `<button type="button" class="ia-cid-btn-usar"
-                        onclick="_usarCid('${containerId}','${hiddenId}','${codigoEsc}','${descSafe}')">Usar este CID</button>`;
+                        onclick="_usarCid('${chipsId}','${hiddenId}','${codigoEsc}','${descSafe}')">+ Adicionar CID</button>`;
                     html += `</div>`;
                 });
                 html += `</div>`;
@@ -2312,33 +2329,31 @@
             container.innerHTML = html;
         }
 
-        // ── Wire-up: indicacao_clinica do pedido de exame ─────────────────────
-        // O texto é enviado ao backend via #exam-indicacao → indicacao_clinica.
-        // O CID escolhido fica em #exam-cid-escolhido (hidden).
-        // ⚠️  PedidoExameIn não tem campo codigo_cid no nível do pedido — hidden
-        //     disponível para quando o backend suportar.
+        // ── Wire-up: CID do pedido de exame ───────────────────────────────────
+        // A busca (texto da indicação) renderiza sugestões em #ia-cid-exame;
+        // selecionar adiciona uma ETIQUETA em #ia-cid-exame-chips (persistente).
+        // Códigos escolhidos em #exam-cid-escolhido (hidden, '|'-separados).
         (function _wireExameIndicacao() {
             const el = document.getElementById('exam-indicacao');
             if (!el) return;
             el.addEventListener('input', function() {
                 clearTimeout(_iaCidTimers['exame']);
                 _iaCidTimers['exame'] = setTimeout(() => {
-                    _consultarIaCid('pedido_exame', this.value, 'ia-cid-exame', 'exam-cid-escolhido');
+                    _consultarIaCid('pedido_exame', this.value, 'ia-cid-exame', 'ia-cid-exame-chips', 'exam-cid-escolhido');
                 }, 500);
             });
         })();
 
-        // ── Wire-up: indicacao_clinica da prescrição ──────────────────────────
-        // Ticket 36: backend agora suporta indicacao_clinica + codigo_cid.
-        // Os valores são lidos diretamente em emitirReceitaDigital() via
-        //   #prescricao-indicacao  e  #prescricao-cid-escolhido.
-        (function _wirePrescricaoIndicacao() {
-            const el = document.getElementById('prescricao-indicacao');
+        // ── Wire-up: busca de CID do atestado ─────────────────────────────────
+        // Campo de busca dedicado (#atestado-cid-busca), separado das etiquetas
+        // escolhidas (#ia-cid-atestado-chips). Códigos em #atestado-cid (hidden).
+        (function _wireAtestadoCid() {
+            const el = document.getElementById('atestado-cid-busca');
             if (!el) return;
             el.addEventListener('input', function() {
-                clearTimeout(_iaCidTimers['prescricao']);
-                _iaCidTimers['prescricao'] = setTimeout(() => {
-                    _consultarIaCid('prescricao', this.value, 'ia-cid-prescricao', 'prescricao-cid-escolhido');
+                clearTimeout(_iaCidTimers['atestado']);
+                _iaCidTimers['atestado'] = setTimeout(() => {
+                    _consultarIaCid('geral', this.value, 'ia-cid-atestado', 'ia-cid-atestado-chips', 'atestado-cid');
                 }, 500);
             });
         })();
@@ -2725,12 +2740,8 @@
                 atIndic.value = indicEl.value.trim();
             }
 
-            // CID escolhido via IA CID (campo hidden)
-            const cidEl  = document.getElementById('prescricao-cid-escolhido');
-            const atCid  = document.getElementById('atestado-cid');
-            if (cidEl && atCid && cidEl.value.trim()) {
-                atCid.value = cidEl.value.trim().toUpperCase();
-            }
+            // (CID não é mais copiado da prescrição — agora é escolhido direto no
+            //  atestado via busca + etiquetas; a prescrição não tem mais CID.)
 
             // Profissional e registro
             if (medicoLogado) {
@@ -2757,7 +2768,8 @@
 
             const paciente  = (document.getElementById('atestado-paciente').value    || '').trim();
             const indicacao = (document.getElementById('atestado-indicacao').value   || '').trim();
-            const cid       = (document.getElementById('atestado-cid').value         || '').trim().toUpperCase();
+            // atestado-cid agora guarda múltiplos códigos separados por '|' (etiquetas)
+            const cid       = (document.getElementById('atestado-cid').value || '').split('|').filter(Boolean).join(', ');
             const diasRaw   = (document.getElementById('atestado-dias').value        || '').trim();
             const dataDoc   = (document.getElementById('atestado-data').value        || '').trim();
             const prof      = (document.getElementById('atestado-profissional').value || '').trim();
@@ -2924,11 +2936,16 @@
 
         /** Limpa todos os campos e o resultado da IA do formulário de atestado. */
         function limparAtestado() {
-            ['atestado-paciente','atestado-indicacao','atestado-cid',
+            ['atestado-paciente','atestado-indicacao','atestado-cid','atestado-cid-busca',
              'atestado-dias','atestado-data','atestado-profissional','atestado-registro']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
+            });
+            // limpa também as sugestões e as etiquetas de CID selecionadas
+            ['ia-cid-atestado','ia-cid-atestado-chips'].forEach(id => {
+                const d = document.getElementById(id);
+                if (d) d.innerHTML = '';
             });
             const container = document.getElementById('ia-atestado-container');
             if (container) { container.innerHTML = ''; container.classList.add('hidden'); }
