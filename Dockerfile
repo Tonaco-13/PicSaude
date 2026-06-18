@@ -24,6 +24,8 @@ COPY data/def_medicamentos.csv /app/reference/def_medicamentos.csv
 ENV PICSAUDE_DEF_CSV=/app/reference/def_medicamentos.csv
 COPY data/cid10.csv /app/reference/cid10.csv
 ENV PICSAUDE_CID_CSV=/app/reference/cid10.csv
+COPY data/cmed_apresentacoes.csv /app/reference/cmed_apresentacoes.csv
+ENV PICSAUDE_CMED_APRES_CSV=/app/reference/cmed_apresentacoes.csv
 
 # Banco em volume externo — nunca dentro da imagem
 ENV PIX_SAUDE_DB=/data/picsaude.db

@@ -1485,6 +1485,9 @@
                     </select>
                 </div>
                 <input type="text" class="form-input med-forma" placeholder="Forma farmacêutica (ex: comprimido revestido)" value="${forma}" style="margin-top:8px;">
+                <select class="form-select med-apresentacao" style="margin-top:8px;">
+                    <option value="">Apresentação comercial (opcional — escolha após buscar o medicamento)</option>
+                </select>
                 <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required>${posologia}</textarea>
                 <div class="ia-container"></div>
             `;
@@ -1536,12 +1539,14 @@
         function gerarObjetoReceita() {
             const medicamentos = [];
             document.querySelectorAll('.med-card').forEach(card => {
+                const _apEl = card.querySelector('.med-apresentacao');
                 medicamentos.push({
                     nome: card.querySelector('.med-nome').value,
                     concentracao: card.querySelector('.med-conc').value,
                     quantidade: card.querySelector('.med-qtd').value,
                     unidade: card.querySelector('.med-unidade').value,
                     forma: card.querySelector('.med-forma').value,
+                    apresentacao_comercial: _apEl ? _apEl.value : '',
                     posologia: card.querySelector('.med-posologia').value,
                     validade: card.querySelector('.med-validade').value
                 });
@@ -1907,7 +1912,7 @@
                         <p style="font-weight: bold; margin-bottom: 4px;">${index + 1}. ${m.nome} ${m.concentracao} .................... ${m.quantidade}${m.unidade ? ' ' + m.unidade : ''}</p>
                         <p style="font-size: 11px; font-weight:bold; color:#002776;">Validade: ${m.validade}</p>
                     </div>
-                    <p style="font-size: 12px; margin-bottom: 4px;">Apresentação: ${m.forma}</p>
+                    <p style="font-size: 12px; margin-bottom: 4px;">Forma: ${m.forma}${m.apresentacao_comercial ? ' &middot; ' + m.apresentacao_comercial : ''}</p>
                     <p style="font-size: 13px;">Uso: ${m.posologia}</p>
                 </div>`;
             });
@@ -2140,6 +2145,24 @@
             const uEl = card.querySelector('.med-unidade');   // <select>: só aplica se casar uma opção
             if (uEl && unidade && Array.from(uEl.options).some(o => o.value === unidade)) {
                 uEl.value = unidade;
+            }
+            // Apresentações comerciais (opcional): popula o seletor com embalagens reais da CMED
+            const apEl = card.querySelector('.med-apresentacao');
+            if (apEl && pa && forma) {
+                fetch(BACKEND + '/ia/medicamentos/apresentacoes', {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({ principio_ativo: pa, concentracao: conc, forma: forma })
+                })
+                .then(r => r.ok ? r.json() : { apresentacoes: [] })
+                .then(d => {
+                    const aps = d.apresentacoes || [];
+                    apEl.innerHTML = '<option value="">Apresentação comercial (opcional)</option>' +
+                        aps.map(a => {
+                            const e = a.replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                            return '<option value="' + e + '">' + e + '</option>';
+                        }).join('');
+                })
+                .catch(() => {});
             }
             const container = card.querySelector('.ia-container');
             if (container) {
