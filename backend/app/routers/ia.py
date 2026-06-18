@@ -29,6 +29,7 @@ from pydantic import BaseModel, field_validator
 from app.auth.dependencies import require_role
 from app.ai.ia_farmaceutica import sugerir_medicamento
 from app.ai.lookup_def import tamanho_base, versao_base as _versao_base, buscar_medicamentos
+from app.ai.apresentacoes_comerciais import apresentacoes_comerciais
 from app.ai.ia_exames import normalizar_exame
 from app.ai.tuss_base import BASE_TUSS
 from app.ai.ia_cid import buscar_cid as _buscar_cid
@@ -153,6 +154,42 @@ def buscar_medicamentos_endpoint(
         "medicamentos": medicamentos,
         "total":        len(medicamentos),
         "versao_base":  _versao_base(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /ia/medicamentos/apresentacoes — embalagens comerciais (opcional, CMED)
+# ---------------------------------------------------------------------------
+
+class ApresentacoesIn(BaseModel):
+    principio_ativo: str
+    concentracao:    str = ""
+    forma:           str
+
+    @field_validator("principio_ativo", "forma")
+    @classmethod
+    def nao_vazio(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("campo obrigatório não pode ser vazio.")
+        return v.strip()
+
+
+@router.post(
+    "/medicamentos/apresentacoes",
+    summary="Apresentações comerciais (embalagens reais da CMED) — opcional",
+    response_description="Lista de embalagens (ex.: 'caixa com 30 comprimidos')",
+)
+def apresentacoes_endpoint(
+    payload: ApresentacoesIn,
+    _=Depends(require_role("prescritor", "dispensador", "admin")),
+):
+    """Embalagens reais da CMED para o medicamento (princípio ativo · concentração ·
+    forma) escolhido no autocomplete. Stateless. Campo opcional — a prescrição
+    padrão é por quantidade total (genérico)."""
+    return {
+        "apresentacoes": apresentacoes_comerciais(
+            payload.principio_ativo, payload.concentracao, payload.forma
+        ),
     }
 
 
