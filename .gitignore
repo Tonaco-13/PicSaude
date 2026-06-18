@@ -148,3 +148,8 @@ reports/
 
 # ─── Outros utilitários de teste local ────────────────────────────────────────
 debug_pydantic.py
+
+# Fontes de dados grandes (baixadas localmente; bases derivadas vão em data/*.csv)
+CEMED/
+*.xlsx
+data/cnes_br_tmp/
