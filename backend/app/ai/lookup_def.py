@@ -151,12 +151,34 @@ def _resultado_nenhum() -> dict:
     }
 
 
+def _unidade_de_forma(forma: str) -> str:
+    """Mapeia a forma farmacêutica para a unidade de DISPENSAÇÃO mais usual
+    (alinhada às opções do seletor do prescritor). Evita unidade vazia/errada
+    para líquidos, injetáveis e semissólidos (ex.: 'solução' não é unidade)."""
+    f = (forma or "").lower()
+    head = f.split()[0] if f else ""
+    if head in ("comprimido", "cápsula", "drágea", "pastilha", "supositório"):
+        return head
+    if "injetável" in f:
+        return "frasco-ampola" if ("pó" in f or "liofilizado" in f) else "ampola"
+    if "infusão" in f:
+        return "frasco"
+    if head in ("creme", "pomada", "gel", "pasta"):
+        return "bisnaga"
+    if head == "granulado":
+        return "envelope"
+    if head in ("solução", "suspensão", "xarope", "elixir", "emulsão",
+                "loção", "xampu", "líquido", "pó", "aerossol", "spray"):
+        return "frasco"
+    return "unidade"
+
+
 def _resultado_de_registro(reg: dict, match_tipo: str, score: float) -> dict:
     return {
         "principio_ativo":       reg["principio_ativo"] or None,
         "nome_normalizado_base": reg["nome_normalizado"] or None,
         "forma_farmaceutica":    reg["forma_farmaceutica"] or None,
-        "unidade_dispensavel":   reg["unidade_dispensavel"] or None,
+        "unidade_dispensavel":   _unidade_de_forma(reg["forma_farmaceutica"]),
         "concentracao_texto":    reg["concentracao_texto"],
         "via_administracao":     reg["via_administracao"],
         "match_tipo":            match_tipo,
