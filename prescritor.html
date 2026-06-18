@@ -2148,6 +2148,22 @@
 
                 html += `<div class="ia-bloco ia-bloco-sugestao">`;
                 html += `<div class="ia-header">Sugestão farmacêutica</div>`;
+
+                // Medicamento que casou (o bug era não exibir o nome). Cabeçalho rico:
+                // princípio ativo · concentração · via.
+                const _pa   = data.principio_ativo || data.nome_normalizado || '';
+                const _conc = data.concentracao_sugerida || '';
+                const _via  = data.via_administracao || '';
+                const _titulo = [_pa, _conc].filter(Boolean).join(' · ');
+                if (_titulo) {
+                    const _tEsc = _titulo.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const _vEsc = _via.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    html += `<div style="font-size:14px;color:#065f46;margin:2px 0 8px;">` +
+                            `&#128138; <strong>${_tEsc}</strong>` +
+                            (_vEsc ? `<span style="font-size:11px;color:#16a34a;font-weight:400;"> &middot; ${_vEsc}</span>` : '') +
+                            `</div>`;
+                }
+
                 html += `<div class="ia-chips">`;
                 if (forma)    html += `<span class="ia-chip">Forma: ${forma}</span>`;
                 if (unidade)  html += `<span class="ia-chip">Unidade: ${unidade}</span>`;
