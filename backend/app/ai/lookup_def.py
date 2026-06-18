@@ -52,12 +52,27 @@ from app.ai.normalizacao_medicamento import normalizar_nome_medicamento
 # Configuração
 # ---------------------------------------------------------------------------
 
-_BASE_CSV = os.path.join(
-    os.path.dirname(__file__),   # backend/app/ai/
-    "..", "..", "..",             # backend/
-    "data", "def_medicamentos.csv",
-)
-_BASE_CSV = os.path.normpath(_BASE_CSV)
+def _resolver_base_csv() -> str:
+    """Caminho da base DEF.
+
+    Prioriza a env `PICSAUDE_DEF_CSV` (empacotamento: o Docker copia a CSV para
+    um caminho estável FORA de `/data`, que é diretório de volume e seria sombreado
+    por um mount). Sem a env, usa o layout de dev (raiz do repo). Sem isso, na
+    imagem a CSV não é encontrada e a base DEF fica vazia (o DEF "não carrega").
+    """
+    override = os.getenv("PICSAUDE_DEF_CSV")
+    if override:
+        return override
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__),   # backend/app/ai/
+            "..", "..", "..",             # raiz do repo (em dev)
+            "data", "def_medicamentos.csv",
+        )
+    )
+
+
+_BASE_CSV = _resolver_base_csv()
 
 THRESHOLD_APROXIMADO: int = 88   # 2026-05-25 — subido de 82
                                   # após bug WRatio "N mg" empate
