@@ -34,6 +34,8 @@ ESTRUTURA DE CADA REGISTRO
 
 from __future__ import annotations
 
+import csv
+import os
 import unicodedata
 from typing import Optional
 
@@ -53,7 +55,7 @@ def _norm(s: str) -> str:
 # Base curada
 # ---------------------------------------------------------------------------
 
-_VERSAO_BASE = "2026-03"
+_VERSAO_BASE = "DATASUS CID-10 V2008 + curadoria 2026-03"
 _FONTE       = "CID10/BASE_LOCAL"
 
 _BASE_CID_RAW: list[dict] = [
@@ -569,7 +571,72 @@ class _BaseCID:
 
 
 # ---------------------------------------------------------------------------
+# Carga da base completa (DATASUS via CSV) + curadoria local sobreposta
+# ---------------------------------------------------------------------------
+
+def _resolver_cid_csv() -> str:
+    """Caminho do CSV CID-10 completo (gerado de DATASUS).
+
+    Prioriza `PICSAUDE_CID_CSV` (empacotamento: caminho estável fora de /data);
+    senão usa o layout de dev (raiz do repo / data/cid10.csv).
+    """
+    override = os.getenv("PICSAUDE_CID_CSV")
+    if override:
+        return override
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", "data", "cid10.csv",
+        )
+    )
+
+
+def _carregar_csv(caminho: str) -> list[dict]:
+    registros: list[dict] = []
+    try:
+        with open(caminho, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                codigo = (row.get("codigo_cid") or "").strip()
+                descricao = (row.get("descricao") or "").strip()
+                if codigo and descricao:
+                    registros.append({
+                        "codigo_cid": codigo,
+                        "descricao":  descricao,
+                        "fonte":      (row.get("fonte") or _FONTE).strip(),
+                    })
+    except FileNotFoundError:
+        pass
+    return registros
+
+
+def _construir_base() -> list[dict]:
+    """Base completa (CSV DATASUS) com a curadoria local de aliases sobreposta.
+
+    A curadoria (`_BASE_CID_RAW`) traz aliases clínicos (ex.: 'koch' → tuberculose)
+    que elevam a qualidade da busca; o CSV traz completude (~14k códigos). Para
+    códigos presentes nos dois, mantém-se a descrição oficial do DATASUS e
+    adicionam-se os aliases/categoria curados. Se o CSV não existir (empacotamento
+    sem o arquivo), cai para apenas a curadoria — degradação graciosa, nunca quebra.
+    """
+    csv_regs = _carregar_csv(_resolver_cid_csv())
+    if not csv_regs:
+        return _BASE_CID_RAW
+
+    por_codigo: dict[str, dict] = {r["codigo_cid"].upper(): dict(r) for r in csv_regs}
+    for cur in _BASE_CID_RAW:
+        chave = cur["codigo_cid"].upper()
+        alvo = por_codigo.get(chave)
+        if alvo is not None:
+            if cur.get("aliases"):
+                alvo["aliases"] = cur["aliases"]
+            if cur.get("categoria"):
+                alvo["categoria"] = cur["categoria"]
+        else:
+            por_codigo[chave] = dict(cur)
+    return list(por_codigo.values())
+
+
+# ---------------------------------------------------------------------------
 # Singleton
 # ---------------------------------------------------------------------------
 
-BASE_CID: _BaseCID = _BaseCID(_BASE_CID_RAW)
+BASE_CID: _BaseCID = _BaseCID(_construir_base())

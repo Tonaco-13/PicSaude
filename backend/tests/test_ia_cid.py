@@ -116,7 +116,8 @@ class TestBaseCid:
         assert r is not None
 
     def test_buscar_por_codigo_inexistente_retorna_none(self):
-        r = BASE_CID.buscar_por_codigo("Z99.9")
+        # ZZZ.9 não é código CID-10 válido (a base completa DATASUS cobre Z99.9).
+        r = BASE_CID.buscar_por_codigo("ZZZ.9")
         assert r is None
 
     def test_buscar_exato_hipertensao(self):
@@ -206,8 +207,10 @@ class TestBuscarCid:
         assert "profissional" in res["aviso"].lower()
 
     def test_fonte_presente(self):
+        # Fonte não-vazia (a base mescla DATASUS + curadoria; o valor exato varia
+        # com o registro representativo — não fixar string específica).
         res = buscar_cid("diabetes")
-        assert res["fonte"] == "CID10/BASE_LOCAL"
+        assert res["fonte"] != ""
 
     def test_versao_base_presente(self):
         res = buscar_cid("anemia")
