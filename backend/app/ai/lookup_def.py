@@ -242,6 +242,39 @@ def buscar_medicamento(
     return _resultado_de_registro(reg, "aproximado", melhor_score / 100.0)
 
 
+def buscar_medicamentos(nome_medicamento: str, max_resultados: int = 8) -> list[dict]:
+    """Busca multi-resultado (autocomplete): até `max_resultados` candidatos
+    ordenados por score, deduplicados por registro. Casa contra nome_normalizado
+    E aliases (marcas). Retorna lista de dicts no formato de _resultado_de_registro.
+    """
+    if not _BASE or not _CANDIDATOS_FUZZY:
+        return []
+    texto = normalizar_nome_medicamento(nome_medicamento or "")
+    if len(texto) < 2:
+        return []
+
+    brutos = process.extract(
+        texto, _CANDIDATOS_FUZZY, scorer=fuzz.WRatio, limit=max_resultados * 4
+    )
+    resultados: list[dict] = []
+    vistos: set[int] = set()
+    for nome_cand, score, _ in brutos:
+        reg = _INDICE_EXATO.get(nome_cand) or _INDICE_ALIAS.get(nome_cand)
+        if reg is None or id(reg) in vistos:
+            continue
+        vistos.add(id(reg))
+        if score >= 100 and nome_cand in _INDICE_EXATO:
+            tipo = "exato"
+        elif score >= 100:
+            tipo = "alias"
+        else:
+            tipo = "aproximado"
+        resultados.append(_resultado_de_registro(reg, tipo, score / 100.0))
+        if len(resultados) >= max_resultados:
+            break
+    return resultados
+
+
 def tamanho_base() -> int:
     """Retorna o número de entradas carregadas na base."""
     return len(_BASE)
