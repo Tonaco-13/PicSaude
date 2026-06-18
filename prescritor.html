@@ -158,6 +158,12 @@
         .ia-cid-chip-x       { background: #ddd6fe; border: none; color: #4c1d95; cursor: pointer; width: 18px; height: 18px; border-radius: 50%; font-size: 14px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
         .ia-cid-chip-x:hover { background: #c4b5fd; }
         .ia-cid-busca-label  { font-size: 11px; color: #7c3aed; font-weight: 600; margin: 4px 0 2px; }
+        /* Autocomplete de medicamento (lista de candidatos da base ANVISA) */
+        .med-opcoes      { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+        .med-opcao       { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; width: 100%; background: #fff; border: 1px solid #d1fae5; border-radius: 6px; padding: 7px 10px; cursor: pointer; transition: background 0.12s, border-color 0.12s; }
+        .med-opcao:hover { background: #ecfdf5; border-color: #6ee7b7; }
+        .med-opcao-nome  { font-size: 13px; font-weight: 600; color: #065f46; }
+        .med-opcao-meta  { font-size: 11px; color: #16a34a; }
 
         /* IA Documental v1 — Atestado Assistido (Ticket 39) — paleta cinza institucional */
         /* Distinta de: verde=farmacêutica · azul=exames · roxo=CID                       */
@@ -1484,13 +1490,13 @@
             `;
             container.appendChild(div);
 
-            // IA Farmacêutica — debounce no campo de nome do medicamento
+            // IA Farmacêutica — autocomplete (lista de candidatos da base ANVISA)
             const _nomeInputIA = div.querySelector('.med-nome');
             if (_nomeInputIA) {
                 const _nIA = medCount; // captura snapshot do índice deste card
                 _nomeInputIA.addEventListener('input', function() {
                     clearTimeout(_iaTimers[_nIA]);
-                    _iaTimers[_nIA] = setTimeout(() => _consultarIa(_nIA), 500);
+                    _iaTimers[_nIA] = setTimeout(() => _buscarMedicamentos(_nIA), 400);
                 });
             }
         }
@@ -2056,6 +2062,94 @@
                     '<div class="ia-neutro-msg">N&atilde;o foi poss&iacute;vel consultar a base agora. Tente novamente em alguns segundos.</div>' +
                     '</div>';
             });
+        }
+
+        /**
+         * Autocomplete: busca multi-candidato em /ia/medicamentos/buscar e renderiza
+         * uma LISTA clicável. Selecionar preenche nome/concentração/apresentação/unidade.
+         * (Ideias de UX do Z AI portadas para o vanilla JS + base ANVISA real.)
+         */
+        function _buscarMedicamentos(n) {
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
+            const card = document.getElementById('med-item-' + n);
+            if (!card) return;
+            const nomeEl = card.querySelector('.med-nome');
+            const container = card.querySelector('.ia-container');
+            if (!nomeEl || !container) return;
+            const termo = (nomeEl.value || '').trim();
+            if (termo.length < 3) { container.innerHTML = ''; return; }
+            container.innerHTML = '<div class="ia-loading">Buscando medicamentos...</div>';
+            fetch(BACKEND + '/ia/medicamentos/buscar', {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ termo: termo, max_resultados: 8 })
+            })
+            .then(r => { if (!r.ok) throw new Error('ia_err'); return r.json(); })
+            .then(data => _renderizarBuscaMedicamentos(n, data))
+            .catch(() => {
+                const c = card.querySelector('.ia-container');
+                if (c) c.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro"><div class="ia-header">IA indispon&iacute;vel</div>' +
+                    '<div class="ia-neutro-msg">N&atilde;o foi poss&iacute;vel buscar agora. Continue digitando livremente.</div></div>';
+            });
+        }
+
+        function _renderizarBuscaMedicamentos(n, data) {
+            const card = document.getElementById('med-item-' + n);
+            if (!card) return;
+            const container = card.querySelector('.ia-container');
+            if (!container) return;
+            const meds = data.medicamentos || [];
+            if (meds.length === 0) {
+                container.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro"><div class="ia-header">Sem correspondência na base</div>' +
+                    '<div class="ia-neutro-msg">Nenhum medicamento na base ANVISA. Continue digitando livremente.</div></div>';
+                return;
+            }
+            const esc = s => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const arg = s => (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            let html = '<div class="ia-bloco ia-bloco-sugestao">';
+            html += '<div class="ia-header">Selecione o medicamento (base ANVISA/CMED)</div>';
+            html += '<div class="med-opcoes">';
+            meds.forEach(m => {
+                const pa     = m.principio_ativo || m.nome_normalizado_base || '';
+                const conc   = m.concentracao_texto || '';
+                const forma  = m.forma_farmaceutica || '';
+                const via    = m.via_administracao || '';
+                const unid   = m.unidade_dispensavel || '';
+                const titulo = [pa, conc].filter(Boolean).join(' · ');
+                const meta   = [forma, via].filter(Boolean).join(' · ');
+                html += '<button type="button" class="med-opcao" onclick="_selecionarMedicamento(' + n +
+                        ",'" + arg(pa) + "','" + arg(conc) + "','" + arg(forma) + "','" + arg(unid) + "')\">" +
+                        '<span class="med-opcao-nome">&#128138; ' + esc(titulo) + '</span>' +
+                        (meta ? '<span class="med-opcao-meta">' + esc(meta) + '</span>' : '') +
+                        '</button>';
+            });
+            html += '</div>';
+            if (data.versao_base) html += '<div class="ia-meta">Base: ' + esc(data.versao_base) + '</div>';
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function _selecionarMedicamento(n, pa, conc, forma, unidade) {
+            const card = document.getElementById('med-item-' + n);
+            if (!card) return;
+            const setVal = (sel, val) => { const el = card.querySelector(sel); if (el && val) el.value = val; };
+            setVal('.med-nome', pa);
+            setVal('.med-conc', conc);
+            setVal('.med-forma', forma);
+            const uEl = card.querySelector('.med-unidade');   // <select>: só aplica se casar uma opção
+            if (uEl && unidade && Array.from(uEl.options).some(o => o.value === unidade)) {
+                uEl.value = unidade;
+            }
+            const container = card.querySelector('.ia-container');
+            if (container) {
+                const esc = s => (s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                container.innerHTML =
+                    '<div class="ia-bloco ia-bloco-sugestao"><div class="ia-header">&#10003; Medicamento selecionado</div>' +
+                    '<div style="font-size:13px;color:#065f46;">&#128138; <strong>' +
+                    esc([pa, conc].filter(Boolean).join(' ')) + '</strong>' +
+                    (forma ? ' — ' + esc(forma) : '') + '</div></div>';
+            }
         }
 
         /**
