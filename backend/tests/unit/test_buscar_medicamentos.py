@@ -36,3 +36,18 @@ def test_termo_curto_ou_junk_retorna_vazio():
 
 def test_respeita_max_resultados():
     assert len(buscar_medicamentos("a"  + "moxicilina", 2)) <= 2
+
+
+def test_unidade_de_dispensacao_fidedigna():
+    """A unidade vem da forma (não fica vazia/errada para não-sólidos)."""
+    from app.ai.lookup_def import _unidade_de_forma
+    assert _unidade_de_forma("comprimido revestido")          == "comprimido"
+    assert _unidade_de_forma("cápsula dura")                  == "cápsula"
+    assert _unidade_de_forma("solução injetável")             == "ampola"
+    assert _unidade_de_forma("pó liofilizado para solução injetável") == "frasco-ampola"
+    assert _unidade_de_forma("xarope")                        == "frasco"
+    assert _unidade_de_forma("creme dermatológico")           == "bisnaga"
+    assert _unidade_de_forma("supositório")                   == "supositório"
+    # toda busca retorna uma unidade não-vazia
+    for r in buscar_medicamentos("dipirona", 6):
+        assert r["unidade_dispensavel"]

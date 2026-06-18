@@ -1466,7 +1466,7 @@
                 <div class="grid-4">
                     <input type="text" class="form-input med-nome" placeholder="Princípio Ativo / Nome *" value="${nome}" required>
                     <input type="text" class="form-input med-conc" placeholder="Concentração *" value="${conc}" required>
-                    <input type="number" class="form-input med-qtd" placeholder="Qtd. *" min="1" value="${qtd}" required style="max-width:90px;">
+                    <input type="number" class="form-input med-qtd" placeholder="Quantidade *" min="1" value="${qtd}" required style="max-width:120px;">
                     <select class="form-select med-unidade" required>
                         <option value="">Unidade *</option>
                         <option value="ampola" ${unidade==='ampola'?'selected':''}>Ampola</option>
@@ -1484,7 +1484,7 @@
                         <option value="unidade" ${unidade==='unidade'?'selected':''}>Unidade</option>
                     </select>
                 </div>
-                <input type="text" class="form-input med-forma" placeholder="Apresentação comercial (ex: 1 caixa c/ 30 cápsulas)" value="${forma}" style="margin-top:8px;">
+                <input type="text" class="form-input med-forma" placeholder="Forma farmacêutica (ex: comprimido revestido)" value="${forma}" style="margin-top:8px;">
                 <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required>${posologia}</textarea>
                 <div class="ia-container"></div>
             `;
