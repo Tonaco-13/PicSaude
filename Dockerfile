@@ -18,6 +18,11 @@ COPY backend/ .
 COPY *.html config.js logo-picsaude.png /app/frontend/
 ENV PICSAUDE_FRONTEND_DIR=/app/frontend
 
+# Base DEF (dicionário de medicamentos) — lida em runtime por app/ai/lookup_def.py.
+# Fica FORA de /data (que é dir de volume) para não ser sombreada por um mount.
+COPY data/def_medicamentos.csv /app/reference/def_medicamentos.csv
+ENV PICSAUDE_DEF_CSV=/app/reference/def_medicamentos.csv
+
 # Banco em volume externo — nunca dentro da imagem
 ENV PIX_SAUDE_DB=/data/picsaude.db
 
