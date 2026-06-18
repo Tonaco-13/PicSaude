@@ -28,7 +28,7 @@ from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
 from app.ai.ia_farmaceutica import sugerir_medicamento
-from app.ai.lookup_def import tamanho_base, versao_base as _versao_base
+from app.ai.lookup_def import tamanho_base, versao_base as _versao_base, buscar_medicamentos
 from app.ai.ia_exames import normalizar_exame
 from app.ai.tuss_base import BASE_TUSS
 from app.ai.ia_cid import buscar_cid as _buscar_cid
@@ -118,6 +118,42 @@ def sugerir(
         unidade_quantidade = payload.unidade_quantidade,
         contexto           = payload.contexto,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /ia/medicamentos/buscar  — autocomplete multi-resultado (stateless)
+# ---------------------------------------------------------------------------
+
+class BuscarMedicamentoIn(BaseModel):
+    termo:          str
+    max_resultados: int = 8
+
+    @field_validator("termo")
+    @classmethod
+    def termo_nao_vazio(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("termo não pode ser vazio.")
+        return v.strip()
+
+
+@router.post(
+    "/medicamentos/buscar",
+    summary="Busca multi-resultado de medicamentos (autocomplete)",
+    response_description="Lista de candidatos da base ANVISA/CMED",
+)
+def buscar_medicamentos_endpoint(
+    payload: BuscarMedicamentoIn,
+    _=Depends(require_role("prescritor", "dispensador", "admin")),
+):
+    """Autocomplete farmacêutico: retorna até N candidatos da base local
+    (ANVISA/CMED), ordenados por score. Stateless — não grava nada, não usa LLM."""
+    limite = max(1, min(payload.max_resultados, 20))
+    medicamentos = buscar_medicamentos(payload.termo, limite)
+    return {
+        "medicamentos": medicamentos,
+        "total":        len(medicamentos),
+        "versao_base":  _versao_base(),
+    }
 
 
 # ---------------------------------------------------------------------------
