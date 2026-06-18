@@ -487,14 +487,17 @@
                             <div class="form-group" style="margin: 0;"><label class="form-label">CEP *</label><input type="text" id="pac-cep" class="form-input" required></div>
                         </div>
 
-                        <!-- Indicação Clínica (texto livre). O CID foi movido para
-                             Atestado e Pedido de Exame (decisão de produto 2026-06):
-                             a receita raramente exige CID. -->
+                        <!-- Indicação Clínica (opcional) com sugestão de CID (IA CID) —
+                             "triangulação leve": o texto da indicação sugere CID(s);
+                             o CID primário (1º) vai em codigo_cid. -->
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed #e2e8f0;">
                             <label class="form-label" style="color: #6d28d9;">Indicação Clínica
-                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional)</span>
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — assistida por IA CID)</span>
                             </label>
-                            <textarea id="prescricao-indicacao" class="form-input" style="height: 56px; resize: none; font-size: 13px;" placeholder="Hipótese diagnóstica ou motivo da prescrição"></textarea>
+                            <textarea id="prescricao-indicacao" class="form-input" style="height: 56px; resize: none; font-size: 13px;" placeholder="Hipótese diagnóstica ou motivo — busque o CID pelo texto"></textarea>
+                            <input type="hidden" id="prescricao-cid-escolhido" value="">
+                            <div class="ia-cid-container" id="ia-cid-prescricao"></div>
+                            <div class="ia-cid-chips" id="ia-cid-prescricao-chips"></div>
                         </div>
                     </div>
 
@@ -1524,9 +1527,11 @@
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
             medCount = 0; adicionarMedicamento();
 
-            // Limpa IA CID da prescrição
+            // Limpa IA CID da prescrição (sugestões + etiquetas + hidden)
             const _cPrescr = document.getElementById('ia-cid-prescricao');
             if (_cPrescr) _cPrescr.innerHTML = '';
+            const _chPrescr = document.getElementById('ia-cid-prescricao-chips');
+            if (_chPrescr) _chPrescr.innerHTML = '';
             const _hPrescr = document.getElementById('prescricao-cid-escolhido');
             if (_hPrescr) _hPrescr.value = '';
 
@@ -1666,7 +1671,8 @@
             const _indicacaoEl = document.getElementById('prescricao-indicacao');
             const _cidEl       = document.getElementById('prescricao-cid-escolhido');
             const _indicacao   = _indicacaoEl ? (_indicacaoEl.value.trim() || null) : null;
-            const _cidEscolhido = _cidEl ? (_cidEl.value.trim() || null) : null;
+            // hidden guarda CID(s) '|'-separados; codigo_cid é único → manda o primário (1º)
+            const _cidEscolhido = _cidEl ? (_cidEl.value.split('|').filter(Boolean)[0] || null) : null;
 
             const payload = {
                 cns_prescritor: medicoLogado.cns,
@@ -2487,6 +2493,21 @@
                 clearTimeout(_iaCidTimers['atestado']);
                 _iaCidTimers['atestado'] = setTimeout(() => {
                     _consultarIaCid('geral', this.value, 'ia-cid-atestado', 'ia-cid-atestado-chips', 'atestado-cid');
+                }, 500);
+            });
+        })();
+
+        // ── Wire-up: indicação clínica da prescrição (opcional + IA CID) ──────
+        // Triangulação leve: o texto da indicação sugere CID(s); as etiquetas ficam
+        // em #ia-cid-prescricao-chips. Em emitirReceitaDigital, o 1º CID (primário)
+        // vai em codigo_cid (campo único do backend).
+        (function _wirePrescricaoIndicacao() {
+            const el = document.getElementById('prescricao-indicacao');
+            if (!el) return;
+            el.addEventListener('input', function() {
+                clearTimeout(_iaCidTimers['prescricao']);
+                _iaCidTimers['prescricao'] = setTimeout(() => {
+                    _consultarIaCid('prescricao', this.value, 'ia-cid-prescricao', 'ia-cid-prescricao-chips', 'prescricao-cid-escolhido');
                 }, 500);
             });
         })();
