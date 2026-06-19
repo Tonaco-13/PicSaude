@@ -516,7 +516,7 @@
                         <!-- CPF do Paciente + verificação de carteira digital (Ticket 63) -->
                         <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
                             <div class="form-group" style="margin: 0; flex: 1; min-width: 260px;">
-                                <label class="form-label" style="color: #0c4a6e;">CPF do Paciente <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0;">(obrigatório para emissão digital)</span></label>
+                                <label class="form-label" style="color: #0c4a6e;">CPF / CNI do Paciente <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0;">(obrigatório — mesmo número da Carteira de Identidade Nacional)</span></label>
                                 <div style="display: flex; gap: 8px; align-items: center;">
                                     <input type="text" id="pac-chave" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00" style="flex: 1;">
                                     <button type="button" onclick="verificarCarteiraPaciente()" class="btn-outline btn-small" style="white-space: nowrap; font-size: 11px; padding: 6px 10px;">Verificar Carteira</button>
@@ -580,7 +580,7 @@
                         <h4 style="margin-bottom: 16px; color: #002776; font-size: 15px; text-transform: uppercase;">Dados do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="exam-pac-nome" class="form-input" required></div>
-                            <div class="form-group" style="margin: 0;"><label class="form-label">CPF *</label><input type="text" id="exam-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00"></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">CPF / CNI *</label><input type="text" id="exam-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00"></div>
                             <div class="form-group" style="margin: 0;">
                                 <label class="form-label">Prioridade</label>
                                 <select id="exam-prioridade" class="form-select">
@@ -1463,6 +1463,7 @@
                             <option value="30 dias" ${validade === '30 dias' || validade === '' ? 'selected' : ''}>Validade: 30 dias</option>
                             <option value="6 meses" ${validade === '6 meses' ? 'selected' : ''}>Validade: 6 meses</option>
                         </select>
+                        <button type="button" class="btn-text" onclick="limparMedicamento(${medCount})">Limpar</button>
                         ${medCount > 1 ? `<button type="button" class="btn-text" style="color: #dc2626;" onclick="removerMedicamento(${medCount})">X Remover</button>` : ''}
                     </div>
                 </div>
@@ -1488,7 +1489,7 @@
                     </select>
                 </div>
                 <input type="text" class="form-input med-forma" placeholder="Forma farmacêutica (ex: comprimido revestido)" value="${forma}" style="margin-top:8px;">
-                <select class="form-select med-apresentacao" style="margin-top:8px;">
+                <select class="form-select med-apresentacao" style="margin-top:8px;" onchange="_aoEscolherApresentacao(this)">
                     <option value="">Apresentação comercial (opcional — escolha após buscar o medicamento)</option>
                 </select>
                 <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required>${posologia}</textarea>
@@ -1508,6 +1509,31 @@
         }
 
         function removerMedicamento(id) { document.getElementById(`med-item-${id}`).remove(); }
+
+        /** Limpa todos os campos de um card de medicamento (sem removê-lo). */
+        function limparMedicamento(id) {
+            const card = document.getElementById('med-item-' + id);
+            if (!card) return;
+            card.querySelectorAll('.med-nome, .med-conc, .med-qtd, .med-forma, .med-posologia')
+                .forEach(el => { el.value = ''; });
+            const uEl = card.querySelector('.med-unidade'); if (uEl) uEl.value = '';
+            const apEl = card.querySelector('.med-apresentacao');
+            if (apEl) apEl.innerHTML = '<option value="">Apresentação comercial (opcional — escolha após buscar o medicamento)</option>';
+            const ia = card.querySelector('.ia-container'); if (ia) ia.innerHTML = '';
+        }
+
+        /** Ao escolher uma apresentação comercial (ex.: "caixa com 10 comprimidos"),
+         *  a unidade vira o recipiente (caixa/frasco/bisnaga) — aí a Quantidade é
+         *  "quantas caixas", removendo a confusão entre caixa × unidades soltas. */
+        function _aoEscolherApresentacao(sel) {
+            const card = sel.closest('.med-card');
+            if (!card || !sel.value) return;   // "" = genérico: mantém a unidade da forma
+            const recipiente = sel.value.split(' ')[0];   // caixa | frasco | bisnaga
+            const uEl = card.querySelector('.med-unidade');
+            if (uEl && Array.from(uEl.options).some(o => o.value === recipiente)) {
+                uEl.value = recipiente;
+            }
+        }
 
         function novaReceita() {
             receitaEmEdicaoId = null;
