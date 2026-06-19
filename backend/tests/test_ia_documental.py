@@ -90,6 +90,7 @@ def client():
 
 _PAYLOAD_VALIDO = {
     "paciente_nome":        "João da Silva",
+    "finalidade":           "trabalhistas",
     "indicacao_clinica":    "Hipertensão arterial sistêmica",
     "codigo_cid":           "I10",
     "dias_afastamento":     3,
@@ -157,7 +158,12 @@ class TestCasoValidoCompleto:
         """T07 — versao_template está presente na resposta."""
         result = validar_atestado(**_PAYLOAD_VALIDO)
         assert "versao_template" in result
-        assert result["versao_template"] == "atestado_cfm_v1"
+        assert result["versao_template"] == "atestado_cfm_v2"
+
+    def test_documento_base_contem_finalidade(self):
+        """T07b — documento_base reflete a finalidade declarada."""
+        result = validar_atestado(**_PAYLOAD_VALIDO)
+        assert "para fins trabalhistas" in result["documento_base"]
 
 
 # ---------------------------------------------------------------------------
@@ -166,11 +172,17 @@ class TestCasoValidoCompleto:
 
 class TestCamposObrigatorios:
 
-    def test_ausencia_codigo_cid(self):
-        """T08 — codigo_cid ausente aparece em faltantes e ok=False."""
-        result = validar_atestado(**_omit("codigo_cid"))
+    def test_ausencia_finalidade(self):
+        """T08 — finalidade ausente aparece em faltantes e ok=False."""
+        result = validar_atestado(**_omit("finalidade"))
         assert result["ok"] is False
-        assert "codigo_cid" in result["faltantes"]
+        assert "finalidade" in result["faltantes"]
+
+    def test_codigo_cid_opcional_nao_bloqueia(self):
+        """T08b — codigo_cid é OPCIONAL: ausência não bloqueia (ok=True)."""
+        result = validar_atestado(**_omit("codigo_cid"))
+        assert result["ok"] is True
+        assert "codigo_cid" not in result["faltantes"]
 
     def test_ausencia_dias_afastamento(self):
         """T09 — dias_afastamento ausente aparece em faltantes."""
@@ -184,11 +196,19 @@ class TestCamposObrigatorios:
         assert result["ok"] is False
         assert "paciente_nome" in result["faltantes"]
 
-    def test_ausencia_indicacao_clinica(self):
-        """T11 — indicacao_clinica ausente aparece em faltantes."""
+    def test_indicacao_clinica_opcional_nao_bloqueia(self):
+        """T11 — indicacao_clinica é OPCIONAL: ausência não bloqueia (ok=True)."""
         result = validar_atestado(**_omit("indicacao_clinica"))
-        assert result["ok"] is False
-        assert "indicacao_clinica" in result["faltantes"]
+        assert result["ok"] is True
+        assert "indicacao_clinica" not in result["faltantes"]
+
+    def test_atestado_sem_diagnostico_preserva_privacidade(self):
+        """T11b — sem indicacao e sem CID, o atestado é válido e omite o diagnóstico."""
+        result = validar_atestado(**_payload(indicacao_clinica=None, codigo_cid=None))
+        assert result["ok"] is True
+        assert result["documento_base"] is not None
+        assert "CID" not in result["documento_base"]
+        assert "quadro clínico" not in result["documento_base"]
 
     def test_ausencia_data_documento(self):
         """T12 — data_documento ausente aparece em faltantes."""
@@ -209,10 +229,12 @@ class TestCamposObrigatorios:
         assert "registro_profissional" in result["faltantes"]
 
     def test_todos_ausentes_ok_false_multiplos_faltantes(self):
-        """T15 — sem nenhum campo → ok=False com todos em faltantes."""
+        """T15 — sem nenhum campo → ok=False com todos os obrigatórios faltantes."""
         result = validar_atestado()
         assert result["ok"] is False
-        assert len(result["faltantes"]) == 7
+        # 6 obrigatórios: paciente_nome, finalidade, dias_afastamento,
+        # data_documento, nome_profissional, registro_profissional
+        assert len(result["faltantes"]) == 6
 
     def test_dias_zero_e_faltante(self):
         """T16 — dias_afastamento=0 é tratado como inválido (faltante)."""
@@ -228,7 +250,7 @@ class TestCamposObrigatorios:
 
     def test_documento_base_none_quando_faltantes(self):
         """T18 — documento_base é None quando há campos faltantes."""
-        result = validar_atestado(**_omit("codigo_cid"))
+        result = validar_atestado(**_omit("finalidade"))
         assert result["documento_base"] is None
 
 

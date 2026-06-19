@@ -54,6 +54,7 @@ _AVISO_FIXO = (
 
 def validar_atestado(
     paciente_nome:        Optional[str] = None,
+    finalidade:           Optional[str] = None,
     indicacao_clinica:    Optional[str] = None,
     codigo_cid:           Optional[str] = None,
     dias_afastamento:     Optional[int] = None,
@@ -67,8 +68,10 @@ def validar_atestado(
     Parâmetros
     ----------
     paciente_nome         : Nome completo do paciente.
-    indicacao_clinica     : Quadro clínico / hipótese diagnóstica (texto livre).
-    codigo_cid            : Código CID-10 escolhido pelo profissional (ex: 'I10').
+    finalidade            : Finalidade do atestado (OBRIGATÓRIA — trabalhista,
+                            estudantil, judicial, administrativo, etc.).
+    indicacao_clinica     : Quadro clínico / hipótese diagnóstica (OPCIONAL).
+    codigo_cid            : Código CID-10 escolhido pelo profissional (OPCIONAL).
     dias_afastamento      : Número de dias de afastamento (int > 0).
     data_documento        : Data de emissão (string — ex: '2026-03-24').
     nome_profissional     : Nome do profissional responsável.
@@ -87,6 +90,7 @@ def validar_atestado(
     """
     dados = {
         "paciente_nome":        paciente_nome,
+        "finalidade":           finalidade,
         "indicacao_clinica":    indicacao_clinica,
         "codigo_cid":           codigo_cid,
         "dias_afastamento":     dias_afastamento,
@@ -133,12 +137,13 @@ def validar_atestado(
     if not faltantes:
         documento_base = renderizar_atestado(
             paciente_nome         = paciente_nome,        # type: ignore
-            indicacao_clinica     = indicacao_clinica,    # type: ignore
-            codigo_cid            = codigo_cid,           # type: ignore
+            finalidade            = finalidade,           # type: ignore
             dias_afastamento      = dias_afastamento,     # type: ignore
             data_documento        = data_documento,       # type: ignore
             nome_profissional     = nome_profissional,    # type: ignore
             registro_profissional = registro_profissional, # type: ignore
+            indicacao_clinica     = indicacao_clinica,    # opcional
+            codigo_cid            = codigo_cid,           # opcional
         )
 
     return {
