@@ -35,6 +35,7 @@ from fastapi.responses import StreamingResponse
 
 from app.adapters.sncr_factory import get_sncr_adapter
 from app.auth.dependencies import require_role
+from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
 from app.domain.catalogo_regulatorio import validar_itens_prescricao
 from app.domain.ledger import registrar_evento_ledger
@@ -1131,6 +1132,17 @@ def baixar_pdf_assinado(
         status do receituário (assinatura PAdES é independente da
         emissão lógica).
     """
+    # Segurança (auditoria F5): em modo demo (vitrine pública) não assinar com
+    # chave real — o cofre da vitrine não guarda certificado de prescritor real.
+    if PICSAUDE_DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "demo_mode_ativo",
+                "mensagem": "Assinatura com certificado desabilitada em modo demo.",
+            },
+        )
+
     cns_token = usuario.get("sub") or ""
     agora = datetime.utcnow()
 
