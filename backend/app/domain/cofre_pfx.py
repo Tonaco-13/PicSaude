@@ -44,6 +44,34 @@ class PfxCifrado:
     tag: bytes
 
 
+class CofreChaveInsegura(RuntimeError):
+    """Tentativa de operar o cofre com a chave-sentinela (insegura) fora de
+    dev/test. Em stg/prod, a ausência de PFX_ENCRYPTION_KEY deve falhar fechado.
+    """
+
+
+# Ambientes onde a chave-sentinela insegura é tolerada — APENAS estes.
+_AMBIENTES_CHAVE_INSEGURA_OK = ("dev", "test")
+
+
+def _exigir_chave_segura(seguro: bool) -> None:
+    """Fail-closed (auditoria de segurança — F1).
+
+    Recusa cifrar/decifrar com a chave de desenvolvimento fora de dev/test.
+    Em stg/prod a ausência de `PFX_ENCRYPTION_KEY` NÃO pode cair na sentinela
+    pública — a operação é recusada em vez de usar chave insegura.
+    """
+    if seguro:
+        return
+    env = os.getenv("PICSAUDE_ENV", "dev").lower()
+    if env not in _AMBIENTES_CHAVE_INSEGURA_OK:
+        raise CofreChaveInsegura(
+            f"PFX_ENCRYPTION_KEY ausente ou inválida: o cofre recusa operar com "
+            f"a chave de desenvolvimento fora de dev/test (ambiente='{env}'). "
+            f"Configure PFX_ENCRYPTION_KEY (32 bytes em hex)."
+        )
+
+
 def _carregar_chave() -> tuple[bytes, bool]:
     """Retorna (chave_32_bytes, é_seguro). False = chave de desenvolvimento."""
     valor = os.environ.get(_ENV_KEY)
@@ -65,7 +93,8 @@ def _carregar_chave() -> tuple[bytes, bool]:
 
 
 def cifrar_pfx(pfx_bytes: bytes) -> PfxCifrado:
-    chave, _seguro = _carregar_chave()
+    chave, seguro = _carregar_chave()
+    _exigir_chave_segura(seguro)
     aes = AESGCM(chave)
     iv = os.urandom(12)
     cifrado = aes.encrypt(iv, pfx_bytes, associated_data=b"picsaude.pfx")
@@ -79,7 +108,8 @@ def cifrar_pfx(pfx_bytes: bytes) -> PfxCifrado:
 
 
 def decifrar_pfx(cifrado: bytes, iv: bytes, tag: bytes) -> bytes:
-    chave, _seguro = _carregar_chave()
+    chave, seguro = _carregar_chave()
+    _exigir_chave_segura(seguro)
     aes = AESGCM(chave)
     return aes.decrypt(iv, cifrado + tag, associated_data=b"picsaude.pfx")
 
