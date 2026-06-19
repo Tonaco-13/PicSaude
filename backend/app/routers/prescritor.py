@@ -24,6 +24,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.auth.dependencies import require_role
+from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
 from app.domain.cofre_pfx import cifrar_pfx
 from app.domain.icp_identity import parsear_certificado_icp
@@ -87,6 +88,17 @@ async def upload_certificado(
 
     A senha NÃO é persistida — o prescritor a fornece a cada uso.
     """
+    # Segurança (auditoria F5): a vitrine roda em modo demo e é pública —
+    # não aceitar upload de certificado real (chave privada) nesse modo.
+    if PICSAUDE_DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "demo_mode_ativo",
+                "mensagem": "Upload de certificado desabilitado em modo demo.",
+            },
+        )
+
     cns_token = usuario.get("sub") or ""
 
     # 1. Limite de tamanho
