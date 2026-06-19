@@ -40,10 +40,12 @@ def _norm(texto: str) -> str:
 # 1. Campos obrigatórios
 # ---------------------------------------------------------------------------
 
+# Finalidade é obrigatória (não se emite atestado sem finalidade declarada).
+# indicacao_clinica e codigo_cid são OPCIONAIS — o diagnóstico só entra com
+# anuência do paciente (privacidade); o CFM admite atestado sem CID.
 CAMPOS_OBRIGATORIOS = [
     "paciente_nome",
-    "indicacao_clinica",
-    "codigo_cid",
+    "finalidade",
     "dias_afastamento",
     "data_documento",
     "nome_profissional",

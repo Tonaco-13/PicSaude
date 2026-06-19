@@ -656,26 +656,46 @@
                                    placeholder="Nome completo do paciente">
                         </div>
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Indicação Clínica *</label>
-                            <input type="text" id="atestado-indicacao" class="form-input"
-                                   placeholder="Hipótese diagnóstica ou quadro clínico">
+                            <label class="form-label">Finalidade *</label>
+                            <select id="atestado-finalidade" class="form-input" onchange="_aoMudarFinalidade()">
+                                <option value="">Selecione a finalidade…</option>
+                                <option value="trabalhistas">Trabalhista</option>
+                                <option value="estudantis">Estudantil / Escolar</option>
+                                <option value="judiciais">Judicial</option>
+                                <option value="administrativos">Administrativo</option>
+                                <option value="previdenciários (INSS)">Previdenciário (INSS)</option>
+                                <option value="__outro__">Outro (especificar)</option>
+                            </select>
+                            <input type="text" id="atestado-finalidade-outro" class="form-input"
+                                   style="display:none; margin-top:8px;"
+                                   placeholder="ex.: militares, esportivos, periciais">
                         </div>
                     </div>
 
                     <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">CID *</label>
-                            <input type="text" id="atestado-cid-busca" class="form-input"
-                                   placeholder="Busque por código ou descrição (ex: I10, hipertensão)">
-                            <input type="hidden" id="atestado-cid" value="">
-                            <div class="ia-cid-container" id="ia-cid-atestado"></div>
-                            <div class="ia-cid-chips" id="ia-cid-atestado-chips"></div>
+                            <label class="form-label">Indicação Clínica
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional)</span>
+                            </label>
+                            <input type="text" id="atestado-indicacao" class="form-input"
+                                   placeholder="Hipótese diagnóstica ou quadro clínico">
                         </div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label">Dias de Afastamento *</label>
                             <input type="number" id="atestado-dias" class="form-input"
                                    min="1" placeholder="ex: 3">
                         </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label">CID
+                            <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — registrado só com anuência do paciente)</span>
+                        </label>
+                        <input type="text" id="atestado-cid-busca" class="form-input"
+                               placeholder="Busque por código ou descrição (ex: I10, hipertensão)">
+                        <input type="hidden" id="atestado-cid" value="">
+                        <div class="ia-cid-container" id="ia-cid-atestado"></div>
+                        <div class="ia-cid-chips" id="ia-cid-atestado-chips"></div>
                     </div>
 
                     <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
@@ -2939,6 +2959,31 @@
         }
 
         /**
+         * Mostra/oculta o campo de texto "Outro" conforme a finalidade escolhida.
+         */
+        function _aoMudarFinalidade() {
+            const sel   = document.getElementById('atestado-finalidade');
+            const outro = document.getElementById('atestado-finalidade-outro');
+            if (!sel || !outro) return;
+            const ehOutro = sel.value === '__outro__';
+            outro.style.display = ehOutro ? 'block' : 'none';
+            if (!ehOutro) outro.value = '';
+        }
+
+        /**
+         * Lê a finalidade do atestado: o valor do select, ou o texto livre
+         * quando "Outro (especificar)" estiver selecionado.
+         */
+        function _lerFinalidadeAtestado() {
+            const sel = document.getElementById('atestado-finalidade');
+            if (!sel) return '';
+            if (sel.value === '__outro__') {
+                return (document.getElementById('atestado-finalidade-outro').value || '').trim();
+            }
+            return (sel.value || '').trim();
+        }
+
+        /**
          * Chama POST /ia/documentos/atestado/validar com os dados do formulário
          * e renderiza o resultado (faltantes, alertas, sugestões, preview).
          * Stateless — não grava nada.
@@ -2947,6 +2992,7 @@
             const container = document.getElementById('ia-atestado-container');
 
             const paciente  = (document.getElementById('atestado-paciente').value    || '').trim();
+            const finalidade = _lerFinalidadeAtestado();
             const indicacao = (document.getElementById('atestado-indicacao').value   || '').trim();
             // atestado-cid agora guarda múltiplos códigos separados por '|' (etiquetas)
             const cid       = (document.getElementById('atestado-cid').value || '').split('|').filter(Boolean).join(', ');
@@ -2975,13 +3021,14 @@
                     method: 'POST',
                     headers: authHeaders(),
                     body: JSON.stringify({
-                        paciente_nome:         paciente  || null,
-                        indicacao_clinica:     indicacao || null,
-                        codigo_cid:            cid       || null,
+                        paciente_nome:         paciente   || null,
+                        finalidade:            finalidade || null,
+                        indicacao_clinica:     indicacao  || null,
+                        codigo_cid:            cid        || null,
                         dias_afastamento:      dias,
-                        data_documento:        dataDoc   || null,
-                        nome_profissional:     prof      || null,
-                        registro_profissional: registro  || null,
+                        data_documento:        dataDoc    || null,
+                        nome_profissional:     prof       || null,
+                        registro_profissional: registro   || null,
                     }),
                 });
 
@@ -3007,6 +3054,7 @@
         function _renderizarResultadoAtestado(data) {
             const nomesCampos = {
                 paciente_nome:         'Nome do paciente',
+                finalidade:            'Finalidade',
                 indicacao_clinica:     'Indicação clínica',
                 codigo_cid:            'CID',
                 dias_afastamento:      'Dias de afastamento',
@@ -3116,12 +3164,14 @@
 
         /** Limpa todos os campos e o resultado da IA do formulário de atestado. */
         function limparAtestado() {
-            ['atestado-paciente','atestado-indicacao','atestado-cid','atestado-cid-busca',
+            ['atestado-paciente','atestado-finalidade','atestado-finalidade-outro',
+             'atestado-indicacao','atestado-cid','atestado-cid-busca',
              'atestado-dias','atestado-data','atestado-profissional','atestado-registro']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
+            _aoMudarFinalidade();   // re-oculta o campo "Outro"
             // limpa também as sugestões e as etiquetas de CID selecionadas
             ['ia-cid-atestado','ia-cid-atestado-chips'].forEach(id => {
                 const d = document.getElementById(id);
