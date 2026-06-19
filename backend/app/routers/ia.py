@@ -49,7 +49,7 @@ _CONTEXTOS_EXAMES = {"pedido_exame", "laudo"}
 _CONTEXTOS_CID    = {"pedido_exame", "prescricao", "laudo", "geral"}
 
 # Versão das regras do módulo documental (usada em GET /ia/documentos/status)
-_VERSAO_REGRAS_DOCUMENTAL = "atestado_cfm_v1"
+_VERSAO_REGRAS_DOCUMENTAL = "atestado_cfm_v2"
 
 
 # ---------------------------------------------------------------------------
@@ -414,8 +414,9 @@ class ValidarAtestadoIn(BaseModel):
     e receba feedback estruturado (quais campos faltam), sem erro 422.
     """
     paciente_nome:        Optional[str] = None
-    indicacao_clinica:    Optional[str] = None
-    codigo_cid:           Optional[str] = None
+    finalidade:           Optional[str] = None   # obrigatória na validação de domínio
+    indicacao_clinica:    Optional[str] = None   # opcional (privacidade do diagnóstico)
+    codigo_cid:           Optional[str] = None   # opcional
     dias_afastamento:     Optional[int] = None
     data_documento:       Optional[str] = None
     nome_profissional:    Optional[str] = None
@@ -466,6 +467,7 @@ def validar_atestado_endpoint(
     """
     return _validar_atestado(
         paciente_nome         = payload.paciente_nome,
+        finalidade            = payload.finalidade,
         indicacao_clinica     = payload.indicacao_clinica,
         codigo_cid            = payload.codigo_cid,
         dias_afastamento      = payload.dias_afastamento,
