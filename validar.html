@@ -9,15 +9,15 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
            background: #f0fdf4; min-height: 100vh; color: #1e293b; }
 
-    .header { background: #14532d; color: white; padding: 20px 32px;
-              display: flex; justify-content: space-between; align-items: center;
-              border-bottom: 4px solid #4ade80; }
+    .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .header-logo { height: 64px; width: auto; flex-shrink: 0; }
     .brand h1  { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
     .brand p   { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
                  color: #bbf7d0; font-weight: 600; margin-top: 3px; }
     .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px;
-                  background: rgba(255,255,255,0.15); border-radius: 4px;
-                  text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+                  background: #dbeafe; border-radius: 4px;
+                  text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
 
     .container { max-width: 680px; margin: 40px auto; padding: 0 16px; }
 
@@ -26,7 +26,7 @@
             padding: 32px; margin-bottom: 24px;
             border: 1px solid #e2e8f0; }
 
-    .section-title { font-size: 18px; color: #14532d; margin-bottom: 20px;
+    .section-title { font-size: 18px; color: #1e3a8a; margin-bottom: 20px;
                      font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
 
     .form-label { display: block; font-weight: 600; margin-bottom: 8px;
@@ -41,7 +41,7 @@
            font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase;
            letter-spacing: 0.5px; display: inline-flex; justify-content: center;
            align-items: center; gap: 8px; }
-    .btn-primary { background: #14532d; color: white; width: 100%; margin-top: 16px; }
+    .btn-primary { background: #1e3a8a; color: white; width: 100%; margin-top: 16px; }
     .btn-primary:hover { background: #052e16; }
     .btn-copy   { background: transparent; border: 1px solid #cbd5e1; color: #475569;
                   padding: 8px 14px; font-size: 12px; border-radius: 4px; cursor: pointer;
@@ -157,11 +157,10 @@
 
 <header class="header">
   <div class="brand">
-    <h1>PicSaúde</h1>
-    <p>Plataforma de Integração do Cuidado</p>
+    <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
   </div>
   <div style="display:flex; align-items:center; gap:16px;">
-    <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+    <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
     <span class="module-tag">Verificar Prescrição</span>
   </div>
 </header>
