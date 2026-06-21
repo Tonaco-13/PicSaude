@@ -29,7 +29,8 @@
       padding: 18px 40px;
       display: flex;
       align-items: center;
-      gap: 18px;
+      justify-content: space-between;
+      gap: 24px;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     }
 
@@ -40,9 +41,18 @@
      * apenas o texto "PicSaúde" estilizado é exibido.
      */
     .header-logo {
-      height: 64px;
+      height: 92px;
       width: auto;
       flex-shrink: 0;
+    }
+
+    .header .tagline {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-weight: 700;
+      color: #1e3a8a;
+      text-align: right;
     }
 
     .header-wordmark h1 {
@@ -55,12 +65,11 @@
     .header-wordmark .saude { color: #16a34a; }
 
     .header-wordmark .tagline {
-      font-size: 11px;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 1.4px;
       font-weight: 600;
       color: #64748b;
-      margin-top: 5px;
     }
 
     /* ------------------------------------------------------------------ */
@@ -419,11 +428,6 @@
       class="header-logo"
       onerror="this.style.display='none'"
     >
-
-    <div class="header-wordmark">
-      <h1><span class="pic">Pic</span><span class="saude">Saúde</span></h1>
-      <div class="tagline">Plataforma de Integração do Cuidado</div>
-    </div>
   </header>
 
   <!-- ============================================================ -->
@@ -433,10 +437,11 @@
 
     <!-- Apresentação -------------------------------------------- -->
     <section class="intro" aria-label="Apresentação">
-      <h2>INFRAESTRUTURA DE OBJETOS SANITÁRIOS</h2>
+      <h2>Plataforma de Integração do Cuidado</h2>
       <p>
-        Prescrição, exames, laudos, dispensação e documentos clínicos
-        em um fluxo rastreável, padronizado e seguro.
+        O PicSaúde é o traço-de-união do Cuidado. Conecta receitas, exames,
+        laudos e dispensações em um só fluxo digital, rastreável e seguro,
+        com o cidadão no centro. <strong>Não vende seus dados.</strong>
       </p>
     </section>
 
