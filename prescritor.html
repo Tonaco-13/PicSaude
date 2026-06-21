@@ -1517,16 +1517,8 @@
                 <div class="ia-container"></div>
             `;
             container.appendChild(div);
-
-            // IA Farmacêutica — autocomplete (lista de candidatos da base ANVISA)
-            const _nomeInputIA = div.querySelector('.med-nome');
-            if (_nomeInputIA) {
-                const _nIA = medCount; // captura snapshot do índice deste card
-                _nomeInputIA.addEventListener('input', function() {
-                    clearTimeout(_iaTimers[_nIA]);
-                    _iaTimers[_nIA] = setTimeout(() => _buscarMedicamentos(_nIA), 400);
-                });
-            }
+            // A busca de medicamento é tratada por DELEGAÇÃO em #lista-medicamentos
+            // (ver _initBuscaMedDelegada) — robusta a limpar/remover/recriar cards.
         }
 
         function removerMedicamento(id) { document.getElementById(`med-item-${id}`).remove(); }
@@ -2070,6 +2062,23 @@
 
         const _iaTimers = {}; // debounce timers por card (chave = medCount do card)
 
+        // Busca de medicamento por DELEGAÇÃO: um único listener no container cobre
+        // todos os cards (presentes e futuros) — imune a limpar/remover/recriar.
+        (function _initBuscaMedDelegada() {
+            const lista = document.getElementById('lista-medicamentos');
+            if (!lista) return;
+            lista.addEventListener('input', function(ev) {
+                const alvo = ev.target;
+                if (!alvo || !alvo.classList || !alvo.classList.contains('med-nome')) return;
+                const card = alvo.closest('.med-card');
+                if (!card) return;
+                const n = parseInt(String(card.id).replace('med-item-', ''), 10);
+                if (!n) return;
+                clearTimeout(_iaTimers[n]);
+                _iaTimers[n] = setTimeout(() => _buscarMedicamentos(n), 400);
+            });
+        })();
+
         /** Normaliza texto removendo acentos para comparação de opções do select. */
         function _iaNormSimples(s) {
             return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -2128,12 +2137,18 @@
          * (Ideias de UX do Z AI portadas para o vanilla JS + base ANVISA real.)
          */
         function _buscarMedicamentos(n) {
-            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
             const card = document.getElementById('med-item-' + n);
             if (!card) return;
             const nomeEl = card.querySelector('.med-nome');
             const container = card.querySelector('.ia-container');
             if (!nomeEl || !container) return;
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') {
+                container.innerHTML =
+                    '<div class="ia-bloco ia-bloco-neutro"><div class="ia-header">Busca indispon&iacute;vel</div>' +
+                    '<div class="ia-neutro-msg">Sess&atilde;o expirada — entre novamente para usar a busca. ' +
+                    'Voc&ecirc; pode digitar o medicamento livremente.</div></div>';
+                return;
+            }
             const termo = (nomeEl.value || '').trim();
             if (termo.length < 3) { container.innerHTML = ''; return; }
             container.innerHTML = '<div class="ia-loading">Buscando medicamentos...</div>';
