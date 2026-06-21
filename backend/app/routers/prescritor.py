@@ -33,6 +33,11 @@ from app.domain.pdf_assinatura import (
     SenhaPfxInvalida,
     carregar_pfx,
 )
+from app.domain.binding_cert import (
+    STATUS_DIVERGENTE,
+    STATUS_VINCULAR,
+    avaliar_binding_cpf,
+)
 
 
 router = APIRouter(prefix="/prescritor", tags=["prescritor"])
@@ -40,7 +45,7 @@ router = APIRouter(prefix="/prescritor", tags=["prescritor"])
 
 def _carregar_prescritor_por_cns(conn, cns: str) -> Optional[dict]:
     row = conn.execute(
-        "SELECT id, cns, nome FROM prescritores WHERE cns = ?",
+        "SELECT id, cns, nome, cpf FROM prescritores WHERE cns = ?",
         (cns,),
     ).fetchone()
     if not row:
@@ -143,6 +148,34 @@ async def upload_certificado(
             detail="Certificado não contém CPF (OID 2.16.76.1.3.1).",
         )
 
+    # 3b. F2 — a cadeia do certificado deve ancorar numa AC-Raiz ICP-Brasil
+    # confiável (rejeita autoassinado/cadeia não-ancorada). Em dev/test sem
+    # truststore configurado, a checagem é pulada (avaliada=False).
+    from app.domain.validacao_cadeia_icp import (
+        TrustStoreIndisponivel,
+        validar_cadeia_icp,
+    )
+    try:
+        cadeia = validar_cadeia_icp(cert_pem)
+    except TrustStoreIndisponivel:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "codigo": "truststore_indisponivel",
+                "mensagem": "Validação de certificado indisponível no momento.",
+            },
+        )
+    if not cadeia.valida:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "codigo": "cadeia_icp_invalida",
+                "mensagem": (
+                    "O certificado não encadeia a uma AC-Raiz ICP-Brasil confiável."
+                ),
+            },
+        )
+
     # 4. Hash do certificado em DER (fingerprint imutável)
     der_bytes = cert.public_bytes(serialization.Encoding.DER)
     hash_cert_der = hashlib.sha256(der_bytes).hexdigest()
@@ -168,10 +201,26 @@ async def upload_certificado(
                 status_code=404, detail="Prescritor não encontrado.",
             )
 
-        # Se o prescritor já tem CPF cadastrado em outro lugar do sistema,
-        # validamos. Hoje o model `prescritores` não tem CPF (apenas CNS).
-        # Confiamos na identidade do certificado e marcamos no log.
-        # Validação cruzada CPF↔CNS fica para integração T65 futura.
+        # F3 — binding verificável certificado ↔ prescritor (CPF).
+        # Decisão pura em domain/binding_cert.py. Sem fonte confiável de CPF
+        # (o CNES não o expõe), a Fase A garante CONSISTÊNCIA (TOFU): vincula na
+        # 1ª vez e exige igualdade nas seguintes. Prova forte = Fase B (CADSUS).
+        binding = avaliar_binding_cpf(icp.cpf_certificado, prescritor.get("cpf"))
+        if binding.status == STATUS_DIVERGENTE:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "codigo": "cpf_certificado_divergente",
+                    "mensagem": (
+                        "O CPF do certificado não corresponde ao CPF do prescritor."
+                    ),
+                },
+            )
+        if binding.status == STATUS_VINCULAR:
+            conn.execute(
+                "UPDATE prescritores SET cpf = ? WHERE id = ?",
+                (binding.cpf_para_gravar, prescritor["id"]),
+            )
 
         # 7. Marcar certificado ativo anterior (se houver) como substituído.
         agora = datetime.utcnow()
