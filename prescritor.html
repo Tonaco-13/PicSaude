@@ -8,17 +8,19 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
         
-        .header { background: #002776; color: white; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #009c3b; }
-        .brand-container h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px;}
-        .brand-container p { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255, 255, 255, 0.85); font-weight: 500; }
+        .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .brand-container { display: flex; flex-direction: row; align-items: center; gap: 22px; }
+        .header-logo { height: 64px; width: auto; flex-shrink: 0; }
+        .brand-container h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: #1e3a8a; display: flex; align-items: center; gap: 8px;}
+        .brand-container p { font-size: 14px; text-transform: uppercase; letter-spacing: 1.2px; color: #1e3a8a; font-weight: 700; }
         
         .header-actions { display: flex; align-items: center; gap: 16px; }
-        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: #dbeafe; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
         
         .container { max-width: 850px; margin: 40px auto; padding: 0 16px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
         
-        h2.section-title { font-size: 18px; color: #002776; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+        h2.section-title { font-size: 18px; color: #1e3a8a; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
         
         .form-group { margin-bottom: 20px; width: 100%; }
         .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -38,9 +40,9 @@
         .grid-conselho { display: grid; grid-template-columns: 110px 90px 200px auto; gap: 12px; align-items: center; margin-bottom: 12px; }
         
         .btn { padding: 14px 24px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; justify-content: center; align-items: center; width: 100%; }
-        .btn-primary { background: #002776; color: white; }
+        .btn-primary { background: #1e3a8a; color: white; }
         .btn-primary:hover { background: #001a4f; }
-        .btn-action { background: #009c3b; color: white; }
+        .btn-action { background: #16a34a; color: white; }
         .btn-action:hover { background: #007a2e; }
         .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
         .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
@@ -50,16 +52,16 @@
         
         .hidden { display: none !important; }
         
-        .med-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 16px; background: #ffffff; border-left: 4px solid #009c3b; }
+        .med-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 16px; background: #ffffff; border-left: 4px solid #16a34a; }
         .med-card-header { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; flex-wrap: wrap; gap: 12px; }
-        .med-card-title { color: #002776; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+        .med-card-title { color: #1e3a8a; font-size: 14px; font-weight: 700; text-transform: uppercase; }
         
         .result-list { max-height: 300px; overflow-y: auto; margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 6px; }
         .result-item { padding: 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; background: #ffffff; border-left: 4px solid transparent; }
-        .result-item:hover { background: #f0f9ff; border-color: #3b82f6; border-left-color: #002776; transform: translateX(4px); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .result-item:hover { background: #f0f9ff; border-color: #3b82f6; border-left-color: #1e3a8a; transform: translateX(4px); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .result-item.disabled:hover { background: #f8fafc; border-color: #e2e8f0; border-left-color: transparent; transform: none; cursor: not-allowed; }
         
-        .result-name { font-weight: 700; color: #002776; font-size: 15px; margin-bottom: 4px; }
+        .result-name { font-weight: 700; color: #1e3a8a; font-size: 15px; margin-bottom: 4px; }
         .result-details { font-size: 13px; color: #64748b; }
 
         .correcao-card { border: 1px solid #fca5a5; background: #fef2f2; padding: 20px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #dc2626; }
@@ -237,7 +239,7 @@
         .submod-btn:hover { background: #e2e8f0; color: #334155; }
         .submod-btn.ativo {
             background: #ffffff;
-            color: #002776;
+            color: #1e3a8a;
             box-shadow: 0 1px 4px rgba(0,0,0,0.10);
         }
     </style>
@@ -274,16 +276,15 @@
 
     <header class="header no-print">
         <div class="brand-container">
-            <h1>PicSaúde</h1>
-            <p>Plataforma de Integração do Cuidado</p>
+            <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
         </div>
         <div class="header-actions">
-            <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+            <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
             <span id="dev-mode-badge" style="display: none; font-size: 11px; font-weight: 600; padding: 4px 10px; background: #fef08a; color: #713f12; border-radius: 4px; letter-spacing: 0.5px;">Ambiente de desenvolvimento</span>
             <span class="module-tag">Módulo Prescritor</span>
             <div id="header-controls" class="hidden" style="display: flex; gap: 12px;">
-                <button onclick="abrirPerfil()" class="btn-outline btn-small" style="color: white; border-color: rgba(255,255,255,0.3);">Perfil de Acesso</button>
-                <button onclick="sair()" class="btn-outline btn-small" style="color: white; border-color: transparent;">Sair</button>
+                <button onclick="abrirPerfil()" class="btn-outline btn-small" style="color: #1e3a8a; border-color: #cbd5e1;">Perfil de Acesso</button>
+                <button onclick="sair()" class="btn-outline btn-small" style="color: #64748b; border-color: transparent;">Sair</button>
             </div>
         </div>
     </header>
@@ -334,7 +335,7 @@
         <div id="tela-vincular" class="card hidden no-print">
             <h2 class="section-title">Validação de Identidade e Endereço</h2>
             <div style="background: #f8fafc; padding: 20px; border-radius: 6px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
-                <p style="font-weight: 700; font-size: 16px; color: #002776;" id="vinc-nome"></p>
+                <p style="font-weight: 700; font-size: 16px; color: #1e3a8a;" id="vinc-nome"></p>
                 <p style="font-size: 14px; color: #475569; margin-top: 4px;">CNS: <span id="vinc-cns"></span> | Lotação: <span id="vinc-cnes"></span></p>
             </div>
             <form onsubmit="solicitarCodigoVinculo(event)">
@@ -384,7 +385,7 @@
             <h2 class="section-title" style="text-align: center; border: none;">Verificação de Duas Etapas</h2>
             <form onsubmit="validarCodigo(event)">
                 <div id="dev-otp-display" class="msg-inline msg-inline-warn hidden" style="margin-bottom: 16px; text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: bold;"></div>
-                <div class="form-group"><input type="text" id="otp-codigo" class="form-input" placeholder="000000" required maxlength="6" style="font-size: 32px; letter-spacing: 8px; text-align: center; font-weight: bold; color: #002776;"></div>
+                <div class="form-group"><input type="text" id="otp-codigo" class="form-input" placeholder="000000" required maxlength="6" style="font-size: 32px; letter-spacing: 8px; text-align: center; font-weight: bold; color: #1e3a8a;"></div>
                 <button type="submit" class="btn btn-primary" style="margin-bottom: 12px;">Confirmar Identidade</button>
                 <div id="msg-otp-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 12px;"></div>
                 <div style="text-align: center;">
@@ -466,7 +467,7 @@
                 <div id="form-status-msg" class="hidden"></div>
                 <form id="main-prescription-form" onsubmit="emitirReceitaDigital(event)">
                     <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
-                        <h4 style="margin-bottom: 16px; color: #002776; font-size: 15px; text-transform: uppercase;">Dados Clínicos do Paciente</h4>
+                        <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Dados Clínicos do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="pac-nome" class="form-input" required></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Idade *</label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required></div>
@@ -503,14 +504,14 @@
 
                     <div style="margin-bottom: 24px; padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px;">
-                            <h4 style="color: #002776; font-size: 15px; text-transform: uppercase; margin:0;">Prescrição Terapêutica</h4>
+                            <h4 style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; margin:0;">Prescrição Terapêutica</h4>
                             <button type="button" onclick="adicionarMedicamento()" class="btn-outline btn-small">+ Adicionar Fármaco</button>
                         </div>
                         <div id="lista-medicamentos"></div>
                     </div>
 
                     <div style="background: #e0f2fe; padding: 24px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 32px;">
-                        <h4 style="color: #002776; font-size: 15px; text-transform: uppercase; margin-bottom: 4px;">Modo de Emissão</h4>
+                        <h4 style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; margin-bottom: 4px;">Modo de Emissão</h4>
                         <p style="font-size: 12px; color: #0369a1; margin-bottom: 20px;">A emissão digital com assinatura ICP-Brasil garante validade legal plena conforme Res. CFM 2.299/2021.</p>
 
                         <!-- CPF do Paciente + verificação de carteira digital (Ticket 63) -->
@@ -577,7 +578,7 @@
                 <form id="form-pedido-exame-main" onsubmit="emitirPedidoExame(event)">
 
                     <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
-                        <h4 style="margin-bottom: 16px; color: #002776; font-size: 15px; text-transform: uppercase;">Dados do Paciente</h4>
+                        <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Dados do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="exam-pac-nome" class="form-input" required></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">CPF / CNI *</label><input type="text" id="exam-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00"></div>
@@ -603,7 +604,7 @@
 
                     <div style="margin-bottom: 24px; padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px;">
-                            <h4 style="color: #002776; font-size: 15px; text-transform: uppercase; margin:0;">Exames Solicitados</h4>
+                            <h4 style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; margin:0;">Exames Solicitados</h4>
                             <button type="button" onclick="adicionarExame()" class="btn-outline btn-small">+ Adicionar Exame</button>
                         </div>
                         <div id="lista-exames"></div>
@@ -1084,7 +1085,7 @@
                     if (cadastrados.includes(p.cns)) {
                         html += `<div class="result-item disabled"><p class="result-name" style="color:#64748b;">${p.nome}</p><p class="result-details">CNS: ${p.cns} | ${p.cnes_nome}</p><p style="font-size: 11px; margin-top:4px; color:#94a3b8;">Já cadastrado neste dispositivo.</p></div>`;
                     } else {
-                        html += `<div class="result-item" onclick="selecionarParaVincular('${p.cns}')"><p class="result-name">${p.nome}</p><p class="result-details">CNS: ${p.cns} | ${p.cnes_nome}</p><p style="font-size: 12px; color: #002776; margin-top: 8px; font-weight:bold;">👉 Clicar para Selecionar e Cadastrar</p></div>`;
+                        html += `<div class="result-item" onclick="selecionarParaVincular('${p.cns}')"><p class="result-name">${p.nome}</p><p class="result-details">CNS: ${p.cns} | ${p.cnes_nome}</p><p style="font-size: 12px; color: #1e3a8a; margin-top: 8px; font-weight:bold;">👉 Clicar para Selecionar e Cadastrar</p></div>`;
                     }
                 });
                 container.innerHTML = html;
@@ -1478,7 +1479,7 @@
                 <div class="med-card-header">
                     <span class="med-card-title">Fármaco ${medCount}</span>
                     <div style="display:flex; gap:12px; align-items:center;">
-                        <select class="form-select med-validade" style="width: auto; padding: 4px 8px; font-size:12px; background:#f8fafc; border-color:#cbd5e1; font-weight:bold; color:#002776;">
+                        <select class="form-select med-validade" style="width: auto; padding: 4px 8px; font-size:12px; background:#f8fafc; border-color:#cbd5e1; font-weight:bold; color:#1e3a8a;">
                             <option value="10 dias" ${validade === '10 dias' ? 'selected' : ''}>Validade: 10 dias</option>
                             <option value="30 dias" ${validade === '30 dias' || validade === '' ? 'selected' : ''}>Validade: 30 dias</option>
                             <option value="6 meses" ${validade === '6 meses' ? 'selected' : ''}>Validade: 6 meses</option>
@@ -1962,7 +1963,7 @@
                 <div style="margin-bottom: 20px;">
                     <div style="display:flex; justify-content:space-between;">
                         <p style="font-weight: bold; margin-bottom: 4px;">${index + 1}. ${m.nome} ${m.concentracao} .................... ${m.quantidade}${m.unidade ? ' ' + m.unidade : ''}</p>
-                        <p style="font-size: 11px; font-weight:bold; color:#002776;">Validade: ${m.validade}</p>
+                        <p style="font-size: 11px; font-weight:bold; color:#1e3a8a;">Validade: ${m.validade}</p>
                     </div>
                     <p style="font-size: 12px; margin-bottom: 4px;">Forma: ${m.forma}${m.apresentacao_comercial ? ' &middot; ' + m.apresentacao_comercial : ''}</p>
                     <p style="font-size: 13px;">Uso: ${m.posologia}</p>
@@ -1999,13 +2000,13 @@
                 html += `
                     <div class="historico-item">
                         <div>
-                            <p style="font-weight:bold; color:#002776; font-size:14px;">${r.paciente_nome}</p>
+                            <p style="font-weight:bold; color:#1e3a8a; font-size:14px;">${r.paciente_nome}</p>
                             <p style="font-size:12px; color:#64748b; margin-top:4px;">${data} • Prot: ${r.id}</p>
                             <p style="font-size:12px; color:#475569; margin-top:2px;">${r.medicamentos.length} fármaco(s) prescrito(s)</p>
                         </div>
                         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
                             ${badge}
-                            <button onclick="renovarReceita('${r.id}')" class="btn-text" style="font-size:11px; color:#002776;">↻ Renovar Receita</button>
+                            <button onclick="renovarReceita('${r.id}')" class="btn-text" style="font-size:11px; color:#1e3a8a;">↻ Renovar Receita</button>
                         </div>
                     </div>
                 `;
