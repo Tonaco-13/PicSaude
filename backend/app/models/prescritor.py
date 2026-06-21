@@ -13,6 +13,9 @@ class Prescritor(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     cns = Column(String, unique=True, index=True, nullable=False)
+    # CPF do prescritor (F3) — amarra o certificado A1 ao titular.
+    # Nullable: legados sem CPF; vínculo na 1ª vez (TOFU). Ver routers/prescritor.py.
+    cpf = Column(String, nullable=True)
     nome = Column(String, nullable=False)
     telefone_vinculado = Column(String, nullable=True)
     email = Column(String, nullable=True)
