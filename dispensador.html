@@ -8,9 +8,9 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
 
-        .header { background: #002776; color: white; padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #009c3b; }
+        .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
         .header-left { display: flex; align-items: center; gap: 14px; }
-        .header-logo { height: 44px; width: auto; }
+        .header-logo { height: 64px; width: auto; }
         .header-title h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
         .header-title h1 .pic   { color: #fff; }
         .header-title h1 .saude { color: #fff; }
@@ -19,15 +19,15 @@
         .login-card { background: #fff; border-radius: 14px; border: 1px solid #dbeafe; box-shadow: 0 4px 24px rgba(0,39,118,0.1); padding: 40px 36px 36px; }
         .login-logo-wrap { text-align: center; margin-bottom: 24px; }
         .login-logo { height: 56px; width: auto; }
-        .login-card h2 { font-size: 20px; font-weight: 700; color: #002776; text-align: center; margin-bottom: 6px; }
+        .login-card h2 { font-size: 20px; font-weight: 700; color: #1e3a8a; text-align: center; margin-bottom: 6px; }
         .login-card .login-sub { font-size: 13px; color: #64748b; text-align: center; margin-bottom: 28px; }
         .header-actions { display: flex; align-items: center; gap: 16px; }
-        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+        .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: #dbeafe; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
 
         .container { max-width: 800px; margin: 40px auto; padding: 0 16px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
 
-        h2.section-title { font-size: 18px; color: #002776; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+        h2.section-title { font-size: 18px; color: #1e3a8a; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
 
         .form-group { margin-bottom: 20px; }
         .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -35,17 +35,17 @@
         .form-input:focus { outline: none; border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
 
         .btn { padding: 12px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; justify-content: center; align-items: center; }
-        .btn-primary { background: #002776; color: white; width: 100%; padding: 14px; }
+        .btn-primary { background: #1e3a8a; color: white; width: 100%; padding: 14px; }
         .btn-primary:hover { background: #001a4f; }
-        .btn-action { background: #009c3b; color: white; }
+        .btn-action { background: #16a34a; color: white; }
         .btn-action:hover { background: #007a2e; }
         .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; }
         .btn-outline:hover { background: #f8fafc; }
         .btn-danger { background: transparent; border: 1px solid #fca5a5; color: #dc2626; }
         .btn-danger:hover { background: #fef2f2; }
         .btn-sm { padding: 8px 14px; font-size: 12px; }
-        .btn-logout { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 12px; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-        .btn-logout:hover { background: rgba(255,255,255,0.1); }
+        .btn-logout { background: transparent; border: 1px solid #cbd5e1; color: #64748b; font-size: 12px; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+        .btn-logout:hover { background: #f1f5f9; }
 
         .hidden { display: none !important; }
 
@@ -54,11 +54,11 @@
         .search-row .btn { white-space: nowrap; }
 
         .resultado-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
-        .protocolo-text { font-family: monospace; font-size: 13px; color: #002776; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
+        .protocolo-text { font-family: monospace; font-size: 13px; color: #1e3a8a; font-weight: 700; margin-bottom: 4px; word-break: break-all; }
         .tipo-emissao { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
 
         .item-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 12px; background: #ffffff; border-left: 4px solid #94a3b8; }
-        .item-card.ativo { border-left-color: #009c3b; }
+        .item-card.ativo { border-left-color: #16a34a; }
         .item-card.terminal { border-left-color: #e2e8f0; background: #f8fafc; }
         .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .item-numero { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -86,8 +86,8 @@
         .badge-encerrado { background: #f1f5f9; color: #94a3b8; }
         .badge-parcial { background: #fef3c7; color: #92400e; }
 
-        .header-user { font-size: 13px; color: rgba(255,255,255,0.9); text-align: right; }
-        .header-user strong { display: block; font-size: 14px; color: white; }
+        .header-user { font-size: 13px; color: #475569; text-align: right; }
+        .header-user strong { display: block; font-size: 14px; color: #1e293b; }
         .header-user span { font-size: 12px; opacity: 0.8; }
 
         .login-error { background: #fef2f2; color: #dc2626; padding: 12px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; margin-bottom: 16px; border: 1px solid #fca5a5; }
@@ -151,7 +151,7 @@
             color: #475569;
         }
         .modalidade-selector label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }
-        .modalidade-selector input[type=radio] { accent-color: #009c3b; }
+        .modalidade-selector input[type=radio] { accent-color: #16a34a; }
         .modalidade-selector .modo-hospitalar-ativo { color: #166534; font-weight: 700; }
 
         .hosp-fields {
@@ -172,7 +172,7 @@
         .hosp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .hosp-grid .form-group { margin-bottom: 0; }
         .hosp-dose-row { margin-top: 10px; display: flex; gap: 12px; align-items: center; font-size: 13px; }
-        .hosp-dose-row input[type=checkbox] { accent-color: #009c3b; width: 16px; height: 16px; cursor: pointer; }
+        .hosp-dose-row input[type=checkbox] { accent-color: #16a34a; width: 16px; height: 16px; cursor: pointer; }
         #hosp-qtd-doses-wrap { display: none; }
         /* ─────────────────────────────────────────────────────────────── */
 
@@ -185,8 +185,8 @@
         .ctx-ident-card.id .ctx-ident-label { color:#0369a1; }
         .ctx-ident-nome { font-size:13px; font-weight:600; }
         .ctx-ident-card.nao-id .ctx-ident-nome { color:#92400e; }
-        .ctx-ident-card.id .ctx-ident-nome { color:#0e7490; }
-        .btn-ctx-trocar { background:transparent; border:1.5px solid #0e7490; color:#0e7490; padding:6px 12px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; letter-spacing:0.3px; }
+        .ctx-ident-card.id .ctx-ident-nome { color:#1e3a8a; }
+        .btn-ctx-trocar { background:transparent; border:1.5px solid #1e3a8a; color:#1e3a8a; padding:6px 12px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; letter-spacing:0.3px; }
         .btn-ctx-trocar:hover { background:#f0fdff; }
         /* Ticket 60 — badge de tipo institucional no card de contexto */
         .inst-tipo-badge { display:inline-block; font-size:10px; font-weight:700; padding:1px 7px; border-radius:10px; text-transform:uppercase; letter-spacing:0.4px; vertical-align:middle; margin-left:4px; }
@@ -217,7 +217,7 @@
         .modal-ctx-warn-box h3{font-size:16px;font-weight:700;color:#92400e;margin-bottom:10px;}
         .modal-ctx-warn-box p{font-size:13px;color:#78350f;line-height:1.65;margin-bottom:24px;}
         .modal-ctx-warn-btns{display:flex;flex-direction:column;gap:10px;}
-        .btn-ctx-identificar{padding:11px 20px;border-radius:8px;border:none;background:#0e7490;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;}
+        .btn-ctx-identificar{padding:11px 20px;border-radius:8px;border:none;background:#1e3a8a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;}
         .btn-ctx-identificar:hover{background:#0891b2;}
         .btn-ctx-continuar{padding:9px 20px;border-radius:8px;border:1.5px solid #d97706;background:transparent;color:#b45309;font-size:12px;font-weight:600;cursor:pointer;}
         .btn-ctx-continuar:hover{background:#fef3c7;}
@@ -225,8 +225,8 @@
 
         /* ── Circulação Atomizada — item único (Ticket 44, Fase 3) ───── */
         .atom-banner-disp { background:#e0f2fe; border:1px solid #7dd3fc; border-radius:6px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
-        .atom-banner-disp-text p:first-child { font-size:11px; font-weight:700; color:#0e7490; text-transform:uppercase; letter-spacing:0.5px; }
-        .atom-banner-disp-text p:last-child { font-size:12px; color:#0e7490; margin-top:2px; }
+        .atom-banner-disp-text p:first-child { font-size:11px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px; }
+        .atom-banner-disp-text p:last-child { font-size:12px; color:#1e3a8a; margin-top:2px; }
         .btn-atom-voltar { background:transparent; border:1px solid #cbd5e1; color:#475569; border-radius:4px; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; margin-top:12px; display:inline-block; }
         .btn-atom-voltar:hover { background:#f8fafc; }
         /* ─────────────────────────────────────────────────────────────── */
@@ -237,19 +237,19 @@
         .modal-cnes-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
         .modal-cnes-box{position:relative;background:#fff;border-radius:14px;width:560px;max-width:95vw;max-height:82vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.22);}
         .modal-cnes-hd{padding:20px 24px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;}
-        .modal-cnes-hd h3{font-size:12px;font-weight:800;color:#002776;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
+        .modal-cnes-hd h3{font-size:12px;font-weight:800;color:#1e3a8a;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
         .btn-fechar-cnes{border:none;background:none;font-size:22px;color:#94a3b8;cursor:pointer;line-height:1;padding:0;flex-shrink:0;}
         .btn-fechar-cnes:hover{color:#475569;}
         .modal-cnes-body{padding:18px 24px 20px;}
         .modal-cnes-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:14px;color:#1e293b;background:#f8fafc;margin-bottom:14px;}
-        .modal-cnes-input:focus{outline:none;border-color:#002776;background:#fff;}
+        .modal-cnes-input:focus{outline:none;border-color:#1e3a8a;background:#fff;}
         .cnes-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:9px;}
         .cnes-item:hover{border-color:#bfdbfe;background:#f0f7ff;}
         .cnes-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
         .cnes-item-nome{font-size:14px;font-weight:700;color:#1e293b;}
         .cnes-item-meta{font-size:12px;color:#64748b;margin-top:3px;}
         .cnes-badge-t{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;text-transform:uppercase;letter-spacing:0.5px;}
-        .btn-cnes-usar{padding:6px 14px;border-radius:6px;border:none;background:#002776;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+        .btn-cnes-usar{padding:6px 14px;border-radius:6px;border:none;background:#1e3a8a;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
         .btn-cnes-usar:hover{background:#1a3a6b;}
         .cnes-ul{margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;display:none;}
         .cnes-ul.aberta{display:block;}
@@ -258,7 +258,7 @@
         .cnes-empty{text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;}
         .cnes-fallback{margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;border-top:1px solid #f1f5f9;padding-top:12px;}
         .cnes-ok-banner{background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:7px 12px;font-size:12px;color:#166534;font-weight:600;margin-bottom:10px;}
-        .btn-localizar-cnes{padding:5px 12px;border-radius:6px;border:1.5px solid #002776;color:#002776;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
+        .btn-localizar-cnes{padding:5px 12px;border-radius:6px;border:1.5px solid #1e3a8a;color:#1e3a8a;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
         .btn-localizar-cnes:hover{background:#eff6ff;}
     </style>
   <script src="config.js"></script>
@@ -295,13 +295,10 @@
     <header class="header">
         <div class="header-left">
             <img src="logo-picsaude.png" alt="PicSaúde" class="header-logo" onerror="this.style.display='none'">
-            <div class="header-title">
-                <h1><span class="pic">Pic</span><span class="saude">Saúde</span></h1>
-                <div class="modulo">Plataforma de Integração do Cuidado</div>
-            </div>
+            
         </div>
         <div class="header-actions">
-            <a href="index.html" style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.75); text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+            <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
             <span class="module-tag">Módulo Dispensador</span>
             <div id="header-user-info" class="header-user hidden">
                 <strong id="header-nome">—</strong>
@@ -1774,7 +1771,7 @@
                                             <span style="color:#64748b;font-size:11px;margin-left:6px">${_cEsc(u.unidade_id)}</span>
                                             ${u.tipo ? `<span class="cnes-badge-t" style="margin-left:4px">${_cEsc(u.tipo)}</span>` : ''}
                                         </span>
-                                        <span style="font-size:11px;color:#002776;font-weight:700">Usar →</span>
+                                        <span style="font-size:11px;color:#1e3a8a;font-weight:700">Usar →</span>
                                     </div>
                                 `).join('')}
                             </div>` : ''}

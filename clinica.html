@@ -23,19 +23,9 @@
     /* ============================================================ */
     /* Cabeçalho                                                    */
     /* ============================================================ */
-    .header {
-      background: #1e3a8a;
-      color: #fff;
-      padding: 14px 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      border-bottom: 4px solid #009c3b;
-    }
+    .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
     .header-left { display: flex; align-items: center; gap: 14px; }
-    .header-logo { height: 44px; width: auto; }
+    .header-logo { height: 64px; width: auto; }
     .header-title h1  { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
     .header-title h1 .pic   { color: #fff; }
     .header-title h1 .saude { color: #fff; }
@@ -43,16 +33,16 @@
       font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
       color: #fff; font-weight: 600; margin-top: 3px;
     }
-    .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: rgba(255,255,255,0.15); border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #ffdf00; }
+    .module-tag { font-size: 12px; font-weight: 600; padding: 6px 12px; background: #dbeafe; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; color: #1e3a8a; }
     .header-right { display: flex; align-items: center; gap: 16px; }
     .header-right-nav { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-    .header-user  { font-size: 13px; color: #cffafe; }
+    .header-user  { font-size: 13px; color: #475569; }
     .btn-logout {
       font-size: 12px; padding: 6px 14px; border-radius: 6px;
-      background: rgba(255,255,255,0.15); color: #fff;
-      border: 1px solid rgba(255,255,255,0.3); cursor: pointer;
+      background: #f1f5f9; color: #64748b;
+      border: 1px solid #cbd5e1; cursor: pointer;
     }
-    .btn-logout:hover { background: rgba(255,255,255,0.25); }
+    .btn-logout:hover { background: #e2e8f0; }
 
     /* ============================================================ */
     /* Layout principal                                             */
@@ -74,7 +64,7 @@
     .login-logo-wrap { text-align: center; margin-bottom: 24px; }
     .login-logo { height: 56px; width: auto; }
     .login-card h2 {
-      font-size: 20px; font-weight: 700; color: #002776;
+      font-size: 20px; font-weight: 700; color: #1e3a8a;
       text-align: center; margin-bottom: 6px;
     }
     .login-card .login-sub {
@@ -95,7 +85,7 @@
     .form-input:focus { outline: none; border-color: #06b6d4; background: #fff; }
     .btn-primary {
       width: 100%; padding: 12px; border-radius: 8px;
-      background: #002776; color: #fff; border: none;
+      background: #1e3a8a; color: #fff; border: none;
       font-size: 15px; font-weight: 700; cursor: pointer;
       transition: background 0.15s;
     }
@@ -117,7 +107,7 @@
       padding: 24px 28px; margin-bottom: 28px;
     }
     .busca-section h2 {
-      font-size: 15px; font-weight: 700; color: #0e7490;
+      font-size: 15px; font-weight: 700; color: #1e3a8a;
       margin-bottom: 14px;
     }
     .busca-row { display: flex; gap: 10px; }
@@ -130,7 +120,7 @@
     .busca-input:focus { outline: none; border-color: #06b6d4; background: #fff; }
     .btn-buscar {
       padding: 10px 22px; border-radius: 8px;
-      background: #0e7490; color: #fff; border: none;
+      background: #1e3a8a; color: #fff; border: none;
       font-size: 14px; font-weight: 700; cursor: pointer;
       white-space: nowrap;
     }
@@ -148,7 +138,7 @@
     }
     .card-titulo {
       font-size: 13px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.8px; color: #0e7490; margin-bottom: 16px;
+      letter-spacing: 0.8px; color: #1e3a8a; margin-bottom: 16px;
       padding-bottom: 10px; border-bottom: 2px solid #cffafe;
     }
 
@@ -170,7 +160,7 @@
       background: #f0fdff; border: 1px solid #cffafe; border-radius: 8px;
       padding: 10px 14px; margin-top: 12px;
     }
-    .indicacao-bloco .detail-label { font-size: 11px; color: #0e7490; }
+    .indicacao-bloco .detail-label { font-size: 11px; color: #1e3a8a; }
     .indicacao-bloco .detail-value { font-size: 14px; color: #1e293b; margin-top: 2px; }
 
     /* ============================================================ */
@@ -183,7 +173,7 @@
     }
     .badge-pendente          { background: #f1f5f9; color: #64748b; }
     .badge-agendado          { background: #dbeafe; color: #1d4ed8; }
-    .badge-coletado          { background: #cffafe; color: #0e7490; }
+    .badge-coletado          { background: #cffafe; color: #1e3a8a; }
     .badge-em-analise        { background: #ede9fe; color: #6d28d9; }
     .badge-resultado         { background: #dcfce7; color: #166534; }
     .badge-encerrado         { background: #f1f5f9; color: #475569; }
@@ -193,7 +183,7 @@
     .badge-eletivo           { background: #f1f5f9; color: #64748b; }
     .badge-criado            { background: #fef3c7; color: #92400e; }
     .badge-confirmado        { background: #dbeafe; color: #1d4ed8; }
-    .badge-realizado         { background: #cffafe; color: #0e7490; }
+    .badge-realizado         { background: #cffafe; color: #1e3a8a; }
 
     /* ============================================================ */
     /* Seção de agendamento                                         */
@@ -203,7 +193,7 @@
       padding: 16px 18px; margin-bottom: 14px;
     }
     .ag-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    .ag-protocolo { font-size: 12px; font-family: monospace; color: #0e7490; font-weight: 700; }
+    .ag-protocolo { font-size: 12px; font-family: monospace; color: #1e3a8a; font-weight: 700; }
     .ag-info-grid {
       display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px;
     }
@@ -213,7 +203,7 @@
     .btn-confirmar {
       padding: 8px 18px; border-radius: 7px; border: none; cursor: pointer;
       font-size: 13px; font-weight: 700;
-      background: #0e7490; color: #fff;
+      background: #1e3a8a; color: #fff;
     }
     .btn-confirmar:hover { background: #0891b2; }
     .btn-cancelar-ag {
@@ -235,14 +225,14 @@
       background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
       padding: 20px 22px; margin-top: 4px;
     }
-    .form-agendar h3 { font-size: 14px; font-weight: 700; color: #0e7490; margin-bottom: 14px; }
+    .form-agendar h3 { font-size: 14px; font-weight: 700; color: #1e3a8a; margin-bottom: 14px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
     .form-row-single { margin-bottom: 14px; }
     .form-agendar .form-label { font-size: 11px; }
     .form-agendar .form-input { font-size: 14px; padding: 9px 12px; }
     .btn-agendar-submit {
       padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer;
-      background: #0e7490; color: #fff; font-size: 14px; font-weight: 700;
+      background: #1e3a8a; color: #fff; font-size: 14px; font-weight: 700;
     }
     .btn-agendar-submit:hover { background: #0891b2; }
     .btn-cancelar-form {
@@ -252,7 +242,7 @@
     }
     .btn-nova-busca {
       padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
-      background: #e0f7fa; color: #0e7490;
+      background: #e0f7fa; color: #1e3a8a;
       font-size: 13px; font-weight: 600;
     }
     .btn-nova-busca:hover { background: #cffafe; }
@@ -288,14 +278,14 @@
 
     .btn-coletar {
       padding: 8px 20px; border-radius: 7px; border: none; cursor: pointer;
-      background: #0e7490; color: #fff; font-size: 13px; font-weight: 700;
+      background: #1e3a8a; color: #fff; font-size: 13px; font-weight: 700;
       transition: background 0.15s;
     }
     .btn-coletar:hover { background: #0891b2; }
     .btn-coletar:disabled { background: #94a3b8; cursor: not-allowed; }
 
     .laudo-aguardo {
-      font-size: 13px; color: #0e7490; font-weight: 600;
+      font-size: 13px; color: #1e3a8a; font-weight: 600;
       background: #f0fdff; padding: 6px 12px; border-radius: 6px;
       border: 1px solid #a5f3fc;
     }
@@ -334,9 +324,9 @@
     .ctxt-inst-card.nao-id{background:#fffbeb;border-color:#fcd34d;}
     .ctxt-inst-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:3px;}
     .ctxt-inst-card.nao-id .ctxt-inst-label{color:#92400e;}
-    .ctxt-inst-valor{font-size:13px;color:#0e7490;font-weight:600;}
+    .ctxt-inst-valor{font-size:13px;color:#1e3a8a;font-weight:600;}
     .ctxt-inst-vazio{font-size:13px;color:#92400e;font-weight:600;}
-    .btn-localizar-cnes{padding:7px 14px;border-radius:6px;border:1.5px solid #002776;color:#002776;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
+    .btn-localizar-cnes{padding:7px 14px;border-radius:6px;border:1.5px solid #1e3a8a;color:#1e3a8a;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
     .btn-localizar-cnes:hover{background:#eff6ff;}
     .ctxt-inst-card.nao-id .btn-localizar-cnes{border-color:#d97706;color:#d97706;}
     .ctxt-inst-card.nao-id .btn-localizar-cnes:hover{background:#fffbeb;}
@@ -355,7 +345,7 @@
     .modal-ctx-warn-box h3{font-size:16px;font-weight:700;color:#92400e;margin-bottom:10px;}
     .modal-ctx-warn-box p{font-size:13px;color:#78350f;line-height:1.65;margin-bottom:24px;}
     .modal-ctx-warn-btns{display:flex;flex-direction:column;gap:10px;}
-    .btn-ctx-identificar{padding:11px 20px;border-radius:8px;border:none;background:#0e7490;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;}
+    .btn-ctx-identificar{padding:11px 20px;border-radius:8px;border:none;background:#1e3a8a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:0.3px;}
     .btn-ctx-identificar:hover{background:#0891b2;}
     .btn-ctx-continuar{padding:9px 20px;border-radius:8px;border:1.5px solid #d97706;background:transparent;color:#b45309;font-size:12px;font-weight:600;cursor:pointer;}
     .btn-ctx-continuar:hover{background:#fef3c7;}
@@ -365,19 +355,19 @@
     .modal-cnes-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
     .modal-cnes-box{position:relative;background:#fff;border-radius:14px;width:560px;max-width:95vw;max-height:82vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.22);}
     .modal-cnes-hd{padding:20px 24px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;}
-    .modal-cnes-hd h3{font-size:12px;font-weight:800;color:#0e7490;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
+    .modal-cnes-hd h3{font-size:12px;font-weight:800;color:#1e3a8a;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
     .btn-fechar-cnes{border:none;background:none;font-size:22px;color:#94a3b8;cursor:pointer;line-height:1;padding:0;flex-shrink:0;}
     .btn-fechar-cnes:hover{color:#475569;}
     .modal-cnes-body{padding:18px 24px 20px;}
     .modal-cnes-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:14px;color:#1e293b;background:#f8fafc;margin-bottom:14px;}
-    .modal-cnes-input:focus{outline:none;border-color:#0e7490;background:#fff;}
+    .modal-cnes-input:focus{outline:none;border-color:#1e3a8a;background:#fff;}
     .cnes-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:9px;}
     .cnes-item:hover{border-color:#a5f3fc;background:#f0fdff;}
     .cnes-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
     .cnes-item-nome{font-size:14px;font-weight:700;color:#1e293b;}
     .cnes-item-meta{font-size:12px;color:#64748b;margin-top:3px;}
     .cnes-badge-t{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;text-transform:uppercase;letter-spacing:0.5px;}
-    .btn-cnes-usar{padding:6px 14px;border-radius:6px;border:none;background:#0e7490;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+    .btn-cnes-usar{padding:6px 14px;border-radius:6px;border:none;background:#1e3a8a;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
     .btn-cnes-usar:hover{background:#0891b2;}
     .cnes-ul{margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;display:none;}
     .cnes-ul.aberta{display:block;}
@@ -393,7 +383,7 @@
     .circ-busca-input { flex:1; padding:10px 14px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:14px; font-family:'Courier New',monospace; letter-spacing:1px; color:#1e293b; background:#f8fafc; text-transform:uppercase; }
     .circ-busca-input:focus { outline:none; border-color:#16a34a; background:#fff; }
     .btn-circ-buscar { padding:10px 22px; border-radius:8px; background:#166534; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
-    .btn-circ-buscar:hover { background:#14532d; }
+    .btn-circ-buscar:hover { background:#1e3a8a; }
     .circ-card { background:#fff; border:1.5px solid #bbf7d0; border-radius:10px; padding:16px 20px; }
     .circ-chave-display { font-family:'Courier New',monospace; font-size:22px; font-weight:800; letter-spacing:6px; color:#166534; text-align:center; padding:10px; background:#f0fdf4; border:1px dashed #16a34a; border-radius:6px; margin:8px 0 12px; }
     .circ-status-badge { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 10px; border-radius:999px; }
@@ -401,7 +391,7 @@
     .circ-status-badge.enviado_laboratorio    { background:#dbeafe; color:#1e40af; }
     .circ-status-badge.proposta_recebida      { background:#fef9c3; color:#854d0e; }
     .circ-status-badge.confirmado_paciente    { background:#d1fae5; color:#065f46; }
-    .circ-status-badge.realizado              { background:#cffafe; color:#0e7490; }
+    .circ-status-badge.realizado              { background:#cffafe; color:#1e3a8a; }
     .circ-status-badge.desmarcado_paciente,
     .circ-status-badge.desmarcado_laboratorio { background:#fee2e2; color:#991b1b; }
     .circ-status-badge.arquivado_laboratorio,
@@ -410,7 +400,7 @@
     .circ-proposta-bloco { background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; margin:10px 0; font-size:13px; color:#92400e; line-height:1.65; }
     .circ-proposta-bloco strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; color:#78350f; }
     .circ-acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
-    .btn-circ-proposta  { padding:8px 18px; border-radius:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; background:#0e7490; color:#fff; }
+    .btn-circ-proposta  { padding:8px 18px; border-radius:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; background:#1e3a8a; color:#fff; }
     .btn-circ-proposta:hover  { background:#0891b2; }
     .btn-circ-realizar  { padding:8px 18px; border-radius:7px; border:none; cursor:pointer; font-size:13px; font-weight:700; background:#0d9488; color:#fff; }
     .btn-circ-realizar:hover  { background:#0f766e; }
@@ -420,7 +410,7 @@
     .btn-circ-desmarcar:hover { background:#fef2f2; }
     .form-circ-proposta { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px 18px; margin-top:10px; display:none; }
     .form-circ-proposta.aberto { display:block; }
-    .form-circ-proposta h4 { font-size:13px; font-weight:700; color:#0e7490; margin-bottom:12px; }
+    .form-circ-proposta h4 { font-size:13px; font-weight:700; color:#1e3a8a; margin-bottom:12px; }
     .form-circ-remarcar { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:16px 18px; margin-top:10px; display:none; }
     .form-circ-remarcar.aberto { display:block; }
     .form-circ-remarcar h4 { font-size:13px; font-weight:700; color:#d97706; margin-bottom:12px; }
@@ -476,13 +466,10 @@
     <div class="header-left">
       <img src="logo-picsaude.png" alt="PicSaúde" class="header-logo"
            onerror="this.style.display='none'">
-      <div class="header-title">
-        <h1><span class="pic">Pic</span><span class="saude">Saúde</span></h1>
-        <div class="modulo">Plataforma de Integração do Cuidado</div>
-      </div>
+      
     </div>
     <div class="header-right-nav">
-      <a href="index.html" style="font-size:12px; font-weight:600; color:#fff; text-decoration:none; letter-spacing:0.3px; align-self:center;" aria-label="Voltar ao portal">← Portal</a>
+      <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px; align-self:center;" aria-label="Voltar ao portal">← Portal</a>
       <span class="module-tag">Módulo Laboratório</span>
     </div>
     <div class="header-right hidden" id="header-sessao">
@@ -521,7 +508,7 @@
         </form>
         <div style="text-align:center; margin-top:24px; padding-top:20px; border-top:1px solid #e0f2fe;">
           <button type="button" onclick="abrirModalCNESPreLogin()"
-            style="padding:10px 20px; border-radius:6px; border:1.5px solid #002776; background:#fff; color:#002776; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:0.3px;">
+            style="padding:10px 20px; border-radius:6px; border:1.5px solid #1e3a8a; background:#fff; color:#1e3a8a; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:0.3px;">
             Localizar Cadastro Nacional (CNES)
           </button>
           <div id="cnes-pre-login-ok" class="hidden"
@@ -538,7 +525,7 @@
     <div class="login-wrap">
       <div class="login-card" style="text-align:center; padding:40px 32px;">
         <div style="font-size:40px; margin-bottom:16px;">🏥</div>
-        <h2 style="color:#0e7490; font-size:20px; font-weight:700; margin-bottom:12px;">Identifique seu estabelecimento</h2>
+        <h2 style="color:#1e3a8a; font-size:20px; font-weight:700; margin-bottom:12px;">Identifique seu estabelecimento</h2>
         <p style="color:#475569; font-size:14px; line-height:1.7; margin-bottom:28px;">
           Antes de agendar ou registrar coletas, localize sua clínica ou laboratório no Cadastro Nacional de Estabelecimentos de Saúde.
         </p>
@@ -2049,7 +2036,7 @@
                       <span style="color:#64748b;font-size:11px;margin-left:6px">${esc(u.unidade_id)}</span>
                       ${u.tipo ? `<span class="cnes-badge-t" style="margin-left:4px">${esc(u.tipo)}</span>` : ''}
                     </span>
-                    <span style="font-size:11px;color:#0e7490;font-weight:700">Usar →</span>
+                    <span style="font-size:11px;color:#1e3a8a;font-weight:700">Usar →</span>
                   </div>
                 `).join('')}
               </div>` : ''}
