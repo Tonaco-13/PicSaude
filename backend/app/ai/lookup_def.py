@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 from typing import Optional
 
 from rapidfuzz import fuzz, process
@@ -264,10 +265,47 @@ def buscar_medicamento(
     return _resultado_de_registro(reg, "aproximado", melhor_score / 100.0)
 
 
+_BUSCA_NORM_CACHE: Optional[list[tuple]] = None
+
+
+def _busca_norm_cache() -> list[tuple]:
+    """(reg, texto_normalizado_para_busca) por registro — calculado uma vez."""
+    global _BUSCA_NORM_CACHE
+    if _BUSCA_NORM_CACHE is None:
+        _BUSCA_NORM_CACHE = [
+            (
+                reg,
+                normalizar_nome_medicamento(
+                    (reg.get("principio_ativo") or "") + " "
+                    + (reg.get("nome_normalizado") or "")
+                ),
+            )
+            for reg in _BASE
+        ]
+    return _BUSCA_NORM_CACHE
+
+
+def _conc_ordenavel(texto: str) -> float:
+    """Extrai o 1º número da concentração para ordenar 5 < 10 < 15 < 20 mg."""
+    m = re.search(r"(\d+(?:[.,]\d+)?)", texto or "")
+    if not m:
+        return 0.0
+    try:
+        return float(m.group(1).replace(",", "."))
+    except ValueError:
+        return 0.0
+
+
 def buscar_medicamentos(nome_medicamento: str, max_resultados: int = 8) -> list[dict]:
-    """Busca multi-resultado (autocomplete): até `max_resultados` candidatos
-    ordenados por score, deduplicados por registro. Casa contra nome_normalizado
-    E aliases (marcas). Retorna lista de dicts no formato de _resultado_de_registro.
+    """Busca multi-resultado (autocomplete): até `max_resultados` candidatos.
+
+    Prioridade:
+      1. SUBSTRING no princípio ativo / nome — quem contém o termo vem primeiro,
+         ordenado por concentração. Isso evita que o fuzzy traga fármacos errados
+         (capecitabina para "escita") e empurre as concentrações certas para fora
+         do limite.
+      2. Fuzzy (rapidfuzz WRatio) — completa o resto, tolerando erro de digitação.
+    Deduplicado por registro.
     """
     if not _BASE or not _CANDIDATOS_FUZZY:
         return []
@@ -275,24 +313,42 @@ def buscar_medicamentos(nome_medicamento: str, max_resultados: int = 8) -> list[
     if len(texto) < 2:
         return []
 
+    resultados: list[dict] = []
+    vistos: set[int] = set()
+
+    def _adiciona(reg: dict, tipo: str, score: float) -> bool:
+        if reg is None or id(reg) in vistos:
+            return False
+        vistos.add(id(reg))
+        resultados.append(_resultado_de_registro(reg, tipo, score))
+        return len(resultados) >= max_resultados
+
+    # 1) Correspondência por substring (relevância forte), ordenada por concentração.
+    diretos = [reg for reg, alvo in _busca_norm_cache() if texto in alvo]
+    diretos.sort(key=lambda r: (
+        (r.get("principio_ativo") or ""),
+        (r.get("forma_farmaceutica") or ""),
+        _conc_ordenavel(r.get("concentracao_texto") or ""),
+    ))
+    for reg in diretos:
+        if _adiciona(reg, "substring", 1.0):
+            return resultados
+
+    # 2) Fuzzy completa o restante (sem repetir).
     brutos = process.extract(
         texto, _CANDIDATOS_FUZZY, scorer=fuzz.WRatio, limit=max_resultados * 4
     )
-    resultados: list[dict] = []
-    vistos: set[int] = set()
     for nome_cand, score, _ in brutos:
         reg = _INDICE_EXATO.get(nome_cand) or _INDICE_ALIAS.get(nome_cand)
         if reg is None or id(reg) in vistos:
             continue
-        vistos.add(id(reg))
         if score >= 100 and nome_cand in _INDICE_EXATO:
             tipo = "exato"
         elif score >= 100:
             tipo = "alias"
         else:
             tipo = "aproximado"
-        resultados.append(_resultado_de_registro(reg, tipo, score / 100.0))
-        if len(resultados) >= max_resultados:
+        if _adiciona(reg, tipo, score / 100.0):
             break
     return resultados
 

@@ -38,6 +38,23 @@ def test_respeita_max_resultados():
     assert len(buscar_medicamentos("a"  + "moxicilina", 2)) <= 2
 
 
+def test_substring_prioriza_farmaco_certo_e_concentracoes():
+    """Busca por substring traz o fármaco certo em todas as concentrações,
+    sem poluir com aproximações erradas (capecitabina/escetamina p/ 'escita')."""
+    rs = buscar_medicamentos("escita", 8)
+    assert rs
+    pas = {(r["principio_ativo"] or "") for r in rs}
+    assert pas == {"oxalato de escitalopram"}          # nada de fármaco errado
+    concs = {r["concentracao_texto"] for r in rs}
+    assert "15 mg" in concs and "20 mg" in concs       # concentrações antes ausentes
+
+
+def test_fuzzy_ainda_tolera_erro_de_digitacao():
+    """Erro de digitação ainda casa via fuzzy (fallback após o substring)."""
+    rs = buscar_medicamentos("amoxiciclina", 3)
+    assert any("amoxicilina" in (r["principio_ativo"] or "") for r in rs)
+
+
 def test_unidade_de_dispensacao_fidedigna():
     """A unidade vem da forma (não fica vazia/errada para não-sólidos)."""
     from app.ai.lookup_def import _unidade_de_forma
