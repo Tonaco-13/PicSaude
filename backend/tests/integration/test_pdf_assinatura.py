@@ -195,6 +195,27 @@ def test_upload_certificado_substitui_anterior(
     assert rows[1][1] is True  and rows[1][2] is False  # novo ativo
 
 
+def test_upload_certificado_cpf_divergente_rejeitado(
+    client, outer_conn, seed_usuario,
+):
+    """F3 — 2º certificado com CPF diferente do vinculado é rejeitado (403).
+
+    1º upload vincula o CPF ao prescritor (TOFU); um certificado posterior com
+    CPF distinto não pode ser associado à mesma conta.
+    """
+    token = obter_token_prescritor(client, seed_usuario)
+    _inserir_prescritor_e_paciente(outer_conn)
+
+    cert1 = gerar_certificado_teste(nome="DR A", cpf="12345678901")
+    r1 = _upload_cert(client, token, cert1)
+    assert r1.status_code == 201, r1.text
+
+    cert2 = gerar_certificado_teste(nome="DR A", cpf="98765432100")
+    r2 = _upload_cert(client, token, cert2)
+    assert r2.status_code == 403, r2.text
+    assert r2.json()["detail"]["codigo"] == "cpf_certificado_divergente"
+
+
 def test_upload_certificado_senha_invalida(
     client, outer_conn, seed_usuario,
 ):
