@@ -286,6 +286,33 @@ def verificar_assinatura_icp(
             digest_hex=digest_hex,
         )
 
+    # ── Passo 6 — Validar cadeia de confiança ICP-Brasil (F2) ─────────────
+    # Sem isto, um autoassinado (mesmo com emissor forjado) passava. Import
+    # local (padrão do projeto) para não carregar pyhanko_certvalidator à toa.
+    from app.domain.validacao_cadeia_icp import (
+        TrustStoreIndisponivel,
+        validar_cadeia_icp,
+    )
+    try:
+        cadeia = validar_cadeia_icp(cert_pem)
+    except TrustStoreIndisponivel:
+        # Fora de dev/test sem truststore → falha fechado (rejeita).
+        return ResultadoVerificacao(
+            valida=False,
+            assinatura_valida=True,
+            certificado_valido=False,
+            erro="truststore_indisponivel",
+            digest_hex=digest_hex,
+        )
+    if not cadeia.valida:
+        return ResultadoVerificacao(
+            valida=False,
+            assinatura_valida=True,
+            certificado_valido=False,
+            erro=cadeia.erro or "cadeia_nao_confiavel",
+            digest_hex=digest_hex,
+        )
+
     # ── Sucesso ───────────────────────────────────────────────────────────
     return ResultadoVerificacao(
         valida=True,
