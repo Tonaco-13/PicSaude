@@ -316,16 +316,59 @@ Não há nenhum passo que dependa de estado oculto, aleatoriedade ou modelo. O C
 
 ---
 
-## 11. Camada 3 — trilha de auditoria (próxima fase)
+## 11. Camada 3 — trilha de auditoria (implementada)
 
-Hoje a ficha é **calculada sob demanda** (recomputável a qualquer momento, porque é
-determinística). O que ainda **não** existe é uma **trilha append-only** que registre
-*cada avaliação efetivamente apresentada ao prescritor* (entrada + sinal + versão da
-regra + carimbo de tempo).
+A ficha (camada 2) é **recomputável** sob demanda. A camada 3 fecha o ciclo com o
+registro *no tempo* do que foi efetivamente apresentado: *recomputável* **+**
+*registrado* = explicabilidade completa.
 
-Isso toca o **ledger** (núcleo, classe `core`) e exige revisão central — fica para a
-próxima fase, deliberadamente separada destas camadas 1 e 2. Quando existir, fechará
-o ciclo: *recomputável* (hoje) **+** *registrado* (camada 3) = explicabilidade completa.
+### O que grava, e quando
+
+No momento da **emissão** de uma prescrição digital (`POST /prescricoes`), grava-se
+**um evento `decisao_clinica_avaliada`** no ledger imutável (`prescricao_eventos`),
+com o payload contendo, por item:
+
+```jsonc
+{
+  "codigo_cid": "I10",
+  "total_regras_carregadas": 88,
+  "avaliacoes": [
+    { "item_id": 41, "nome_medicamento": "CAPTOPRIL",
+      "principio_ativo_canonico": "captopril", "sinal": "verde",
+      "causa": "consta_lista_exaustiva", "exaustiva": true,
+      "versao_regra": "semaforo_has_exaustiva_v1_2026-06",
+      "fonte": "RENAME 2024 + Diretrizes…" },
+    { "item_id": 42, "nome_medicamento": "AMOXICILINA",
+      "sinal": "amarelo", "causa": "ausente_lista_exaustiva", … }
+  ]
+}
+```
+
+### Decisões de desenho
+
+- **Reaproveita o ledger imutável** (novo *tipo de evento*, não tabela nova). O
+  ledger já é a coluna vertebral append-only — a avaliação na emissão é um fato da
+  prescrição. Sem migração.
+- **Momento = emissão** (decisão de Fabiano, 2026-06-22). Não se grava cada checagem
+  transitória durante a digitação: registra-se a **decisão real**. Volume baixo;
+  captura implicitamente o "emitiu apesar do 🟡" (o sinal fica gravado).
+- **Gatilho:** só grava com o semáforo **ativo** (`PICSAUDE_DECISAO_CLINICA`) e com
+  `codigo_cid` presente (houve indicação a validar).
+- **NÃO-BLOQUEANTE:** o registro é envolvido em `try/except` — uma falha na trilha
+  **nunca** quebra a emissão (a prescrição é o objeto primário; a trilha é secundária).
+- **LGPD:** o evento referencia dados clínicos (CID, fármaco) que **já** estão na
+  prescrição/itens; não adiciona categoria sensível nova nem CPF do paciente. É
+  auditoria interna, append-only, sem nova exposição externa.
+
+### O que ainda fica para depois
+- **Uma trilha por *avaliação apresentada* (não só na emissão)** — exigiria gravar
+  durante a digitação; descartado por ruído/volume nesta fase.
+- **Endpoint de leitura da trilha** — hoje consulta-se via ledger; um
+  `GET /prescricoes/{proto}/decisao` pode vir quando houver caso de uso de auditoria.
+
+> Implementação: `backend/app/domain/auditoria_decisao.py` (`montar_trilha_decisao`)
+> + hook em `backend/app/routers/prescricoes.py` (após `prescricao_emitida`).
+> Testes: `backend/tests/test_trilha_decisao_camada3.py`.
 
 ---
 
@@ -333,7 +376,10 @@ o ciclo: *recomputável* (hoje) **+** *registrado* (camada 3) = explicabilidade 
 
 - `backend/app/domain/semaforo_decisao.py` — o motor (`avaliar_semaforo`, `to_ficha`)
 - `backend/app/routers/ia.py` — `POST /ia/decisao/validar` (devolve a ficha)
+- `backend/app/domain/auditoria_decisao.py` — trilha de auditoria (camada 3)
+- `backend/app/routers/prescricoes.py` — hook da trilha na emissão
 - `backend/tests/unit/test_semaforo_decisao.py` — contrato testado da ficha
+- `backend/tests/test_trilha_decisao_camada3.py` — contrato testado da trilha
 - `data/decisao_semaforo.csv` — lista curada e assinada (fonte de verdade clínica)
 - `prescritor.html` — o “por quê?” na UI
 - [`ARQUITETURA_DECISAO_CLINICA.md`](ARQUITETURA_DECISAO_CLINICA.md) — o desenho do semáforo
