@@ -2,12 +2,14 @@
 Semáforo de apoio à decisão (validador) — motor determinístico.
 
 Cobre app/domain/semaforo_decisao.py: canonicalização (sal/acento), hierarquia
-do CID, e a cadeia de regras 🟢/🟡 (o 🔴 é Fase 2).
+do CID, a LEI DA EXAUSTIVIDADE (só julga condição com lista completa; senão se
+cala — neutro) e a cadeia 🟢/🟡 (o 🔴 é Fase 2).
 """
 from __future__ import annotations
 
 from app.domain.semaforo_decisao import (
     SINAL_AMARELO,
+    SINAL_NEUTRO,
     SINAL_VERDE,
     avaliar_semaforo,
     cadeia_cid,
@@ -16,15 +18,16 @@ from app.domain.semaforo_decisao import (
 )
 
 # Regras-amostra (NÃO é conteúdo clínico de produção — só exercita o motor).
+# I10 e E11 marcadas como EXAUSTIVAS (lista completa) → o motor pode julgar.
 _APROVADOS = {
     ("I10", "losartana"): "PCDT Hipertensão",
     ("E11", "metformina"): "PCDT Diabetes tipo 2",
 }
-_CIDS_COM_PCDT = {"I10", "E11"}
+_CIDS_EXAUSTIVOS = {"I10", "E11"}
 
 
 def _av(cid, ativo):
-    return avaliar_semaforo(cid, ativo, _APROVADOS, _CIDS_COM_PCDT)
+    return avaliar_semaforo(cid, ativo, _APROVADOS, _CIDS_EXAUSTIVOS)
 
 
 # --- canonicalização ---
@@ -47,7 +50,7 @@ def test_cadeia_cid_sobe_para_categoria():
     assert cadeia_cid("E11") == ["E11"]
 
 
-# --- avaliação (a decisão) ---
+# --- avaliação (condição EXAUSTIVA) ---
 
 def test_verde_quando_aprovado():
     a = _av("I10", "losartana")
@@ -56,62 +59,84 @@ def test_verde_quando_aprovado():
 
 
 def test_verde_via_hierarquia_do_cid():
-    """CID específico (I10.0) casa regra indexada na categoria (I10)."""
     assert _av("I10.0", "losartana").sinal == SINAL_VERDE
 
 
 def test_verde_apesar_do_sal_no_nome():
-    """O fármaco vem com sal ('losartana potássica'); ainda casa."""
     assert _av("I10", "Losartana Potássica").sinal == SINAL_VERDE
 
 
-def test_amarelo_farmaco_nao_consta_no_pcdt_da_condicao():
+def test_amarelo_fora_do_protocolo_em_condicao_exaustiva():
     a = _av("I10", "amoxicilina")
     assert a.sinal == SINAL_AMARELO
-    assert "não consta" in a.motivo
+    assert "fora do protocolo" in a.motivo
 
 
-def test_amarelo_sem_base_quando_cid_sem_pcdt():
-    a = _av("J45", "salbutamol")
-    assert a.sinal == SINAL_AMARELO
-    assert "sem base" in a.motivo
+# --- LEI DA EXAUSTIVIDADE: condição não-exaustiva → neutro (sem 🟢 nem 🟡) ---
+
+def test_neutro_quando_condicao_nao_exaustiva():
+    """J45 não está em _CIDS_EXAUSTIVOS → o semáforo não julga (neutro)."""
+    assert _av("J45", "salbutamol").sinal == SINAL_NEUTRO
 
 
-def test_amarelo_quando_falta_cid_ou_farmaco():
-    assert _av(None, "losartana").sinal == SINAL_AMARELO
-    assert _av("I10", None).sinal == SINAL_AMARELO
+def test_neutro_para_aprovado_se_condicao_nao_exaustiva():
+    """Crucial: mesmo um fármaco que seria 🟢 fica NEUTRO se a condição não é
+    exaustiva — senão privilegiaríamos os curados sobre os válidos que faltam."""
+    aprovados = {("Z00", "remedio_x"): "fonte"}     # Z00 NÃO está em exaustivos
+    a = avaliar_semaforo("Z00", "remedio_x", aprovados, set())
+    assert a.sinal == SINAL_NEUTRO
 
 
-def test_nunca_bloqueia_nem_vermelho_na_v1():
-    """v1 só acende verde/amarelo — nunca vermelho (Fase 2)."""
-    for cid, ativo in [("I10", "losartana"), ("I10", "amoxicilina"), ("Z99", "x")]:
-        assert _av(cid, ativo).sinal in (SINAL_VERDE, SINAL_AMARELO)
+def test_neutro_quando_falta_cid_ou_farmaco():
+    assert _av(None, "losartana").sinal == SINAL_NEUTRO
+    assert _av("I10", None).sinal == SINAL_NEUTRO
+
+
+def test_nunca_vermelho_na_v1():
+    for cid, ativo in [("I10", "losartana"), ("I10", "amoxicilina"), ("J45", "x")]:
+        assert _av(cid, ativo).sinal in (SINAL_VERDE, SINAL_AMARELO, SINAL_NEUTRO)
 
 
 # ===========================================================================
-# Loader — carrega a semente validada (data/decisao_semaforo.csv)
+# Loader — semente validada (data/decisao_semaforo.csv)
 # ===========================================================================
 
-def test_loader_serve_semente_validada():
+def test_semente_e_silenciosa_por_nao_ser_exaustiva():
+    """Lei da exaustividade ao vivo: a semente (9 condições, exaustivo=false) →
+    semáforo NEUTRO mesmo para fármacos aprovados. Sem viés até completarmos."""
     from app.domain.semaforo_decisao import avaliar, total_regras
-    assert total_regras() >= 30                                   # semente carregada
-    assert avaliar("I10", "losartana").sinal == SINAL_VERDE
-    assert avaliar("F32", "Oxalato de Escitalopram").sinal == SINAL_VERDE  # sal removido
-    assert avaliar("E11", "dapagliflozina").sinal == SINAL_VERDE
-    assert avaliar("I10", "amoxicilina").sinal == SINAL_AMARELO
+    assert total_regras() >= 30                                  # regras carregadas
+    assert avaliar("I10", "losartana").sinal == SINAL_NEUTRO     # silêncio (não-exaustiva)
+    assert avaliar("F32", "escitalopram").sinal == SINAL_NEUTRO
+
+
+def test_condicao_marcada_exaustiva_acende(tmp_path):
+    from app.domain import semaforo_decisao as sd
+    csv_path = tmp_path / "regras.csv"
+    csv_path.write_text(
+        "codigo_cid,condicao_nome,principio_ativo,fonte,status_curadoria,validado_por,versao,exaustivo\n"
+        "I10,Hipertensão,losartana,PCDT HAS,validado,X,v1,true\n"
+        "I10,Hipertensão,captopril,PCDT HAS,validado,X,v1,true\n",
+        encoding="utf-8",
+    )
+    aprovados, exaustivos = sd.carregar_regras(str(csv_path))
+    assert ("I10", "losartana") in aprovados and "I10" in exaustivos
+    assert sd.avaliar_semaforo("I10", "losartana", aprovados, exaustivos).sinal == SINAL_VERDE
+    assert sd.avaliar_semaforo("I10", "captopril", aprovados, exaustivos).sinal == SINAL_VERDE
+    assert sd.avaliar_semaforo("I10", "amoxicilina", aprovados, exaustivos).sinal == SINAL_AMARELO
 
 
 def test_loader_ignora_status_nao_validado(tmp_path):
     from app.domain import semaforo_decisao as sd
     csv_path = tmp_path / "regras.csv"
     csv_path.write_text(
-        "codigo_cid,condicao_nome,principio_ativo,fonte,status_curadoria,validado_por,versao\n"
-        "I10,Hipertensão,losartana,x,validado,X,v1\n"
-        "I10,Hipertensão,farmaco_rascunho,x,rascunho,X,v1\n",
+        "codigo_cid,condicao_nome,principio_ativo,fonte,status_curadoria,validado_por,versao,exaustivo\n"
+        "I10,Hipertensão,losartana,x,validado,X,v1,true\n"
+        "I10,Hipertensão,farmaco_rascunho,x,rascunho,X,v1,true\n",
         encoding="utf-8",
     )
-    aprovados, _cids = sd.carregar_regras(str(csv_path))
-    assert ("i10".upper(), "losartana") in aprovados
+    aprovados, _ex = sd.carregar_regras(str(csv_path))
+    assert ("I10", "losartana") in aprovados
     assert ("I10", "farmaco_rascunho") not in aprovados   # não-validado fica fora
 
 
@@ -145,19 +170,24 @@ def test_endpoint_flag_off_retorna_inativo(client, monkeypatch):
     assert r.json() == {"ativo": False}
 
 
-def test_endpoint_flag_on_acende_verde(client, monkeypatch):
+def test_endpoint_flag_on_semente_neutra(client, monkeypatch):
+    """Com a semente (não-exaustiva), o endpoint devolve neutro (sem ponto na UI)."""
     import app.routers.ia as ia
     monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
     r = client.post("/ia/decisao/validar",
                     json={"codigo_cid": "I10", "principio_ativo": "losartana"})
     assert r.status_code == 200
     d = r.json()
-    assert d["ativo"] is True and d["sinal"] == "verde" and d["fonte"]
+    assert d["ativo"] is True and d["sinal"] == SINAL_NEUTRO
 
 
-def test_endpoint_flag_on_amarelo_fora_da_base(client, monkeypatch):
+def test_endpoint_flag_on_condicao_exaustiva_acende_verde(client, monkeypatch):
     import app.routers.ia as ia
+    import app.domain.semaforo_decisao as sd
     monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
+    monkeypatch.setattr(sd, "_REGRAS_CACHE",
+                        ({("I10", "losartana"): "PCDT HAS"}, {"I10"}))
     r = client.post("/ia/decisao/validar",
-                    json={"codigo_cid": "I10", "principio_ativo": "amoxicilina"})
-    assert r.json()["sinal"] == "amarelo"
+                    json={"codigo_cid": "I10", "principio_ativo": "losartana"})
+    d = r.json()
+    assert d["ativo"] is True and d["sinal"] == SINAL_VERDE and d["fonte"]

@@ -29,6 +29,7 @@ from typing import Optional
 SINAL_VERDE = "verde"
 SINAL_AMARELO = "amarelo"
 SINAL_VERMELHO = "vermelho"   # reservado — Fase 2
+SINAL_NEUTRO = "neutro"       # sem julgamento — o semáforo se cala (sem ponto na UI)
 
 
 @dataclass(frozen=True)
@@ -115,45 +116,53 @@ def avaliar_semaforo(
     codigo_cid: Optional[str],
     principio_ativo: Optional[str],
     aprovados: dict[tuple[str, str], str],
-    cids_com_pcdt: set[str],
+    cids_exaustivos: set[str],
 ) -> Avaliacao:
     """Avalia a coerência fármaco ↔ CID e devolve o sinal.
 
+    LEI DA EXAUSTIVIDADE (decisão Fabiano 2026-06-21): o semáforo só JULGA uma
+    condição cuja lista 🟢 é EXAUSTIVA em relação ao PCDT. Numa condição não
+    exaustiva, o sinal seria viés — então o semáforo se CALA (neutro). Assim ele
+    é autoritativo quando fala e honesto quando se cala.
+
     Parâmetros
     ----------
-    aprovados      : índice {(cid_canônico, ativo_canônico): fonte} — as regras 🟢
-                     curadas/assinadas (derivadas do PCDT).
-    cids_com_pcdt  : conjunto de CIDs (canônicos) que têm PCDT — para distinguir
-                     "fármaco não consta" de "não há base".
+    aprovados        : índice {(cid_canônico, ativo_canônico): fonte} — regras 🟢
+                       curadas/assinadas (do PCDT).
+    cids_exaustivos  : CIDs (canônicos) cuja curadoria é COMPLETA. Só nesses a
+                       ausência de um fármaco tem significado (🟡).
 
     Regras (Fase 1 — sem 🔴):
-      1. (CID, ativo) aprovado  → 🟢
-      2. CID tem PCDT, ativo não consta → 🟡 (não consta como tratamento)
-      3. caso contrário → 🟡 (sem base)
+      1. (CID, ativo) aprovado            → 🟢
+      2. CID exaustivo, ativo não consta  → 🟡 (fora do protocolo — confira)
+      3. caso contrário (não exaustivo)   → neutro (sem julgamento, sem ponto)
     """
     if not codigo_cid or not principio_ativo:
-        return Avaliacao(SINAL_AMARELO, "indicação ou fármaco ausente", None)
+        return Avaliacao(SINAL_NEUTRO, "indicação ou fármaco ausente", None)
 
     ativo_k = canon_ativo(principio_ativo)
     cadeia = cadeia_cid(codigo_cid)
 
+    # PORTÃO DA EXAUSTIVIDADE (primeiro!). Se a condição não tem lista COMPLETA,
+    # o semáforo não julga NADA — nem 🟢. Mostrar 🟢 só para os fármacos que
+    # curamos privilegiaria-os sobre os válidos que faltam (o viés que Fabiano
+    # apontou). Então: condição não-exaustiva → neutro (silêncio).
+    if not any(cid_k in cids_exaustivos for cid_k in cadeia):
+        return Avaliacao(SINAL_NEUTRO, "sem curadoria exaustiva para esta condição", None)
+
+    # Condição EXAUSTIVA → o semáforo pode julgar.
     # 1) Aprovado (🟢) — busca subindo a hierarquia do CID.
     for cid_k in cadeia:
         fonte = aprovados.get((cid_k, ativo_k))
         if fonte:
             return Avaliacao(SINAL_VERDE, "tratamento reconhecido para a condição", fonte)
 
-    # 2) Condição tem PCDT, mas este fármaco não consta (🟡 atenção).
-    for cid_k in cadeia:
-        if cid_k in cids_com_pcdt:
-            return Avaliacao(
-                SINAL_AMARELO,
-                "fármaco não consta no protocolo desta condição — confira",
-                None,
-            )
-
-    # 3) Sem base para afirmar (🟡 neutro — honesto).
-    return Avaliacao(SINAL_AMARELO, "sem base para confirmar coerência", None)
+    # 2) Fármaco fora da lista completa do protocolo → 🟡 (informação honesta).
+    return Avaliacao(
+        SINAL_AMARELO,
+        "fármaco fora do protocolo desta condição — confira",
+        None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -180,14 +189,19 @@ def _resolver_csv() -> str:
     )
 
 
-def carregar_regras(caminho: str) -> tuple[dict[tuple[str, str], str], set[str]]:
-    """Lê o CSV curado → (aprovados, cids_com_pcdt).
+_VALORES_VERDADE = ("true", "sim", "1", "verdadeiro")
 
-    INVARIANTE: só entram regras com `status_curadoria == 'validado'` (linha
-    vermelha — o motor não serve conteúdo não-assinado).
+
+def carregar_regras(caminho: str) -> tuple[dict[tuple[str, str], str], set[str]]:
+    """Lê o CSV curado → (aprovados, cids_exaustivos).
+
+    INVARIANTES:
+    - só entram regras com `status_curadoria == 'validado'` (linha vermelha);
+    - `cids_exaustivos` = CIDs marcados `exaustivo` (lista 🟢 COMPLETA). Só nesses
+      o semáforo julga a ausência (🟡); senão se cala (lei da exaustividade).
     """
     aprovados: dict[tuple[str, str], str] = {}
-    cids: set[str] = set()
+    cids_exaustivos: set[str] = set()
     try:
         with open(caminho, newline="", encoding="utf-8") as f:
             for row in _csv.DictReader(f):
@@ -199,10 +213,11 @@ def carregar_regras(caminho: str) -> tuple[dict[tuple[str, str], str], set[str]]
                     continue
                 fonte = (row.get("condicao_nome") or "").strip() or cid_k
                 aprovados[(cid_k, ativo_k)] = fonte
-                cids.add(cid_k)
+                if (row.get("exaustivo") or "").strip().lower() in _VALORES_VERDADE:
+                    cids_exaustivos.add(cid_k)
     except FileNotFoundError:
-        pass   # sem CSV → sem regras → tudo 🟡 (degrada seguro)
-    return aprovados, cids
+        pass   # sem CSV → sem regras → tudo neutro (degrada seguro)
+    return aprovados, cids_exaustivos
 
 
 _REGRAS_CACHE: Optional[tuple[dict, set]] = None
