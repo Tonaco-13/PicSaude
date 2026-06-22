@@ -31,12 +31,104 @@ SINAL_AMARELO = "amarelo"
 SINAL_VERMELHO = "vermelho"   # reservado — Fase 2
 SINAL_NEUTRO = "neutro"       # sem julgamento — o semáforo se cala (sem ponto na UI)
 
+# Causa da decisão — código ESTÁVEL e legível por máquina (não-prosa). Distingue,
+# em especial, os DOIS neutros (entrada incompleta vs. condição não-exaustiva) sem
+# depender de texto livre. Útil à UI, aos testes e à futura trilha de auditoria.
+CAUSA_VERDE = "consta_lista_exaustiva"          # 🟢 (cid, ativo) na lista validada
+CAUSA_AMARELO = "ausente_lista_exaustiva"       # 🟡 condição exaustiva, ativo fora
+CAUSA_ENTRADA_INCOMPLETA = "entrada_incompleta"  # neutro: falta CID ou fármaco
+CAUSA_NAO_EXAUSTIVA = "condicao_nao_exaustiva"   # neutro: lei da exaustividade
+
+
+@dataclass(frozen=True)
+class Proveniencia:
+    """De onde veio a regra que produziu o sinal — a 'cadeia de custódia' da
+    decisão. Toda regra 🟢/🟡 carrega a condição, a base curada, quem assinou e
+    a versão. É o que torna o sinal auditável e reproduzível."""
+    condicao: str             # condicao_nome (ex.: "Hipertensão arterial")
+    fonte: str                # base curada (ex.: "RENAME 2024 + Diretrizes...")
+    validado_por: str         # responsável clínico que assinou a curadoria
+    versao: str               # versão da lista curada
+
+
+def _significado_do_sinal(sinal: str) -> str:
+    """Texto anti-overclaim, sinal a sinal. Blinda a ficha (camada 2) contra a
+    leitura 'errado/perigoso' — sem depender do dossiê (camada 1). Espelha
+    docs/EXPLICABILIDADE_DECISAO_CLINICA.md (validador, não recomendador)."""
+    if sinal == SINAL_VERDE:
+        return ("🟢 Coerente: o fármaco consta na lista validada para esta "
+                "condição. Confirme dose, via e contraindicações.")
+    if sinal == SINAL_AMARELO:
+        return ("🟡 Atenção: o fármaco NÃO consta na lista validada desta "
+                "condição — confira. NÃO significa errado, perigoso ou "
+                "proibido; só que requer conferência clínica.")
+    return ("Sem avaliação: o motor não julgou esta combinação (entrada "
+            "incompleta ou condição sem lista validada). Ausência de sinal "
+            "não é aprovação nem reprovação.")
+
 
 @dataclass(frozen=True)
 class Avaliacao:
-    sinal: str                # verde | amarelo | vermelho
+    sinal: str                # verde | amarelo | vermelho | neutro
     motivo: str               # explicação curta e legível
-    fonte: Optional[str]      # proveniência (ex.: "PCDT Hipertensão") ou None
+    fonte: Optional[str]      # condição (ex.: "Hipertensão arterial") ou None
+    # --- ficha de explicabilidade (camada 2) -------------------------------
+    # Campos opcionais: defaults preservam compatibilidade com chamadas antigas.
+    cid_recebido: Optional[str] = None    # CID CRU recebido (antes de normalizar)
+    ativo_recebido: Optional[str] = None  # fármaco CRU recebido (antes de normalizar)
+    cid_avaliado: Optional[str] = None    # CID canônico (ex.: "I10.0")
+    cid_casado: Optional[str] = None      # CID da cadeia que casou a regra ("I10")
+    ativo_canonico: Optional[str] = None  # princípio ativo sem sal/acento/caixa
+    exaustiva: Optional[bool] = None      # a condição tem lista 🟢 COMPLETA?
+                                          #   None = não apurado (entrada incompleta)
+    causa: Optional[str] = None           # código ESTÁVEL da decisão (CAUSA_*)
+    regra: Optional[str] = None           # qual regra disparou (legível)
+    proveniencia: Optional[Proveniencia] = None
+
+    def to_ficha(self) -> dict:
+        """Ficha de explicabilidade — tudo que justifica o sinal, num dicionário
+        serializável. O endpoint devolve isto; a UI mostra no 'por quê?'.
+
+        Garantia: a ficha é AUTOSSUFICIENTE — quem a lê reconstrói a decisão sem
+        olhar o código (entrada bruta + normalizada + regra + proveniência)."""
+        p = self.proveniencia
+        return {
+            "sinal": self.sinal,
+            "motivo": self.motivo,
+            "fonte": self.fonte,
+            "explicabilidade": {
+                "entrada": {
+                    "cid_recebido": self.cid_recebido,
+                    "cid": self.cid_avaliado,
+                    "cid_casado": self.cid_casado,
+                    "principio_ativo_recebido": self.ativo_recebido,
+                    "principio_ativo_canonico": self.ativo_canonico,
+                },
+                "causa": self.causa,
+                "condicao_exaustiva": self.exaustiva,
+                "regra": self.regra,
+                "significado": _significado_do_sinal(self.sinal),
+                "proveniencia": (
+                    {
+                        "condicao": p.condicao,
+                        "fonte": p.fonte,
+                        "validado_por": p.validado_por,
+                        "versao": p.versao,
+                    }
+                    if p
+                    else None
+                ),
+                "determinismo": (
+                    "Resultado determinístico (busca em lista curada, sem IA "
+                    "generativa). Mesma entrada + mesma versão de curadoria → "
+                    "sempre o mesmo sinal."
+                ),
+                "nao_bloqueante": (
+                    "Sinal de apoio à decisão. Não bloqueia nem altera a "
+                    "prescrição — o prescritor é o responsável final."
+                ),
+            },
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -115,8 +207,9 @@ def cadeia_cid(codigo: str) -> list[str]:
 def avaliar_semaforo(
     codigo_cid: Optional[str],
     principio_ativo: Optional[str],
-    aprovados: dict[tuple[str, str], str],
+    aprovados: dict[tuple[str, str], "Proveniencia"],
     cids_exaustivos: set[str],
+    cond_prov: Optional[dict[str, "Proveniencia"]] = None,
 ) -> Avaliacao:
     """Avalia a coerência fármaco ↔ CID e devolve o sinal.
 
@@ -137,31 +230,72 @@ def avaliar_semaforo(
       2. CID exaustivo, ativo não consta  → 🟡 (fora do protocolo — confira)
       3. caso contrário (não exaustivo)   → neutro (sem julgamento, sem ponto)
     """
-    if not codigo_cid or not principio_ativo:
-        return Avaliacao(SINAL_NEUTRO, "indicação ou fármaco ausente", None)
+    cond_prov = cond_prov or {}
 
-    ativo_k = canon_ativo(principio_ativo)
-    cadeia = cadeia_cid(codigo_cid)
+    # Canonizar ANTES do guard: assim "" / None / "   " (só-espaço) / um CID que
+    # colapsa para vazio caem TODOS em "entrada incompleta" (neutro honesto), e
+    # nunca num 🟡 com fármaco fantasma. O guard testa o valor CANÔNICO, não o cru.
+    cid_k0 = canon_cid(codigo_cid or "")
+    ativo_k = canon_ativo(principio_ativo or "")
+
+    if not cid_k0 or not ativo_k:
+        return Avaliacao(
+            SINAL_NEUTRO, "indicação ou fármaco ausente", None,
+            cid_recebido=codigo_cid, ativo_recebido=principio_ativo,
+            cid_avaliado=cid_k0 or None, ativo_canonico=ativo_k or None,
+            exaustiva=None,   # nada foi apurado — não afirmar exaustividade
+            causa=CAUSA_ENTRADA_INCOMPLETA,
+            regra="entrada incompleta → semáforo não julga (neutro)",
+        )
+
+    cadeia = cadeia_cid(cid_k0)
 
     # PORTÃO DA EXAUSTIVIDADE (primeiro!). Se a condição não tem lista COMPLETA,
     # o semáforo não julga NADA — nem 🟢. Mostrar 🟢 só para os fármacos que
     # curamos privilegiaria-os sobre os válidos que faltam (o viés que Fabiano
     # apontou). Então: condição não-exaustiva → neutro (silêncio).
-    if not any(cid_k in cids_exaustivos for cid_k in cadeia):
-        return Avaliacao(SINAL_NEUTRO, "sem curadoria exaustiva para esta condição", None)
+    cid_exaustivo = next((c for c in cadeia if c in cids_exaustivos), None)
+    if cid_exaustivo is None:
+        return Avaliacao(
+            SINAL_NEUTRO, "sem curadoria exaustiva para esta condição", None,
+            cid_recebido=codigo_cid, ativo_recebido=principio_ativo,
+            cid_avaliado=cid_k0, ativo_canonico=ativo_k, exaustiva=False,
+            causa=CAUSA_NAO_EXAUSTIVA,
+            regra=(
+                "condição sem lista exaustiva curada → semáforo não julga "
+                "(neutro, lei da exaustividade)"
+            ),
+        )
 
     # Condição EXAUSTIVA → o semáforo pode julgar.
     # 1) Aprovado (🟢) — busca subindo a hierarquia do CID.
     for cid_k in cadeia:
-        fonte = aprovados.get((cid_k, ativo_k))
-        if fonte:
-            return Avaliacao(SINAL_VERDE, "tratamento reconhecido para a condição", fonte)
+        prov = aprovados.get((cid_k, ativo_k))
+        if prov:
+            return Avaliacao(
+                SINAL_VERDE, "tratamento reconhecido para a condição", prov.condicao,
+                cid_recebido=codigo_cid, ativo_recebido=principio_ativo,
+                cid_avaliado=cid_k0, cid_casado=cid_k, ativo_canonico=ativo_k,
+                exaustiva=True, causa=CAUSA_VERDE, proveniencia=prov,
+                regra=(
+                    f"({cid_k}, {ativo_k}) consta na lista exaustiva validada "
+                    f"da condição"
+                ),
+            )
 
     # 2) Fármaco fora da lista completa do protocolo → 🟡 (informação honesta).
+    prov = cond_prov.get(cid_exaustivo)
     return Avaliacao(
         SINAL_AMARELO,
         "fármaco fora do protocolo desta condição — confira",
-        None,
+        prov.condicao if prov else None,
+        cid_recebido=codigo_cid, ativo_recebido=principio_ativo,
+        cid_avaliado=cid_k0, cid_casado=cid_exaustivo, ativo_canonico=ativo_k,
+        exaustiva=True, causa=CAUSA_AMARELO, proveniencia=prov,
+        regra=(
+            f"{cid_exaustivo} tem lista exaustiva e {ativo_k} NÃO consta nela "
+            f"→ fora do protocolo (confira)"
+        ),
     )
 
 
@@ -192,16 +326,25 @@ def _resolver_csv() -> str:
 _VALORES_VERDADE = ("true", "sim", "1", "verdadeiro")
 
 
-def carregar_regras(caminho: str) -> tuple[dict[tuple[str, str], str], set[str]]:
-    """Lê o CSV curado → (aprovados, cids_exaustivos).
+def carregar_regras(
+    caminho: str,
+) -> tuple[dict[tuple[str, str], Proveniencia], set[str], dict[str, Proveniencia]]:
+    """Lê o CSV curado → (aprovados, cids_exaustivos, cond_prov).
 
     INVARIANTES:
     - só entram regras com `status_curadoria == 'validado'` (linha vermelha);
     - `cids_exaustivos` = CIDs marcados `exaustivo` (lista 🟢 COMPLETA). Só nesses
       o semáforo julga a ausência (🟡); senão se cala (lei da exaustividade).
+
+    Estruturas:
+    - `aprovados[(cid, ativo)] = Proveniencia` — regra 🟢 e sua proveniência;
+    - `cond_prov[cid] = Proveniencia` — proveniência no nível da CONDIÇÃO (todas
+      as linhas de um CID partilham condição/fonte/validado_por/versão). Serve ao
+      🟡, em que não há fármaco aprovado mas a condição tem proveniência.
     """
-    aprovados: dict[tuple[str, str], str] = {}
+    aprovados: dict[tuple[str, str], Proveniencia] = {}
     cids_exaustivos: set[str] = set()
+    cond_prov: dict[str, Proveniencia] = {}
     try:
         with open(caminho, newline="", encoding="utf-8") as f:
             for row in _csv.DictReader(f):
@@ -211,19 +354,25 @@ def carregar_regras(caminho: str) -> tuple[dict[tuple[str, str], str], set[str]]
                 ativo_k = canon_ativo(row.get("principio_ativo") or "")
                 if not cid_k or not ativo_k:
                     continue
-                fonte = (row.get("condicao_nome") or "").strip() or cid_k
-                aprovados[(cid_k, ativo_k)] = fonte
+                prov = Proveniencia(
+                    condicao=(row.get("condicao_nome") or "").strip() or cid_k,
+                    fonte=(row.get("fonte") or "").strip(),
+                    validado_por=(row.get("validado_por") or "").strip(),
+                    versao=(row.get("versao") or "").strip(),
+                )
+                aprovados[(cid_k, ativo_k)] = prov
+                cond_prov[cid_k] = prov
                 if (row.get("exaustivo") or "").strip().lower() in _VALORES_VERDADE:
                     cids_exaustivos.add(cid_k)
     except FileNotFoundError:
         pass   # sem CSV → sem regras → tudo neutro (degrada seguro)
-    return aprovados, cids_exaustivos
+    return aprovados, cids_exaustivos, cond_prov
 
 
-_REGRAS_CACHE: Optional[tuple[dict, set]] = None
+_REGRAS_CACHE: Optional[tuple[dict, set, dict]] = None
 
 
-def _regras() -> tuple[dict, set]:
+def _regras() -> tuple[dict, set, dict]:
     global _REGRAS_CACHE
     if _REGRAS_CACHE is None:
         _REGRAS_CACHE = carregar_regras(_resolver_csv())
@@ -232,8 +381,8 @@ def _regras() -> tuple[dict, set]:
 
 def avaliar(codigo_cid: Optional[str], principio_ativo: Optional[str]) -> Avaliacao:
     """Avalia usando as regras curadas carregadas (cacheadas)."""
-    aprovados, cids = _regras()
-    return avaliar_semaforo(codigo_cid, principio_ativo, aprovados, cids)
+    aprovados, cids, cond_prov = _regras()
+    return avaliar_semaforo(codigo_cid, principio_ativo, aprovados, cids, cond_prov)
 
 
 def total_regras() -> int:
