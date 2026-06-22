@@ -55,6 +55,8 @@
         .med-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 16px; background: #ffffff; border-left: 4px solid #16a34a; }
         .med-card-header { display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; flex-wrap: wrap; gap: 12px; }
         .med-card-title { color: #1e3a8a; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+        .med-semaforo { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; cursor: help; }
+        .semaforo-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
         
         .result-list { max-height: 300px; overflow-y: auto; margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 6px; }
         .result-item { padding: 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; background: #ffffff; border-left: 4px solid transparent; }
@@ -1477,7 +1479,10 @@
             div.className = 'med-card'; div.id = `med-item-${medCount}`;
             div.innerHTML = `
                 <div class="med-card-header">
-                    <span class="med-card-title">Fármaco ${medCount}</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="med-card-title">Fármaco ${medCount}</span>
+                        <span class="med-semaforo" id="semaforo-${medCount}"></span>
+                    </div>
                     <div style="display:flex; gap:12px; align-items:center;">
                         <select class="form-select med-validade" style="width: auto; padding: 4px 8px; font-size:12px; background:#f8fafc; border-color:#cbd5e1; font-weight:bold; color:#1e3a8a;">
                             <option value="10 dias" ${validade === '10 dias' ? 'selected' : ''}>Validade: 10 dias</option>
@@ -2203,6 +2208,46 @@
             container.innerHTML = html;
         }
 
+        /** Semáforo de apoio à decisão (validador, NÃO-bloqueante): confere o
+         *  fármaco escolhido contra o CID da prescrição e acende um ponto discreto
+         *  🟢/🟡 no card. Atrás de feature flag no backend ({ativo:false} → nada). */
+        function _avaliarSemaforo(n, pa) {
+            const el = document.getElementById('semaforo-' + n);
+            if (!el) return;
+            el.innerHTML = ''; el.removeAttribute('title');
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
+            const cidEl = document.getElementById('prescricao-cid-escolhido');
+            const cid = cidEl ? (cidEl.value || '').split('|').filter(Boolean)[0] : '';
+            if (!cid || !pa) return;
+            fetch(BACKEND + '/ia/decisao/validar', {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ codigo_cid: cid, principio_ativo: pa })
+            })
+            .then(r => r.ok ? r.json() : { ativo: false })
+            .then(d => {
+                if (!d || !d.ativo) return;            // feature desligada → nada
+                const cor = d.sinal === 'verde' ? '#16a34a'
+                          : d.sinal === 'vermelho' ? '#dc2626' : '#f59e0b';
+                const rotulo = d.sinal === 'verde' ? 'Coerente'
+                          : d.sinal === 'vermelho' ? 'Alerta' : 'Atenção';
+                const fonte = d.fonte ? ' · ' + _escDoc(d.fonte) : '';
+                el.innerHTML = '<span class="semaforo-dot" style="background:' + cor + '"></span>' +
+                               '<span style="color:' + cor + '">' + rotulo + fonte + '</span>';
+                el.title = (d.motivo || '') + (d.fonte ? ' (' + d.fonte + ')' : '') +
+                           ' — ' + (d.aviso || '');
+            })
+            .catch(() => {});
+        }
+
+        /** Reavalia o semáforo de todos os cards (ex.: ao mudar o CID da prescrição). */
+        function _reavaliarTodosSemaforos() {
+            document.querySelectorAll('.med-card').forEach(card => {
+                const n = parseInt(String(card.id).replace('med-item-', ''), 10);
+                const pa = ((card.querySelector('.med-nome') || {}).value || '').trim();
+                if (n && pa) _avaliarSemaforo(n, pa);
+            });
+        }
+
         function _selecionarMedicamento(n, pa, conc, forma, unidade) {
             const card = document.getElementById('med-item-' + n);
             if (!card) return;
@@ -2241,6 +2286,7 @@
                     esc([pa, conc].filter(Boolean).join(' ')) + '</strong>' +
                     (forma ? ' — ' + esc(forma) : '') + '</div></div>';
             }
+            _avaliarSemaforo(n, pa);   // semáforo de apoio à decisão (flag-gated)
         }
 
         /**
@@ -2445,6 +2491,8 @@
                 ? Array.from(chips.querySelectorAll('[data-cid]')).map(e => e.getAttribute('data-cid'))
                 : [];
             hidden.value = codigos.join('|');
+            // Mudou o CID da prescrição → reavalia o semáforo dos cards.
+            if (hiddenId === 'prescricao-cid-escolhido') _reavaliarTodosSemaforos();
         }
 
         function _usarCid(chipsId, hiddenId, codigo, descricao) {

@@ -1,0 +1,33 @@
+codigo_cid,condicao_nome,principio_ativo,fonte,status_curadoria,validado_por,versao
+I10,Hipertensão arterial,hidroclorotiazida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+I10,Hipertensão arterial,losartana,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+I10,Hipertensão arterial,enalapril,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+I10,Hipertensão arterial,anlodipino,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+I10,Hipertensão arterial,atenolol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E11,Diabetes mellitus tipo 2,metformina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E11,Diabetes mellitus tipo 2,glibenclamida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E11,Diabetes mellitus tipo 2,gliclazida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E11,Diabetes mellitus tipo 2,insulina NPH,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E11,Diabetes mellitus tipo 2,dapagliflozina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+J45,Asma,salbutamol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+J45,Asma,beclometasona,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+J45,Asma,budesonida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+J45,Asma,prednisolona,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E03,Hipotireoidismo,levotiroxina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E78,Dislipidemia,sinvastatina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+E78,Dislipidemia,atorvastatina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F32,Depressão,fluoxetina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F32,Depressão,sertralina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F32,Depressão,escitalopram,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F32,Depressão,amitriptilina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+K21,Refluxo gastroesofágico (DRGE),omeprazol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+K21,Refluxo gastroesofágico (DRGE),pantoprazol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+N39.0,Infecção do trato urinário (ITU),fosfomicina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+N39.0,Infecção do trato urinário (ITU),nitrofurantoína,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+N39.0,Infecção do trato urinário (ITU),cefalexina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+N39.0,Infecção do trato urinário (ITU),ciprofloxacino,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F41,Transtornos ansiosos,clonazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F41,Transtornos ansiosos,diazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F41,Transtornos ansiosos,fluoxetina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F41,Transtornos ansiosos,sertralina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06
+F41,Transtornos ansiosos,escitalopram,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06

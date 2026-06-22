@@ -65,6 +65,11 @@ PICSAUDE_FRONTEND_DIR: str = os.getenv("PICSAUDE_FRONTEND_DIR", "")
 #   PICSAUDE_INSTANCE_ID_PATH=data/.instance_id.demo
 PICSAUDE_DEMO_MODE:  bool = os.getenv("PICSAUDE_DEMO_MODE",  "").lower() == "true"
 PICSAUDE_DEMO_ADMIN: bool = os.getenv("PICSAUDE_DEMO_ADMIN", "").lower() == "true"
+
+# Apoio à decisão clínica (semáforo) — feature flag. OFF por padrão e na vitrine.
+# Quando true, POST /ia/decisao/validar acende 🟢/🟡 na escolha do fármaco
+# (validador não-bloqueante; ver docs/ARQUITETURA_DECISAO_CLINICA.md).
+PICSAUDE_DECISAO_CLINICA: bool = os.getenv("PICSAUDE_DECISAO_CLINICA", "").lower() == "true"
 PIX_SAUDE_DEMO_DB:   str  = os.getenv(
     "PIX_SAUDE_DEMO_DB",
     os.path.join(os.path.dirname(__file__), "../../data/pix_saude_demo.db"),
