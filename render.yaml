@@ -44,6 +44,10 @@ services:
         value: "true"           # seletor de papéis + dados fictícios + telas servidas pela casa
       - key: PICSAUDE_JWT_TTL_MIN
         value: "480"            # 8h na vitrine demo (15min padrão expira no meio do teste)
+      - key: PICSAUDE_DECISAO_CLINICA
+        value: "true"           # semáforo de apoio à decisão (validador, não-bloqueante).
+                                # Hipertensão (I10) acende; demais condições silenciosas.
+                                # Blueprint é manual-sync: setar TAMBÉM no dashboard do Render.
       - key: DATABASE_URL
         fromDatabase:
           name: picsaude-db
