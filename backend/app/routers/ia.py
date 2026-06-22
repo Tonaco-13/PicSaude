@@ -27,6 +27,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
+from app.config import PICSAUDE_DECISAO_CLINICA
 from app.ai.ia_farmaceutica import sugerir_medicamento
 from app.ai.lookup_def import tamanho_base, versao_base as _versao_base, buscar_medicamentos
 from app.ai.apresentacoes_comerciais import apresentacoes_comerciais
@@ -507,5 +508,46 @@ def status_documentos(
         "aviso": (
             "Templates planejados (declaração, relatório, laudo) não estão "
             "implementados neste ticket. Escopo atual: atestado médico."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# POST /ia/decisao/validar — semáforo de apoio à decisão (validador)
+# ---------------------------------------------------------------------------
+
+class ValidarDecisaoIn(BaseModel):
+    """Escolha do prescritor a validar contra a indicação (CID)."""
+    codigo_cid:      Optional[str] = None
+    principio_ativo: Optional[str] = None
+
+
+@router.post(
+    "/decisao/validar",
+    summary="Semáforo de apoio à decisão — coerência fármaco ↔ CID (não-bloqueante)",
+)
+def validar_decisao_endpoint(
+    payload: ValidarDecisaoIn,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """Confere a coerência do fármaco ESCOLHIDO pelo prescritor com a indicação
+    (CID) e devolve um sinal discreto 🟢/🟡. NÃO recomenda fármaco, NÃO bloqueia.
+
+    Atrás de feature flag (`PICSAUDE_DECISAO_CLINICA`). Desligado → `{ativo: false}`
+    (o frontend não exibe o sinal). Ver docs/ARQUITETURA_DECISAO_CLINICA.md.
+    """
+    if not PICSAUDE_DECISAO_CLINICA:
+        return {"ativo": False}
+
+    from app.domain.semaforo_decisao import avaliar
+    a = avaliar(payload.codigo_cid, payload.principio_ativo)
+    return {
+        "ativo":  True,
+        "sinal":  a.sinal,        # verde | amarelo  (vermelho = Fase 2)
+        "motivo": a.motivo,
+        "fonte":  a.fonte,
+        "aviso": (
+            "Sinal de apoio à decisão, não-bloqueante. A escolha e a "
+            "responsabilidade são do prescritor."
         ),
     }
