@@ -102,9 +102,24 @@ O sinal é **discreto** (um ponto colorido junto ao fármaco) e **não-bloqueant
 
 | Sinal | Significado | Quando acende |
 |---|---|---|
-| 🟢 **Perfeito** | escolha coerente | o fármaco é **tratamento reconhecido** para o CID (consta no PCDT / curadoria) |
-| 🟡 **Atenção** | sem base para afirmar | o sistema **não conhece** a relação (CID sem PCDT, fármaco não-listado) **ou** indicação fora do padrão **sem perigo conhecido** |
-| 🔴 **Alerta** | evidência forte de problema | **contraindicação real** (fármaco-doença, alergia, interação) **ou** descasamento perigoso |
+| 🟢 **Perfeito** | escolha coerente | em condição **exaustiva**, o fármaco consta na lista **completa** do PCDT |
+| 🟡 **Atenção** | fora do protocolo | em condição **exaustiva**, o fármaco **não** consta na lista completa — confira |
+| **(silêncio) Neutro** | sem julgamento | condição **sem curadoria exaustiva** → o semáforo se cala (nem 🟢) |
+| 🔴 **Alerta** | perigo real | **contraindicação** (fármaco-doença, alergia, interação) — **Fase 2** |
+
+### Lei da exaustividade (princípio fundamental — achado de Fabiano)
+> Uma lista 🟢 **incompleta não é neutra**: ela privilegia os fármacos curados e
+> desencoraja os válidos omitidos — recomendação pela porta dos fundos. Logo:
+>
+> **O semáforo só JULGA uma condição cuja lista 🟢 é EXAUSTIVA em relação ao
+> PCDT. Senão, ele se CALA (neutro) — nem 🟢.**
+>
+> Mostrar verde só para os fármacos que curamos já seria o viés. Assim o semáforo
+> é **autoritativo quando fala** (lista completa) e **honesto quando se cala**.
+> No dado: coluna `exaustivo` por condição; o motor (`semaforo_decisao.py`)
+> aplica o portão da exaustividade ANTES de qualquer sinal. Condições-semente
+> entram como **não exaustivas** (silenciosas) até a lista completa ser curada e
+> assinada.
 
 ### Princípio crítico — o 🔴 é conservador (fadiga de alerta)
 > Se o sistema pintar de vermelho toda escolha que ele "não conhece", o
