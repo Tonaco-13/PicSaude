@@ -101,13 +101,16 @@ def test_nunca_vermelho_na_v1():
 # Loader — semente validada (data/decisao_semaforo.csv)
 # ===========================================================================
 
-def test_semente_e_silenciosa_por_nao_ser_exaustiva():
-    """Lei da exaustividade ao vivo: a semente (9 condições, exaustivo=false) →
-    semáforo NEUTRO mesmo para fármacos aprovados. Sem viés até completarmos."""
+def test_condicao_semente_silenciosa_e_exaustiva_acende():
+    """Lei da exaustividade ao vivo: condições ainda em semente (exaustivo=false)
+    → NEUTRO (sem viés); a condição EXAUSTIVA (I10/hipertensão) acende 🟢."""
     from app.domain.semaforo_decisao import avaliar, total_regras
-    assert total_regras() >= 30                                  # regras carregadas
-    assert avaliar("I10", "losartana").sinal == SINAL_NEUTRO     # silêncio (não-exaustiva)
+    assert total_regras() >= 60                                  # I10 exaustiva + semente
+    assert avaliar("E11", "metformina").sinal == SINAL_NEUTRO    # semente → silêncio
     assert avaliar("F32", "escitalopram").sinal == SINAL_NEUTRO
+    assert avaliar("I10", "losartana").sinal == SINAL_VERDE      # exaustiva → acende
+    assert avaliar("I10", "captopril").sinal == SINAL_VERDE      # antes ausente, agora 🟢
+    assert avaliar("I10", "amoxicilina").sinal == SINAL_AMARELO  # fora do protocolo
 
 
 def test_condicao_marcada_exaustiva_acende(tmp_path):
@@ -170,12 +173,12 @@ def test_endpoint_flag_off_retorna_inativo(client, monkeypatch):
     assert r.json() == {"ativo": False}
 
 
-def test_endpoint_flag_on_semente_neutra(client, monkeypatch):
-    """Com a semente (não-exaustiva), o endpoint devolve neutro (sem ponto na UI)."""
+def test_endpoint_flag_on_condicao_semente_neutra(client, monkeypatch):
+    """Condição ainda em semente (E11, não-exaustiva) → neutro (sem ponto na UI)."""
     import app.routers.ia as ia
     monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
     r = client.post("/ia/decisao/validar",
-                    json={"codigo_cid": "I10", "principio_ativo": "losartana"})
+                    json={"codigo_cid": "E11", "principio_ativo": "metformina"})
     assert r.status_code == 200
     d = r.json()
     assert d["ativo"] is True and d["sinal"] == SINAL_NEUTRO
