@@ -8,26 +8,37 @@ cala — neutro) e a cadeia 🟢/🟡 (o 🔴 é Fase 2).
 from __future__ import annotations
 
 from app.domain.semaforo_decisao import (
+    CAUSA_AMARELO,
+    CAUSA_ENTRADA_INCOMPLETA,
+    CAUSA_NAO_EXAUSTIVA,
+    CAUSA_VERDE,
     SINAL_AMARELO,
     SINAL_NEUTRO,
     SINAL_VERDE,
+    Proveniencia,
     avaliar_semaforo,
     cadeia_cid,
     canon_ativo,
     canon_cid,
 )
 
+
+def _prov(condicao):
+    return Proveniencia(condicao=condicao, fonte="fonte de teste",
+                        validado_por="Curador Teste", versao="teste_v1")
+
 # Regras-amostra (NÃO é conteúdo clínico de produção — só exercita o motor).
 # I10 e E11 marcadas como EXAUSTIVAS (lista completa) → o motor pode julgar.
 _APROVADOS = {
-    ("I10", "losartana"): "PCDT Hipertensão",
-    ("E11", "metformina"): "PCDT Diabetes tipo 2",
+    ("I10", "losartana"): _prov("PCDT Hipertensão"),
+    ("E11", "metformina"): _prov("PCDT Diabetes tipo 2"),
 }
 _CIDS_EXAUSTIVOS = {"I10", "E11"}
+_COND_PROV = {"I10": _prov("PCDT Hipertensão"), "E11": _prov("PCDT Diabetes tipo 2")}
 
 
 def _av(cid, ativo):
-    return avaliar_semaforo(cid, ativo, _APROVADOS, _CIDS_EXAUSTIVOS)
+    return avaliar_semaforo(cid, ativo, _APROVADOS, _CIDS_EXAUSTIVOS, _COND_PROV)
 
 
 # --- canonicalização ---
@@ -122,11 +133,11 @@ def test_condicao_marcada_exaustiva_acende(tmp_path):
         "I10,Hipertensão,captopril,PCDT HAS,validado,X,v1,true\n",
         encoding="utf-8",
     )
-    aprovados, exaustivos = sd.carregar_regras(str(csv_path))
+    aprovados, exaustivos, cond_prov = sd.carregar_regras(str(csv_path))
     assert ("I10", "losartana") in aprovados and "I10" in exaustivos
-    assert sd.avaliar_semaforo("I10", "losartana", aprovados, exaustivos).sinal == SINAL_VERDE
-    assert sd.avaliar_semaforo("I10", "captopril", aprovados, exaustivos).sinal == SINAL_VERDE
-    assert sd.avaliar_semaforo("I10", "amoxicilina", aprovados, exaustivos).sinal == SINAL_AMARELO
+    assert sd.avaliar_semaforo("I10", "losartana", aprovados, exaustivos, cond_prov).sinal == SINAL_VERDE
+    assert sd.avaliar_semaforo("I10", "captopril", aprovados, exaustivos, cond_prov).sinal == SINAL_VERDE
+    assert sd.avaliar_semaforo("I10", "amoxicilina", aprovados, exaustivos, cond_prov).sinal == SINAL_AMARELO
 
 
 def test_loader_ignora_status_nao_validado(tmp_path):
@@ -138,7 +149,7 @@ def test_loader_ignora_status_nao_validado(tmp_path):
         "I10,Hipertensão,farmaco_rascunho,x,rascunho,X,v1,true\n",
         encoding="utf-8",
     )
-    aprovados, _ex = sd.carregar_regras(str(csv_path))
+    aprovados, _ex, _cond = sd.carregar_regras(str(csv_path))
     assert ("I10", "losartana") in aprovados
     assert ("I10", "farmaco_rascunho") not in aprovados   # não-validado fica fora
 
@@ -188,9 +199,131 @@ def test_endpoint_flag_on_condicao_exaustiva_acende_verde(client, monkeypatch):
     import app.routers.ia as ia
     import app.domain.semaforo_decisao as sd
     monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
+    prov = _prov("Hipertensão arterial")
     monkeypatch.setattr(sd, "_REGRAS_CACHE",
-                        ({("I10", "losartana"): "PCDT HAS"}, {"I10"}))
+                        ({("I10", "losartana"): prov}, {"I10"}, {"I10": prov}))
     r = client.post("/ia/decisao/validar",
                     json={"codigo_cid": "I10", "principio_ativo": "losartana"})
     d = r.json()
     assert d["ativo"] is True and d["sinal"] == SINAL_VERDE and d["fonte"]
+    # ── Ficha de explicabilidade (camada 2): a resposta justifica o sinal ──
+    ex = d["explicabilidade"]
+    assert ex["causa"] == CAUSA_VERDE
+    assert ex["condicao_exaustiva"] is True
+    assert "consta na lista exaustiva" in ex["regra"]
+    assert ex["significado"]
+    assert ex["proveniencia"]["validado_por"] == "Curador Teste"
+    assert ex["proveniencia"]["versao"] == "teste_v1"
+    assert ex["entrada"]["principio_ativo_canonico"] == "losartana"
+    assert ex["entrada"]["principio_ativo_recebido"] == "losartana"
+    assert "determin" in ex["determinismo"].lower()
+
+
+# ===========================================================================
+# Ficha de explicabilidade (camada 2) — o sinal é reconstruível da ficha
+# ===========================================================================
+
+def test_ficha_verde_carrega_proveniencia_completa():
+    """🟢 deve trazer a regra disparada + proveniência (condição/fonte/quem/versão)
+    + exaustividade. Quem lê a ficha reconstrói a decisão sem ler o código."""
+    a = _av("I10.0", "Losartana Potássica")
+    assert a.sinal == SINAL_VERDE
+    assert a.causa == CAUSA_VERDE
+    assert a.cid_avaliado == "I10.0" and a.cid_casado == "I10"   # subiu a hierarquia
+    assert a.ativo_recebido == "Losartana Potássica"            # entrada bruta preservada
+    assert a.ativo_canonico == "losartana"                       # sal removido
+    assert a.exaustiva is True
+    assert a.proveniencia is not None
+    assert a.proveniencia.validado_por == "Curador Teste"
+    f = a.to_ficha()["explicabilidade"]
+    assert f["regra"]
+    assert f["causa"] == CAUSA_VERDE
+    assert f["proveniencia"]["versao"] == "teste_v1"
+    assert f["nao_bloqueante"] and f["significado"]
+    # entrada bruta E canônica ambas na ficha (auditoria P3)
+    assert f["entrada"]["principio_ativo_recebido"] == "Losartana Potássica"
+    assert f["entrada"]["principio_ativo_canonico"] == "losartana"
+
+
+def test_ficha_amarelo_marca_exaustiva_e_regra():
+    """🟡 explica POR QUE é fora do protocolo: condição exaustiva + ativo ausente."""
+    a = _av("I10", "amoxicilina")
+    assert a.sinal == SINAL_AMARELO
+    assert a.causa == CAUSA_AMARELO
+    assert a.exaustiva is True
+    assert a.cid_casado == "I10"
+    assert "NÃO consta" in a.regra
+    # No 🟡 a proveniência é a da CONDIÇÃO (via cond_prov), não de um fármaco.
+    assert a.proveniencia is not None and a.proveniencia.condicao == "PCDT Hipertensão"
+    # anti-overclaim: o significado do 🟡 nega explicitamente "errado/perigoso" (P5)
+    signif = a.to_ficha()["explicabilidade"]["significado"].lower()
+    assert "não significa errado" in signif or "não significa" in signif
+
+
+def test_ficha_neutro_nao_inventa_proveniencia():
+    """neutro = silêncio honesto: sem proveniência, exaustiva=False, e a CAUSA é
+    estável (não depende de prosa) — distingue da entrada incompleta."""
+    a = _av("J45", "salbutamol")
+    assert a.sinal == SINAL_NEUTRO
+    assert a.causa == CAUSA_NAO_EXAUSTIVA      # discriminador estável (auditoria)
+    assert a.exaustiva is False                # portão rodou e disse "não exaustiva"
+    assert a.proveniencia is None
+    assert a.to_ficha()["explicabilidade"]["proveniencia"] is None
+
+
+def test_ficha_determinismo_mesma_entrada_mesmo_sinal():
+    """Garantia central da explicabilidade: determinismo. Reavaliar a mesma
+    entrada produz ficha idêntica (sinal + regra + proveniência)."""
+    a1 = _av("I10", "losartana")
+    a2 = _av("I10", "losartana")
+    assert a1.to_ficha() == a2.to_ficha()
+
+
+# ===========================================================================
+# Correções da auditoria adversarial (explicabilidade)
+# ===========================================================================
+
+def test_p1_farmaco_so_espacos_cai_em_neutro_nao_amarelo_fantasma():
+    """BUG da auditoria (P1): fármaco só-espaços ('   ') furava o guard e, numa
+    condição EXAUSTIVA (I10), acendia 🟡 com fármaco vazio. Deve ser neutro/
+    entrada_incompleta — nunca um 🟡 fantasma."""
+    a = _av("I10", "   ")
+    assert a.sinal == SINAL_NEUTRO
+    assert a.causa == CAUSA_ENTRADA_INCOMPLETA
+    assert a.exaustiva is None                 # portão NÃO rodou → não afirma exaustiv.
+    assert a.to_ficha()["explicabilidade"]["proveniencia"] is None
+
+
+def test_p1_cid_so_espacos_cai_em_entrada_incompleta():
+    """Gêmeo do CID: '   ' como CID canoniza para '' e deve dar entrada_incompleta
+    (não 'condição não exaustiva', que mentiria sobre haver condição)."""
+    a = _av("   ", "captopril")
+    assert a.sinal == SINAL_NEUTRO
+    assert a.causa == CAUSA_ENTRADA_INCOMPLETA
+
+
+def test_entradas_vazias_equivalentes_mesma_ficha():
+    """Determinismo da explicação: entradas semanticamente vazias equivalentes
+    ('' e '   ') produzem a MESMA ficha (mesma causa, mesma justificativa)."""
+    assert _av("", "captopril").causa == _av("   ", "captopril").causa
+    assert _av("I10", "").causa == _av("I10", "   ").causa
+
+
+def test_dois_neutros_sao_distinguiveis_por_causa():
+    """Os DOIS silêncios têm CAUSA estruturada distinta — sem parsing de prosa:
+    entrada incompleta ≠ condição não-exaustiva."""
+    incompleta = _av("", "captopril")
+    nao_exaustiva = _av("J45", "salbutamol")
+    assert incompleta.causa == CAUSA_ENTRADA_INCOMPLETA
+    assert nao_exaustiva.causa == CAUSA_NAO_EXAUSTIVA
+    assert incompleta.causa != nao_exaustiva.causa
+    # exaustiva tri-estado: None (não apurado) vs False (apurado e negativo)
+    assert incompleta.exaustiva is None and nao_exaustiva.exaustiva is False
+
+
+def test_ficha_entrada_incompleta_nao_afirma_exaustividade():
+    """condicao_exaustiva deve ser null (não false) quando o portão nem rodou —
+    o motor não afirma o que não apurou (auditoria)."""
+    f = _av("", "").to_ficha()["explicabilidade"]
+    assert f["condicao_exaustiva"] is None
+    assert f["causa"] == CAUSA_ENTRADA_INCOMPLETA

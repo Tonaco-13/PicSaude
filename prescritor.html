@@ -57,6 +57,18 @@
         .med-card-title { color: #1e3a8a; font-size: 14px; font-weight: 700; text-transform: uppercase; }
         .med-semaforo { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; cursor: help; }
         .semaforo-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .semaforo-pq { font-size: 10px; font-weight: 600; color: #64748b; cursor: pointer; text-decoration: underline dotted; margin-left: 2px; }
+        .semaforo-pq:hover { color: #1e3a8a; }
+        /* Painel "por quê?" — ficha de explicabilidade do sinal (camada 2). */
+        #semaforo-ficha-pop { position: fixed; z-index: 9999; max-width: 380px; background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 8px 28px rgba(15,23,42,.18); padding: 14px 16px; font-size: 12px; line-height: 1.5; color: #1e293b; display: none; }
+        #semaforo-ficha-pop.aberto { display: block; }
+        #semaforo-ficha-pop h4 { margin: 0 0 8px; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+        #semaforo-ficha-pop .ficha-row { margin: 6px 0; }
+        #semaforo-ficha-pop .ficha-k { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .03em; }
+        #semaforo-ficha-pop .ficha-v { color: #0f172a; }
+        #semaforo-ficha-pop .ficha-signif { margin: 0 0 10px; padding: 8px 10px; background: #f8fafc; border-left: 3px solid #cbd5e1; border-radius: 4px; font-size: 11.5px; color: #334155; }
+        #semaforo-ficha-pop .ficha-foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid #eef2f7; color: #64748b; font-size: 11px; }
+        #semaforo-ficha-pop .ficha-x { position: absolute; top: 8px; right: 11px; cursor: pointer; color: #94a3b8; font-weight: 700; font-size: 15px; line-height: 1; }
         
         .result-list { max-height: 300px; overflow-y: auto; margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 6px; }
         .result-item { padding: 16px; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; background: #ffffff; border-left: 4px solid transparent; }
@@ -2226,18 +2238,98 @@
             .then(r => r.ok ? r.json() : { ativo: false })
             .then(d => {
                 if (!d || !d.ativo) return;            // feature desligada → nada
-                if (['verde','amarelo','vermelho'].indexOf(d.sinal) < 0) return;  // neutro → silêncio
+                if (['verde','amarelo','vermelho'].indexOf(d.sinal) < 0) {
+                    delete _fichasSemaforo[n];         // neutro → silêncio (sem ficha)
+                    return;
+                }
                 const cor = d.sinal === 'verde' ? '#16a34a'
                           : d.sinal === 'vermelho' ? '#dc2626' : '#f59e0b';
                 const rotulo = d.sinal === 'verde' ? 'Coerente'
                           : d.sinal === 'vermelho' ? 'Alerta' : 'Atenção';
                 const fonte = d.fonte ? ' · ' + _escDoc(d.fonte) : '';
+                _fichasSemaforo[n] = d;                // guarda a ficha p/ o "por quê?"
                 el.innerHTML = '<span class="semaforo-dot" style="background:' + cor + '"></span>' +
-                               '<span style="color:' + cor + '">' + rotulo + fonte + '</span>';
+                               '<span style="color:' + cor + '">' + rotulo + fonte + '</span>' +
+                               '<span class="semaforo-pq" onclick="_abrirFichaSemaforo(' + n + ', event)">por quê?</span>';
                 el.title = (d.motivo || '') + (d.fonte ? ' (' + d.fonte + ')' : '') +
                            ' — ' + (d.aviso || '');
             })
             .catch(() => {});
+        }
+
+        /** Fichas de explicabilidade por card (resposta do /ia/decisao/validar). */
+        const _fichasSemaforo = {};
+
+        /** Abre o painel "por quê?" — mostra a ficha de explicabilidade do sinal:
+         *  entrada normalizada, regra disparada, proveniência (fonte/validado/versão),
+         *  exaustividade e a garantia de determinismo. Tudo que justifica o sinal,
+         *  reconstruível sem ler o código. Ver docs/EXPLICABILIDADE_DECISAO_CLINICA.md. */
+        function _abrirFichaSemaforo(n, ev) {
+            if (ev) ev.stopPropagation();
+            const d = _fichasSemaforo[n];
+            if (!d) return;
+            const ex = d.explicabilidade || {};
+            const ent = ex.entrada || {};
+            const pv = ex.proveniencia;
+            const cor = d.sinal === 'verde' ? '#16a34a'
+                      : d.sinal === 'vermelho' ? '#dc2626' : '#f59e0b';
+            const rotulo = d.sinal === 'verde' ? '🟢 Coerente'
+                      : d.sinal === 'vermelho' ? '🔴 Alerta' : '🟡 Atenção';
+            const pop = _semaforoPop();
+            const row = (k, v) => v ? '<div class="ficha-row"><span class="ficha-k">' + k +
+                                       '</span><br><span class="ficha-v">' + _escDoc(v) + '</span></div>' : '';
+            // Fármaco "como digitado → canônico" quando a normalização mudou algo
+            // (ex.: "Oxalato de Escitalopram → escitalopram"); senão, só o canônico.
+            const bruto = ent.principio_ativo_recebido || '';
+            const canon = ent.principio_ativo_canonico || '';
+            const farmacoTxt = (bruto && bruto.trim().toLowerCase() !== canon)
+                ? bruto + '  →  ' + canon : canon;
+            let html = '<span class="ficha-x" onclick="_fecharFichaSemaforo()">×</span>';
+            html += '<h4><span style="color:' + cor + '">' + rotulo + '</span></h4>';
+            // Significado (anti-overclaim): o 🟡 NÃO quer dizer errado/perigoso.
+            if (ex.significado) html += '<div class="ficha-signif">' + _escDoc(ex.significado) + '</div>';
+            html += row('Indicação (CID)', ent.cid + (ent.cid_casado && ent.cid_casado !== ent.cid ? '  →  ' + ent.cid_casado : ''));
+            html += row('Fármaco avaliado', farmacoTxt);
+            html += row('Regra aplicada', ex.regra);
+            if (pv) {
+                html += row('Condição', pv.condicao);
+                html += row('Fonte clínica', pv.fonte);
+                html += row('Validado por', pv.validado_por);
+                html += row('Versão da curadoria', pv.versao);
+            }
+            html += row('Lista exaustiva?', ex.condicao_exaustiva ? 'Sim — a ausência tem significado' : 'Não');
+            html += '<div class="ficha-foot">' + _escDoc(ex.determinismo || '') +
+                    '<br><br>' + _escDoc(ex.nao_bloqueante || d.aviso || '') + '</div>';
+            pop.innerHTML = html;
+            pop.classList.add('aberto');
+            // Posiciona perto do gatilho, sem sair da viewport.
+            const r = ev && ev.target ? ev.target.getBoundingClientRect() : { left: 80, bottom: 80 };
+            let left = Math.min(r.left, window.innerWidth - 400);
+            let top = r.bottom + 6;
+            if (top + pop.offsetHeight > window.innerHeight - 10) top = Math.max(10, r.top - pop.offsetHeight - 6);
+            pop.style.left = Math.max(10, left) + 'px';
+            pop.style.top = top + 'px';
+        }
+
+        function _semaforoPop() {
+            let pop = document.getElementById('semaforo-ficha-pop');
+            if (!pop) {
+                pop = document.createElement('div');
+                pop.id = 'semaforo-ficha-pop';
+                document.body.appendChild(pop);
+                document.addEventListener('click', (e) => {
+                    if (pop.classList.contains('aberto') && !pop.contains(e.target) &&
+                        !(e.target.classList && e.target.classList.contains('semaforo-pq'))) {
+                        _fecharFichaSemaforo();
+                    }
+                });
+            }
+            return pop;
+        }
+
+        function _fecharFichaSemaforo() {
+            const pop = document.getElementById('semaforo-ficha-pop');
+            if (pop) pop.classList.remove('aberto');
         }
 
         /** Reavalia o semáforo de todos os cards (ex.: ao mudar o CID da prescrição). */
