@@ -86,3 +86,78 @@ def test_nunca_bloqueia_nem_vermelho_na_v1():
     """v1 só acende verde/amarelo — nunca vermelho (Fase 2)."""
     for cid, ativo in [("I10", "losartana"), ("I10", "amoxicilina"), ("Z99", "x")]:
         assert _av(cid, ativo).sinal in (SINAL_VERDE, SINAL_AMARELO)
+
+
+# ===========================================================================
+# Loader — carrega a semente validada (data/decisao_semaforo.csv)
+# ===========================================================================
+
+def test_loader_serve_semente_validada():
+    from app.domain.semaforo_decisao import avaliar, total_regras
+    assert total_regras() >= 30                                   # semente carregada
+    assert avaliar("I10", "losartana").sinal == SINAL_VERDE
+    assert avaliar("F32", "Oxalato de Escitalopram").sinal == SINAL_VERDE  # sal removido
+    assert avaliar("E11", "dapagliflozina").sinal == SINAL_VERDE
+    assert avaliar("I10", "amoxicilina").sinal == SINAL_AMARELO
+
+
+def test_loader_ignora_status_nao_validado(tmp_path):
+    from app.domain import semaforo_decisao as sd
+    csv_path = tmp_path / "regras.csv"
+    csv_path.write_text(
+        "codigo_cid,condicao_nome,principio_ativo,fonte,status_curadoria,validado_por,versao\n"
+        "I10,Hipertensão,losartana,x,validado,X,v1\n"
+        "I10,Hipertensão,farmaco_rascunho,x,rascunho,X,v1\n",
+        encoding="utf-8",
+    )
+    aprovados, _cids = sd.carregar_regras(str(csv_path))
+    assert ("i10".upper(), "losartana") in aprovados
+    assert ("I10", "farmaco_rascunho") not in aprovados   # não-validado fica fora
+
+
+# ===========================================================================
+# Endpoint — POST /ia/decisao/validar (atrás de feature flag)
+# ===========================================================================
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+from app.auth.dependencies import get_current_user, get_current_user_or_api_key
+
+_PRESCRITOR = {"sub": "123456789012345", "role": "prescritor", "nome": "Dr"}
+
+
+@pytest.fixture
+def client():
+    app.dependency_overrides[get_current_user] = lambda: _PRESCRITOR
+    app.dependency_overrides[get_current_user_or_api_key] = lambda: _PRESCRITOR
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def test_endpoint_flag_off_retorna_inativo(client, monkeypatch):
+    import app.routers.ia as ia
+    monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", False)
+    r = client.post("/ia/decisao/validar",
+                    json={"codigo_cid": "I10", "principio_ativo": "losartana"})
+    assert r.status_code == 200
+    assert r.json() == {"ativo": False}
+
+
+def test_endpoint_flag_on_acende_verde(client, monkeypatch):
+    import app.routers.ia as ia
+    monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
+    r = client.post("/ia/decisao/validar",
+                    json={"codigo_cid": "I10", "principio_ativo": "losartana"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["ativo"] is True and d["sinal"] == "verde" and d["fonte"]
+
+
+def test_endpoint_flag_on_amarelo_fora_da_base(client, monkeypatch):
+    import app.routers.ia as ia
+    monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
+    r = client.post("/ia/decisao/validar",
+                    json={"codigo_cid": "I10", "principio_ativo": "amoxicilina"})
+    assert r.json()["sinal"] == "amarelo"

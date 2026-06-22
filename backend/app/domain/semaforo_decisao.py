@@ -154,3 +154,73 @@ def avaliar_semaforo(
 
     # 3) Sem base para afirmar (🟡 neutro — honesto).
     return Avaliacao(SINAL_AMARELO, "sem base para confirmar coerência", None)
+
+
+# ---------------------------------------------------------------------------
+# Carregamento das regras curadas (só serve o que está `validado`)
+# ---------------------------------------------------------------------------
+
+import csv as _csv          # noqa: E402  (import local ao bloco de loading)
+import os as _os            # noqa: E402
+
+_STATUS_VALIDADO = "validado"
+
+
+def _resolver_csv() -> str:
+    """Caminho do CSV curado. Env `PICSAUDE_SEMAFORO_CSV` tem prioridade
+    (empacotamento Docker); senão, layout de dev (data/ na raiz do repo)."""
+    override = _os.getenv("PICSAUDE_SEMAFORO_CSV")
+    if override:
+        return override
+    return _os.path.normpath(
+        _os.path.join(
+            _os.path.dirname(__file__), "..", "..", "..",
+            "data", "decisao_semaforo.csv",
+        )
+    )
+
+
+def carregar_regras(caminho: str) -> tuple[dict[tuple[str, str], str], set[str]]:
+    """Lê o CSV curado → (aprovados, cids_com_pcdt).
+
+    INVARIANTE: só entram regras com `status_curadoria == 'validado'` (linha
+    vermelha — o motor não serve conteúdo não-assinado).
+    """
+    aprovados: dict[tuple[str, str], str] = {}
+    cids: set[str] = set()
+    try:
+        with open(caminho, newline="", encoding="utf-8") as f:
+            for row in _csv.DictReader(f):
+                if (row.get("status_curadoria") or "").strip() != _STATUS_VALIDADO:
+                    continue
+                cid_k = canon_cid(row.get("codigo_cid") or "")
+                ativo_k = canon_ativo(row.get("principio_ativo") or "")
+                if not cid_k or not ativo_k:
+                    continue
+                fonte = (row.get("condicao_nome") or "").strip() or cid_k
+                aprovados[(cid_k, ativo_k)] = fonte
+                cids.add(cid_k)
+    except FileNotFoundError:
+        pass   # sem CSV → sem regras → tudo 🟡 (degrada seguro)
+    return aprovados, cids
+
+
+_REGRAS_CACHE: Optional[tuple[dict, set]] = None
+
+
+def _regras() -> tuple[dict, set]:
+    global _REGRAS_CACHE
+    if _REGRAS_CACHE is None:
+        _REGRAS_CACHE = carregar_regras(_resolver_csv())
+    return _REGRAS_CACHE
+
+
+def avaliar(codigo_cid: Optional[str], principio_ativo: Optional[str]) -> Avaliacao:
+    """Avalia usando as regras curadas carregadas (cacheadas)."""
+    aprovados, cids = _regras()
+    return avaliar_semaforo(codigo_cid, principio_ativo, aprovados, cids)
+
+
+def total_regras() -> int:
+    """Número de regras 🟢 validadas carregadas (para health/diagnóstico)."""
+    return len(_regras()[0])
