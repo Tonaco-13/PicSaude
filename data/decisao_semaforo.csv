@@ -1,9 +1,65 @@
 codigo_cid,condicao_nome,principio_ativo,fonte,status_curadoria,validado_por,versao,exaustivo
-I10,Hipertensão arterial,hidroclorotiazida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-I10,Hipertensão arterial,losartana,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-I10,Hipertensão arterial,enalapril,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-I10,Hipertensão arterial,anlodipino,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-I10,Hipertensão arterial,atenolol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
+I10,Hipertensão arterial,hidroclorotiazida,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,clortalidona,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,indapamida,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,furosemida,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,bumetanida,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,piretanida,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,espironolactona,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,eplerenona,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,amilorida,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,triantereno,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,captopril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,enalapril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,ramipril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,lisinopril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,benazepril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,fosinopril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,perindopril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,trandolapril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,cilazapril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,delapril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,quinapril,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,losartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,valsartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,candesartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,olmesartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,telmisartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,irbesartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,azilsartana,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,alisquireno,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,anlodipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,levanlodipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,nifedipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,felodipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,lercanidipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,manidipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,nitrendipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,isradipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,lacidipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,nisoldipino,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,verapamil,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,diltiazem,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,atenolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,propranolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,metoprolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,carvedilol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,bisoprolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,nebivolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,nadolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,pindolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,acebutolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,esmolol,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,metildopa,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,clonidina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,moxonidina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,rilmenidina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,guanabenzo,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,hidralazina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,minoxidil,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,doxazosina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,prazosina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
+I10,Hipertensão arterial,terazosina,RENAME 2024 + Diretrizes Brasileiras de HAS 2020 (SBC/SBH/SBN),validado,Fabiano Tonaco Borges,semaforo_has_exaustiva_v1_2026-06,true
 E11,Diabetes mellitus tipo 2,metformina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 E11,Diabetes mellitus tipo 2,glibenclamida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 E11,Diabetes mellitus tipo 2,gliclazida,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
