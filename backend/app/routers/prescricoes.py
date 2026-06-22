@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -11,8 +12,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, field_validator, model_validator
 
 from app.auth.dependencies import require_role
+from app.config import PICSAUDE_DECISAO_CLINICA
 from app.database import get_conn
 from app.database_tx import get_tx
+from app.domain.auditoria_decisao import TIPO_EVENTO_DECISAO, montar_trilha_decisao
 from app.domain.documento_canonico import montar_documento, montar_documento_de_conn
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
@@ -39,6 +42,8 @@ from app.domain.assinatura_icp import verificar_assinatura_icp, serializar_paylo
 from app.utils.helpers import normalize_cns, normalize_cpf, normalize_nome
 
 router = APIRouter(prefix="/prescricoes", tags=["prescricoes"])
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -363,8 +368,9 @@ def criar_prescricao(payload: PrescricaoIn, usuario=Depends(require_role("prescr
         # ------------------------------------------------------------------
         # 5. Inserir itens
         # ------------------------------------------------------------------
+        itens_emitidos: list[tuple[int, str]] = []   # (item_id, nome) p/ camada 3
         for item in payload.itens:
-            conn.execute(
+            cur_item = conn.execute(
                 """
                 INSERT INTO prescricao_itens
                   (prescricao_id, nome_medicamento, concentracao, quantidade,
@@ -387,6 +393,7 @@ def criar_prescricao(payload: PrescricaoIn, usuario=Depends(require_role("prescr
                     agora,
                 ),
             )
+            itens_emitidos.append((cur_item.lastrowid, item.nome_medicamento))
 
         # ------------------------------------------------------------------
         # 6. Gerar documento canônico e armazenar hash de integridade
@@ -570,6 +577,33 @@ def criar_prescricao(payload: PrescricaoIn, usuario=Depends(require_role("prescr
         )
         registrar_outbox(conn, "prescricao_emitida", "prescricao", protocolo,
                          ev_payload, instance_id=instance_id)
+
+        # ------------------------------------------------------------------
+        # Camada 3 — trilha de auditoria da decisão clínica (append-only).
+        # Registra qual sinal do semáforo cada item recebeu na EMISSÃO e sob
+        # qual VERSÃO de regra (complemento persistente da ficha — camada 2).
+        # Só registra quando o semáforo está ATIVO (algo foi apresentado ao
+        # prescritor) e há CID (houve indicação a validar).
+        # NÃO-BLOQUEANTE: a trilha NUNCA pode quebrar a emissão.
+        # ------------------------------------------------------------------
+        if PICSAUDE_DECISAO_CLINICA and payload.codigo_cid and itens_emitidos:
+            try:
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="prescricao",
+                    objeto_id=prescricao_id,
+                    tipo_evento=TIPO_EVENTO_DECISAO,
+                    instance_id=instance_id,
+                    payload=montar_trilha_decisao(payload.codigo_cid, itens_emitidos),
+                    ator_tipo="prescritor",
+                    ator_id=cns,
+                )
+            except Exception:   # pragma: no cover — defesa; trilha é secundária
+                logger.exception(
+                    "Falha ao registrar trilha de decisão clínica "
+                    "(prescricao_id=%s) — emissão segue normalmente.",
+                    prescricao_id,
+                )
 
         # ------------------------------------------------------------------
         # Ticket 63 — Entrega à carteira digital

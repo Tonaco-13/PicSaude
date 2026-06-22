@@ -63,6 +63,7 @@ Vocabulário de eventos conhecido:
 | `erro_prescricao_identificado` | Erro identificado no balcão |
 | `pagamento_nao_concluido` | Falha de pagamento no balcão |
 | `assinatura_registrada` | Metadados de assinatura digital declarados pelo prescritor (stub MVP) |
+| `decisao_clinica_avaliada` | **Camada 3** — trilha de auditoria do semáforo: sinal + versão da regra por item, gravado na emissão (não-bloqueante; só com a flag `PICSAUDE_DECISAO_CLINICA` ativa e `codigo_cid` presente). Ver `docs/EXPLICABILIDADE_DECISAO_CLINICA.md` §11 |
 
 **Fluxo físico emite DOIS eventos em sequência:**
 1. `prescricao_impressa` — ato de impressão (quem, quando, quantos itens)
