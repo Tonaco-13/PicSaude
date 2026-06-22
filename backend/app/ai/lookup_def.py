@@ -296,6 +296,48 @@ def _conc_ordenavel(texto: str) -> float:
         return 0.0
 
 
+# Sais comuns como PREFIXO ("cloridrato de metformina" → o fármaco vem depois).
+# Usado só para RANKING de relevância (não para o índice de match).
+_SAL_PREFIXO = (
+    "cloridrato de ", "dicloridrato de ", "bromidrato de ", "hidrobrometo de ",
+    "oxalato de ", "sulfato de ", "fosfato de ", "maleato de ", "besilato de ",
+    "mesilato de ", "succinato de ", "tartarato de ", "acetato de ", "nitrato de ",
+    "citrato de ", "fumarato de ", "hemifumarato de ", "pamoato de ", "embonato de ",
+    "lactato de ", "gluconato de ", "carbonato de ", "valerato de ", "benzoato de ",
+    "dipropionato de ", "estearato de ", "propionato de ", "cipionato de ",
+    "enantato de ", "decanoato de ", "pidolato de ", "iodeto de ", "cloreto de ",
+)
+
+
+def _sem_sal(nome_norm: str) -> str:
+    """Remove um prefixo de sal do nome normalizado (para ranking)."""
+    for p in _SAL_PREFIXO:
+        if nome_norm.startswith(p):
+            return nome_norm[len(p):]
+    return nome_norm
+
+
+def _tier_relevancia(reg: dict, termo: str) -> int:
+    """Hierarquia de relevância do match por substring (menor = mais relevante):
+      0 monofármaco e o termo É o princípio ativo (ex.: "dipirona")
+      1 combinação onde o termo é o componente PRINCIPAL ("dipirona + X")
+      2 monofármaco com o termo no meio do nome (raro)
+      3 combinação onde o termo é componente SECUNDÁRIO ("X + dipirona")
+    Evita que combinações enterrem o fármaco puro no autocomplete.
+    """
+    pa = reg.get("principio_ativo") or ""
+    pa_norm = normalizar_nome_medicamento(pa)
+    combinacao = "+" in pa
+    comeca = pa_norm.startswith(termo) or _sem_sal(pa_norm).startswith(termo)
+    if not combinacao and comeca:
+        return 0
+    if combinacao and comeca:
+        return 1
+    if not combinacao:
+        return 2
+    return 3
+
+
 def buscar_medicamentos(nome_medicamento: str, max_resultados: int = 8) -> list[dict]:
     """Busca multi-resultado (autocomplete): até `max_resultados` candidatos.
 
@@ -323,9 +365,11 @@ def buscar_medicamentos(nome_medicamento: str, max_resultados: int = 8) -> list[
         resultados.append(_resultado_de_registro(reg, tipo, score))
         return len(resultados) >= max_resultados
 
-    # 1) Correspondência por substring (relevância forte), ordenada por concentração.
+    # 1) Correspondência por substring (relevância forte). Ordena por tier de
+    #    relevância (monofármaco antes de combinação) e depois por concentração.
     diretos = [reg for reg, alvo in _busca_norm_cache() if texto in alvo]
     diretos.sort(key=lambda r: (
+        _tier_relevancia(r, texto),
         (r.get("principio_ativo") or ""),
         (r.get("forma_farmaceutica") or ""),
         _conc_ordenavel(r.get("concentracao_texto") or ""),

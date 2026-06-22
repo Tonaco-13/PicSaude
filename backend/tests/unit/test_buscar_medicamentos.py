@@ -55,6 +55,20 @@ def test_fuzzy_ainda_tolera_erro_de_digitacao():
     assert any("amoxicilina" in (r["principio_ativo"] or "") for r in rs)
 
 
+def test_monofarmaco_vem_antes_de_combinacao():
+    """Buscar um monofármaco traz o fármaco PURO no topo, não combinações
+    ('X + dipirona'). Regressão do bug relatado (dipirona/paracetamol/etc.)."""
+    for q in ["dipirona", "paracetamol", "diclofenaco", "omeprazol", "metformina"]:
+        rs = buscar_medicamentos(q, 8)
+        assert rs, q
+        pa_topo = (rs[0]["principio_ativo"] or "")
+        assert "+" not in pa_topo, f"{q}: combinação no topo ({pa_topo})"
+        # o fármaco puro (sem '+') contendo o termo deve aparecer
+        assert any("+" not in (r["principio_ativo"] or "")
+                   and q in (r["principio_ativo"] or "").lower()
+                   for r in rs), f"{q}: monofármaco puro ausente"
+
+
 def test_unidade_de_dispensacao_fidedigna():
     """A unidade vem da forma (não fica vazia/errada para não-sólidos)."""
     from app.ai.lookup_def import _unidade_de_forma
