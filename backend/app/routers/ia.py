@@ -541,11 +541,17 @@ def validar_decisao_endpoint(
 
     from app.domain.semaforo_decisao import avaliar
     a = avaliar(payload.codigo_cid, payload.principio_ativo)
+    # Ficha de explicabilidade (camada 2): a resposta carrega tudo que justifica
+    # o sinal — entrada normalizada, regra disparada, proveniência (condição,
+    # fonte, quem validou, versão), exaustividade e a garantia de determinismo.
+    # A UI usa isso no "por quê?". Ver docs/EXPLICABILIDADE_DECISAO_CLINICA.md.
+    ficha = a.to_ficha()
     return {
         "ativo":  True,
-        "sinal":  a.sinal,        # verde | amarelo  (vermelho = Fase 2)
+        "sinal":  a.sinal,        # verde | amarelo | neutro  (vermelho = Fase 2)
         "motivo": a.motivo,
         "fonte":  a.fonte,
+        "explicabilidade": ficha["explicabilidade"],
         "aviso": (
             "Sinal de apoio à decisão, não-bloqueante. A escolha e a "
             "responsabilidade são do prescritor."
