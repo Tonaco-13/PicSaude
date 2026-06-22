@@ -2226,6 +2226,7 @@
             .then(r => r.ok ? r.json() : { ativo: false })
             .then(d => {
                 if (!d || !d.ativo) return;            // feature desligada → nada
+                if (['verde','amarelo','vermelho'].indexOf(d.sinal) < 0) return;  // neutro → silêncio
                 const cor = d.sinal === 'verde' ? '#16a34a'
                           : d.sinal === 'vermelho' ? '#dc2626' : '#f59e0b';
                 const rotulo = d.sinal === 'verde' ? 'Coerente'
