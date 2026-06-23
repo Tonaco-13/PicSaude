@@ -55,6 +55,7 @@ _TABELAS_LEDGER = [
     "agendamento_eventos",
     "circulacao_diagnostica_eventos",
     "encaminhamento_eventos",
+    "atestado_eventos",
 ]
 
 # ---------------------------------------------------------------------------
@@ -102,6 +103,9 @@ _TABELAS_APP = [
     "contrarreferencias",                 # TICKET-ENCAMINHAMENTO-E2 — objeto derivado
     "contrarreferencia_eventos",          # TICKET-ENCAMINHAMENTO-E2 — ledger
     "contrarreferencia_custodia",         # TICKET-ENCAMINHAMENTO-E2 — cadeia de custódia
+    "atestados",                          # Atestado — objeto sanitário monolítico
+    "atestado_eventos",                   # Atestado — ledger imutável
+    "atestado_custodia",                  # Atestado — cadeia de custódia
 ]
 
 
