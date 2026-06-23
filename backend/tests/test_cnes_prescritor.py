@@ -450,18 +450,16 @@ def test_validar_cns_divergente_cbo(cnes_db):
 
 
 def test_validar_cns_erro_banco(cnes_db_sem_tabelas):
-    """37. Erro de banco → nao_encontrado sem lançar exceção.
-
-    `cnes_db_sem_tabelas` cria arquivo SQLite vazio (sem CREATE TABLE) e
-    patcheia DB_PATH para ele. A consulta levanta OperationalError →
-    `except Exception` em cnes_prescritor.py:384 captura → divergência
-    'erro_consulta_cnes' + nivel nao_encontrado.
+    """37. Snapshot CNES ausente (tabelas não criadas) → nao_encontrado sem
+    lançar exceção, e com a divergência LIMPA 'cnes_snapshot_indisponivel'
+    (não 'erro_consulta_cnes' nem o caminho do arquivo). Ausência de snapshot
+    não é erro de validação — a validação CNES é não-bloqueante.
     """
     conn = _app_conn()
     r = validar_cns_prescritor(conn, "123456789012345", "DR TESTE")
     assert r["nivel_validacao_cnes"] == "nao_encontrado"
     assert r["cns_encontrado"] is False
-    assert any("erro_consulta_cnes" in d for d in r["divergencias"])
+    assert any("cnes_snapshot_indisponivel" in d for d in r["divergencias"])
     conn.close()
 
 
@@ -761,3 +759,34 @@ def test_emissao_nao_bloqueada_cns_ausente_cnes(prescritor):
     body = resp.json()
     assert body["cnes_validacao"]["nivel_validacao_cnes"] == "nao_encontrado"
     assert body["cnes_validacao"]["cns_encontrado"] is False
+
+
+# ---------------------------------------------------------------------------
+# Degradação limpa quando o snapshot CNES está ausente (dev/demo/vitrine sem
+# a base nacional). Validação é não-bloqueante: nunca crasha, nunca vaza path.
+# ---------------------------------------------------------------------------
+
+def test_snapshot_ausente_arquivo_degrada_limpo(monkeypatch):
+    import app.domain.cnes_prescritor as cp
+
+    def _raise(*a, **k):
+        raise FileNotFoundError("/app/app/../../data/pix_saude_demo.db")
+
+    monkeypatch.setattr(cp, "_get_cnes_conn", _raise)
+    r = cp.validar_cns_prescritor(_app_conn(), "980001112223334", "Dra Demo")
+    assert r["nivel_validacao_cnes"] == "nao_encontrado"
+    assert "cnes_snapshot_indisponivel" in r["divergencias"]
+    # não vaza o caminho do arquivo ao usuário
+    assert all("pix_saude_demo.db" not in d for d in r["divergencias"])
+
+
+def test_snapshot_ausente_tabela_degrada_limpo(monkeypatch):
+    import sqlite3 as _sq
+    import app.domain.cnes_prescritor as cp
+
+    def _raise(*a, **k):
+        raise _sq.OperationalError("no such table: profissionais_cnes")
+
+    monkeypatch.setattr(cp, "_get_cnes_conn", _raise)
+    r = cp.validar_cns_prescritor(_app_conn(), "980001112223334", "Dra Demo")
+    assert "cnes_snapshot_indisponivel" in r["divergencias"]
