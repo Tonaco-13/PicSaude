@@ -21,8 +21,8 @@ BASE_URL: str = os.getenv("PICSAUDE_BASE_URL", "http://127.0.0.1:8000")
 # ---------------------------------------------------------------------------
 # Identificador do snapshot DataSUS carregado nesta instância.
 # Em produção: definir CNES_SNAPSHOT_REF e CNES_SNAPSHOT_MES ao importar a base.
-CNES_SNAPSHOT_REF: str = os.getenv("CNES_SNAPSHOT_REF", "cnes_br_2025_12")
-CNES_SNAPSHOT_MES: str = os.getenv("CNES_SNAPSHOT_MES", "2025-12")
+CNES_SNAPSHOT_REF: str = os.getenv("CNES_SNAPSHOT_REF", "cnes_br_2026_05")
+CNES_SNAPSHOT_MES: str = os.getenv("CNES_SNAPSHOT_MES", "2026-05")
 
 # ---------------------------------------------------------------------------
 # JWT — autenticação e autorização

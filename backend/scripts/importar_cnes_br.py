@@ -1,10 +1,10 @@
 """
-Importa os arquivos CSV do CNES Brasil (dezembro 2025) para o banco SQLite.
+Importa os arquivos CSV do CNES Brasil (maio/2026) para o banco SQLite.
 
 Tabelas populadas (substituição completa das tabelas PE):
-  - estabelecimentos_cnes    ← cnes_br_tmp/tbEstabelecimento202512.csv
-  - profissionais_cnes       ← cnes_br_tmp/tbDadosProfissionalSus202512.csv
-  - relacao_prof_estab       ← cnes_br_tmp/tbCargaHorariaSus202512.csv
+  - estabelecimentos_cnes    ← cnes_br_tmp/tbEstabelecimento202605.csv
+  - profissionais_cnes       ← cnes_br_tmp/tbDadosProfissionalSus202605.csv
+  - relacao_prof_estab       ← cnes_br_tmp/tbCargaHorariaSus202605.csv
 
 Uso:
     python backend/scripts/importar_cnes_br.py
@@ -31,9 +31,9 @@ TMP_DIR      = DATA_DIR / "cnes_br_tmp"
 DEFAULT_DB   = os.environ.get("PIX_SAUDE_DB") or str(DATA_DIR / "pix_saude_pe.db")
 
 ARQUIVOS = {
-    "estabelecimentos_cnes": TMP_DIR / "tbEstabelecimento202512.csv",
-    "profissionais_cnes":    TMP_DIR / "tbDadosProfissionalSus202512.csv",
-    "relacao_prof_estab":    TMP_DIR / "tbCargaHorariaSus202512.csv",
+    "estabelecimentos_cnes": TMP_DIR / "tbEstabelecimento202605.csv",
+    "profissionais_cnes":    TMP_DIR / "tbDadosProfissionalSus202605.csv",
+    "relacao_prof_estab":    TMP_DIR / "tbCargaHorariaSus202605.csv",
 }
 
 CHUNK_SIZE = 2000
@@ -150,20 +150,25 @@ def criar_indices(conn: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Importa CNES Brasil (dez/2025) para SQLite")
+    parser = argparse.ArgumentParser(description="Importa CNES Brasil (mai/2026) para SQLite")
     parser.add_argument("--db", default=DEFAULT_DB,
                         help=f"Caminho do banco (padrão: {DEFAULT_DB})")
+    parser.add_argument("--apenas", nargs="+", choices=list(ARQUIVOS.keys()), default=None,
+                        help="Carregar só estas tabelas (ex.: --apenas estabelecimentos_cnes — "
+                             "destrava o login da farmácia sem os arquivos multi-GB). Padrão: as 3.")
     args = parser.parse_args()
+
+    arquivos_alvo = {t: ARQUIVOS[t] for t in (args.apenas or ARQUIVOS.keys())}
 
     db_path = Path(args.db)
     if not db_path.parent.exists():
         print(f"[ERRO] Diretório não existe: {db_path.parent}", file=sys.stderr)
         sys.exit(1)
 
-    for tabela, caminho in ARQUIVOS.items():
+    for tabela, caminho in arquivos_alvo.items():
         if not caminho.exists():
             print(f"[ERRO] Arquivo não encontrado: {caminho}", file=sys.stderr)
-            print(f"       Execute primeiro: unzip BASE_DE_DADOS_CNES_202512.ZIP -d data/cnes_br_tmp/",
+            print(f"       Execute primeiro: unzip BASE_DE_DADOS_CNES_202605.ZIP -d data/cnes_br_tmp/",
                   file=sys.stderr)
             sys.exit(1)
 
@@ -177,7 +182,7 @@ def main() -> None:
 
     resultados: dict[str, int] = {}
     try:
-        for tabela, caminho in ARQUIVOS.items():
+        for tabela, caminho in arquivos_alvo.items():
             print(f"\n[{tabela}]")
             resultados[tabela] = importar_arquivo(conn, tabela, caminho)
         criar_indices(conn)
@@ -185,7 +190,7 @@ def main() -> None:
         conn.close()
 
     print("\n" + "=" * 56)
-    print("  Importação concluída — CNES Brasil dez/2025")
+    print("  Importação concluída — CNES Brasil mai/2026")
     print("=" * 56)
     for tabela, total in resultados.items():
         print(f"  {tabela:<28} {total:>10,} linhas")
