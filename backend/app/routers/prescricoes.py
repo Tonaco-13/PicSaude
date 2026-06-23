@@ -9,15 +9,21 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.auth.dependencies import require_role
-from app.config import PICSAUDE_DECISAO_CLINICA
+from app.config import PICSAUDE_DECISAO_CLINICA, PICSAUDE_DEMO_MODE
 from app.database import get_conn
 from app.database_tx import get_tx
 from app.domain.auditoria_decisao import TIPO_EVENTO_DECISAO, montar_trilha_decisao
+from app.domain.cofre_pfx import decifrar_pfx
 from app.domain.documento_canonico import montar_documento, montar_documento_de_conn
 from app.domain.ledger import registrar_evento_ledger
+from app.domain.pdf_assinatura import (
+    MetadataAssinatura,
+    SenhaPfxInvalida,
+    assinar_pdf_icp,
+)
 from app.domain.outbox import registrar_outbox
 from app.instance import get_instance_id_conn
 from app.domain.pdf_prescricao import gerar_pdf_prescricao
@@ -1055,6 +1061,187 @@ def get_pdf_prescricao(
         iter([pdf_bytes]),
         media_type="application/pdf",
         headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Assinatura ICP-Brasil PAdES-B da prescrição comum (cofre server-side)
+# Espelha o fluxo já testado do receituário (receituarios.py), reutilizando
+# o mesmo motor de assinatura (assinar_pdf_icp) e o mesmo cofre (.pfx cifrado).
+# ---------------------------------------------------------------------------
+
+class PdfAssinadoRequest(BaseModel):
+    """Body do POST /{protocolo}/pdf-assinado. A senha é sensível — não logar."""
+    senha_pfx: str = Field(..., min_length=1, max_length=200)
+
+
+def _carregar_certificado_ativo_prescritor(conn, prescritor_id: int):
+    """Certificado ICP ativo do prescritor (do cofre). None se não houver."""
+    row = conn.execute(
+        """
+        SELECT id, pfx_cifrado, pfx_iv, pfx_tag, hash_cert_der, serial,
+               nome_no_certificado, cpf_no_certificado
+          FROM prescritor_certificados
+         WHERE prescritor_id = ? AND ativo = TRUE
+        """,
+        (prescritor_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+@router.post(
+    "/{protocolo}/pdf-assinado",
+    summary="Gera o PDF da prescrição com assinatura ICP-Brasil PAdES-B embutida",
+    response_class=StreamingResponse,
+)
+def get_pdf_assinado_prescricao(
+    protocolo: str,
+    body: PdfAssinadoRequest,
+    usuario=Depends(require_role("prescritor")),
+):
+    """Gera o PDF da prescrição comum e embute a assinatura ICP-Brasil (PAdES-B)
+    usando o certificado A1 do prescritor guardado no cofre.
+
+    Pré-requisitos:
+      - prescritor dono da prescrição;
+      - `assinatura_modo == "icp_brasil_local"`;
+      - certificado ativo no cofre (POST /prescritor/certificado).
+
+    Segurança: a senha do .pfx vem no body, é usada uma vez e não é persistida
+    nem logada; o .pfx é decifrado só em memória e descartado após assinar.
+    Bloqueado em DEMO_MODE (vitrine pública não guarda chave real).
+    Registra `pdf_assinado_pades` no ledger (hash do PDF + serial do cert).
+    """
+    # Auditoria F5: em modo demo (vitrine pública) não assinar com chave real.
+    if PICSAUDE_DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "codigo": "demo_mode_ativo",
+                "mensagem": "Assinatura com certificado desabilitada em modo demo.",
+            },
+        )
+
+    cns_token = normalize_cns(usuario.get("sub") or "")
+    with get_tx() as conn:
+        instance_id = get_instance_id_conn(conn)
+        row = conn.execute(
+            """
+            SELECT p.id, p.protocolo, p.status, p.tipo_emissao, p.assinatura_modo,
+                   p.assinatura_hash, p.data_emissao, p.prescritor_id,
+                   pr.cns  AS cns_prescritor, pr.nome AS nome_prescritor,
+                   pa.cpf  AS cpf_paciente,   pa.nome AS nome_paciente
+              FROM prescricoes p
+              JOIN prescritores pr ON pr.id = p.prescritor_id
+              JOIN pacientes    pa ON pa.id = p.paciente_id
+             WHERE p.protocolo = ?
+            """,
+            (protocolo,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=404, detail=f"Prescrição '{protocolo}' não encontrada.",
+            )
+        if cns_token != row["cns_prescritor"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Somente o prescritor que emitiu a prescrição pode assiná-la.",
+            )
+        if (row["assinatura_modo"] or "") != "icp_brasil_local":
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Prescrição não usa assinatura ICP-Brasil local "
+                    "(assinatura_modo != 'icp_brasil_local')."
+                ),
+            )
+
+        cert = _carregar_certificado_ativo_prescritor(conn, row["prescritor_id"])
+        if not cert:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Nenhum certificado ICP-Brasil ativo. "
+                    "Faça upload via POST /prescritor/certificado."
+                ),
+            )
+
+        # Decifra o .pfx (chave AES-GCM de ambiente) — só em memória.
+        pfx_bytes = decifrar_pfx(
+            bytes(cert["pfx_cifrado"]), bytes(cert["pfx_iv"]), bytes(cert["pfx_tag"]),
+        )
+
+        itens = [
+            dict(r)
+            for r in conn.execute(
+                """
+                SELECT nome_medicamento, concentracao, quantidade, posologia
+                  FROM prescricao_itens WHERE prescricao_id = ? ORDER BY id
+                """,
+                (row["id"],),
+            ).fetchall()
+        ]
+
+        from app.domain.assinatura import calcular_nivel_formal as _calc
+        nivel = _calc(row["assinatura_modo"], row["tipo_emissao"])
+        pdf_base = gerar_pdf_prescricao(
+            protocolo       = row["protocolo"],
+            status          = row["status"],
+            tipo_emissao    = row["tipo_emissao"],
+            assinatura_modo = row["assinatura_modo"],
+            assinatura_hash = row["assinatura_hash"],
+            nivel_formal    = nivel,
+            data_emissao    = row["data_emissao"],
+            nome_prescritor = row["nome_prescritor"],
+            cns_prescritor  = row["cns_prescritor"],
+            nome_paciente   = row["nome_paciente"],
+            cpf_paciente    = row["cpf_paciente"],
+            itens           = itens,
+            is_demo         = PICSAUDE_DEMO_MODE,
+        )
+
+        meta = MetadataAssinatura(
+            nome_prescritor=cert["nome_no_certificado"] or row["nome_prescritor"] or "",
+            cpf_prescritor=cert["cpf_no_certificado"],
+            razao="Prescrição médica digital PicSaúde",
+        )
+        try:
+            pdf_assinado = assinar_pdf_icp(
+                pdf_bytes=pdf_base,
+                pfx_bytes=pfx_bytes,
+                senha=body.senha_pfx,
+                metadata=meta,
+            )
+        except SenhaPfxInvalida:
+            raise HTTPException(status_code=401, detail="Senha do certificado inválida.")
+        finally:
+            del pfx_bytes   # best-effort: tira o .pfx claro da memória já
+
+        import hashlib as _hashlib
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=row["id"],
+            tipo_evento="pdf_assinado_pades",
+            instance_id=instance_id,
+            payload={
+                "hash_pdf":      _hashlib.sha256(pdf_assinado).hexdigest(),
+                "serial_cert":   cert["serial"],
+                "hash_cert_der": cert["hash_cert_der"],
+                "nivel_pades":   "B",
+            },
+            ator_tipo="prescritor",
+            ator_id=cns_token,
+        )
+
+    filename = f"receita-{protocolo[:8]}-assinada.pdf"
+    return StreamingResponse(
+        iter([pdf_assinado]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Length":      str(len(pdf_assinado)),
+        },
     )
 
 
