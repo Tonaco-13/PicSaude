@@ -22,12 +22,20 @@ from datetime import datetime, date, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator, model_validator
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.auth.dependencies import require_role
+from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
+from app.domain.cofre_pfx import decifrar_pfx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
+from app.domain.pdf_assinatura import (
+    MetadataAssinatura,
+    SenhaPfxInvalida,
+    assinar_pdf_icp,
+)
 from app.instance import get_instance_id_conn
 from app.domain.states_exame import (
     ESTADOS_TERMINAIS_PEDIDO_EXAME,
@@ -1240,6 +1248,132 @@ def get_pdf_pedido_exame(
                 f'inline; filename="pedido-exame-{protocolo[:8]}.pdf"'
             ),
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /pedidos-exame/{protocolo}/pdf-assinado — PDF + assinatura ICP (PAdES)
+# Reusa o cofre + assinar_pdf_icp (idêntico à prescrição/atestado).
+# ---------------------------------------------------------------------------
+
+class PdfAssinadoExameRequest(BaseModel):
+    senha_pfx: str = Field(..., min_length=1, max_length=200)
+
+
+def _carregar_certificado_ativo_exame(conn, prescritor_id: int):
+    row = conn.execute(
+        """
+        SELECT pfx_cifrado, pfx_iv, pfx_tag, hash_cert_der, serial,
+               nome_no_certificado, cpf_no_certificado
+          FROM prescritor_certificados
+         WHERE prescritor_id = ? AND ativo = TRUE
+        """,
+        (prescritor_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+@router.post("/{protocolo}/pdf-assinado", response_class=StreamingResponse)
+def get_pdf_assinado_pedido_exame(
+    protocolo: str,
+    body: PdfAssinadoExameRequest,
+    usuario=Depends(require_role("prescritor")),
+):
+    """Gera o PDF do pedido de exame e embute assinatura ICP-Brasil (PAdES-B)
+    com o certificado A1 do prescritor no cofre.
+
+    Segurança: senha usada uma vez (não persistida); .pfx decifrado só em memória
+    e descartado. Bloqueado em DEMO_MODE. Registra `pdf_assinado_pades` no ledger.
+    """
+    from app.domain.pdf_pedido_exame import gerar_pdf_pedido_exame
+    import io as _io
+
+    if PICSAUDE_DEMO_MODE:
+        raise HTTPException(
+            status_code=403,
+            detail={"codigo": "demo_mode_ativo",
+                    "mensagem": "Assinatura com certificado desabilitada em modo demo."},
+        )
+
+    _papel, ident = _normalizar_identidade_jwt(usuario)
+    with get_tx() as conn:
+        row = conn.execute(
+            """
+            SELECT pe.id, pe.prescritor_id, pe.protocolo, pe.status, pe.tipo_emissao,
+                   pe.prioridade, pe.indicacao_clinica, pe.assinatura_hash,
+                   pe.data_emissao, pe.data_validade,
+                   pr.nome AS nome_prescritor, pr.cns AS cns_prescritor,
+                   pa.nome AS nome_paciente, pa.cpf AS cpf_paciente
+              FROM pedidos_exame pe
+              JOIN prescritores pr ON pr.id = pe.prescritor_id
+              JOIN pacientes    pa ON pa.id = pe.paciente_id
+             WHERE pe.protocolo = ?
+            """,
+            (protocolo,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Pedido '{protocolo}' não encontrado.")
+        _assert_or_403(
+            ident == row["cns_prescritor"],
+            codigo="nao_e_dono_do_pedido_exame",
+            mensagem="Somente o prescritor que emitiu o pedido pode assiná-lo.",
+        )
+
+        cert = _carregar_certificado_ativo_exame(conn, row["prescritor_id"])
+        if not cert:
+            raise HTTPException(
+                status_code=422,
+                detail="Nenhum certificado ICP-Brasil ativo. Faça upload via POST /prescritor/certificado.",
+            )
+
+        itens = conn.execute(
+            """
+            SELECT nome_exame, codigo_tuss, codigo_sigtap, quantidade, status_item
+              FROM pedido_exame_itens WHERE pedido_id = ? ORDER BY id
+            """,
+            (row["id"],),
+        ).fetchall()
+
+        pfx_bytes = decifrar_pfx(
+            bytes(cert["pfx_cifrado"]), bytes(cert["pfx_iv"]), bytes(cert["pfx_tag"]),
+        )
+        pdf_base = gerar_pdf_pedido_exame(
+            protocolo=row["protocolo"], status=row["status"], tipo_emissao=row["tipo_emissao"],
+            prioridade=row["prioridade"] or "rotina", indicacao_clinica=row["indicacao_clinica"],
+            assinatura_hash=row["assinatura_hash"], data_emissao=row["data_emissao"],
+            data_validade=row["data_validade"], nome_prescritor=row["nome_prescritor"],
+            cns_prescritor=row["cns_prescritor"], nome_paciente=row["nome_paciente"],
+            cpf_paciente=row["cpf_paciente"], itens=[dict(i) for i in itens],
+        )
+        meta = MetadataAssinatura(
+            nome_prescritor=cert["nome_no_certificado"] or row["nome_prescritor"] or "",
+            cpf_prescritor=cert["cpf_no_certificado"],
+            razao="Pedido de exame digital PicSaúde",
+        )
+        try:
+            pdf_assinado = assinar_pdf_icp(
+                pdf_bytes=pdf_base, pfx_bytes=pfx_bytes,
+                senha=body.senha_pfx, metadata=meta,
+            )
+        except SenhaPfxInvalida:
+            raise HTTPException(status_code=401, detail="Senha do certificado inválida.")
+        finally:
+            del pfx_bytes
+
+        import hashlib as _hashlib
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn, objeto_tipo="pedido_exame", objeto_id=row["id"],
+            tipo_evento="pdf_assinado_pades", instance_id=instance_id,
+            payload={"hash_pdf": _hashlib.sha256(pdf_assinado).hexdigest(),
+                     "serial_cert": cert["serial"], "hash_cert_der": cert["hash_cert_der"],
+                     "nivel_pades": "B"},
+        )
+
+    return StreamingResponse(
+        _io.BytesIO(pdf_assinado),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="pedido-exame-{protocolo[:8]}-assinado.pdf"'},
     )
 
 

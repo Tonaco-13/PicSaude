@@ -139,6 +139,7 @@ EVENTOS_PEDIDO_EXAME: frozenset[str] = frozenset({
     "pedido_expirado",          # validade ultrapassada
     "custodia_transferida",     # qualquer transferência de posse
     "pedido_corrigido",         # derivação por correção
+    "pdf_assinado_pades",       # PDF assinado em ICP-Brasil (PAdES-B) via cofre
 })
 
 # ---------------------------------------------------------------------------
