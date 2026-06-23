@@ -390,10 +390,20 @@ def validar_cns_prescritor(
             ).fetchall()
         finally:
             cnes_conn.close()
-    except Exception as exc:
-        resultado_base["divergencias"].append(
-            f"erro_consulta_cnes: {exc}"
-        )
+    except (FileNotFoundError, sqlite3.OperationalError) as exc:
+        # Snapshot CNES ausente neste ambiente (dev/demo/vitrine sem a base
+        # nacional carregada, ou tabelas ainda não criadas). NÃO é erro de
+        # validação — é apenas ausência do snapshot. Degrada limpo, sem vazar
+        # o caminho do arquivo, e nunca bloqueia a emissão (validação é
+        # não-bloqueante). Carga nacional: ver docs/CNES-NACIONAL-CARGA.md.
+        msg = str(exc).lower()
+        if isinstance(exc, FileNotFoundError) or "no such table" in msg:
+            resultado_base["divergencias"].append("cnes_snapshot_indisponivel")
+        else:
+            resultado_base["divergencias"].append("erro_consulta_cnes")
+        return resultado_base
+    except Exception:
+        resultado_base["divergencias"].append("erro_consulta_cnes")
         return resultado_base
 
     # ── CNS não encontrado no snapshot ────────────────────────────────────
