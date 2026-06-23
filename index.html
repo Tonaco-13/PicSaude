@@ -29,18 +29,10 @@
       padding: 18px 40px;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 24px;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
     }
-    .header-title {
-      color: #1e3a8a;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: 0.4px;
-      text-align: center;
-    }
-    @media (max-width: 600px) { .header-title { font-size: 17px; } }
 
     /*
      * Logo — coloque o arquivo "logo-picsaude.png" na raiz do projeto
@@ -102,7 +94,7 @@
     .intro h2 {
       font-size: 21px;
       font-weight: 700;
-      color: #1e293b;
+      color: #1e3a8a;
       margin-bottom: 12px;
     }
 
@@ -424,7 +416,7 @@
   <!-- CABEÇALHO INSTITUCIONAL                                       -->
   <!-- ============================================================ -->
   <header class="header">
-    <div class="header-title">Plataforma de Integração do Cuidado</div>
+    <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
   </header>
 
   <!-- ============================================================ -->
@@ -434,11 +426,7 @@
 
     <!-- Apresentação -------------------------------------------- -->
     <section class="intro" aria-label="Apresentação">
-      <p>
-        O PicSaúde é o traço-de-união do Cuidado. Conecta receitas, exames,
-        laudos e dispensações em um só fluxo digital, rastreável e seguro,
-        com o cidadão no centro. <strong>Não vende seus dados.</strong>
-      </p>
+      <h2>Plataforma de Integração do Cuidado</h2>
     </section>
 
     <!-- Cards de perfil ----------------------------------------- -->
