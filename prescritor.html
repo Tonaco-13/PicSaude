@@ -3024,13 +3024,20 @@
                 }
 
                 const data = await resp.json();
-                let _msgSucesso = `Pedido emitido com sucesso! Protocolo: ${data.protocolo}`;
-                if (data.entregue_carteira) {
-                    _msgSucesso += ' — entregue à carteira digital.';
-                } else {
-                    _msgSucesso += ` — compartilhe: cidadao.html?protocolo=${data.protocolo}`;
+                _exameEmitido = data.protocolo;
+                const _share = data.entregue_carteira
+                    ? ' — entregue à carteira digital.'
+                    : ' — compartilhe: cidadao.html?protocolo=' + _escDoc(data.protocolo);
+                if (statusEl) {
+                    statusEl.className = 'msg-inline msg-inline-success';
+                    statusEl.classList.remove('hidden');
+                    statusEl.innerHTML =
+                        'Pedido emitido! Protocolo: ' + _escDoc(data.protocolo) + _share +
+                        '<div style="margin-top:8px;">' +
+                        '<button type="button" class="btn btn-outline" onclick="baixarPdfExame()" style="width:auto;padding:6px 12px;font-size:12px;">📄 Baixar PDF</button> ' +
+                        '<button type="button" class="btn btn-action" onclick="assinarExame()" style="width:auto;padding:6px 12px;font-size:12px;margin-left:6px;">🔏 Assinar com ICP-Brasil</button>' +
+                        '<div id="exame-assinar-msg" class="msg-inline" style="display:none;margin-top:6px;"></div></div>';
                 }
-                _mostrar(_msgSucesso, 'success');
 
                 // Limpa o formulário e reinicia com um card vazio
                 document.getElementById('lista-exames').innerHTML = '';
@@ -3049,6 +3056,56 @@
                 console.error('Falha ao conectar ao backend:', err);
                 _mostrar('Não foi possível conectar ao servidor. Verifique se o backend está rodando em ' + BACKEND + '.', 'error');
             }
+        }
+
+        // Assinatura ICP-Brasil do pedido de exame (mesmo motor PAdES da prescrição).
+        let _exameEmitido = null;
+
+        async function baixarPdfExame() {
+            if (!_exameEmitido) return;
+            try {
+                const r = await fetch(BACKEND + '/pedidos-exame/' + _exameEmitido + '/pdf', { headers: authHeaders() });
+                if (!r.ok) return;
+                _baixarBlobExame(await r.blob(), 'pedido-exame-' + _exameEmitido.slice(0, 8) + '.pdf');
+            } catch (_) {}
+        }
+
+        async function assinarExame() {
+            if (!_exameEmitido) return;
+            const msgEl = document.getElementById('exame-assinar-msg');
+            const _msg = (t, tipo) => {
+                if (!msgEl) return;
+                msgEl.textContent = t; msgEl.style.display = t ? 'block' : 'none';
+                msgEl.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error' : tipo === 'success' ? 'msg-inline-success' : '');
+            };
+            const senha = window.prompt('Senha do seu certificado ICP-Brasil (.pfx):');
+            if (senha === null) return;
+            if (!senha) return _msg('Senha não informada.', 'error');
+            _msg('Assinando…', '');
+            try {
+                const r = await fetch(BACKEND + '/pedidos-exame/' + _exameEmitido + '/pdf-assinado', {
+                    method: 'POST', headers: authHeaders(), body: JSON.stringify({ senha_pfx: senha })
+                });
+                if (!r.ok) {
+                    let m = 'Falha ao assinar (HTTP ' + r.status + ').';
+                    if (r.status === 401) m = 'Senha do certificado inválida.';
+                    else if (r.status === 422) m = 'Nenhum certificado ativo. Use "Meu certificado ICP-Brasil" na aba de prescrição para enviar seu .pfx.';
+                    else if (r.status === 403) m = 'Assinatura desabilitada (modo demonstração).';
+                    return _msg(m, 'error');
+                }
+                _baixarBlobExame(await r.blob(), 'pedido-exame-' + _exameEmitido.slice(0, 8) + '-assinado.pdf');
+                _msg('✓ Pedido de exame assinado em ICP-Brasil baixado. Valide no Adobe ou em validar.iti.gov.br.', 'success');
+            } catch (e) {
+                _msg('Não foi possível conectar ao servidor (' + BACKEND + ').', 'error');
+            }
+        }
+
+        function _baixarBlobExame(blob, nome) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = nome;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
         }
 
         /**
