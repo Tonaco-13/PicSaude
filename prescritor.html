@@ -549,6 +549,10 @@
                             </div>
                             <p style="font-size: 12px; color: #15803d; margin-bottom: 14px; line-height: 1.5;">Prescrição com força legal plena. Protocolo rastreável, hash de integridade e cadeia de custódia registrados no PicSaúde.</p>
                             <button type="submit" id="btn-emitir" class="btn btn-action" style="font-size: 15px; padding: 15px;" onclick="assinaturaModo = 'icp_brasil_local'">🔐 Assinar e Emitir com Certificado Local (A1/A3 — ICP-Brasil)</button>
+                            <div style="text-align:center; margin-top:10px;">
+                                <a href="#" onclick="abrirModalCertificado(event)" style="font-size:12px; color:#166534; text-decoration:underline dotted;">🪪 Meu certificado ICP-Brasil</a>
+                                <span id="cert-status-inline" style="font-size:11px; color:#15803d; margin-left:6px;"></span>
+                            </div>
                         </div>
 
                         <!-- Bloco secundário: gov.br -->
@@ -769,6 +773,14 @@
                 <p id="sucesso-modo-assinatura" style="display: none; color: #64748b; font-size: 13px; margin-top: 6px;"></p>
                 <div id="sucesso-cnes-validacao" class="no-print" style="max-width:480px;margin:0 auto;text-align:left"></div>
                 <div id="sucesso-carteira-info" class="no-print" style="display:none; max-width:480px; margin:8px auto 0; text-align:left;"></div>
+                <div id="sucesso-assinar-icp" class="no-print" style="display:none; max-width:480px; margin:12px auto 0;">
+                    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px 16px; text-align:left;">
+                        <div style="font-size:13px; font-weight:600; color:#166534; margin-bottom:8px;">🔏 Assinatura ICP-Brasil (PAdES)</div>
+                        <p style="font-size:12px; color:#15803d; margin-bottom:10px; line-height:1.5;">Gere o PDF assinado com o seu certificado A1. A senha é usada uma vez e não é guardada.</p>
+                        <button onclick="assinarBaixarPdf()" class="btn btn-action" style="width:auto; padding:10px 18px; font-size:13px;">📄 Assinar com ICP-Brasil e baixar PDF</button>
+                        <div id="assinar-icp-msg" class="msg-inline" style="margin-top:8px; display:none;"></div>
+                    </div>
+                </div>
                 <div style="display: flex; gap: 16px; justify-content: center; margin-top: 32px; flex-wrap: wrap;">
                     <button onclick="window.print()" class="btn btn-outline" style="width: auto;">🖨️ Imprimir 2ª Via / Físico</button>
                     <button onclick="novaReceita()" class="btn btn-primary" style="width: auto;">Nova Prescrição</button>
@@ -842,6 +854,7 @@
         // Mude para false antes de publicar em produção.
         const DEV_PRESET_CONTEXT = true;
         let assinaturaModo = null;
+        let _protocoloParaAssinar = null;  // protocolo da prescrição a assinar (ICP-Brasil)
         let carteiraDigitalStatus = null; // Ticket 63: null=não verificado, true/false=resultado
         let jwtAccessToken = null;  // Bearer token em memória (não persiste em localStorage)
 
@@ -1908,6 +1921,18 @@
                 } else {
                     _carteiraEl.style.display = 'none';
                 }
+            }
+
+            // Assinatura ICP-Brasil (PAdES) — só para prescrição digital em modo
+            // icp_brasil_local com protocolo no backend. Guarda o protocolo p/ assinar.
+            const _assinarEl = document.getElementById('sucesso-assinar-icp');
+            if (_assinarEl) {
+                const podeAssinar = isDigital && rec.protocolo_backend &&
+                                    rec.assinatura_modo === 'icp_brasil_local';
+                _protocoloParaAssinar = podeAssinar ? rec.protocolo_backend : null;
+                _assinarEl.style.display = podeAssinar ? 'block' : 'none';
+                const _m = document.getElementById('assinar-icp-msg');
+                if (_m) { _m.style.display = 'none'; _m.textContent = ''; }
             }
 
             // Ticket 49 — injetar widget de confiança CNES
@@ -3389,6 +3414,127 @@
                 setTimeout(() => fazerLoginDireto({ preventDefault: () => {} }), 120);
             }
         }
+
+        // ===================================================================
+        // Assinatura ICP-Brasil A1 — cofre (upload) + assinar PDF (PAdES)
+        // ===================================================================
+
+        /** Abre o modal "Meu certificado" para upload do .pfx no cofre. */
+        function abrirModalCertificado(ev) {
+            if (ev) ev.preventDefault();
+            const m = document.getElementById('modal-certificado');
+            if (m) { m.style.display = 'flex'; _certMsg('', ''); }
+        }
+        function fecharModalCertificado() {
+            const m = document.getElementById('modal-certificado');
+            if (m) m.style.display = 'none';
+        }
+        function _certMsg(texto, tipo) {
+            const el = document.getElementById('cert-modal-msg');
+            if (!el) return;
+            el.textContent = texto || '';
+            el.style.display = texto ? 'block' : 'none';
+            el.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error'
+                          : tipo === 'success' ? 'msg-inline-success' : '');
+        }
+
+        /** Envia o .pfx + senha ao cofre (POST /prescritor/certificado). */
+        async function enviarCertificado() {
+            const fileEl = document.getElementById('cert-pfx-file');
+            const senhaEl = document.getElementById('cert-pfx-senha');
+            if (!fileEl || !fileEl.files || !fileEl.files[0]) {
+                return _certMsg('Selecione o arquivo .pfx/.p12 do seu certificado.', 'error');
+            }
+            if (!senhaEl.value) return _certMsg('Informe a senha do certificado.', 'error');
+            _certMsg('Enviando e validando o certificado…', '');
+            const fd = new FormData();
+            fd.append('pfx_file', fileEl.files[0]);
+            fd.append('senha', senhaEl.value);
+            try {
+                // authHeaders() inclui Content-Type JSON — para multipart, removê-lo.
+                const h = authHeaders(); delete h['Content-Type'];
+                const r = await fetch(BACKEND + '/prescritor/certificado', {
+                    method: 'POST', headers: h, body: fd
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    const msg = (d && (d.detail?.mensagem || d.detail)) || 'Falha ao enviar o certificado.';
+                    return _certMsg(typeof msg === 'string' ? msg : 'Falha ao enviar o certificado.', 'error');
+                }
+                senhaEl.value = '';   // não deixa a senha na tela
+                const nome = d.nome_certificado || 'certificado';
+                _certMsg('✓ Certificado válido: ' + nome + (d.cpf_certificado ? ' (CPF ' + d.cpf_certificado + ')' : ''), 'success');
+                _atualizarStatusCertInline(nome);
+            } catch (e) {
+                _certMsg('Não foi possível conectar ao servidor (' + BACKEND + ').', 'error');
+            }
+        }
+
+        function _atualizarStatusCertInline(nome) {
+            const el = document.getElementById('cert-status-inline');
+            if (el) el.textContent = nome ? '· ' + nome + ' carregado' : '';
+        }
+
+        /** Assina o PDF da prescrição com o certificado do cofre e baixa o arquivo. */
+        async function assinarBaixarPdf() {
+            if (!_protocoloParaAssinar) return;
+            const msgEl = document.getElementById('assinar-icp-msg');
+            const _msg = (t, tipo) => {
+                if (!msgEl) return;
+                msgEl.textContent = t; msgEl.style.display = t ? 'block' : 'none';
+                msgEl.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error'
+                              : tipo === 'success' ? 'msg-inline-success' : '');
+            };
+            const senha = window.prompt('Senha do seu certificado ICP-Brasil (.pfx):');
+            if (senha === null) return;                  // cancelou
+            if (!senha) return _msg('Senha não informada.', 'error');
+            _msg('Assinando o documento…', '');
+            try {
+                const h = authHeaders();   // mantém Content-Type JSON
+                const r = await fetch(BACKEND + '/prescricoes/' + _protocoloParaAssinar + '/pdf-assinado', {
+                    method: 'POST', headers: h, body: JSON.stringify({ senha_pfx: senha })
+                });
+                if (!r.ok) {
+                    let msg = 'Falha ao assinar (HTTP ' + r.status + ').';
+                    if (r.status === 401) msg = 'Senha do certificado inválida.';
+                    else if (r.status === 422) msg = 'Nenhum certificado ativo. Use "Meu certificado ICP-Brasil" para enviar o seu .pfx.';
+                    else if (r.status === 403) msg = 'Assinatura desabilitada (modo demonstração).';
+                    else { try { const d = await r.json(); if (d.detail) msg = (d.detail.mensagem || d.detail); } catch (_) {} }
+                    return _msg(typeof msg === 'string' ? msg : 'Falha ao assinar.', 'error');
+                }
+                const blob = await r.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'receita-' + _protocoloParaAssinar.slice(0, 8) + '-assinada.pdf';
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 4000);
+                _msg('✓ PDF assinado em ICP-Brasil baixado. Valide-o no Adobe Reader ou no validar.iti.gov.br.', 'success');
+            } catch (e) {
+                _msg('Não foi possível conectar ao servidor (' + BACKEND + ').', 'error');
+            }
+        }
     </script>
+
+    <!-- Modal: Meu certificado ICP-Brasil (upload do .pfx no cofre) -->
+    <div id="modal-certificado" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(15,23,42,.45); align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:12px; max-width:440px; width:92%; padding:24px; box-shadow:0 12px 40px rgba(0,0,0,.25);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                <h3 style="font-size:16px; color:#1e3a8a; margin:0;">🪪 Meu certificado ICP-Brasil</h3>
+                <span onclick="fecharModalCertificado()" style="cursor:pointer; color:#94a3b8; font-weight:700; font-size:18px;">×</span>
+            </div>
+            <p style="font-size:12px; color:#64748b; line-height:1.5; margin-bottom:14px;">Envie seu certificado A1 (arquivo <strong>.pfx</strong> ou <strong>.p12</strong>). Ele é guardado cifrado no servidor; a senha é validada uma vez e <strong>não</strong> é armazenada.</p>
+            <label style="font-size:12px; font-weight:600; color:#334155; display:block; margin-bottom:4px;">Arquivo do certificado</label>
+            <input type="file" id="cert-pfx-file" accept=".pfx,.p12,application/x-pkcs12" style="width:100%; font-size:13px; margin-bottom:12px;">
+            <label style="font-size:12px; font-weight:600; color:#334155; display:block; margin-bottom:4px;">Senha do certificado</label>
+            <input type="password" id="cert-pfx-senha" autocomplete="off" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; margin-bottom:12px;">
+            <div id="cert-modal-msg" class="msg-inline" style="display:none; margin-bottom:12px;"></div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button onclick="fecharModalCertificado()" class="btn btn-outline" style="width:auto; padding:8px 16px; font-size:13px;">Fechar</button>
+                <button onclick="enviarCertificado()" class="btn btn-action" style="width:auto; padding:8px 16px; font-size:13px;">Enviar certificado</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
