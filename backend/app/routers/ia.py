@@ -557,3 +557,50 @@ def validar_decisao_endpoint(
             "responsabilidade são do prescritor."
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# POST /ia/posologia/sugerir — sugestão de posologia usual (avaliar + editar)
+# ---------------------------------------------------------------------------
+
+class SugerirPosologiaIn(BaseModel):
+    """Fármaco escolhido — para sugerir a posologia usual ao prescritor."""
+    principio_ativo: Optional[str] = None
+
+
+@router.post(
+    "/posologia/sugerir",
+    summary="Sugestão de posologia usual (companheiro do semáforo, não-vinculante)",
+)
+def sugerir_posologia_endpoint(
+    payload: SugerirPosologiaIn,
+    _=Depends(require_role("prescritor", "admin")),
+):
+    """Sugere a posologia usual do fármaco para o prescritor **avaliar e editar**
+    (pré-popula o campo, sempre editável). NÃO prescreve, NÃO bloqueia.
+
+    Determinístico; só serve conteúdo clínico VALIDADO (rascunhos ficam dormentes).
+    Atrás da flag `PICSAUDE_DECISAO_CLINICA` (mesma família do semáforo).
+    Desligado / sem posologia validada → `{disponivel: false}` (a UI não oferece nada).
+    """
+    if not PICSAUDE_DECISAO_CLINICA:
+        return {"disponivel": False}
+
+    from app.domain.posologia_sugerida import sugerir
+    p = sugerir(payload.principio_ativo)
+    if not p:
+        return {"disponivel": False}
+    return {
+        "disponivel":   True,
+        "principio_ativo": p.principio_ativo,
+        "posologia":    p.posologia,        # texto que pré-popula o campo (editável)
+        "condicao":     p.condicao or None,
+        "fonte":        p.fonte,
+        "validado_por": p.validado_por,
+        "versao":       p.versao,
+        "observacao":   p.observacao or None,
+        "aviso": (
+            "Sugestão de posologia usual — confira dose, via, contraindicações e "
+            "ajuste ao paciente. O prescritor é o responsável final."
+        ),
+    }
