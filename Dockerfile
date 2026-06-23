@@ -28,6 +28,8 @@ COPY data/cmed_apresentacoes.csv /app/reference/cmed_apresentacoes.csv
 ENV PICSAUDE_CMED_APRES_CSV=/app/reference/cmed_apresentacoes.csv
 COPY data/decisao_semaforo.csv /app/reference/decisao_semaforo.csv
 ENV PICSAUDE_SEMAFORO_CSV=/app/reference/decisao_semaforo.csv
+COPY data/posologia_sugerida.csv /app/reference/posologia_sugerida.csv
+ENV PICSAUDE_POSOLOGIA_CSV=/app/reference/posologia_sugerida.csv
 
 # Banco em volume externo — nunca dentro da imagem
 ENV PIX_SAUDE_DB=/data/picsaude.db
