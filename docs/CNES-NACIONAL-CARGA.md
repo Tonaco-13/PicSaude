@@ -12,9 +12,9 @@
 
 | Tabela | Origem (CSV) | Tamanho aprox. | Para quê |
 |---|---|---|---|
-| `estabelecimentos_cnes` | `tbEstabelecimento202512.csv` | ~400 mil | **Login da farmácia** confere o CNPJ (a correção do gap C.1) |
-| `profissionais_cnes` | `tbDadosProfissionalSus202512.csv` | milhões | Identidade do prescritor via CNES |
-| `relacao_prof_estab` | `tbCargaHorariaSus202512.csv` | muitos milhões | Vínculo profissional × estabelecimento |
+| `estabelecimentos_cnes` | `tbEstabelecimento202605.csv` | ~620 mil (competência 202605) | **Login da farmácia** confere o CNPJ (a correção do gap C.1) |
+| `profissionais_cnes` | `tbDadosProfissionalSus202605.csv` | milhões | Identidade do prescritor via CNES |
+| `relacao_prof_estab` | `tbCargaHorariaSus202605.csv` | muitos milhões | Vínculo profissional × estabelecimento |
 
 ## Passo 1 — baixar e descompactar a base do DATASUS
 
@@ -23,13 +23,13 @@ A base nacional é distribuída pelo DATASUS (atualização mensal):
 ```bash
 # baixar BASE_DE_DADOS_CNES_<AAAAMM>.ZIP do portal do DATASUS, então:
 mkdir -p data/cnes_br_tmp
-unzip BASE_DE_DADOS_CNES_202512.ZIP -d data/cnes_br_tmp/
-ls data/cnes_br_tmp/tbEstabelecimento202512.csv   # confere que os 3 CSVs existem
+unzip BASE_DE_DADOS_CNES_202605.ZIP -d data/cnes_br_tmp/
+ls data/cnes_br_tmp/tbEstabelecimento202605.csv   # confere que os 3 CSVs existem
 ```
 
 > A referência do snapshot (mês) vai em `CNES_SNAPSHOT_REF` / `CNES_SNAPSHOT_MES`
 > (config.py). Ao trocar de mês, ajustar os nomes dos CSVs em `importar_cnes_pg.py`
-> (`ARQUIVOS_CSV`) ou renomear os arquivos para o padrão `...202512.csv`.
+> (`ARQUIVOS_CSV`) ou renomear os arquivos para o padrão `...202605.csv`.
 
 ## Passo 2 (recomendado) — medir o tamanho ANTES de carregar na gaveta paga
 
@@ -79,6 +79,10 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM estabelecimentos_cnes;"   # ~400 m
 
 ## Notas
 
-- A ferramenta SQLite equivalente (dev/demo) é `backend/scripts/importar_cnes_br.py`.
+- A ferramenta SQLite equivalente (dev/demo) é `backend/scripts/importar_cnes_br.py`
+  — também aceita `--apenas estabelecimentos_cnes` (carrega só os ~620 mil estabelecimentos,
+  ~4s, sem os arquivos multi-GB de profissionais/vínculos).
+- **Competência atual carregada em dev (SQLite): 202605 (maio/2026)** — 623.208 estabelecimentos.
+  Em produção (PG), rodar o `importar_cnes_pg.py` com a `DATABASE_URL` do Render.
 - Gate automatizado do loader PG: `backend/tests/integration/test_importar_cnes_pg.py`
   (carga sintética + query do login + índice funcional; limpa as tabelas no teardown).
