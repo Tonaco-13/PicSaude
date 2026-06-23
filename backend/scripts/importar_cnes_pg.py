@@ -8,12 +8,12 @@ EXTERNOS do DATASUS (não schema clínico): por isso são criadas FORA do Alembi
 apenas do schema clínico.
 
 Tabelas populadas (substituição completa):
-  - estabelecimentos_cnes  ← cnes_br_tmp/tbEstabelecimento202512.csv   (~400 mil — usada no login da farmácia)
-  - profissionais_cnes     ← cnes_br_tmp/tbDadosProfissionalSus202512.csv
-  - relacao_prof_estab     ← cnes_br_tmp/tbCargaHorariaSus202512.csv
+  - estabelecimentos_cnes  ← cnes_br_tmp/tbEstabelecimento202605.csv   (~400 mil — usada no login da farmácia)
+  - profissionais_cnes     ← cnes_br_tmp/tbDadosProfissionalSus202605.csv
+  - relacao_prof_estab     ← cnes_br_tmp/tbCargaHorariaSus202605.csv
 
 Pré-requisito: data/cnes_br_tmp/ com os 3 CSVs
-  (unzip BASE_DE_DADOS_CNES_202512.ZIP -d data/cnes_br_tmp/).
+  (unzip BASE_DE_DADOS_CNES_202605.ZIP -d data/cnes_br_tmp/).
 
 Uso:
     DATABASE_URL=postgresql://user:senha@host:5432/picsaude python backend/scripts/importar_cnes_pg.py
@@ -43,9 +43,9 @@ DEFAULT_TMP  = DATA_DIR / "cnes_br_tmp"
 
 # nome lógico -> nome do CSV (resolvido contra --tmp-dir em runtime)
 ARQUIVOS_CSV = {
-    "estabelecimentos_cnes": "tbEstabelecimento202512.csv",
-    "profissionais_cnes":    "tbDadosProfissionalSus202512.csv",
-    "relacao_prof_estab":    "tbCargaHorariaSus202512.csv",
+    "estabelecimentos_cnes": "tbEstabelecimento202605.csv",
+    "profissionais_cnes":    "tbDadosProfissionalSus202605.csv",
+    "relacao_prof_estab":    "tbCargaHorariaSus202605.csv",
 }
 
 # Índices (espelham importar_cnes_br.py) + 1 índice FUNCIONAL que casa com a query
@@ -204,7 +204,7 @@ def main() -> None:
         print("[ERRO] CSVs ausentes:", file=sys.stderr)
         for f in faltando:
             print(f"   - {f}", file=sys.stderr)
-        print("       unzip BASE_DE_DADOS_CNES_202512.ZIP -d data/cnes_br_tmp/", file=sys.stderr)
+        print("       unzip BASE_DE_DADOS_CNES_202605.ZIP -d data/cnes_br_tmp/", file=sys.stderr)
         sys.exit(1)
 
     safe_url = re.sub(r"://[^:@]+:[^@]+@", "://<credenciais>@", db_url)

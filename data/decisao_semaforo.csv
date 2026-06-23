@@ -87,3 +87,24 @@ F41,Transtornos ansiosos,diazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borg
 F41,Transtornos ansiosos,fluoxetina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 F41,Transtornos ansiosos,sertralina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 F41,Transtornos ansiosos,escitalopram,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,glimepirida,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Básico; sulfonilureia 3ª geração",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina regular,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Básico; insulina humana de ação rápida",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,acarbose,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Básico; inibidor de alfa-glicosidase",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,pioglitazona,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; tiazolidinediona",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,sitagliptina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; inibidor DPP-4",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,vildagliptina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; inibidor DPP-4",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,linagliptina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; inibidor DPP-4",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,empagliflozina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + Incorporação CONITEC 2020 (benefício cardiorrenal) + RENAME 2024 — Componente Especializado; inibidor SGLT-2",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,liraglutida,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + Incorporação CONITEC (DM2 com risco CV alto ou obesidade) + RENAME 2024 — Componente Especializado; agonista GLP-1",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina glargina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; análogo de insulina basal (U100/U300)",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina detemir,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; análogo de insulina basal",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina lispro,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; análogo de insulina prandial rápido",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina asparte,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — Componente Especializado; análogo de insulina prandial rápido",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,saxagliptina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar incorporação CONITEC e componente atual; inibidor DPP-4",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,alogliptina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar incorporação CONITEC e componente atual; inibidor DPP-4",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,canagliflozina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar incorporação CONITEC e componente atual; inibidor SGLT-2",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,dulaglutida,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar incorporação CONITEC e componente atual; agonista GLP-1",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,semaglutida,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar incorporação CONITEC e componente atual; agonista GLP-1 (subcutâneo e oral)",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina degludeca,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar status de incorporação; análogo de insulina basal ultralong",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,insulina glulisina,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar status de incorporação; análogo de insulina prandial rápido",rascunho,,rascunho_e11_dm2_v1_2026-06,false
+E11,Diabetes mellitus tipo 2,repaglinida,"PCDT Diabetes Mellitus Tipo 2 (CONITEC, 2022) + RENAME 2024 — verificar status atual no RENAME; metiglinida",rascunho,,rascunho_e11_dm2_v1_2026-06,false
