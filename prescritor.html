@@ -2380,6 +2380,38 @@
             });
         }
 
+        /** Sugestão de posologia usual (companheiro do semáforo): pré-popula o
+         *  campo de posologia para o prescritor AVALIAR e EDITAR. Não sobrescreve
+         *  o que já foi digitado. Determinístico, validado, não-vinculante.
+         *  Só acende quando há posologia validada no backend (senão, silêncio). */
+        function _sugerirPosologia(card, pa) {
+            if (!card || !pa) return;
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
+            const posEl = card.querySelector('.med-posologia');
+            if (!posEl || posEl.value.trim()) return;   // respeita o que o médico já escreveu
+            fetch(BACKEND + '/ia/posologia/sugerir', {
+                method: 'POST', headers: authHeaders(),
+                body: JSON.stringify({ principio_ativo: pa })
+            })
+            .then(r => r.ok ? r.json() : { disponivel: false })
+            .then(d => {
+                if (!d || !d.disponivel || !d.posologia) return;
+                if (posEl.value.trim()) return;          // recheck (corrida com digitação)
+                posEl.value = d.posologia;
+                let nota = card.querySelector('.med-posolog-nota');
+                if (!nota) {
+                    nota = document.createElement('div');
+                    nota.className = 'med-posolog-nota';
+                    nota.style.cssText = 'font-size:11px;color:#64748b;margin-top:4px;cursor:help;';
+                    posEl.insertAdjacentElement('afterend', nota);
+                }
+                nota.textContent = '💡 Posologia usual sugerida — confira e edite se necessário.';
+                nota.title = (d.aviso || '') + (d.validado_por ? '\nValidado por: ' + d.validado_por : '') +
+                             (d.fonte ? '\nFonte: ' + d.fonte : '');
+            })
+            .catch(() => {});
+        }
+
         function _selecionarMedicamento(n, pa, conc, forma, unidade) {
             const card = document.getElementById('med-item-' + n);
             if (!card) return;
@@ -2387,6 +2419,7 @@
             setVal('.med-nome', pa);
             setVal('.med-conc', conc);
             setVal('.med-forma', forma);
+            _sugerirPosologia(card, pa);   // pré-popula posologia usual (editável)
             const uEl = card.querySelector('.med-unidade');   // <select>: só aplica se casar uma opção
             if (uEl && unidade && Array.from(uEl.options).some(o => o.value === unidade)) {
                 uEl.value = unidade;
