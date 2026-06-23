@@ -1730,6 +1730,12 @@
             // hidden guarda CID(s) '|'-separados; codigo_cid é único → manda o primário (1º)
             const _cidEscolhido = _cidEl ? (_cidEl.value.split('|').filter(Boolean)[0] || null) : null;
 
+            // Ticket 63/5A — só solicitar entrega à carteira quando o paciente JÁ
+            // tem carteira digital; senão a emissão é rejeitada (5A). Sem carteira,
+            // emite normalmente e a tela de sucesso oferece o link de acesso.
+            const _cpfRec = (novaReceitaObj.paciente_chave || '').replace(/\D/g, '');
+            const _temCarteiraRec = await _verificarCarteiraExame(_cpfRec);
+
             const payload = {
                 cns_prescritor: medicoLogado.cns,
                 nome_prescritor: medicoLogado.nome,
@@ -1741,8 +1747,8 @@
                 // Ticket 36 — contexto clínico (enviados somente se presentes)
                 ...(  _indicacao   ? { indicacao_clinica: _indicacao }    : {}),
                 ...(_cidEscolhido  ? { codigo_cid: _cidEscolhido }        : {}),
-                // Ticket 63 — solicitar entrega à carteira digital do paciente
-                enviar_ao_paciente: true,
+                // Ticket 63 — entrega à carteira só quando ela existe (ver acima)
+                enviar_ao_paciente: _temCarteiraRec === true,
                 itens: novaReceitaObj.medicamentos.map(i => ({
                     nome_medicamento: i.nome,
                     concentracao: i.concentracao || null,
@@ -2972,8 +2978,8 @@
                 prioridade:        priorid,
                 indicacao_clinica: indicac || null,
                 tipo_emissao:      'novo',
-                // Ticket 63 — solicitar entrega à carteira digital do paciente
-                enviar_ao_paciente: true,
+                // Ticket 63/5A — entrega à carteira só quando ela existe (verificada acima)
+                enviar_ao_paciente: _temCarteiraExame === true,
                 itens:             itens
             };
 
