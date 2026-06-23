@@ -933,8 +933,16 @@
                 `CRM: ${v.crm_declarado || '—'} · UF: ${v.uf_crm_declarado || '—'} · confirmado: ${bool(v.crm_cnes_coincide)}`,
                 `Vínculo c/ prestador: ${bool(v.vinculo_com_prestador)}`,
             ];
-            const div  = (v.divergencias || []).length
-                ? `<div style="color:#dc2626;margin-top:6px">⚠ ${v.divergencias.join(' · ')}</div>` : '';
+            // Rótulos amigáveis: 'cnes_snapshot_indisponivel' é informativo
+            // (base não carregada neste ambiente), não um erro — cor neutra.
+            const _rotuloDiv = {
+                cnes_snapshot_indisponivel: 'Base CNES não carregada neste ambiente (validação indisponível)',
+                erro_consulta_cnes: 'Não foi possível consultar a base CNES',
+            };
+            const _divs   = v.divergencias || [];
+            const _soInfo = _divs.length > 0 && _divs.every(d => d === 'cnes_snapshot_indisponivel');
+            const div  = _divs.length
+                ? `<div style="color:${_soInfo ? '#6b7280' : '#dc2626'};margin-top:6px">${_soInfo ? 'ℹ' : '⚠'} ${_divs.map(d => _rotuloDiv[d] || d).join(' · ')}</div>` : '';
             return rows.map(r => `<div>${r}</div>`).join('') + div;
         }
 
