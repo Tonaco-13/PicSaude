@@ -213,6 +213,27 @@ def main() -> None:
                 CO_MUNICIPIO TEXT
             )
         """)
+        # Tabelas de validação do prescritor (vazias): garantem que a consulta
+        # CNES (cnes_prescritor.py) rode e retorne `nao_encontrado` em vez de
+        # falhar por tabela ausente. Colunas = as referenciadas pela query.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS profissionais_cnes (
+                CO_PROFISSIONAL_SUS TEXT,
+                CO_CNS              TEXT,
+                NO_PROFISSIONAL     TEXT,
+                CO_CPF              TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS relacao_prof_estab (
+                CO_PROFISSIONAL_SUS TEXT,
+                CO_UNIDADE          TEXT,
+                CO_CBO              TEXT,
+                CO_CONSELHO_CLASSE  TEXT,
+                NU_REGISTRO         TEXT,
+                SG_UF_CRM           TEXT
+            )
+        """)
 
         # Prescritor
         _garantir_usuario(conn, PRESCRITOR["cns"], PRESCRITOR["nome"], PRESCRITOR["role"])
