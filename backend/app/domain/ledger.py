@@ -54,6 +54,7 @@ ObjetoSanitario = Literal[
     "circulacao_diagnostica",
     "encaminhamento",
     "contrarreferencia",
+    "atestado",
 ]
 
 
@@ -117,6 +118,14 @@ _LEDGER_SCHEMA: dict[str, dict[str, Any]] = {
     "contrarreferencia": {
         "tabela":          "contrarreferencia_eventos",
         "coluna_fk":       "contrarreferencia_id",
+        "coluna_tipo":     "tipo_evento",
+        "coluna_payload":  "payload",
+        "coluna_data":     "created_at",
+        "tem_ator":        True,
+    },
+    "atestado": {
+        "tabela":          "atestado_eventos",
+        "coluna_fk":       "atestado_id",
         "coluna_tipo":     "tipo_evento",
         "coluna_payload":  "payload",
         "coluna_data":     "created_at",

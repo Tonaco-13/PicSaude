@@ -222,6 +222,49 @@ def consulta_publica_exame(protocolo: str):
 
 
 # ---------------------------------------------------------------------------
+# GET /public/atestados/{protocolo}
+# Validação pública NEUTRA de atestado — confirma existência/assinatura/vigência
+# sem vazar finalidade, CID, indicação ou identidade.
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/public/atestados/{protocolo}",
+    summary="Validação pública de protocolo de atestado (sem dados clínicos)",
+)
+def consulta_publica_atestado(protocolo: str):
+    """Confirma que o atestado **existe, está assinado e está vigente** — payload
+    NEUTRO. Nunca retorna finalidade, CID, indicação clínica, paciente ou prescritor.
+    """
+    from datetime import date as _date
+
+    with get_tx() as conn:
+        a = conn.execute(
+            "SELECT protocolo, status, tipo_emissao, data_documento, data_validade "
+            "FROM atestados WHERE protocolo = ?",
+            (protocolo,),
+        ).fetchone()
+        if not a:
+            raise HTTPException(status_code=404, detail="Protocolo não encontrado.")
+
+    vigente = None
+    if a["data_validade"]:
+        try:
+            vigente = _date.fromisoformat(str(a["data_validade"])) >= _date.today()
+        except (ValueError, TypeError):
+            vigente = None
+
+    return {
+        "protocolo":      a["protocolo"],
+        "status":         a["status"],
+        "tipo_emissao":   a["tipo_emissao"],
+        "assinado":       a["status"] == "assinado",
+        "data_documento": a["data_documento"],
+        "data_validade":  a["data_validade"],
+        "vigente":        vigente,
+    }
+
+
+# ---------------------------------------------------------------------------
 # GET /public/laudos/{protocolo}
 # Consulta pública mínima de laudo — sem dados sensíveis (Ticket 21)
 # ---------------------------------------------------------------------------
