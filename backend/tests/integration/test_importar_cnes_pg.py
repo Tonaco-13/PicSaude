@@ -29,21 +29,27 @@ _spec.loader.exec_module(loader)  # type: ignore[union-attr]
 _TABELAS = ["estabelecimentos_cnes", "profissionais_cnes", "relacao_prof_estab"]
 
 
-def _escrever_csvs(d: Path) -> None:
-    (d / "tbEstabelecimento202512.csv").write_text(
+# Conteúdo por TABELA (não por nome de arquivo). Os nomes dos CSVs vêm do próprio
+# loader (ARQUIVOS_CSV), para o teste NUNCA dessincronizar quando a competência
+# mudar (ex.: 202512 → 202605). Foi exatamente esse descasamento que derrubou o gate.
+_CONTEUDO_CSV = {
+    "estabelecimentos_cnes": (
         "CO_CNES;NU_CNPJ;TP_UNIDADE;NO_FANTASIA;NO_RAZAO_SOCIAL;CO_ESTADO_GESTOR\n"
         "1234567;12.345.678/0001-95;05;Farmacia Central;Farmacia Central LTDA;26\n"
-        "0000001;11222333000144;73;Clinica Y;Clinica Y ME\n",  # linha curta (falta CO_ESTADO_GESTOR)
-        encoding="utf-8",
-    )
-    (d / "tbDadosProfissionalSus202512.csv").write_text(
-        "CO_PROFISSIONAL_SUS;CO_CNS;NO_PROFISSIONAL\nP1;700000000000001;MARIA SILVA\n",
-        encoding="utf-8",
-    )
-    (d / "tbCargaHorariaSus202512.csv").write_text(
-        "CO_UNIDADE;CO_PROFISSIONAL_SUS;CO_CBO\n1234567;P1;225125\n",
-        encoding="utf-8",
-    )
+        "0000001;11222333000144;73;Clinica Y;Clinica Y ME\n"  # linha curta (falta CO_ESTADO_GESTOR)
+    ),
+    "profissionais_cnes": (
+        "CO_PROFISSIONAL_SUS;CO_CNS;NO_PROFISSIONAL\nP1;700000000000001;MARIA SILVA\n"
+    ),
+    "relacao_prof_estab": (
+        "CO_UNIDADE;CO_PROFISSIONAL_SUS;CO_CBO\n1234567;P1;225125\n"
+    ),
+}
+
+
+def _escrever_csvs(d: Path) -> None:
+    for tabela, csv_nome in loader.ARQUIVOS_CSV.items():
+        (d / csv_nome).write_text(_CONTEUDO_CSV[tabela], encoding="utf-8")
 
 
 @pytest.fixture
