@@ -173,11 +173,70 @@ class TestValidacaoPublica:
         assert d["protocolo"] == proto
         assert d["status"] == "emitido"
         assert d["assinado"] is False
+        assert "vigente" in d              # vigência exposta só como booleano derivado
         # …sem JAMAIS vazar clínica/identidade
         blob = json.dumps(d).lower()
         for proibido in ("finalidade", "afastamento", "j11", "gripe", "cid",
                           "paciente", "cpf", "indicacao", "prescritor"):
             assert proibido not in blob, f"vazou: {proibido}"
+        # Revisão #60: as datas NÃO podem aparecer — data_validade = data_documento
+        # + dias_afastamento permitiria derivar os dias de afastamento (clínico).
+        assert "data_documento" not in d and "data_validade" not in d
+        assert "2026-06-23" not in blob and "2026-06-26" not in blob
 
     def test_publico_404(self, prescritor):
         assert prescritor.get("/public/atestados/inexistente").status_code == 404
+
+    def test_publico_assinado_nao_vaza_datas(self, prescritor, sem_demo):
+        """Revisão #60: nem no estado assinado o público expõe as datas/dias."""
+        proto = prescritor.post("/atestados", json=_payload(
+            assinatura_modo="icp_brasil_local")).json()["protocolo"]
+        cert = gerar_certificado_teste(cpf="12345678901")
+        assert _upload_cert(prescritor, cert).status_code == 201
+        assert prescritor.post(f"/atestados/{proto}/pdf-assinado",
+                               json={"senha_pfx": cert.senha}).status_code == 200
+        d = prescritor.get(f"/public/atestados/{proto}").json()
+        assert d["status"] == "assinado" and d["assinado"] is True
+        assert "vigente" in d
+        assert "data_documento" not in d and "data_validade" not in d
+        blob = json.dumps(d).lower()
+        assert "2026-06-23" not in blob and "2026-06-26" not in blob
+
+
+class TestRBACLeitura:
+    """Revisão #60 — leitura autenticada: o paciente-titular acessa o próprio
+    atestado (GET, /pdf, /custodia); outros papéis e não-titulares recebem 403."""
+
+    def test_paciente_titular_le_atestado_pdf_custodia(self, prescritor, paciente):
+        # fixture `paciente`: CPF 12345678901 == cpf_paciente do _BASE → é o titular
+        proto = prescritor.post("/atestados", json=_payload()).json()["protocolo"]
+        assert paciente.get(f"/atestados/{proto}").status_code == 200
+        assert paciente.get(f"/atestados/{proto}/pdf").status_code == 200
+        assert paciente.get(f"/atestados/{proto}/custodia").status_code == 200
+
+    def test_outro_paciente_nao_titular_403(self, prescritor, outro_paciente):
+        proto = prescritor.post("/atestados", json=_payload()).json()["protocolo"]
+        for path in (f"/atestados/{proto}", f"/atestados/{proto}/pdf",
+                     f"/atestados/{proto}/custodia"):
+            assert outro_paciente.get(path).status_code == 403, path
+
+    def test_dispensador_sem_acesso_403(self, prescritor, dispensador):
+        proto = prescritor.post("/atestados", json=_payload()).json()["protocolo"]
+        for path in (f"/atestados/{proto}", f"/atestados/{proto}/pdf",
+                     f"/atestados/{proto}/custodia"):
+            assert dispensador.get(path).status_code == 403, path
+
+    def test_prescritor_nao_autor_403(self, prescritor, _shared_client, sem_demo):
+        from app.main import app
+        from app.auth.dependencies import get_current_user
+        proto = prescritor.post("/atestados", json=_payload(
+            assinatura_modo="icp_brasil_local")).json()["protocolo"]
+        # passa a ser um prescritor B (CNS distinto do autor)
+        app.dependency_overrides[get_current_user] = lambda: {
+            "role": "prescritor", "sub": "999999999999999"}
+        for path in (f"/atestados/{proto}", f"/atestados/{proto}/pdf",
+                     f"/atestados/{proto}/custodia"):
+            assert _shared_client.get(path).status_code == 403, path
+        # …e não pode assinar o atestado de outro (owner-check antes do certificado)
+        r = _shared_client.post(f"/atestados/{proto}/pdf-assinado", json={"senha_pfx": "x"})
+        assert r.status_code == 403, r.text

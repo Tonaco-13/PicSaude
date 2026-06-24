@@ -393,13 +393,28 @@ def _carregar_atestado(conn, protocolo: str) -> dict:
     return dict(row)
 
 
-def _exigir_dono_ou_admin(dados: dict, usuario: dict) -> None:
-    if usuario["role"] == "prescritor":
+def _exigir_leitura(dados: dict, usuario: dict) -> None:
+    """Autoriza leitura do atestado: admin, prescritor-autor ou paciente-titular.
+
+    O paciente sentinela (fluxo físico não identificado, CPF 00000000000) nunca
+    é titular — atestado físico não entra em custódia digital nem é lido pelo
+    paciente. (Revisão #60 — o detentor da custódia precisa de acesso autenticado.)
+    """
+    role = usuario["role"]
+    if role == "prescritor":
         _assert_or_403(
             normalize_cns(usuario["sub"]) == dados["cns_prescritor"],
             codigo="nao_e_dono_do_atestado",
             mensagem="Este atestado foi emitido por outro prescritor.",
         )
+    elif role == "paciente":
+        cpf = normalize_cpf(usuario["sub"])
+        _assert_or_403(
+            cpf != _CPF_NAO_IDENTIFICADO and cpf == dados["cpf_paciente"],
+            codigo="nao_e_titular_do_atestado",
+            mensagem="Este atestado pertence a outro paciente.",
+        )
+    # admin: leitura irrestrita
 
 
 # ---------------------------------------------------------------------------
@@ -409,11 +424,11 @@ def _exigir_dono_ou_admin(dados: dict, usuario: dict) -> None:
 @router.get("/{protocolo}")
 def get_atestado(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente")),
 ):
     with get_tx() as conn:
         dados = _carregar_atestado(conn, protocolo)
-    _exigir_dono_ou_admin(dados, usuario)
+    _exigir_leitura(dados, usuario)
     return {
         "protocolo": dados["protocolo"],
         "status": dados["status"],
@@ -439,11 +454,11 @@ def get_atestado(
 @router.get("/{protocolo}/custodia")
 def get_custodia_atestado(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente")),
 ):
     with get_tx() as conn:
         dados = _carregar_atestado(conn, protocolo)
-        _exigir_dono_ou_admin(dados, usuario)
+        _exigir_leitura(dados, usuario)
         rows = conn.execute(
             """
             SELECT de, para, transferido_em, dados_json
@@ -498,11 +513,11 @@ def _carregar_certificado_ativo(conn, prescritor_id: int):
 @router.get("/{protocolo}/pdf")
 def get_pdf_atestado(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente")),
 ):
     with get_tx() as conn:
         dados = _carregar_atestado(conn, protocolo)
-    _exigir_dono_ou_admin(dados, usuario)
+    _exigir_leitura(dados, usuario)
     pdf = _pdf_de_dados(dados)
     return StreamingResponse(
         iter([pdf]), media_type="application/pdf",

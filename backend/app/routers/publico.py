@@ -239,13 +239,18 @@ def consulta_publica_atestado(protocolo: str):
 
     with get_tx() as conn:
         a = conn.execute(
-            "SELECT protocolo, status, tipo_emissao, data_documento, data_validade "
+            "SELECT protocolo, status, tipo_emissao, data_validade "
             "FROM atestados WHERE protocolo = ?",
             (protocolo,),
         ).fetchone()
         if not a:
             raise HTTPException(status_code=404, detail="Protocolo não encontrado.")
 
+    # Vigência é derivada server-side e exposta SÓ como booleano. As datas
+    # (data_documento/data_validade) NÃO entram no payload público: como
+    # data_validade = data_documento + dias_afastamento, expô-las permitiria
+    # derivar os dias de afastamento (dado clínico). O booleano `vigente` basta
+    # para a validação por QR. (Revisão #60 — público nasce neutro.)
     vigente = None
     if a["data_validade"]:
         try:
@@ -258,8 +263,6 @@ def consulta_publica_atestado(protocolo: str):
         "status":         a["status"],
         "tipo_emissao":   a["tipo_emissao"],
         "assinado":       a["status"] == "assinado",
-        "data_documento": a["data_documento"],
-        "data_validade":  a["data_validade"],
         "vigente":        vigente,
     }
 
