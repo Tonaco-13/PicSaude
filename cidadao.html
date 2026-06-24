@@ -379,6 +379,10 @@
             <h3 class="section-title" style="margin-top: 48px;">Pedidos de Exame Ativos</h3>
             <div id="lista-pedidos-exame"></div>
 
+            <!-- ── Laudos / Resultados (Ticket 21) ───────────────────── -->
+            <h3 class="section-title" style="margin-top: 48px;">Laudos / Resultados</h3>
+            <div id="lista-laudos"></div>
+
             <h3 class="section-title" style="margin-top: 48px;">Histórico de Prescrições</h3>
             <div id="lista-historico"></div>
         </div>
@@ -560,6 +564,90 @@
                     `<div class="card" style="color:#dc2626;">Erro ao carregar prescrições: ${err.message}</div>`;
             }
             carregarPedidosExame();
+            carregarLaudos();
+        }
+
+        // ==========================================
+        // Laudos / Resultados (Ticket 21)
+        // O laudo "chega ao paciente": liberado pelo laboratório,
+        // o cidadão vê o resultado, baixa o PDF e dá ciência.
+        // ==========================================
+        async function carregarLaudos() {
+            const container = document.getElementById('lista-laudos');
+            try {
+                const dados = await apiFetch('/paciente/laudos');
+                const lista = [...(dados.disponiveis || []), ...(dados.historico || [])];
+                if (lista.length === 0) {
+                    container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum laudo disponível.</p>';
+                    return;
+                }
+                renderizarLaudos(lista);
+            } catch (err) {
+                container.innerHTML = `<p style="color:#dc2626; font-size:13px;">Erro ao carregar laudos: ${err.message}</p>`;
+            }
+        }
+
+        function renderizarLaudos(laudos) {
+            const container = document.getElementById('lista-laudos');
+            container.innerHTML = laudos.map(laudo => {
+                const emissao = laudo.data_emissao
+                    ? new Date(laudo.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')
+                    : '';
+                const itensHtml = (laudo.itens || []).map(it =>
+                    `<li>${it.nome_exame}${it.conclusao ? ` — <span style="color:#475569;">${it.conclusao}</span>` : ''}</li>`
+                ).join('');
+                const podeCiencia = laudo.status === 'liberado' || laudo.status === 'ciencia_prescritor';
+                const acaoHtml = podeCiencia
+                    ? `<button class="btn-outline btn-small" style="margin:0;" onclick="darCienciaLaudo('${laudo.protocolo}')">Dar ciência</button>`
+                    : laudo.status === 'ciencia_paciente'
+                        ? `<span style="font-size:12px; color:#16a34a; font-weight:600;">✓ Ciência registrada</span>`
+                        : `<span style="font-size:12px; color:#64748b;">${laudo.status}</span>`;
+                return `
+                    <div class="exame-card">
+                        <div class="exame-card-header">
+                            <div>
+                                <p style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:4px;">${laudo.protocolo}</p>
+                                <p style="font-size:14px; font-weight:600; color:#0f172a;">${laudo.autor_nome || '—'}</p>
+                                <p style="font-size:12px; color:#64748b;">Liberado em ${emissao}</p>
+                            </div>
+                            <span class="exame-badge-prioridade">laudo</span>
+                        </div>
+                        <ul class="exame-lista">${itensHtml}</ul>
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+                            <button class="btn-outline btn-small" style="margin:0;" onclick="baixarPdfLaudo('${laudo.protocolo}')">📄 Baixar PDF</button>
+                            ${acaoHtml}
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function darCienciaLaudo(protocolo) {
+            try {
+                await apiFetch(`/laudos/${protocolo}/ciencia-paciente`, { method: 'POST' });
+                carregarLaudos();
+            } catch (err) {
+                alert('Erro ao registrar ciência: ' + err.message);
+            }
+        }
+
+        async function baixarPdfLaudo(protocolo) {
+            try {
+                const resp = await fetch(`/laudos/${protocolo}/pdf`, {
+                    headers: { 'Authorization': `Bearer ${sessaoAtual.token}` },
+                });
+                if (!resp.ok) throw new Error('PDF indisponível.');
+                const blob = await resp.blob();
+                const url  = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `laudo-${protocolo.slice(0, 8)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (err) {
+                alert('Erro ao baixar PDF do laudo: ' + err.message);
+            }
         }
 
         // ==========================================
