@@ -565,7 +565,9 @@ def listar_laudos(usuario=Depends(require_role("paciente"))):
                 "itens":         [dict(i) for i in itens],
             })
 
-    _DISPONIVEIS    = {"liberado", "ciencia_prescritor"}
+    # ciencia_paciente entra aqui para o laudo seguir VISÍVEL ao cidadão após
+    # ele dar ciência (estado não-terminal: aguarda ciência do prescritor/encerramento).
+    _DISPONIVEIS    = {"liberado", "ciencia_prescritor", "ciencia_paciente"}
     _TERMINAIS_LAUDO = {"encerrado", "cancelado", "expirado", "encerrado_fisico"}
 
     return {
