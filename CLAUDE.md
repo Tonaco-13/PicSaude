@@ -388,6 +388,31 @@ Ciência: opera no nível do laudo inteiro (exceção documentada ao núcleo)
 
 > Arquitetura completa em `docs/ARQUITETURA_LAUDO.md`
 
+### Estados do módulo de Atestado (objeto sanitário MONOLÍTICO)
+
+Classificação: **objeto sanitário monolítico** — um documento único, **sem itens**
+(diferente de prescrição/exame); status direto, não derivado. Tem identidade
+(UUID), estados, ledger, custódia e assinatura ICP-Brasil.
+
+Atestado (`atestados.status`):
+```
+emitido · assinado · cancelado · expirado · encerrada_localmente
+```
+
+Regras fundamentais:
+- **Sem itens** (exceção documentada ao núcleo, como o agendamento)
+- Assinar é marco de estado: `emitido → assinado` (PAdES via cofre)
+- CPF do paciente **obrigatório** no digital; sentinela `00000000000` no físico
+- `dias_afastamento` é opcional (nem todo atestado afasta — ex.: comparecimento)
+- Custódia única: `prescritor → paciente` (emissão); físico não gera custódia
+- Validação pública neutra (`GET /public/atestados/{proto}`): confirma existência/
+  assinatura/vigência **sem** vazar finalidade, CID, indicação ou identidade
+
+Custódia: `prescritor → paciente`
+Eventos: `atestado_emitido · atestado_assinado · atestado_corrigido · atestado_cancelado · atestado_expirado · atestado_impresso · encerrada_localmente · custodia_transferida`
+
+> Arquitetura completa em `docs/ARQUITETURA_ATESTADO.md`
+
 ### Farmácia Hospitalar (Ticket 26 — arquitetura / Ticket 27 — implementação)
 
 Classificação: **subdomínio operacional da dispensação** — não é novo objeto sanitário, não é novo papel RBAC.

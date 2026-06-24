@@ -673,6 +673,11 @@
                             <label class="form-label">Nome do Paciente *</label>
                             <input type="text" id="atestado-paciente" class="form-input"
                                    placeholder="Nome completo do paciente">
+                            <label class="form-label" style="margin-top:10px;">CPF do Paciente *
+                                <span style="font-weight:400; font-size:11px; text-transform:none; letter-spacing:0; color:#94a3b8;">(obrigatório p/ atestado digital)</span>
+                            </label>
+                            <input type="text" id="atestado-cpf" class="form-input cpf-input"
+                                   placeholder="000.000.000-00">
                         </div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label">Finalidade *</label>
@@ -742,6 +747,10 @@
                     <button type="button" class="btn btn-primary" onclick="validarAtestado()"
                             style="padding: 10px 24px; font-size: 14px;">
                         Validar atestado
+                    </button>
+                    <button type="button" class="btn btn-action" onclick="emitirAtestado()"
+                            style="padding: 10px 24px; font-size: 14px;">
+                        🔏 Emitir atestado digital
                     </button>
                     <button type="button" class="btn btn-outline" onclick="limparAtestado()"
                             style="padding: 10px 20px; font-size: 14px;">
@@ -3618,6 +3627,111 @@
             } catch (e) {
                 _msg('Não foi possível conectar ao servidor (' + BACKEND + ').', 'error');
             }
+        }
+
+        // ===================================================================
+        // Atestado — emissão como objeto sanitário + PDF + assinatura ICP
+        // ===================================================================
+
+        let _atestadoEmitido = null;   // protocolo do último atestado emitido
+
+        async function emitirAtestado() {
+            const container = document.getElementById('ia-atestado-container');
+            container.classList.remove('hidden');
+            const erro = (t) => '<p style="font-size:12px;color:#dc2626;padding:8px 0;">' + _escDoc(t) + '</p>';
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN' || !medicoLogado || !medicoLogado.cns) {
+                container.innerHTML = erro('Faça login como prescritor para emitir o atestado.');
+                return;
+            }
+            const cpf = (document.getElementById('atestado-cpf').value || '').replace(/\D/g, '');
+            const paciente = (document.getElementById('atestado-paciente').value || '').trim();
+            const finalidade = _lerFinalidadeAtestado();
+            if (!finalidade) { container.innerHTML = erro('Selecione a finalidade do atestado.'); return; }
+            if (!paciente) { container.innerHTML = erro('Informe o nome do paciente.'); return; }
+            if (cpf.length !== 11) { container.innerHTML = erro('CPF do paciente é obrigatório (11 dígitos) no atestado digital.'); return; }
+            const diasRaw = (document.getElementById('atestado-dias').value || '').trim();
+            const payload = {
+                cns_prescritor:        medicoLogado.cns,
+                nome_prescritor:       medicoLogado.nome,
+                cpf_paciente:          cpf,
+                nome_paciente:         paciente,
+                finalidade:            finalidade,
+                indicacao_clinica:     (document.getElementById('atestado-indicacao').value || '').trim() || null,
+                codigo_cid:            (document.getElementById('atestado-cid').value || '').split('|').filter(Boolean)[0] || null,
+                dias_afastamento:      diasRaw ? parseInt(diasRaw, 10) : null,
+                data_documento:        (document.getElementById('atestado-data').value || '').trim() || null,
+                nome_profissional:     (document.getElementById('atestado-profissional').value || '').trim() || null,
+                registro_profissional: (document.getElementById('atestado-registro').value || '').trim() || null,
+                assinatura_modo:       'icp_brasil_local',
+            };
+            container.innerHTML = '<p style="font-size:12px;color:#64748b;padding:8px 0;">Emitindo atestado…</p>';
+            try {
+                const r = await fetch(BACKEND + '/atestados', {
+                    method: 'POST', headers: authHeaders(), body: JSON.stringify(payload)
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { container.innerHTML = erro(_extrairMsgErro(d, String(r.status))); return; }
+                _atestadoEmitido = d.protocolo;
+                container.innerHTML =
+                    '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;">' +
+                    '<div style="font-weight:700;color:#166534;">✓ Atestado emitido</div>' +
+                    '<p style="font-size:12px;color:#15803d;margin:6px 0;">Protocolo: ' + _escDoc(d.protocolo) +
+                    (d.data_validade ? ' · válido até ' + _escDoc(d.data_validade) : '') + '</p>' +
+                    '<button class="btn btn-outline" onclick="baixarPdfAtestado()" style="width:auto;padding:8px 14px;font-size:13px;">📄 Baixar PDF</button> ' +
+                    '<button class="btn btn-action" onclick="assinarAtestado()" style="width:auto;padding:8px 14px;font-size:13px;margin-left:8px;">🔏 Assinar com ICP-Brasil</button>' +
+                    '<div id="atestado-assinar-msg" class="msg-inline" style="display:none;margin-top:8px;"></div></div>';
+            } catch (e) {
+                container.innerHTML = erro('Falha de rede ao emitir. Verifique se o backend está rodando em ' + BACKEND + '.');
+            }
+        }
+
+        async function baixarPdfAtestado() {
+            if (!_atestadoEmitido) return;
+            try {
+                const h = authHeaders();
+                const r = await fetch(BACKEND + '/atestados/' + _atestadoEmitido + '/pdf', { headers: h });
+                if (!r.ok) return;
+                _baixarBlob(await r.blob(), 'atestado-' + _atestadoEmitido.slice(0, 8) + '.pdf');
+            } catch (_) {}
+        }
+
+        async function assinarAtestado() {
+            if (!_atestadoEmitido) return;
+            const msgEl = document.getElementById('atestado-assinar-msg');
+            const _msg = (t, tipo) => {
+                if (!msgEl) return;
+                msgEl.textContent = t; msgEl.style.display = t ? 'block' : 'none';
+                msgEl.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error' : tipo === 'success' ? 'msg-inline-success' : '');
+            };
+            const senha = window.prompt('Senha do seu certificado ICP-Brasil (.pfx):');
+            if (senha === null) return;
+            if (!senha) return _msg('Senha não informada.', 'error');
+            _msg('Assinando…', '');
+            try {
+                const r = await fetch(BACKEND + '/atestados/' + _atestadoEmitido + '/pdf-assinado', {
+                    method: 'POST', headers: authHeaders(), body: JSON.stringify({ senha_pfx: senha })
+                });
+                if (!r.ok) {
+                    let m = 'Falha ao assinar (HTTP ' + r.status + ').';
+                    if (r.status === 401) m = 'Senha do certificado inválida.';
+                    else if (r.status === 422) m = 'Nenhum certificado ativo. Use "Meu certificado ICP-Brasil" na aba de prescrição para enviar seu .pfx.';
+                    else if (r.status === 403) m = 'Assinatura desabilitada (modo demonstração).';
+                    return _msg(m, 'error');
+                }
+                _baixarBlob(await r.blob(), 'atestado-' + _atestadoEmitido.slice(0, 8) + '-assinado.pdf');
+                _msg('✓ Atestado assinado em ICP-Brasil baixado. Valide no Adobe ou em validar.iti.gov.br.', 'success');
+            } catch (e) {
+                _msg('Não foi possível conectar ao servidor (' + BACKEND + ').', 'error');
+            }
+        }
+
+        /** Baixa um Blob como arquivo (helper compartilhado). */
+        function _baixarBlob(blob, nome) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = nome;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
         }
     </script>
 
