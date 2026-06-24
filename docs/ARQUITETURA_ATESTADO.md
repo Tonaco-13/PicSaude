@@ -133,10 +133,10 @@ Hoje o formulário do atestado coleta **só o nome** do paciente. Para ser objet
 |---|---|---|---|
 | POST | `/atestados` | Emissão digital | prescritor |
 | POST | `/atestados/fisica` | Emissão física (fire-and-forget) | prescritor |
-| GET | `/atestados/{proto}` | Consulta autenticada | prescritor(dono)/admin |
-| GET | `/atestados/{proto}/pdf` | PDF institucional | prescritor(dono)/admin |
+| GET | `/atestados/{proto}` | Consulta autenticada | prescritor(dono)/paciente(titular)/admin |
+| GET | `/atestados/{proto}/pdf` | PDF institucional | prescritor(dono)/paciente(titular)/admin |
 | POST | `/atestados/{proto}/pdf-assinado` | PDF + assinatura ICP (cofre PAdES) | prescritor(dono) |
-| GET | `/atestados/{proto}/custodia` | Histórico de custódia | prescritor(dono)/admin |
+| GET | `/atestados/{proto}/custodia` | Histórico de custódia | prescritor(dono)/paciente(titular)/admin |
 | GET | `/public/atestados/{proto}` | **Validação pública** (sem dado clínico) | — |
 
 ### Validação pública — o que devolve (e o que NUNCA devolve)
@@ -147,9 +147,10 @@ A consulta pública confirma **autenticidade e vigência**, sem vazar clínica
 ```jsonc
 // GET /public/atestados/{proto}  → devolve:
 { "protocolo": "...", "status": "assinado",
-  "tipo_emissao": "nova", "data_documento": "2026-06-23",
-  "data_validade": "2026-06-30", "assinado": true }
-// NUNCA: nome/CPF do paciente, finalidade, indicação, CID, dias, prescritor.
+  "tipo_emissao": "nova", "assinado": true, "vigente": true }
+// NUNCA: nome/CPF do paciente, finalidade, indicação, CID, dias, prescritor —
+//        nem as datas: data_validade = data_documento + dias_afastamento, então
+//        expô-las derivaria os dias de afastamento. A vigência vai SÓ como booleano.
 ```
 
 > O verificador confirma que o atestado **existe, está assinado e está vigente** — o

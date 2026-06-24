@@ -240,3 +240,18 @@ class TestRBACLeitura:
         # …e não pode assinar o atestado de outro (owner-check antes do certificado)
         r = _shared_client.post(f"/atestados/{proto}/pdf-assinado", json={"senha_pfx": "x"})
         assert r.status_code == 403, r.text
+
+    def test_paciente_sentinela_nunca_e_titular_403(self, prescritor, _shared_client):
+        """O CPF sentinela (00000000000, fluxo físico não identificado) nunca é
+        titular — mesmo coincidindo com o cpf_paciente do atestado físico."""
+        from app.main import app
+        from app.auth.dependencies import get_current_user
+        proto = prescritor.post("/atestados/fisica", json={
+            "cns_prescritor": "123456789012345", "nome_prescritor": "Dra. Atesta",
+            "finalidade": "Comparecimento",
+        }).json()["protocolo"]
+        app.dependency_overrides[get_current_user] = lambda: {
+            "role": "paciente", "sub": "00000000000"}
+        for path in (f"/atestados/{proto}", f"/atestados/{proto}/pdf",
+                     f"/atestados/{proto}/custodia"):
+            assert _shared_client.get(path).status_code == 403, path
