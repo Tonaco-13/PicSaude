@@ -41,6 +41,9 @@ from app.models.encaminhamento_custodia import EncaminhamentoCustodia           
 from app.models.contrarreferencia import Contrarreferencia                             # TICKET-ENCAMINHAMENTO-E2
 from app.models.contrarreferencia_evento import ContrarreferenciaEvento               # TICKET-ENCAMINHAMENTO-E2
 from app.models.contrarreferencia_custodia import ContrarreferenciaCustodia           # TICKET-ENCAMINHAMENTO-E2
+from app.models.atestado import Atestado                                               # Atestado (objeto sanitário)
+from app.models.atestado_evento import AtestadoEvento                                  # Atestado
+from app.models.atestado_custodia import AtestadoCustodia                              # Atestado
 
 __all__ = [
     "Paciente",
@@ -87,4 +90,7 @@ __all__ = [
     "Contrarreferencia",           # TICKET-ENCAMINHAMENTO-E2
     "ContrarreferenciaEvento",     # TICKET-ENCAMINHAMENTO-E2
     "ContrarreferenciaCustodia",   # TICKET-ENCAMINHAMENTO-E2
+    "Atestado",                    # Atestado (objeto sanitário)
+    "AtestadoEvento",              # Atestado
+    "AtestadoCustodia",            # Atestado
 ]
