@@ -1734,5 +1734,19 @@
             </div>
         </div>
     </div>
+
+    <!-- Trilha da demo — visível só em dev (localhost/file://) ou na vitrine (demo_mode); some em produção real. -->
+    <script>
+    (async function trilhaDemo(){
+      const dev = location.protocol === 'file:' || ['localhost','127.0.0.1'].includes(location.hostname);
+      let demo = false;
+      try { const r = await fetch('/config/public', { cache:'no-store' }); if (r.ok) demo = (await r.json()).demo_mode; } catch (e) {}
+      if (!dev && !demo) return;
+      const b = document.createElement('div');
+      b.style.cssText = 'background:#ecfeff;border-bottom:2px solid #06b6d4;color:#155e75;font-size:13px;line-height:1.4;padding:9px 16px;text-align:center;';
+      b.innerHTML = '🧭 <strong>Trilha da demo · você é o CIDADÃO</strong> — entre com <strong>CPF 12345678909</strong>; o código de acesso aparece no <strong>terminal do servidor</strong>. A carteira mostra os objetos que <em>chegaram</em> a você.';
+      document.body.insertBefore(b, document.body.firstChild);
+    })();
+    </script>
 </body>
 </html>
