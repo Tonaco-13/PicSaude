@@ -1,0 +1,27 @@
+{
+  "seed": 42,
+  "part1_state_machine": {
+    "closure_pairs_checked": 128,
+    "closure_illegal_accepted": 0,
+    "closure_legal_missed": 0,
+    "legal_walks": 5000,
+    "legal_steps": 7570,
+    "illegal_steps_in_legal_walks": 0,
+    "terminal_exit_paths_found": 0,
+    "replay_mismatches": 0,
+    "adversarial_transitions": 10000,
+    "adversarial_illegal_accepted": 0,
+    "partial_dispensation_trials": 20000,
+    "partial_dispensation_violations": 0
+  },
+  "part2_canonical": {
+    "corpus": 10000,
+    "hash_throughput_per_s": 61938,
+    "determinism_trials": 10000,
+    "nondeterministic_hashes": 0,
+    "tamper_trials": 10000,
+    "tamper_detected": 10000,
+    "distinct_hashes": 10000,
+    "hash_collisions": 0
+  }
+}

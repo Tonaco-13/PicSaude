@@ -1939,5 +1939,19 @@
         </div>
     </div>
 
+    <!-- Trilha da demo — visível só em dev (localhost/file://) ou na vitrine (demo_mode); some em produção real. -->
+    <script>
+    (async function trilhaDemo(){
+      const dev = location.protocol === 'file:' || ['localhost','127.0.0.1'].includes(location.hostname);
+      let demo = false;
+      try { const r = await fetch('/config/public', { cache:'no-store' }); if (r.ok) demo = (await r.json()).demo_mode; } catch (e) {}
+      if (!dev && !demo) return;
+      const b = document.createElement('div');
+      b.style.cssText = 'background:#ecfeff;border-bottom:2px solid #06b6d4;color:#155e75;font-size:13px;line-height:1.4;padding:9px 16px;text-align:center;';
+      b.innerHTML = '🧭 <strong>Trilha da demo · você é a FARMÁCIA</strong> — entre com <strong>CNPJ 12345678000199 / Teste@2024</strong> e cole o código do paciente em <strong>“Resolver”</strong>. <em>Não use “Cadastrar manualmente”.</em>';
+      document.body.insertBefore(b, document.body.firstChild);
+    })();
+    </script>
+
 </body>
 </html>
