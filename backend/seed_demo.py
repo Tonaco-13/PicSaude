@@ -81,7 +81,7 @@ def _garantir_usuario(conn, identificador: str, nome: str, role: str) -> None:
     else:
         conn.execute(
             "INSERT INTO usuarios (role, identificador, nome, senha_hash, ativo, "
-            "created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)",
+            "created_at, updated_at) VALUES (?, ?, ?, ?, True, ?, ?)",
             (role, identificador, nome, senha_hash, now, now),
         )
         print(f"  ✅ usuario '{identificador}' ({role}) — criado")
@@ -97,7 +97,7 @@ def _garantir_prescritor(conn, cns: str, nome: str) -> None:
     else:
         conn.execute(
             "INSERT INTO prescritores (cns, nome, ativo, created_at, updated_at) "
-            "VALUES (?, ?, 1, ?, ?)",
+            "VALUES (?, ?, True, ?, ?)",
             (cns, nome, now, now),
         )
         print(f"  ✅ prescritores: '{cns}' — criado")
@@ -124,7 +124,7 @@ def _garantir_prestador(
         prestador_id = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO prestadores (id, org_id, nome, tipo, cnpj, ativo, criado_em) "
-            "VALUES (?, ?, ?, ?, ?, 1, ?)",
+            "VALUES (?, ?, ?, ?, ?, True, ?)",
             (prestador_id, org_id, nome, tipo, cnpj, now),
         )
         print(f"  ✅ prestadores: org_id='{org_id}' ({tipo}) — criado")
@@ -138,7 +138,7 @@ def _garantir_prestador(
     else:
         conn.execute(
             "INSERT INTO unidades (id, prestador_id, unidade_id, nome, tipo, "
-            "ativo, criado_em) VALUES (?, ?, ?, ?, ?, 1, ?)",
+            "ativo, criado_em) VALUES (?, ?, ?, ?, ?, True, ?)",
             (str(uuid.uuid4()), prestador_id, unidade_id,
              unidade_nome, unidade_tipo, now),
         )
@@ -160,14 +160,14 @@ def _garantir_paciente(conn, cpf: str, nome: str) -> None:
     ).fetchone()
     if row:
         conn.execute(
-            "UPDATE pacientes SET ativo = 1, nome = ?, updated_at = ? WHERE cpf = ?",
+            "UPDATE pacientes SET ativo = True, nome = ?, updated_at = ? WHERE cpf = ?",
             (nome, now, cpf),
         )
         print(f"  ↺  pacientes: '{cpf}' — atualizado")
     else:
         conn.execute(
             "INSERT INTO pacientes (cpf, nome, ativo, created_at, updated_at) "
-            "VALUES (?, ?, 1, ?, ?)",
+            "VALUES (?, ?, True, ?, ?)",
             (cpf, nome, now, now),
         )
         print(f"  ✅ pacientes: '{cpf}' — criado")

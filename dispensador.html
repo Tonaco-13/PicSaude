@@ -507,7 +507,7 @@
 
         // DEV_PRESET_CONTEXT: pré-seleciona a farmácia de teste automaticamente.
         // Mude para false antes de publicar em produção.
-        const DEV_PRESET_CONTEXT = true;
+        const DEV_PRESET_CONTEXT = false;
 
         // Soft guard — tipos válidos para o módulo Dispensador (Ticket 60)
         const _TIPOS_DISPENSADOR_VALIDOS = new Set(['farmacia', 'hospital', 'usf']);
@@ -1878,8 +1878,8 @@
             const cnpjEl  = document.getElementById('login-cnpj');
             const senhaEl = document.getElementById('login-senha');
             if (cnpjEl && senhaEl) {
-                cnpjEl.value  = '12345678000199';   // CNPJ da farmácia de teste
-                senhaEl.value = 'Teste@2024';
+                cnpjEl.value  = '99999999000191';   // CNPJ da Farmácia Demo Central (seed_demo.py)
+                senhaEl.value = 'Demo@2024';
                 setTimeout(() => fazerLogin({ preventDefault: () => {} }), 120);
             }
         }
@@ -1948,7 +1948,7 @@
       if (!dev && !demo) return;
       const b = document.createElement('div');
       b.style.cssText = 'background:#ecfeff;border-bottom:2px solid #06b6d4;color:#155e75;font-size:13px;line-height:1.4;padding:9px 16px;text-align:center;';
-      b.innerHTML = '🧭 <strong>Trilha da demo · você é a FARMÁCIA</strong> — entre com <strong>CNPJ 12345678000199 / Teste@2024</strong> e cole o código do paciente em <strong>“Resolver”</strong>. <em>Não use “Cadastrar manualmente”.</em>';
+      b.innerHTML = '🧭 <strong>Trilha da demo · você é a FARMÁCIA</strong> — entre com <strong>CNPJ 99.999.999/0001-91 / Demo@2024</strong> e cole o código do paciente em <strong>”Resolver”</strong>. <em>Não use “Cadastrar manualmente”.</em>';
       document.body.insertBefore(b, document.body.firstChild);
     })();
     </script>
