@@ -34,7 +34,7 @@ services:
     healthCheckPath: /health
     # Migrations rodam antes de cada deploy (esquema único via Alembic).
     # O Dockerfile faz WORKDIR /app e copia backend/ → alembic.ini fica em /app.
-    preDeployCommand: "alembic upgrade head"
+    preDeployCommand: "alembic upgrade head && python3 seed_demo.py"
     envVars:
       # Vitrine pública de DEMONSTRAÇÃO (não prod): o boot proíbe prod+demo, e o
       # objetivo é o visitante percorrer o loop sem barreira de login.

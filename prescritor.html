@@ -858,10 +858,10 @@
     <script>
       const BACKEND = BACKEND_URL;
 
-        const DEV_MODE = true;
+        const DEV_MODE = false;
         // DEV_PRESET_CONTEXT: pré-seleciona o prescritor de teste automaticamente.
         // Mude para false antes de publicar em produção.
-        const DEV_PRESET_CONTEXT = true;
+        const DEV_PRESET_CONTEXT = false;
         let assinaturaModo = null;
         let _protocoloParaAssinar = null;  // protocolo da prescrição a assinar (ICP-Brasil)
         let carteiraDigitalStatus = null; // Ticket 63: null=não verificado, true/false=resultado
@@ -3522,8 +3522,8 @@
             const idEl    = document.getElementById('acesso-identificador');
             const senhaEl = document.getElementById('acesso-senha');
             if (idEl && senhaEl) {
-                idEl.value    = '123456789012345';   // CNS do prescritor de teste
-                senhaEl.value = 'Teste@2024';   // sincronizada com seed_dev.py (senha real no DB de dev)
+                idEl.value    = '980001112223334';   // CNS da Dra. Demo (seed_demo.py)
+                senhaEl.value = 'Demo@2024';   // sincronizada com seed_demo.py (SENHA_DEMO)
                 setTimeout(() => fazerLoginDireto({ preventDefault: () => {} }), 120);
             }
         }
