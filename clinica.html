@@ -823,6 +823,15 @@
       logout();
     }
 
+    function _extrairMsgErro(errData, fallback) {
+      const d = errData && errData.detail;
+      if (d == null) return fallback;
+      if (typeof d === 'string') return d;
+      if (Array.isArray(d)) return d.map(e => (e && e.msg) ? e.msg : JSON.stringify(e)).join('; ');
+      if (typeof d === 'object') return d.mensagem || d.msg || JSON.stringify(d);
+      return String(d);
+    }
+
     // ─────────────────────────────────────────
     // LOGIN / LOGOUT
     // ─────────────────────────────────────────
@@ -855,7 +864,11 @@
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          erroEl.textContent = 'Login inválido: ' + (err.detail || 'Verifique suas credenciais.');
+          if (err.detail && typeof err.detail === 'object' && err.detail.codigo === 'demo_mode_ativo') {
+            erroEl.innerHTML = 'Modo demonstração ativo &mdash; <a href="/">use o seletor na página inicial</a>.';
+          } else {
+            erroEl.textContent = 'Login inválido: ' + _extrairMsgErro(err, 'Verifique suas credenciais.');
+          }
           erroEl.classList.remove('hidden');
           return;
         }
@@ -1070,7 +1083,7 @@
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          erroEl.textContent = 'Erro ao buscar pedido: ' + (err.detail || resp.status);
+          erroEl.textContent = 'Erro ao buscar pedido: ' + _extrairMsgErro(err, String(resp.status));
           erroEl.classList.remove('hidden');
           return;
         }
@@ -1324,7 +1337,7 @@
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
 
@@ -1349,7 +1362,7 @@
         if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
         mostrarFeedback('feedback-agendamento', 'ok', 'Presença confirmada.');
@@ -1368,7 +1381,7 @@
         if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
         mostrarFeedback('feedback-agendamento', 'ok', 'Agendamento cancelado.');
@@ -1390,7 +1403,7 @@
         if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + (err.detail || resp.status));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
         mostrarFeedback('feedback-agendamento', 'ok', 'Agendamento realizado. Coletas registradas.');
@@ -1465,7 +1478,7 @@
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
-          alert('Erro: ' + (err.detail || resp.status));
+          alert('Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
 
@@ -1595,7 +1608,7 @@
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
                 resEl.innerHTML = ''; resEl.classList.add('hidden');
-                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
                 return;
             }
 
@@ -1825,7 +1838,7 @@
             if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
-                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
                 return;
             }
             _circFeedback('ok', 'Proposta registrada com sucesso.');
@@ -1851,7 +1864,7 @@
             if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
-                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
                 return;
             }
             _circFeedback('ok', 'Circulação marcada como realizada.');
@@ -1878,7 +1891,7 @@
             if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
-                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
                 return;
             }
             _circFeedback('ok', 'Circulação desmarcada.');
@@ -1912,7 +1925,7 @@
             if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
-                _circFeedback('err', 'Erro: ' + (err.detail || resp.status));
+                _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
                 return;
             }
             const data = await resp.json();
