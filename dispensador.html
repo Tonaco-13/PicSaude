@@ -932,6 +932,15 @@
             el.classList.remove('hidden');
         }
 
+        function _extrairMsgErro(errData, fallback) {
+            const d = errData && errData.detail;
+            if (d == null) return fallback;
+            if (typeof d === 'string') return d;
+            if (Array.isArray(d)) return d.map(e => (e && e.msg) ? e.msg : JSON.stringify(e)).join('; ');
+            if (typeof d === 'object') return d.mensagem || d.msg || JSON.stringify(d);
+            return String(d);
+        }
+
         // ─────────────────────────────────────────────────
         // Login / Logout
         // ─────────────────────────────────────────────────
@@ -956,7 +965,11 @@
 
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    loginErro.textContent = 'Login inválido: ' + (err.detail || 'Verifique suas credenciais.');
+                    if (err.detail && typeof err.detail === 'object' && err.detail.codigo === 'demo_mode_ativo') {
+                        loginErro.innerHTML = 'Modo demonstração ativo &mdash; <a href="/">use o seletor na página inicial</a>.';
+                    } else {
+                        loginErro.textContent = 'Login inválido: ' + _extrairMsgErro(err, 'Verifique suas credenciais.');
+                    }
                     loginErro.classList.remove('hidden');
                     return;
                 }
@@ -1193,7 +1206,7 @@
 
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    body.innerHTML = `<div class="msg-inline error">${err.detail || 'Protocolo não encontrado.'}</div>`;
+                    body.innerHTML = `<div class="msg-inline error">${_extrairMsgErro(err, 'Protocolo não encontrado.')}</div>`;
                     container.classList.remove('hidden');
                     return;
                 }
@@ -1820,7 +1833,7 @@
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
                     msgEl.className   = 'msg-inline error';
-                    msgEl.textContent = err.detail || 'Token inválido ou expirado.';
+                    msgEl.textContent = _extrairMsgErro(err, 'Token inválido ou expirado.');
                     return;
                 }
 
@@ -1977,7 +1990,7 @@
                 if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    mostrarMsgItem(itemId, 'error', err.detail || 'Erro ao dispensar item.');
+                    mostrarMsgItem(itemId, 'error', _extrairMsgErro(err, 'Erro ao dispensar item.'));
                     return;
                 }
                 _atualizarUiAposDispensacao(await resp.json(), itemId);
@@ -2028,7 +2041,7 @@
                 if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    mostrarMsgItem(itemId, 'error', err.detail || 'Erro ao dispensar (hospitalar).');
+                    mostrarMsgItem(itemId, 'error', _extrairMsgErro(err, 'Erro ao dispensar (hospitalar).'));
                     return;
                 }
                 const data = await resp.json();
@@ -2175,7 +2188,7 @@
 
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
-                    mostrarMsgItem(itemId, 'error', err.detail || 'Erro ao devolver item.');
+                    mostrarMsgItem(itemId, 'error', _extrairMsgErro(err, 'Erro ao devolver item.'));
                     return;
                 }
 
