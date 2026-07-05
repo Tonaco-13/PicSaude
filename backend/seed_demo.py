@@ -12,6 +12,14 @@ Identificadores DIFERENTES dos do seed_dev.py para evitar colisão.
 
 Paciente NÃO entra em `usuarios` (KISS §3.7.1 — sem refresh em demo).
 
+T0.5 (PLANO_DEMO_CIRCULACAO.md, Flag 3 Z AI) — segunda farmácia:
+
+  Dispensador  CNPJ 99999999000272   Farmácia Demo Norte
+
+Sem ela, o gate da demo de circulação dá falso-verde no ramo
+"re-apresentação em outra farmácia" (não há segundo CNPJ para reter o
+item devolvido). DVs de ambos os CNPJ verificados (módulo 11).
+
 Uso:
     cd backend && PICSAUDE_DEMO_MODE=true python3 seed_demo.py
 
@@ -49,6 +57,19 @@ DISPENSADOR = dict(
     tipo_prestador="farmacia",
     unidade_id="DEMO-001",
     unidade_nome="Unidade Central Demo",
+    unidade_tipo="farmacia",
+)
+
+# T0.5 — segunda farmácia (PLANO_DEMO_CIRCULACAO.md, Flag 3 Z AI):
+# habilita o ramo "re-apresentação em outra farmácia" da demo de circulação.
+DISPENSADOR_NORTE = dict(
+    cnpj="99999999000272",
+    nome="Farmácia Demo Norte",
+    role="dispensador",
+    org_id="farmacia-demo-norte",
+    tipo_prestador="farmacia",
+    unidade_id="DEMO-002",
+    unidade_nome="Unidade Norte Demo",
     unidade_tipo="farmacia",
 )
 
@@ -250,6 +271,19 @@ def main() -> None:
             unidade_id=DISPENSADOR["unidade_id"],
             unidade_nome=DISPENSADOR["unidade_nome"],
             unidade_tipo=DISPENSADOR["unidade_tipo"],
+        )
+
+        # Dispensador — segunda farmácia (T0.5)
+        _garantir_usuario(conn, DISPENSADOR_NORTE["cnpj"], DISPENSADOR_NORTE["nome"], DISPENSADOR_NORTE["role"])
+        _garantir_prestador(
+            conn,
+            org_id=DISPENSADOR_NORTE["org_id"],
+            nome=DISPENSADOR_NORTE["nome"],
+            tipo=DISPENSADOR_NORTE["tipo_prestador"],
+            cnpj=DISPENSADOR_NORTE["cnpj"],
+            unidade_id=DISPENSADOR_NORTE["unidade_id"],
+            unidade_nome=DISPENSADOR_NORTE["unidade_nome"],
+            unidade_tipo=DISPENSADOR_NORTE["unidade_tipo"],
         )
 
         # Paciente (sem `usuarios` — KISS §3.7.1)
