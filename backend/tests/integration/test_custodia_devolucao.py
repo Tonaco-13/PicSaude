@@ -539,3 +539,155 @@ def test_devolucao_e_redispensacao_parcial_em_outra_farmacia_transfere_custodia(
     assert r4.json()["saldo_restante"] == 0
     assert r4.json()["status_item"] == "dispensado"
     assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) is None
+
+
+# ---------------------------------------------------------------------------
+# Condição vinculante do Conselheiro (PR #76, docs/PARECER_PR76_T1.md) —
+# custódia ativa de OUTRO dispensador não pode ser assumida silenciosamente
+# em `dispensar_item`.
+# ---------------------------------------------------------------------------
+
+def _seed_prescricao_com_custodia_prescricao_inteira(outer_conn, num_itens: int = 1):
+    """
+    Seed mínimo: prescrição em `em_custodia`, itens em `em_custodia`, mas
+    custódia ativa registrada APENAS no nível de prescrição inteira
+    (item_id IS NULL) — o formato que a apresentação padrão no balcão
+    (`transferir_custodia`, paciente → dispensador) realmente produz.
+    Ao contrário de `_seed_prescricao_com_itens_em_custodia`, nenhuma linha
+    de custódia por item é seedada aqui — é exatamente a lacuna de
+    granularidade que o adendo (d2) do parecer cobre.
+
+    Retorna: (prescricao_id, protocolo, [item_id, ...]).
+    """
+    now = datetime.utcnow().isoformat()
+    proto = f"PROTO-DEV-{uuid.uuid4().hex[:10]}"
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO prescritores (cns, nome, ativo, created_at, updated_at) "
+            "VALUES (%s, %s, true, %s, %s) "
+            "ON CONFLICT (cns) DO UPDATE SET nome = EXCLUDED.nome RETURNING id",
+            (SEED_PRESCRITOR_CNS, SEED_PRESCRITOR_NOME, now, now),
+        )
+        pres_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO pacientes (cpf, nome, ativo, created_at, updated_at) "
+            "VALUES (%s, %s, true, %s, %s) "
+            "ON CONFLICT (cpf) DO UPDATE SET nome = EXCLUDED.nome RETURNING id",
+            (SEED_PACIENTE_CPF, SEED_PACIENTE_NOME, now, now),
+        )
+        pac_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO prescricoes
+              (protocolo, prescritor_id, paciente_id, status, tipo_emissao,
+               data_emissao, created_at, updated_at)
+            VALUES (%s, %s, %s, 'em_custodia', 'nova', %s, %s, %s)
+            RETURNING id
+            """,
+            (proto, pres_id, pac_id, now, now, now),
+        )
+        prescricao_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO prescricao_custodia
+              (prescricao_id, item_id, detentor_tipo, detentor_id,
+               transferida_em, encerrada_em, motivo, created_at)
+            VALUES (%s, NULL, 'dispensador', %s, %s, NULL, 'seed_test', %s)
+            """,
+            (prescricao_id, _DISPENSADOR_CNPJ, now, now),
+        )
+        item_ids: list[int] = []
+        for i in range(num_itens):
+            cur.execute(
+                """
+                INSERT INTO prescricao_itens
+                  (prescricao_id, nome_medicamento, concentracao, quantidade,
+                   posologia, status_item, created_at, updated_at)
+                VALUES (%s, %s, '500mg', 10, '1cp 8/8h', 'em_custodia', %s, %s)
+                RETURNING id
+                """,
+                (prescricao_id, f"MEDICAMENTO_TESTE_{i + 1}", now, now),
+            )
+            item_ids.append(cur.fetchone()[0])
+            # Sem INSERT em prescricao_custodia por item — só a de prescrição
+            # inteira acima, de propósito.
+    return prescricao_id, proto, item_ids
+
+
+def test_dispensar_item_retido_por_custodia_de_prescricao_inteira_retorna_409(client, outer_conn):
+    """
+    Cenário (d2) do parecer: Farmácia A retém a custódia da PRESCRIÇÃO
+    INTEIRA (item_id IS NULL) — o formato real da apresentação padrão no
+    balcão — sem nunca ter dispensado nada. Farmácia B tenta dispensar um
+    item específico — deve ser bloqueado com 409, não assumir a custódia
+    através da lacuna de granularidade (item_id = ? não pega item_id IS NULL).
+    """
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_custodia_prescricao_inteira(outer_conn)
+
+    # Confere o setup: custódia ativa é da prescrição inteira, nada no nível de item.
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT detentor_tipo, detentor_id FROM prescricao_custodia "
+            "WHERE prescricao_id = %s AND item_id IS NULL AND encerrada_em IS NULL",
+            (prescricao_id,),
+        )
+        ativa_prescricao = cur.fetchone()
+    assert ativa_prescricao == ("dispensador", _DISPENSADOR_CNPJ)
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) is None
+
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ_NORTE, "quantidade_dispensada": 3},
+        headers=_headers(_jwt_dispensador_norte()),
+    )
+
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["codigo"] == "item_retido_por_outro_estabelecimento"
+
+    # Custódia da farmácia A (nível prescrição inteira) permanece intacta.
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT detentor_tipo, detentor_id FROM prescricao_custodia "
+            "WHERE prescricao_id = %s AND item_id IS NULL AND encerrada_em IS NULL",
+            (prescricao_id,),
+        )
+        assert cur.fetchone() == ("dispensador", _DISPENSADOR_CNPJ)
+
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM dispensacoes WHERE prescricao_item_id = %s", (item_id,),
+        )
+        assert cur.fetchone()[0] == 0
+
+
+def test_dispensar_item_retido_por_outra_farmacia_retorna_409(client, outer_conn):
+    """
+    Cenário (d) do parecer: Farmácia A retém a custódia ativa do item (sem
+    dispensar nada) e Farmácia B tenta dispensar — deve ser bloqueado com
+    409 (`item_retido_por_outro_estabelecimento`), não assumir a custódia
+    silenciosamente.
+    """
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    # Farmácia A já detém a custódia ativa do item (seed) e não dispensou nada.
+    ativa_antes = _custodia_ativa_item(outer_conn, prescricao_id, item_id)
+    assert ativa_antes == {"detentor_tipo": "dispensador", "detentor_id": _DISPENSADOR_CNPJ}
+
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ_NORTE, "quantidade_dispensada": 3},
+        headers=_headers(_jwt_dispensador_norte()),
+    )
+
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["codigo"] == "item_retido_por_outro_estabelecimento"
+
+    # Custódia da farmácia A permanece intacta — nenhuma tomada silenciosa.
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) == ativa_antes
+
+    # Nenhuma dispensação foi registrada — o guard corta antes de qualquer mutação.
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM dispensacoes WHERE prescricao_item_id = %s", (item_id,),
+        )
+        assert cur.fetchone()[0] == 0

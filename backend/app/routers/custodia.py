@@ -255,6 +255,34 @@ def _prescritor_e_autor(conn, prescricao_id: int, cns: str) -> bool:
     return row is not None
 
 
+def _custodia_item_de_outro_dispensador(conn, prescricao_id: int, item_id: int, cnpj: str) -> bool:
+    """
+    True quando a custódia ATIVA que cobre o item — por item (`item_id = ?`)
+    OU por prescrição inteira (`item_id IS NULL`) — pertence a um
+    dispensador com CNPJ diferente de `cnpj`.
+
+    A checagem por prescrição inteira é obrigatória: a apresentação padrão
+    no balcão (`transferir_custodia`, paciente → dispensador) abre custódia
+    só nesse nível (`item_id IS NULL`) — nunca por item — então é o caso
+    comum, não a exceção. Mesmo idioma `(item_id IS NULL OR item_id = ?)`
+    de `_dispensador_detem_custodia` acima, espelhado para a checagem negativa.
+
+    Parecer do Conselheiro (PR #76, docs/PARECER_PR76_T1.md) — condição
+    vinculante: o auto-fechamento de custódia em `dispensar_item` (T1) não
+    pode fechar silenciosamente a custódia de OUTRO estabelecimento — isso
+    legitimaria tomada de custódia entre CNPJs. Custódia do paciente ou
+    inexistente seguem liberadas (comportamento pré-existente).
+    """
+    row = conn.execute(
+        "SELECT 1 FROM prescricao_custodia "
+        "WHERE prescricao_id = ? AND (item_id IS NULL OR item_id = ?) "
+        "AND detentor_tipo = 'dispensador' "
+        "AND detentor_id != ? AND encerrada_em IS NULL LIMIT 1",
+        (prescricao_id, item_id, cnpj),
+    ).fetchone()
+    return row is not None
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -550,6 +578,9 @@ def dispensar_item(
     Registra a dispensação (total ou parcial) de um item da prescrição.
 
     - Valida que o item pertence à prescrição.
+    - Custódia ativa do item de OUTRO dispensador → 409 (Conselheiro, PR #76):
+      dispensador atual não pode assumir silenciosamente a custódia de outro
+      estabelecimento. Custódia do paciente ou inexistente seguem liberadas.
     - Valida que quantidade_dispensada não ultrapassa o saldo disponível.
     - Quando o item fica totalmente dispensado → status_item = 'dispensado'.
     - Após cada dispensação, recalcula o status geral da prescrição.
@@ -581,6 +612,18 @@ def dispensar_item(
         ).fetchone()
         if not item:
             raise HTTPException(status_code=404, detail=f"Item {item_id} não encontrado na prescrição.")
+
+        # Condição vinculante do Conselheiro (PR #76) — custódia ativa de OUTRO
+        # dispensador não pode ser assumida silenciosamente por este endpoint.
+        # Checa antes de qualquer mutação (rollback trivial).
+        if _custodia_item_de_outro_dispensador(conn, presc["id"], item_id, cnpj):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "codigo": "item_retido_por_outro_estabelecimento",
+                    "mensagem": "Item está em custódia ativa de outro estabelecimento dispensador.",
+                },
+            )
 
         # -----------------------------------------------------------------------
         # Ticket 44 — Fase 2: validação de token atomizado (quando fornecido)
