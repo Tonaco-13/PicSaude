@@ -692,16 +692,22 @@ def dispensar_item(
         if novo_status_item == "dispensado":
             _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
         else:
-            # Dispensação parcial: item ainda fica com dispensador — mantém custódia aberta
-            # Garante que há custódia ativa do item para o dispensador
+            # Dispensação parcial: item permanece em custódia — garante que o
+            # detentor ativo é ESTE dispensador.
+            # T1/PLANO_DEMO_CIRCULACAO.md: após devolução ao paciente, o item
+            # pode ter custódia ativa do paciente (não mais "nenhuma"). Sem
+            # fechar essa custódia explicitamente, o rastro continuaria
+            # apontando para o paciente mesmo com a farmácia já tendo
+            # dispensado parte do saldo — reabre o "buraco" que o T1 fecha.
             ativa = conn.execute(
                 """
-                SELECT id FROM prescricao_custodia
+                SELECT detentor_tipo, detentor_id FROM prescricao_custodia
                  WHERE prescricao_id = ? AND item_id = ? AND encerrada_em IS NULL
                 """,
                 (presc["id"], item_id),
             ).fetchone()
-            if not ativa:
+            if not ativa or ativa["detentor_tipo"] != "dispensador" or ativa["detentor_id"] != cnpj:
+                _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
                 _abrir_custodia(conn, presc["id"], item_id, "dispensador", cnpj, "dispensacao_parcial", agora)
 
         novo_status_prescricao = _recalcular_status_prescricao(conn, presc["id"], agora)
@@ -779,7 +785,12 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
     - payload.para = "paciente": status_item → 'devolvido_paciente' (não-terminal).
       Evento ledger: 'item_devolvido_paciente'. Item pode ser apresentado em outra farmácia.
 
-    Custódia ativa do item é encerrada em ambos os casos.
+    Custódia ativa do item é encerrada em ambos os casos. Quando o destino é
+    "paciente", uma nova custódia é aberta em seu nome na mesma transação
+    (T1/PLANO_DEMO_CIRCULACAO.md) — sem isso o item fica sem detentor entre a
+    devolução e a próxima apresentação, violando CLAUDE.md §3. O caso
+    "prescritor" não reabre custódia aqui: item chega a estado terminal e
+    aguarda nova prescrição derivada (ver TICKET-COERENCIA-DEVOLUCOES.md).
     O ator (dispensador ou prescritor) é capturado via Depends(require_role).
     """
     agora = datetime.utcnow().isoformat()
@@ -827,6 +838,19 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
         )
 
         _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
+
+        # T1 (PLANO_DEMO_CIRCULACAO.md, invariante #4) — devolução ao paciente
+        # reabre custódia em seu nome na mesma transação. Sem isto o item
+        # ficava sem detentor entre a devolução e a próxima apresentação.
+        if payload.para == "paciente":
+            paciente_row = conn.execute(
+                "SELECT cpf FROM pacientes WHERE id = ?",
+                (presc["paciente_id"],),
+            ).fetchone()
+            _abrir_custodia(
+                conn, presc["id"], item_id, "paciente",
+                normalize_cpf(paciente_row["cpf"]), payload.motivo, agora,
+            )
 
         novo_status_prescricao = _recalcular_status_prescricao(conn, presc["id"], agora)
 
