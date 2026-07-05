@@ -6,6 +6,8 @@ Cobertura E2E focal para POST /prescricoes/{protocolo}/itens/{item_id}/devolver
 (`backend/app/routers/custodia.py::devolver_item`).
 
 Origem: TICKET-4E-2-FIX-CUSTODIA-DEVOLUCAO.md (achado P2-A do CODEX 4E.2).
+T1 (PLANO_DEMO_CIRCULACAO.md, 2026-07-05): devolução ao paciente reabre
+custódia — ver seção "T1" ao final do arquivo.
 
 Invariantes verificadas:
 - Vocabulário canônico (CLAUDE.md §2): eventos separados
@@ -16,6 +18,10 @@ Invariantes verificadas:
 - Estado de domínio do item bate com o destino (`devolvido_paciente` /
     `devolvido_prescritor`).
 - `instance_id` continua sendo um UUID v4 (marca d'água da instalação — Etapa 4).
+- (T1) Devolução ao paciente abre nova custódia em seu nome — CLAUDE.md §3
+    ("cada prescrição tem um detentor de custódia a cada momento"). Devolução
+    ao prescritor NÃO reabre custódia aqui — fora do escopo do T1, ver
+    TICKET-COERENCIA-DEVOLUCOES.md.
 
 Princípios de teste (TICKET §6, integrando P2 da rodada 1 do CODEX):
 - Cada cenário monta o próprio setup.
@@ -40,6 +46,12 @@ from tests.integration.conftest import (
 _DISPENSADOR_CNPJ = "12345678000195"
 _DISPENSADOR_NOME = "DROGARIA TESTE 4E2"
 
+# T1 — segunda farmácia (mesmo CNPJ do seed T0.5/seed_demo.py) para os
+# cenários de re-apresentação. Independente do seed: o teste cria seu
+# próprio JWT e custódia, não depende de seed_demo.py ter rodado.
+_DISPENSADOR_CNPJ_NORTE = "99999999000272"
+_DISPENSADOR_NOME_NORTE = "Farmácia Demo Norte"
+
 
 # ---------------------------------------------------------------------------
 # Helpers locais (não criar fixtures globais — TICKET §6.5)
@@ -48,6 +60,12 @@ _DISPENSADOR_NOME = "DROGARIA TESTE 4E2"
 def _jwt_dispensador() -> str:
     return criar_access_token(
         sub=_DISPENSADOR_CNPJ, role="dispensador", nome=_DISPENSADOR_NOME,
+    )
+
+
+def _jwt_dispensador_norte() -> str:
+    return criar_access_token(
+        sub=_DISPENSADOR_CNPJ_NORTE, role="dispensador", nome=_DISPENSADOR_NOME_NORTE,
     )
 
 
@@ -363,3 +381,161 @@ def test_devolver_item_nunca_grava_tipo_evento_generico(client, outer_conn):
     assert tipos == {"item_devolvido_paciente", "item_devolvido_prescritor"}, (
         f"Vocabulário inesperado: {tipos - {'item_devolvido_paciente', 'item_devolvido_prescritor'}}"
     )
+
+
+# ---------------------------------------------------------------------------
+# T1 — Devolução ao paciente reabre custódia (PLANO_DEMO_CIRCULACAO.md)
+# ---------------------------------------------------------------------------
+#
+# Antes do T1, `_fechar_custodia_ativa` fechava a custódia do item na
+# devolução mas nunca abria uma nova em nome do paciente — o item ficava
+# sem detentor entre a devolução e a próxima apresentação, violando
+# CLAUDE.md §3 ("cada prescrição tem um detentor de custódia a cada
+# momento"). Estes testes cobrem a reabertura e o ciclo completo de
+# re-apresentação em outra farmácia que ela habilita.
+
+def _custodia_ativa_item(outer_conn, prescricao_id: int, item_id: int):
+    """Linha de custódia ATIVA (encerrada_em IS NULL) do item, ou None."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT detentor_tipo, detentor_id
+              FROM prescricao_custodia
+             WHERE prescricao_id = %s AND item_id = %s AND encerrada_em IS NULL
+            """,
+            (prescricao_id, item_id),
+        )
+        row = cur.fetchone()
+    return None if row is None else {"detentor_tipo": row[0], "detentor_id": row[1]}
+
+
+def _custodias_encerradas_do_item(outer_conn, prescricao_id: int, item_id: int) -> int:
+    """Conta quantas linhas de custódia do item já estão encerradas."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM prescricao_custodia
+             WHERE prescricao_id = %s AND item_id = %s AND encerrada_em IS NOT NULL
+            """,
+            (prescricao_id, item_id),
+        )
+        return cur.fetchone()[0]
+
+
+def test_devolver_item_ao_paciente_reabre_custodia_do_paciente(client, outer_conn):
+    """
+    T1 — depois de `devolver(para=paciente)`, a custódia ativa do item passa
+    a ser do paciente (CPF do seed, normalizado) e a custódia anterior do
+    dispensador aparece encerrada — nenhum momento sem detentor.
+    """
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    assert _custodias_encerradas_do_item(outer_conn, prescricao_id, item_id) == 0
+
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/devolver",
+        json={"para": "paciente", "motivo": "abandono no balcão"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r.status_code == 200, r.text
+
+    ativa = _custodia_ativa_item(outer_conn, prescricao_id, item_id)
+    assert ativa is not None, "item ficou sem detentor de custódia após devolução — viola CLAUDE.md §3"
+    assert ativa["detentor_tipo"] == "paciente"
+    assert ativa["detentor_id"] == SEED_PACIENTE_CPF
+
+    # A custódia anterior (dispensador, seedada em _seed_prescricao_com_itens_em_custodia)
+    # deve estar encerrada — não duas custódias ativas simultâneas.
+    assert _custodias_encerradas_do_item(outer_conn, prescricao_id, item_id) == 1
+
+
+def test_devolver_item_ao_prescritor_nao_reabre_custodia_do_paciente(client, outer_conn):
+    """
+    Guarda de escopo: devolução ao PRESCRITOR não deve abrir custódia do
+    paciente (T1 é escopado só ao ramo para=paciente — ver
+    TICKET-COERENCIA-DEVOLUCOES.md para o ramo prescritor). Este teste
+    trava caso um refactor futuro generalize a reabertura incorretamente.
+    """
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/devolver",
+        json={"para": "prescritor", "motivo": "dose inadequada"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r.status_code == 200, r.text
+
+    ativa = _custodia_ativa_item(outer_conn, prescricao_id, item_id)
+    assert ativa is None, (
+        f"devolução ao prescritor abriu custódia inesperada: {ativa} "
+        "— fora do escopo do T1"
+    )
+
+
+def test_devolucao_e_redispensacao_parcial_em_outra_farmacia_transfere_custodia(client, outer_conn):
+    """
+    Ciclo completo do §1 do PLANO_DEMO_CIRCULACAO.md, no recorte do item:
+    dispensação parcial (farmácia A) → devolução (custódia volta ao
+    paciente) → re-apresentação com nova dispensação parcial (farmácia B,
+    T0.5) → custódia ativa passa a ser da farmácia B, nunca voltando a
+    ficar "presa" no paciente.
+
+    Cobre também o ajuste em `dispensar_item`: sem ele, o ramo de
+    dispensação parcial só abre custódia "se não houver nenhuma ativa" —
+    e depois do T1 pode haver uma ativa (do paciente) que precisa ser
+    fechada, não apenas ignorada.
+    """
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    # Farmácia A dispensa parcialmente (4 de 10) — custódia continua com A
+    # (mesmo detentor da custódia seedada; não deve haver churn).
+    r1 = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 4},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r1.status_code == 201, r1.text
+    assert r1.json()["saldo_restante"] == 6
+
+    ativa_pos_dispensa_a = _custodia_ativa_item(outer_conn, prescricao_id, item_id)
+    assert ativa_pos_dispensa_a == {"detentor_tipo": "dispensador", "detentor_id": _DISPENSADOR_CNPJ}
+
+    # Paciente abandona o restante na farmácia A — custódia volta ao paciente (T1).
+    r2 = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/devolver",
+        json={"para": "paciente", "motivo": "vai tentar em outra farmácia"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r2.status_code == 200, r2.text
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) == {
+        "detentor_tipo": "paciente", "detentor_id": SEED_PACIENTE_CPF,
+    }
+
+    # Farmácia B (T0.5) dispensa parte do saldo remanescente (3 de 6).
+    r3 = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ_NORTE, "quantidade_dispensada": 3},
+        headers=_headers(_jwt_dispensador_norte()),
+    )
+    assert r3.status_code == 201, r3.text
+    assert r3.json()["saldo_restante"] == 3
+    assert r3.json()["status_item"] == "em_custodia"
+
+    # Custódia ativa agora é da farmácia B — a do paciente foi encerrada,
+    # não apenas ignorada (é o que o ajuste em dispensar_item garante).
+    ativa_pos_dispensa_b = _custodia_ativa_item(outer_conn, prescricao_id, item_id)
+    assert ativa_pos_dispensa_b == {
+        "detentor_tipo": "dispensador", "detentor_id": _DISPENSADOR_CNPJ_NORTE,
+    }
+
+    # Farmácia B dispensa o saldo final — item chega a estado terminal e a
+    # custódia é encerrada (item entregue não tem mais detentor a rastrear).
+    r4 = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ_NORTE, "quantidade_dispensada": 3},
+        headers=_headers(_jwt_dispensador_norte()),
+    )
+    assert r4.status_code == 201, r4.text
+    assert r4.json()["saldo_restante"] == 0
+    assert r4.json()["status_item"] == "dispensado"
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) is None
