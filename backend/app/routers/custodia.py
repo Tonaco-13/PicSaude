@@ -257,30 +257,42 @@ def _prescritor_e_autor(conn, prescricao_id: int, cns: str) -> bool:
 
 def _custodia_item_de_outro_dispensador(conn, prescricao_id: int, item_id: int, cnpj: str) -> bool:
     """
-    True quando a custódia ATIVA que cobre o item — por item (`item_id = ?`)
-    OU por prescrição inteira (`item_id IS NULL`) — pertence a um
-    dispensador com CNPJ diferente de `cnpj`.
+    True quando a custódia ATIVA que cobre o item pertence a um dispensador
+    com CNPJ diferente de `cnpj`.
 
-    A checagem por prescrição inteira é obrigatória: a apresentação padrão
-    no balcão (`transferir_custodia`, paciente → dispensador) abre custódia
-    só nesse nível (`item_id IS NULL`) — nunca por item — então é o caso
-    comum, não a exceção. Mesmo idioma `(item_id IS NULL OR item_id = ?)`
-    de `_dispensador_detem_custodia` acima, espelhado para a checagem negativa.
+    Precedência obrigatória — item-level vence prescrição-inteira quando
+    ambos existem: `devolver_item`/`dispensar_item` (dispensação parcial)
+    fecham e reabrem custódia só no nível de ITEM; o registro de prescrição
+    inteira aberto na apresentação original (`transferir_custodia`) fica
+    ativo e obsoleto ao lado dele — duplicidade pré-existente documentada
+    em TICKET-COERENCIA-DEVOLUCOES.md. Tratar as duas granularidades como
+    equivalentes (OR simples) faz esse registro obsoleto vazar: depois que
+    o item volta ao paciente (item-level), a custódia de prescrição inteira
+    ainda "presa" no dispensador antigo bloquearia incorretamente outra
+    farmácia — bloqueado incorretamente na 1ª versão deste guard, pego pela
+    suíte de regressão (test_devolucao_e_redispensacao_parcial_em_outra_farmacia_transfere_custodia).
 
-    Parecer do Conselheiro (PR #76, docs/PARECER_PR76_T1.md) — condição
-    vinculante: o auto-fechamento de custódia em `dispensar_item` (T1) não
-    pode fechar silenciosamente a custódia de OUTRO estabelecimento — isso
-    legitimaria tomada de custódia entre CNPJs. Custódia do paciente ou
-    inexistente seguem liberadas (comportamento pré-existente).
+    Sem custódia por item (apresentação padrão no balcão, nunca dispensada
+    ainda — cenário d2 do parecer, docs/PARECER_PR76_T1.md), cai para o
+    registro de prescrição inteira, que é a única fonte disponível.
     """
-    row = conn.execute(
-        "SELECT 1 FROM prescricao_custodia "
-        "WHERE prescricao_id = ? AND (item_id IS NULL OR item_id = ?) "
-        "AND detentor_tipo = 'dispensador' "
-        "AND detentor_id != ? AND encerrada_em IS NULL LIMIT 1",
-        (prescricao_id, item_id, cnpj),
+    row_item = conn.execute(
+        "SELECT detentor_tipo, detentor_id FROM prescricao_custodia "
+        "WHERE prescricao_id = ? AND item_id = ? AND encerrada_em IS NULL LIMIT 1",
+        (prescricao_id, item_id),
     ).fetchone()
-    return row is not None
+    if row_item is not None:
+        return row_item["detentor_tipo"] == "dispensador" and row_item["detentor_id"] != cnpj
+
+    row_prescricao = conn.execute(
+        "SELECT detentor_tipo, detentor_id FROM prescricao_custodia "
+        "WHERE prescricao_id = ? AND item_id IS NULL AND encerrada_em IS NULL LIMIT 1",
+        (prescricao_id,),
+    ).fetchone()
+    if row_prescricao is not None:
+        return row_prescricao["detentor_tipo"] == "dispensador" and row_prescricao["detentor_id"] != cnpj
+
+    return False
 
 
 # ---------------------------------------------------------------------------
