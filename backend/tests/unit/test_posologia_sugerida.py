@@ -58,12 +58,35 @@ def test_sem_posologia_retorna_none(tmp_path):
     ps._CACHE = None
 
 
-def test_rascunho_de_producao_fica_dormente():
-    """O CSV de produção (data/posologia_sugerida.csv) entra como RASCUNHO →
-    o motor não serve nada até Fabiano validar (status_curadoria=validado)."""
+def test_producao_so_serve_o_que_foi_validado():
+    """O CSV de produção (data/posologia_sugerida.csv) só deve alimentar o
+    motor com linhas `status_curadoria == 'validado'` — linha vermelha.
+
+    Antes da Fase A (commit 23ca07d, 2026-06-25) o CSV inteiro era rascunho
+    e o motor ficava dormente (idx == {}). A Fase A validou 11 posologias de
+    HAS+DM2 — mudança intencional, não regressão. Este teste acompanha o
+    CSV real (conta linhas validado por leitura direta) em vez de fixar o
+    número 11, para não quebrar a cada nova validação de rotina; continua
+    garantindo a linha vermelha: nenhum rascunho vaza para o índice e toda
+    posologia servida tem responsável de validação registrado.
+    """
+    import csv as _csv
     from app.domain.posologia_sugerida import _resolver_csv
-    idx = carregar_posologias(_resolver_csv())
-    assert idx == {}   # tudo rascunho → dormente
+
+    caminho = _resolver_csv()
+    with open(caminho, newline="", encoding="utf-8") as f:
+        linhas_validadas = [
+            row for row in _csv.DictReader(f)
+            if (row.get("status_curadoria") or "").strip() == "validado"
+        ]
+
+    idx = carregar_posologias(caminho)
+
+    assert len(idx) == len(linhas_validadas)   # nenhum rascunho vaza; nenhum validado some
+    for posologia in idx.values():
+        assert posologia.validado_por, (
+            f"posologia '{posologia.principio_ativo}' está servida sem validado_por"
+        )
 
 
 # --- Endpoint ---
