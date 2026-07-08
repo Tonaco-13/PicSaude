@@ -115,7 +115,7 @@ def gerar_pdf_atestado(
 
     story = []
     story.append(Paragraph("PicSaúde", st_titulo))
-    story.append(Paragraph("Plataforma de Integração do Cuidado", st_sub))
+    story.append(Paragraph("Plataforma de Custódia Sanitária Digital", st_sub))
     story.append(Spacer(1, 6))
     story.append(HRFlowable(width="100%", thickness=2, color=GREEN))
     story.append(Spacer(1, 6))
@@ -157,7 +157,7 @@ def gerar_pdf_atestado(
         f"Protocolo: {protocolo} · Emitido em {_fmt_data_br(data_documento)} · "
         f"Status: {status} · Hash SHA-256: {_truncar_hash(assinatura_hash)}", st_meta))
     story.append(Paragraph(
-        "PicSaúde — Plataforma de Integração do Cuidado. Verifique a autenticidade "
+        "PicSaúde — Plataforma de Custódia Sanitária Digital. Verifique a autenticidade "
         f"pelo protocolo {protocolo}.", st_meta))
 
     def _watermark(canvas, _doc):
