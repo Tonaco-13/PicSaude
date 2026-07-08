@@ -32,9 +32,13 @@ services:
     dockerContext: .
     plan: starter       # tier pago: sempre ligado, sem hibernação (decisão Fabiano 2026-06-16)
     healthCheckPath: /health
-    # Migrations rodam antes de cada deploy (esquema único via Alembic).
-    # O Dockerfile faz WORKDIR /app e copia backend/ → alembic.ini fica em /app.
-    preDeployCommand: "alembic upgrade head && python3 seed_demo.py"
+    # Migrations + seed rodam antes de cada deploy (esquema único via Alembic).
+    # O Dockerfile faz WORKDIR /app e copia backend/ → alembic.ini, seed_demo.py
+    # e predeploy.sh ficam em /app.
+    # IMPORTANTE: o preDeployCommand do Render é executado como argv (SEM shell),
+    # então "alembic upgrade head && python3 seed_demo.py" quebrava — o "&&" ia
+    # como argumento do alembic. Encapsulado em predeploy.sh, que o sh interpreta.
+    preDeployCommand: "sh predeploy.sh"
     envVars:
       # Vitrine pública de DEMONSTRAÇÃO (não prod): o boot proíbe prod+demo, e o
       # objetivo é o visitante percorrer o loop sem barreira de login.
