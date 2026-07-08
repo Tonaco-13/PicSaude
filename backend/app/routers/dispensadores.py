@@ -1,13 +1,22 @@
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.auth.dependencies import require_role
 from app.config import DEFAULT_LIMIT, MAX_LIMIT
 from app.database import get_conn
+from app.database_tx import get_tx
 from app.domain.cnes_prescritor import _get_cnes_conn
 from app.utils.helpers import normalize_cnpj, normalize_nome
 
 router = APIRouter(prefix="/dispensadores")
+
+_CPF_NAO_IDENTIFICADO = "00000000000"
+
+
+def _cpf_display(cpf: Optional[str]) -> str:
+    """CPF sentinela (prescrição física sem identificação) nunca é cidadão real."""
+    return "não identificado" if not cpf or cpf == _CPF_NAO_IDENTIFICADO else cpf
 
 
 @router.get("/busca")
@@ -58,3 +67,94 @@ def busca(
         return result
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------------
+# T4 — Fila do dispensador (PLANO_DEMO_CIRCULACAO §5)
+# ---------------------------------------------------------------------------
+# Prescrições sob custódia ATIVA do CNPJ autenticado. É o que faz o balcão
+# "ver as receitas chegarem" em vez de resolver token/protocolo na mão.
+#
+# Guardrail (Z AI, mantido): a query filtra pelo DETENTOR REAL na cadeia de
+# custódia (prescricao_custodia ativa), nunca uma view sem máquina de estados.
+# Polling no front basta para a demo.
+#
+# Classe `module`. Independente da cadeia de estorno (T2): o saldo é calculado
+# só sobre `dispensacoes` — não referencia `estornos` (que pode ainda não existir
+# no schema desta base).
+
+@router.get("/fila")
+def fila(
+    usuario=Depends(require_role("dispensador", "admin")),
+    cnpj: Optional[str] = Query(None, description="Só admin: filtra por CNPJ."),
+):
+    """Fila de dispensação: prescrições em custódia ativa do dispensador."""
+    # Dispensador vê a própria fila (CNPJ do JWT). Admin pode informar ?cnpj=.
+    if usuario["role"] == "dispensador":
+        cnpj_alvo = normalize_cnpj(usuario["sub"])
+    else:
+        if not cnpj:
+            raise HTTPException(
+                status_code=422,
+                detail={"codigo": "cnpj_obrigatorio_admin",
+                        "mensagem": "admin deve informar ?cnpj= para consultar a fila."},
+            )
+        cnpj_alvo = normalize_cnpj(cnpj)
+
+    with get_tx() as conn:
+        prescricoes = conn.execute(
+            """
+            SELECT DISTINCT p.id, p.protocolo, p.status, p.data_emissao,
+                   pac.nome AS paciente_nome, pac.cpf AS paciente_cpf,
+                   pr.nome  AS prescritor_nome
+              FROM prescricao_custodia c
+              JOIN prescricoes p   ON p.id  = c.prescricao_id
+              JOIN pacientes pac   ON pac.id = p.paciente_id
+              JOIN prescritores pr ON pr.id  = p.prescritor_id
+             WHERE c.detentor_tipo = 'dispensador'
+               AND c.detentor_id   = ?
+               AND c.encerrada_em IS NULL
+             ORDER BY p.data_emissao DESC
+            """,
+            (cnpj_alvo,),
+        ).fetchall()
+
+        fila_out = []
+        for p in prescricoes:
+            itens = conn.execute(
+                """
+                SELECT i.id, i.nome_medicamento, i.concentracao, i.quantidade, i.status_item,
+                       COALESCE((SELECT SUM(d.quantidade_dispensada)
+                                   FROM dispensacoes d
+                                  WHERE d.prescricao_item_id = i.id), 0) AS ja_dispensado
+                  FROM prescricao_itens i
+                 WHERE i.prescricao_id = ?
+                 ORDER BY i.id
+                """,
+                (p["id"],),
+            ).fetchall()
+
+            itens_out = []
+            for it in itens:
+                prescrito = it["quantidade"] or 0
+                ja = it["ja_dispensado"] or 0
+                itens_out.append({
+                    "item_id": it["id"],
+                    "nome_medicamento": it["nome_medicamento"],
+                    "concentracao": it["concentracao"],
+                    "quantidade": prescrito,
+                    "quantidade_dispensada": ja,
+                    "saldo": prescrito - ja,
+                    "status_item": it["status_item"],
+                })
+
+            fila_out.append({
+                "protocolo": p["protocolo"],
+                "status": p["status"],
+                "data_emissao": p["data_emissao"],
+                "paciente": {"nome": p["paciente_nome"], "cpf": _cpf_display(p["paciente_cpf"])},
+                "prescritor": {"nome": p["prescritor_nome"]},
+                "itens": itens_out,
+            })
+
+        return {"cnpj": cnpj_alvo, "total": len(fila_out), "fila": fila_out}
