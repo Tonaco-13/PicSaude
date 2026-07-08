@@ -198,6 +198,63 @@ def _garantir_paciente(conn, cpf: str, nome: str) -> None:
 # Main
 # ---------------------------------------------------------------------------
 
+def _garantir_receita_na_fila(conn) -> None:
+    """
+    T4 — Semeia UMA prescrição já sob custódia da Farmácia Demo Central, para que
+    a Fila de Dispensação exiba um card ao logar (em vez de 'fila vazia').
+
+    Idempotente (protocolo sentinela `DEMO-FILA-0001`). Best-effort: o caller
+    isola em try/except — esta função NUNCA pode quebrar o seed/predeploy.
+    """
+    proto = "DEMO-FILA-0001"
+    now = _agora()
+
+    if conn.execute("SELECT id FROM prescricoes WHERE protocolo = ?", (proto,)).fetchone():
+        print(f"  ·  receita-demo (fila): '{proto}' já existe")
+        return
+
+    presc = conn.execute(
+        "SELECT id FROM prescritores WHERE cns = ?", (PRESCRITOR["cns"],)
+    ).fetchone()
+    pac = conn.execute(
+        "SELECT id FROM pacientes WHERE cpf = ?", (PACIENTE["cpf"],)
+    ).fetchone()
+    if not presc or not pac:
+        print("  ⚠️  receita-demo (fila): prescritor/paciente ausente — pulada")
+        return
+
+    conn.execute(
+        "INSERT INTO prescricoes (protocolo, prescritor_id, paciente_id, status, "
+        "tipo_emissao, data_emissao, created_at, updated_at) "
+        "VALUES (?, ?, ?, 'em_custodia', 'nova', ?, ?, ?)",
+        (proto, presc["id"], pac["id"], now, now, now),
+    )
+    pid = conn.execute(
+        "SELECT id FROM prescricoes WHERE protocolo = ?", (proto,)
+    ).fetchone()["id"]
+
+    for nome, conc, qtd, poso in (
+        ("LOSARTANA", "50mg", 30, "1 comprimido ao dia"),
+        ("AMOXICILINA", "500mg", 21, "1 cápsula de 8/8h por 7 dias"),
+    ):
+        conn.execute(
+            "INSERT INTO prescricao_itens (prescricao_id, nome_medicamento, concentracao, "
+            "quantidade, posologia, status_item, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, 'pendente', ?, ?)",
+            (pid, nome, conc, qtd, poso, now, now),
+        )
+
+    # Custódia ATIVA da Farmácia Demo Central (= efeito da transferência
+    # paciente→dispensador). É o que faz a receita aparecer em GET /dispensadores/fila.
+    conn.execute(
+        "INSERT INTO prescricao_custodia (prescricao_id, item_id, detentor_tipo, "
+        "detentor_id, transferida_em, encerrada_em, motivo, created_at) "
+        "VALUES (?, NULL, 'dispensador', ?, ?, NULL, 'seed_demo_fila_t4', ?)",
+        (pid, DISPENSADOR["cnpj"], now, now),
+    )
+    print(f"  ✅ receita-demo (fila): '{proto}' — 2 itens sob custódia de {DISPENSADOR['cnpj']}")
+
+
 def main() -> None:
     if os.getenv("PICSAUDE_ENV") == "prod":
         print("❌ ABORTANDO: seed_demo não pode rodar em PICSAUDE_ENV=prod.")
@@ -291,6 +348,16 @@ def main() -> None:
 
         conn.commit()
         print("\n✅ seed_demo.py concluído com sucesso.")
+
+        # T4 — receita-demo na custódia da farmácia (popular a Fila de Dispensação).
+        # Best-effort: NUNCA pode quebrar o seed/predeploy — isolada em try/except
+        # com rollback próprio (uma falha aqui não aborta o seed já commitado acima).
+        try:
+            _garantir_receita_na_fila(conn)
+            conn.commit()
+        except Exception as e:  # noqa: BLE001 — best-effort intencional
+            conn.rollback()
+            print(f"  ⚠️  receita-demo (fila): pulada por erro não-fatal ({e})")
     finally:
         conn.close()
 
