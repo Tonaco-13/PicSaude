@@ -100,6 +100,19 @@
         .fila-saldo { font-size: 11px; color: #92400e; background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-weight: 700; }
         .fila-refresh { background: transparent; border: 1px solid #cbd5e1; color: #475569; padding: 7px 14px; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; }
         .fila-refresh:hover { background: #f8fafc; border-color: #94a3b8; }
+        /* balcão ativo — linhas de item + ações */
+        .fila-meds-lista { margin-top: 12px; }
+        .fila-med-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
+        .fila-med-info { display: flex; flex-direction: column; gap: 3px; }
+        .fila-med-nome { font-size: 14px; color: #1e293b; font-weight: 600; }
+        .fila-med-acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+        /* modal de lote */
+        .fila-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+        .fila-modal { background: #fff; border-radius: 10px; padding: 26px; width: 100%; max-width: 440px; box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+        .fila-modal-titulo { color: #b45309; font-size: 16px; margin-bottom: 2px; }
+        .fila-modal-sub { font-size: 11px; color: #64748b; margin-bottom: 16px; }
+        .fila-modal-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin: 12px 0 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .fila-modal-acoes { display: flex; gap: 12px; justify-content: flex-end; margin-top: 22px; }
 
         .header-user { font-size: 13px; color: #475569; text-align: right; }
         .header-user strong { display: block; font-size: 14px; color: #1e293b; }
@@ -408,6 +421,33 @@
                 </div>
                 <div id="fila-lista">
                     <p class="fila-vazia">Carregando fila…</p>
+                </div>
+            </div>
+
+            <!-- T4 — modal de baixa de fármaco (lote/fabricação/validade) -->
+            <div id="modal-lote-fila" class="fila-modal-overlay hidden">
+                <div class="fila-modal">
+                    <h3 id="ml-titulo" class="fila-modal-titulo">Dispensar</h3>
+                    <p class="fila-modal-sub">Baixa de fármaco — escrituração (Portaria SVS/MS nº 344/1998)</p>
+                    <label class="fila-modal-label">Quantidade a dispensar</label>
+                    <input id="ml-qtd" type="number" min="1" class="form-input">
+                    <label class="fila-modal-label">Lote *</label>
+                    <input id="ml-lote" class="form-input" placeholder="Nº do lote">
+                    <div style="display:flex; gap:12px;">
+                        <div style="flex:1;">
+                            <label class="fila-modal-label">Fabricação</label>
+                            <input id="ml-fab" class="form-input" placeholder="DD/MM/AAAA">
+                        </div>
+                        <div style="flex:1;">
+                            <label class="fila-modal-label">Validade</label>
+                            <input id="ml-val" class="form-input" placeholder="DD/MM/AAAA">
+                        </div>
+                    </div>
+                    <div id="ml-msg" class="msg-inline hidden"></div>
+                    <div class="fila-modal-acoes">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="_fecharLoteFila()">Cancelar</button>
+                        <button type="button" class="btn btn-action btn-sm" onclick="_confirmarLoteFila()">Confirmar Dispensação</button>
+                    </div>
                 </div>
             </div>
 
@@ -1157,39 +1197,151 @@
             }
         }
 
+        // Balcão ativo (v27): a fila é a própria estação de dispensação.
+        let _filaAtual = [];
+        const _FILA_TERMINAIS = ['dispensado', 'cancelado', 'devolvido_prescritor', 'estornado', 'encerrado_fisico'];
+
+        function _filaStatusInfo(s) {
+            const m = {
+                dispensado:           ['badge-dispensado', 'Dispensado'],
+                devolvido_paciente:   ['badge-devolvido',  'Devolvido ao paciente'],
+                devolvido_prescritor: ['badge-devolvido',  'Devolvido ao prescritor'],
+                cancelado:            ['badge-cancelado',  'Cancelado'],
+                estornado:            ['badge-cancelado',  'Estornado'],
+                encerrado_fisico:     ['badge-encerrado',  'Encerrado (físico)'],
+            };
+            return m[s] || ['badge-em-custodia', s];
+        }
+
         function _renderizarFila(fila) {
+            _filaAtual = fila || [];
             const lista = document.getElementById('fila-lista');
             const count = document.getElementById('fila-count');
-            if (count) count.textContent = fila.length;
-            if (!fila.length) {
+            if (count) count.textContent = _filaAtual.length;
+            if (!_filaAtual.length) {
                 lista.innerHTML = '<p class="fila-vazia">Nenhuma receita aguardando atendimento no balcão.</p>';
                 return;
             }
-            lista.innerHTML = fila.map(p => {
-                const meds = (p.itens || []).map(i =>
-                    `${_filaEsc(i.nome_medicamento)} ${_filaEsc(i.concentracao || '')} `
-                    + `<span class="fila-saldo">saldo ${i.saldo}/${i.quantidade}</span>`
-                ).join('<br>');
+            lista.innerHTML = _filaAtual.map(p => {
+                const proto = _filaEsc(p.protocolo);
+                const meds = (p.itens || []).map(i => {
+                    const nome = _filaEsc(i.nome_medicamento) + (i.concentracao ? ' ' + _filaEsc(i.concentracao) : '');
+                    let acoes;
+                    if (_FILA_TERMINAIS.includes(i.status_item) || i.saldo <= 0) {
+                        const [cls, label] = _filaStatusInfo(i.status_item);
+                        acoes = `<span class="badge ${cls}">${label}</span>`;
+                    } else {
+                        acoes = `
+                            <button type="button" class="btn btn-action btn-sm" onclick="_abrirLoteFila('${proto}', ${i.item_id})">✓ Dispensar</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="_devolverPacienteFila('${proto}', ${i.item_id})">← Paciente</button>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="_devolverPrescritorFila('${proto}', ${i.item_id})">✕ Prescritor</button>`;
+                    }
+                    return `
+                    <div class="fila-med-row">
+                        <div class="fila-med-info">
+                            <span class="fila-med-nome">${nome}</span>
+                            <span class="fila-saldo">saldo ${i.saldo}/${i.quantidade}</span>
+                        </div>
+                        <div class="fila-med-acoes">${acoes}</div>
+                    </div>`;
+                }).join('');
                 return `
                 <div class="fila-item">
                     <div class="fila-item-head">
                         <div>
                             <p class="fila-paciente">${_filaEsc(p.paciente?.nome)}</p>
-                            <p class="fila-proto">Protocolo: ${_filaEsc(p.protocolo)}</p>
+                            <p class="fila-proto">Protocolo: ${proto}</p>
                         </div>
-                        <button type="button" class="btn btn-action btn-small"
-                                onclick="_atenderFila('${_filaEsc(p.protocolo)}')">Atender</button>
                     </div>
-                    <p class="fila-meds">${meds}</p>
+                    <div class="fila-meds-lista">${meds}</div>
                 </div>`;
             }).join('');
         }
 
-        async function _atenderFila(protocolo) {
-            const input = document.getElementById('protocolo-input');
-            if (input) input.value = protocolo;
-            await _buscarProtocolo(protocolo);
-            document.getElementById('resultado-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // ── Dispensação com lote (modal SNGPC / Portaria 344/98) ─────────
+        let _loteFilaCtx = { proto: null, item: null };
+
+        function _acharItemFila(proto, itemId) {
+            const p = _filaAtual.find(x => x.protocolo === proto);
+            return p ? (p.itens || []).find(i => i.item_id === itemId) : null;
+        }
+
+        function _abrirLoteFila(proto, itemId) {
+            const it = _acharItemFila(proto, itemId);
+            if (!it) return;
+            _loteFilaCtx = { proto, item: itemId };
+            document.getElementById('ml-titulo').textContent =
+                'Dispensar — ' + it.nome_medicamento + (it.concentracao ? ' ' + it.concentracao : '');
+            const q = document.getElementById('ml-qtd');
+            q.value = it.saldo; q.max = it.saldo; q.min = 1;
+            document.getElementById('ml-lote').value = '';
+            document.getElementById('ml-fab').value = '';
+            document.getElementById('ml-val').value = '';
+            const msg = document.getElementById('ml-msg'); msg.className = 'msg-inline hidden'; msg.textContent = '';
+            document.getElementById('modal-lote-fila').classList.remove('hidden');
+            setTimeout(() => document.getElementById('ml-lote').focus(), 60);
+        }
+
+        function _fecharLoteFila() { document.getElementById('modal-lote-fila').classList.add('hidden'); }
+
+        async function _confirmarLoteFila() {
+            const msg  = document.getElementById('ml-msg');
+            const qtd  = parseInt(document.getElementById('ml-qtd').value, 10);
+            const lote = document.getElementById('ml-lote').value.trim();
+            const fab  = document.getElementById('ml-fab').value.trim();
+            const val  = document.getElementById('ml-val').value.trim();
+            if (!qtd || qtd < 1) { msg.className = 'msg-inline error'; msg.textContent = 'Informe uma quantidade válida.'; return; }
+            if (!lote)          { msg.className = 'msg-inline error'; msg.textContent = 'Informe o lote (escrituração — Portaria 344/98).'; return; }
+            const obs = [fab && ('Fabricação: ' + fab), val && ('Validade: ' + val)].filter(Boolean).join(' · ') || null;
+            const payload = {
+                cnpj_estabelecimento:  dispensadorLogado.cnpj,
+                quantidade_dispensada: qtd,
+                dispensado_por:        dispensadorLogado.nome,
+                lote:                  lote,
+                observacao:            obs,
+                origem_contexto:       dispensadorLogado.cnes_verificado === false ? 'manual' : 'cnes_verificado',
+            };
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/prescricoes/${encodeURIComponent(_loteFilaCtx.proto)}/itens/${_loteFilaCtx.item}/dispensar`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) }
+                );
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) {
+                    const e = await resp.json().catch(() => ({}));
+                    msg.className = 'msg-inline error';
+                    msg.textContent = (e.detail && (e.detail.mensagem || e.detail)) || 'Não foi possível dispensar.';
+                    return;
+                }
+                _fecharLoteFila();
+                carregarFila();
+            } catch (e) { msg.className = 'msg-inline error'; msg.textContent = 'Sem conexão com o servidor.'; }
+        }
+
+        // ── Devoluções direto do balcão ─────────────────────────────────
+        async function _devolverFila(proto, item, para, motivo) {
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/prescricoes/${encodeURIComponent(proto)}/itens/${item}/devolver`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify({ para, motivo }) }
+                );
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) {
+                    const e = await resp.json().catch(() => ({}));
+                    alert('Não foi possível devolver: ' + ((e.detail && (e.detail.mensagem || e.detail)) || resp.status));
+                    return;
+                }
+                carregarFila();
+            } catch (e) { alert('Sem conexão com o servidor.'); }
+        }
+        function _devolverPacienteFila(proto, item) {
+            if (confirm('Devolver este item ao paciente, sem dispensar?')) {
+                _devolverFila(proto, item, 'paciente', 'Devolução no balcão');
+            }
+        }
+        function _devolverPrescritorFila(proto, item) {
+            const motivo = prompt('Devolução ao prescritor — informe o motivo (ex.: dose incorreta, medicamento contraindicado):');
+            if (motivo && motivo.trim()) _devolverFila(proto, item, 'prescritor', motivo.trim());
         }
 
         function _iniciarFila() {
