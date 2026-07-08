@@ -63,8 +63,9 @@ jobs:
         #   suítes de integração ainda não validadas neste schema.
         # test_custodia_devolucao: adicionado no T1 (PLANO_DEMO_CIRCULACAO.md) —
         #   estava implementado (TICKET-4E-2) mas nunca rodava neste gate.
+        # estorno: T2 (TICKET-T2-ESTORNO-DISPENSACAO.md) — casa test_estorno*.
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or estorno"
           -q
