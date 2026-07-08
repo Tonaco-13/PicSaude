@@ -56,6 +56,7 @@ _TABELAS_LEDGER = [
     "circulacao_diagnostica_eventos",
     "encaminhamento_eventos",
     "atestado_eventos",
+    "estorno_eventos",                # T2 — ledger do estorno (INSERT-only)
 ]
 
 # ---------------------------------------------------------------------------
@@ -106,6 +107,8 @@ _TABELAS_APP = [
     "atestados",                          # Atestado — objeto sanitário monolítico
     "atestado_eventos",                   # Atestado — ledger imutável
     "atestado_custodia",                  # Atestado — cadeia de custódia
+    "estornos",                           # T2 — estorno (objeto derivado imutável)
+    "estorno_eventos",                    # T2 — ledger do estorno
 ]
 
 

@@ -704,14 +704,26 @@ def dispensar_item(
                 detail=f"Item com status '{item['status_item']}' não pode ser dispensado.",
             )
 
-        # Calcular saldo disponível
+        # Calcular saldo disponível — Σ EFETIVO = Σ dispensado − Σ estornado.
+        # T2 (TICKET-ESTORNO-OBJETO-DERIVADO.md, Opção B): o estorno é objeto
+        # derivado que repõe saldo sem mutar `dispensacoes` nem o status do item.
+        # Sem subtrair o estornado, o saldo reposto não seria redispensável.
         ja_dispensado = conn.execute(
             "SELECT COALESCE(SUM(quantidade_dispensada), 0) AS total FROM dispensacoes WHERE prescricao_item_id = ?",
             (item_id,),
         ).fetchone()["total"]
+        ja_estornado = conn.execute(
+            """
+            SELECT COALESCE(SUM(e.quantidade_estornada), 0) AS total
+              FROM estornos e
+              JOIN dispensacoes d ON d.id = e.origem_dispensacao_id
+             WHERE d.prescricao_item_id = ?
+            """,
+            (item_id,),
+        ).fetchone()["total"]
 
         prescrito = item["quantidade"] or 0
-        saldo = prescrito - ja_dispensado
+        saldo = prescrito - (ja_dispensado - ja_estornado)
 
         if saldo <= 0:
             raise HTTPException(status_code=409, detail="Não há saldo disponível para dispensação neste item.")
@@ -722,7 +734,7 @@ def dispensar_item(
             )
 
         # Gravar dispensação
-        conn.execute(
+        _cur_disp = conn.execute(
             """
             INSERT INTO dispensacoes
               (prescricao_item_id, cnpj_estabelecimento, quantidade_dispensada,
@@ -734,6 +746,9 @@ def dispensar_item(
              agora, payload.lote, payload.fabricante, payload.observacao,
              payload.origem_contexto, agora),
         )
+        # T2: expor o id da dispensação — pré-requisito para o cliente solicitar
+        # o estorno (POST /dispensacoes/{id}/estornar) e o comprovante.
+        dispensacao_id = _cur_disp.lastrowid
 
         novo_saldo = saldo - payload.quantidade_dispensada
         novo_status_item = "dispensado" if novo_saldo == 0 else "em_custodia"
@@ -819,6 +834,7 @@ def dispensar_item(
         return {
             "protocolo": protocolo,
             "item_id": item_id,
+            "dispensacao_id": dispensacao_id,   # T2 — referência para estorno/comprovante
             "nome_medicamento": item["nome_medicamento"],
             "quantidade_dispensada": payload.quantidade_dispensada,
             "saldo_restante": novo_saldo,

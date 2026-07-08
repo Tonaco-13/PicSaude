@@ -55,6 +55,7 @@ ObjetoSanitario = Literal[
     "encaminhamento",
     "contrarreferencia",
     "atestado",
+    "estorno",
 ]
 
 
@@ -126,6 +127,14 @@ _LEDGER_SCHEMA: dict[str, dict[str, Any]] = {
     "atestado": {
         "tabela":          "atestado_eventos",
         "coluna_fk":       "atestado_id",
+        "coluna_tipo":     "tipo_evento",
+        "coluna_payload":  "payload",
+        "coluna_data":     "created_at",
+        "tem_ator":        True,
+    },
+    "estorno": {
+        "tabela":          "estorno_eventos",
+        "coluna_fk":       "estorno_id",
         "coluna_tipo":     "tipo_evento",
         "coluna_payload":  "payload",
         "coluna_data":     "created_at",

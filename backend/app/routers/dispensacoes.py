@@ -14,18 +14,29 @@ Formatos suportados em GET /dispensacoes/{id}/comprovante:
 
 from __future__ import annotations
 
+import hashlib
 import io
-from datetime import datetime
+import json
+import uuid
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
+from pydantic import BaseModel, Field, field_validator
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
+from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cns
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
+
+# T2 — motivos de estorno (enum ratificado por Fabiano, 2026-07-08).
+# 'outro' exige texto livre em motivo_detalhe. Espelhado na CheckConstraint
+# do model Estorno e na migração Alembic (paridade SQLite × Postgres).
+_MOTIVOS_ESTORNO = {"falha_pagamento", "desistencia", "erro_dispensacao", "outro"}
 
 
 # ---------------------------------------------------------------------------
@@ -340,3 +351,186 @@ def comprovante(
         )
 
     return dados
+
+
+# ---------------------------------------------------------------------------
+# T2 — Estorno de dispensação (objeto sanitário derivado imutável)
+# ---------------------------------------------------------------------------
+# Classe `core` — ledger + novo objeto derivado (CLAUDE.md §10). Estorno NÃO
+# muta `dispensacoes` (imutável §1) nem o status do item (permanece `dispensado`);
+# repõe saldo Σ efetivo. Ledger DUPLO: `estorno_registrado` no ledger próprio +
+# `dispensacao_estornada` no ledger da prescrição.
+# Ver TICKET-T2-ESTORNO-DISPENSACAO.md e TICKET-ESTORNO-OBJETO-DERIVADO.md.
+
+
+class EstornarIn(BaseModel):
+    quantidade_estornada: int = Field(gt=0)
+    motivo: str
+    motivo_detalhe: Optional[str] = None
+
+    @field_validator("motivo")
+    @classmethod
+    def _motivo_valido(cls, v: str) -> str:
+        if v not in _MOTIVOS_ESTORNO:
+            raise ValueError(f"motivo inválido; use um de {sorted(_MOTIVOS_ESTORNO)}")
+        return v
+
+
+def _hash_estorno(
+    *, protocolo: str, origem_dispensacao_id: int, cnpj: str,
+    quantidade_estornada: int, motivo: str, data_emissao: str,
+) -> str:
+    """Hash SHA-256 do documento canônico do estorno (integridade — espelha CR)."""
+    doc = {
+        "protocolo": protocolo,
+        "origem_dispensacao_id": origem_dispensacao_id,
+        "cnpj_estabelecimento": cnpj,
+        "quantidade_estornada": quantidade_estornada,
+        "motivo": motivo,
+        "data_emissao": data_emissao,
+        "versao_esquema": "1",
+    }
+    payload = json.dumps(doc, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+@router.post("/{dispensacao_id}/estornar", status_code=201)
+def estornar_dispensacao(
+    dispensacao_id: int,
+    payload: EstornarIn,
+    usuario=Depends(require_role("dispensador", "admin")),
+):
+    """
+    Registra o ESTORNO (reversão) de uma dispensação como objeto derivado imutável.
+
+    Invariantes (Opção B — martelo Fabiano, 2026-07-07):
+    - `dispensacoes` original **intocada**; item permanece `dispensado`.
+    - Repõe saldo Σ efetivo (= Σ dispensado − Σ estornado): o item volta a ser
+      dispensável se ainda não estiver em estado terminal.
+    - Ownership: só o dispensador que registrou a dispensação (mesmo CNPJ)
+      estorna; admin passa. Anti-leak 404 → 403 → 409/422.
+    - Ledger DUPLO: `estorno_registrado` (ledger do estorno) +
+      `dispensacao_estornada` (ledger da prescrição).
+    """
+    # motivo='outro' exige justificativa livre (auditoria).
+    if payload.motivo == "outro" and not (payload.motivo_detalhe and payload.motivo_detalhe.strip()):
+        raise HTTPException(
+            status_code=422,
+            detail={"codigo": "motivo_detalhe_obrigatorio",
+                    "mensagem": "motivo='outro' exige motivo_detalhe."},
+        )
+
+    agora = datetime.utcnow().isoformat()
+    data_emissao = date.today().isoformat()
+    estorno_protocolo = str(uuid.uuid4())
+
+    with get_tx() as conn:
+        disp = conn.execute(
+            """
+            SELECT d.id                AS dispensacao_id,
+                   d.cnpj_estabelecimento,
+                   d.quantidade_dispensada,
+                   i.id                AS item_id,
+                   i.prescricao_id     AS prescricao_id,
+                   p.protocolo         AS proto_prescricao,
+                   p.paciente_id       AS paciente_id
+              FROM dispensacoes d
+              JOIN prescricao_itens i ON i.id = d.prescricao_item_id
+              JOIN prescricoes p      ON p.id = i.prescricao_id
+             WHERE d.id = ?
+            """,
+            (dispensacao_id,),
+        ).fetchone()
+        if not disp:
+            raise HTTPException(status_code=404, detail=f"Dispensação {dispensacao_id} não encontrada.")
+
+        # Ownership — dispensador só estorna a própria dispensação (admin passa).
+        if usuario["role"] == "dispensador":
+            if normalize_cnpj(usuario["sub"]) != disp["cnpj_estabelecimento"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail={"codigo": "nao_e_dono_da_dispensacao",
+                            "mensagem": "Esta dispensação foi registrada por outro estabelecimento."},
+                )
+
+        # Saldo estornável = quantidade dispensada − Σ já estornado desta dispensação.
+        ja_estornado = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada), 0) AS total FROM estornos WHERE origem_dispensacao_id = ?",
+            (dispensacao_id,),
+        ).fetchone()["total"]
+        saldo_estornavel = disp["quantidade_dispensada"] - ja_estornado
+        if saldo_estornavel <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail={"codigo": "dispensacao_ja_estornada",
+                        "mensagem": "Dispensação já foi totalmente estornada."},
+            )
+        if payload.quantidade_estornada > saldo_estornavel:
+            raise HTTPException(
+                status_code=422,
+                detail={"codigo": "quantidade_supera_saldo_estornavel",
+                        "mensagem": (
+                            f"Quantidade a estornar ({payload.quantidade_estornada}) "
+                            f"supera o saldo estornável ({saldo_estornavel})."
+                        )},
+            )
+
+        cnpj = disp["cnpj_estabelecimento"]
+        autor_tipo = usuario["role"]
+        autor_id = normalize_cnpj(usuario["sub"]) if usuario["role"] == "dispensador" else usuario.get("sub")
+
+        doc_hash = _hash_estorno(
+            protocolo=estorno_protocolo, origem_dispensacao_id=dispensacao_id,
+            cnpj=cnpj, quantidade_estornada=payload.quantidade_estornada,
+            motivo=payload.motivo, data_emissao=data_emissao,
+        )
+
+        instance_id = get_instance_id_conn(conn)
+
+        cur = conn.execute(
+            """
+            INSERT INTO estornos
+              (protocolo, origem_dispensacao_id, autor_tipo, autor_id, paciente_id,
+               quantidade_estornada, motivo, motivo_detalhe, assinatura_hash,
+               instance_id, data_emissao, criado_em)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (estorno_protocolo, dispensacao_id, autor_tipo, autor_id, disp["paciente_id"],
+             payload.quantidade_estornada, payload.motivo, payload.motivo_detalhe, doc_hash,
+             instance_id, data_emissao, agora),
+        )
+        estorno_id = cur.lastrowid
+
+        # Ledger DUPLO (arch §8): objeto derivado + prescrição-parent.
+        registrar_evento_ledger(
+            conn, objeto_tipo="estorno", objeto_id=estorno_id,
+            tipo_evento="estorno_registrado", instance_id=instance_id,
+            payload={
+                "origem_dispensacao_id": dispensacao_id,
+                "quantidade_estornada": payload.quantidade_estornada,
+                "motivo": payload.motivo,
+                "prescricao_protocolo": disp["proto_prescricao"],
+            },
+            ator_tipo=autor_tipo, ator_id=autor_id,
+        )
+        registrar_evento_ledger(
+            conn, objeto_tipo="prescricao", objeto_id=disp["prescricao_id"],
+            tipo_evento="dispensacao_estornada", instance_id=instance_id,
+            payload={
+                "item_id": disp["item_id"],
+                "origem_dispensacao_id": dispensacao_id,
+                "estorno_protocolo": estorno_protocolo,
+                "quantidade_estornada": payload.quantidade_estornada,
+                "motivo": payload.motivo,
+            },
+            ator_tipo="dispensador", ator_id=cnpj,
+        )
+
+        return {
+            "protocolo_estorno": estorno_protocolo,
+            "origem_dispensacao_id": dispensacao_id,
+            "quantidade_estornada": payload.quantidade_estornada,
+            "saldo_estornavel_restante": saldo_estornavel - payload.quantidade_estornada,
+            "motivo": payload.motivo,
+            "documento_hash": doc_hash,
+        }
