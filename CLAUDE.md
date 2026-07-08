@@ -65,6 +65,7 @@ Vocabulário de eventos conhecido:
 | `assinatura_registrada` | Metadados de assinatura digital declarados pelo prescritor (stub MVP) |
 | `decisao_clinica_avaliada` | **Camada 3** — trilha de auditoria do semáforo: sinal + versão da regra por item, gravado na emissão (não-bloqueante; só com a flag `PICSAUDE_DECISAO_CLINICA` ativa e `codigo_cid` presente). Ver `docs/EXPLICABILIDADE_DECISAO_CLINICA.md` §11 |
 | `pdf_assinado_pades` | Geração de PDF com assinatura ICP-Brasil PAdES-B (cofre server-side). Emitido pela prescrição comum (`POST /prescricoes/{proto}/pdf-assinado`) e pelo receituário. Payload: hash do PDF + serial do certificado |
+| `dispensacao_estornada` | **T2** — estorno (reversão) de uma dispensação registrada (`POST /dispensacoes/{id}/estornar`). Repõe saldo Σ efetivo (= Σ dispensado − Σ estornado). Estorno é **objeto derivado imutável** (`estornos`, `origem_dispensacao_id`): a `dispensacoes` permanece intocada e o item permanece `dispensado` (Opção B). Payload: `motivo` + `estorno_protocolo` + `quantidade_estornada`. O ledger próprio do objeto de estorno usa `estorno_registrado`. Ver `docs/tickets/TICKET-ESTORNO-OBJETO-DERIVADO.md` |
 
 **Fluxo físico emite DOIS eventos em sequência:**
 1. `prescricao_impressa` — ato de impressão (quem, quando, quantos itens)
