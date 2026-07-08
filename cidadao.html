@@ -1216,9 +1216,14 @@
                         <p style="font-weight:600; margin-bottom:12px; font-size:13px; color:#1e3a8a; text-transform:uppercase;">Autorizar Dispensação na Farmácia</p>
                         <div style="display:flex; gap:12px;">
                             <input type="text" id="cnpj-farmacia-${r.protocolo}" class="form-input"
+                                   value="99999999000191"
                                    placeholder="CNPJ da farmácia (14 dígitos)" maxlength="18" style="flex:2;">
                             <button onclick="transferirParaFarmacia('${r.protocolo}')" class="btn btn-action" style="flex:1;">Transferir Custódia</button>
                         </div>
+                        <p style="font-size:11px; color:#64748b; margin-top:8px;">
+                            🏥 Demo: <strong>Farmácia Demo Central</strong> (99.999.999/0001-91) já preenchida —
+                            só clicar em <strong>Transferir Custódia</strong> e a receita cai na fila do balcão.
+                        </p>
                     </div>
 
                     <button onclick="mostrarAreaDevolucao('${r.protocolo}')" class="btn-danger" id="btn-mostrar-dev-${r.protocolo}">
