@@ -73,6 +73,12 @@ Vocabulário de eventos conhecido:
 
 Nunca criar endpoints que apaguem ou alterem eventos.
 
+**Invariante de retenção (ratificado por Fabiano, 2026-07-09):** toda retenção de
+custódia — **inclusive a auto-retenção** do T1.5 em modo demo — DEVE emitir
+`custodia_transferida`. Abrir custódia (`_abrir_custodia`) sem o evento é **bug,
+não feature**: o ledger é a fonte da verdade da cadeia de custódia (§3). Em
+produção não existe auto-retenção — item não retido → 409 `item_nao_retido`.
+
 ---
 
 ## 3. Custódia é explícita, granular e rastreável
