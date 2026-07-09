@@ -1053,6 +1053,12 @@
         let conselhosEdicao = []; 
         let medCount = 0;
         let receitaEmEdicaoId = null;
+        // ---- Reconciliação com o backend (fonte de verdade do ciclo digital) ----
+        // Painel do prescritor migrado de localStorage → backend. O localStorage
+        // permanece como fallback no modo local/DEV (sem JWT real).
+        let _painelBackend = null;        // {historico, correcoes} do backend; null = modo local
+        let _origemPrescricaoId = null;   // id real da prescrição de origem (correção/renovação)
+        let _tipoEmissaoDerivada = null;  // 'correcao' | 'renovacao' | null
 
         const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
         const TIPOS_CONSELHO = ["CRM", "CRO", "COREN", "CRF", "RMS"];
@@ -1358,8 +1364,73 @@
             fecharPerfil();
         }
 
-        function atualizarPainel() {
+        async function _carregarPainelBackend() {
+            if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') { _painelBackend = null; return; }
+            try {
+                const resp = await fetch(BACKEND + '/prescritor/prescricoes', { headers: authHeaders() });
+                _painelBackend = resp.ok ? await resp.json() : null;
+            } catch (_e) {
+                _painelBackend = null;   // backend offline → cai no fallback localStorage
+            }
+        }
+
+        // Adapta uma prescrição do backend ao formato do formulário. O núcleo
+        // clínico (medicamentos) vem do backend; a demografia do paciente e a
+        // validade por item o backend não guarda — recupera do localStorage
+        // SOMENTE se esta prescrição foi emitida deste aparelho (match por
+        // protocolo_backend); senão fica em branco para o médico reconfirmar.
+        function _receitaDoBackend(pres) {
+            let demo = {};
+            try {
+                const db = JSON.parse(localStorage.getItem('pix_saude_db_v27')) || {};
+                demo = (db.receitas || []).find(x => x.protocolo_backend === pres.protocolo) || {};
+            } catch (_e) { /* localStorage indisponível */ }
+            return {
+                id: pres.protocolo,
+                paciente_nome: pres.paciente_nome || demo.paciente_nome || '',
+                paciente_chave: pres.paciente_cpf || demo.paciente_chave || '',
+                paciente_idade: demo.paciente_idade || '',
+                paciente_telefone: demo.paciente_telefone || '',
+                paciente_endereco: demo.paciente_endereco || '',
+                paciente_cep: demo.paciente_cep || '',
+                paciente_cidade_uf: demo.paciente_cidade_uf || '',
+                medicamentos: (pres.itens || []).map(i => ({
+                    nome: i.nome_medicamento || '',
+                    concentracao: i.concentracao || '',
+                    forma: i.forma_farmaceutica || '',
+                    quantidade: (i.quantidade !== null && i.quantidade !== undefined) ? String(i.quantidade) : '',
+                    posologia: i.posologia || '',
+                    validade: '30 dias',
+                    unidade: i.unidade_quantidade || '',
+                })),
+            };
+        }
+
+        // Preenche o formulário de receita a partir de um objeto `r` (mesma forma
+        // usada pelo localStorage). Compartilhado por correção e renovação.
+        function _preencherFormularioReceita(r) {
+            document.getElementById('pac-nome').value = r.paciente_nome || '';
+            document.getElementById('pac-idade').value = r.paciente_idade || '';
+            document.getElementById('pac-telefone').value = r.paciente_telefone || '';
+            document.getElementById('pac-chave').value = r.paciente_chave || '';
+            const enderecoSplit = r.paciente_endereco ? r.paciente_endereco.split(' | Comp: ') : ['', ''];
+            document.getElementById('pac-endereco').value = enderecoSplit[0] || '';
+            document.getElementById('pac-complemento').value = enderecoSplit[1] || '';
+            document.getElementById('pac-cep').value = r.paciente_cep || '';
+            const cidadeUfSplit = r.paciente_cidade_uf ? r.paciente_cidade_uf.split(' - ') : ['', 'PE'];
+            document.getElementById('pac-cidade').value = cidadeUfSplit[0] || '';
+            document.getElementById('pac-uf').value = cidadeUfSplit[1] || 'PE';
+            const medContainer = document.getElementById('lista-medicamentos');
+            medContainer.innerHTML = '';
+            medCount = 0;
+            (r.medicamentos || []).forEach(m => {
+                adicionarMedicamento(m.nome, m.concentracao, m.forma, m.quantidade, m.posologia, m.validade, m.unidade || '');
+            });
+        }
+
+        async function atualizarPainel() {
             carregarSolicitacoesRenovacao();
+            await _carregarPainelBackend();
             carregarCaixaDeCorrecoes();
             renderizarHistoricoMedico();
         }
@@ -1451,67 +1522,67 @@
         }
 
         function carregarCaixaDeCorrecoes() {
-            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
-            const devolvidas = db.receitas ? db.receitas.filter(r => r.medico_cns === medicoLogado.cns && r.status === 'devolvida_medico') : [];
             const container = document.getElementById('caixa-correcao');
             const lista = document.getElementById('lista-devolvidas');
-            
-            if(devolvidas.length > 0) {
+            let devolvidas = [];
+
+            if (_painelBackend) {
+                // Backend é fonte de verdade: entra na caixa quem tem item
+                // devolvido ao prescritor e ainda não foi corrigido (o endpoint
+                // já exclui as com correção-filha). Motivo vem do ledger.
+                devolvidas = _painelBackend.correcoes.map(p => {
+                    const motivos = (p.itens || [])
+                        .filter(i => i.status_item === 'devolvido_prescritor')
+                        .map(i => i.motivo_devolucao)
+                        .filter(Boolean);
+                    return {
+                        id: p.protocolo,
+                        paciente_nome: p.paciente_nome || '—',
+                        motivo_devolucao: motivos.join(' · ') || 'Motivo não informado.',
+                    };
+                });
+            } else {
+                const db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+                devolvidas = db && db.receitas ? db.receitas.filter(r => r.medico_cns === medicoLogado.cns && r.status === 'devolvida_medico') : [];
+            }
+
+            if (devolvidas.length > 0) {
                 container.classList.remove('hidden');
-                let html = '';
-                devolvidas.forEach(r => {
-                    html += `
+                lista.innerHTML = devolvidas.map(r => `
                         <div class="correcao-card">
                             <p style="font-size: 12px; font-family: monospace; color: #dc2626; font-weight:bold; margin-bottom:4px;">Protocolo: ${r.id}</p>
                             <p style="font-weight: 700; color:#1e293b;">Paciente: ${r.paciente_nome}</p>
                             <p style="font-size: 14px; color: #7f1d1d; margin-top: 8px; background:white; padding:8px; border-radius:4px; border:1px solid #fca5a5;"><strong>Motivo da recusa:</strong> "${r.motivo_devolucao}"</p>
                             <button type="button" onclick="carregarParaEdicao('${r.id}')" class="btn-action" style="margin-top: 12px; width: auto; padding: 10px 20px; font-size: 13px;">Corrigir e Reemitir</button>
                         </div>
-                    `;
-                });
-                lista.innerHTML = html;
+                `).join('');
             } else {
                 container.classList.add('hidden');
             }
         }
 
         function carregarParaEdicao(id) {
-            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
-            const r = db.receitas.find(rec => rec.id === id);
-            
-            if(r) {
-                receitaEmEdicaoId = id;
-                esconderTudo();
-                document.getElementById('tela-dashboard').classList.remove('hidden');
-                mostrarSubmodulo('receita');
-
-                document.getElementById('titulo-formulario').textContent = "Corrigir Prescrição Devolvida";
-                document.getElementById('pac-nome').value = r.paciente_nome;
-                document.getElementById('pac-idade').value = r.paciente_idade || '';
-                document.getElementById('pac-telefone').value = r.paciente_telefone || '';
-                document.getElementById('pac-chave').value = r.paciente_chave;
-                
-                let enderecoSplit = r.paciente_endereco ? r.paciente_endereco.split(' | Comp: ') : ['', ''];
-                document.getElementById('pac-endereco').value = enderecoSplit[0] || '';
-                document.getElementById('pac-complemento').value = enderecoSplit[1] || '';
-                
-                document.getElementById('pac-cep').value = r.paciente_cep || '';
-                let cidadeUfSplit = r.paciente_cidade_uf ? r.paciente_cidade_uf.split(' - ') : ['', 'PE'];
-                document.getElementById('pac-cidade').value = cidadeUfSplit[0] || '';
-                document.getElementById('pac-uf').value = cidadeUfSplit[1] || 'PE';
-
-                const medContainer = document.getElementById('lista-medicamentos');
-                medContainer.innerHTML = '';
-                medCount = 0;
-                r.medicamentos.forEach(m => {
-                    adicionarMedicamento(m.nome, m.concentracao, m.forma, m.quantidade, m.posologia, m.validade, m.unidade || '');
-                });
-                
-                assinaturaModo = null;
-            document.getElementById('btn-emitir').textContent = "Salvar Correções e Transferir";
-                document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
-                document.getElementById('form-receita').scrollIntoView({ behavior: 'smooth' });
+            let r = null;
+            if (_painelBackend) {
+                const pres = [..._painelBackend.correcoes, ..._painelBackend.historico].find(p => p.protocolo === id);
+                if (pres) { r = _receitaDoBackend(pres); _origemPrescricaoId = pres.id; _tipoEmissaoDerivada = 'correcao'; receitaEmEdicaoId = null; }
             }
+            if (!r) {
+                const db = JSON.parse(localStorage.getItem('pix_saude_db_v27')) || {};
+                const local = (db.receitas || []).find(rec => rec.id === id);
+                if (!local) return;
+                r = local; _origemPrescricaoId = null; _tipoEmissaoDerivada = null; receitaEmEdicaoId = id;
+            }
+
+            esconderTudo();
+            document.getElementById('tela-dashboard').classList.remove('hidden');
+            mostrarSubmodulo('receita');
+            document.getElementById('titulo-formulario').textContent = "Corrigir Prescrição Devolvida";
+            _preencherFormularioReceita(r);
+            assinaturaModo = null;
+            document.getElementById('btn-emitir').textContent = "Salvar Correções e Transferir";
+            document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
+            document.getElementById('form-receita').scrollIntoView({ behavior: 'smooth' });
         }
 
         function adicionarMedicamento(nome='', conc='', forma='', qtd='', posologia='', validade='30 dias', unidade='') {
@@ -1597,6 +1668,8 @@
 
         function novaReceita() {
             receitaEmEdicaoId = null;
+            _origemPrescricaoId = null;
+            _tipoEmissaoDerivada = null;
             assinaturaModo = null;
             carteiraDigitalStatus = null;
             const _csEl = document.getElementById('carteira-status-rec');
@@ -1772,8 +1845,8 @@
                 cpf_paciente: novaReceitaObj.paciente_chave,
                 nome_paciente: novaReceitaObj.paciente_nome,
                 assinatura_modo: novaReceitaObj.assinatura_modo,
-                tipo_emissao: receitaEmEdicaoId ? "correcao" : "nova",
-                origem_prescricao_id: null,
+                tipo_emissao: _tipoEmissaoDerivada || (receitaEmEdicaoId ? "correcao" : "nova"),
+                origem_prescricao_id: _origemPrescricaoId,
                 // Ticket 36 — contexto clínico (enviados somente se presentes)
                 ...(  _indicacao   ? { indicacao_clinica: _indicacao }    : {}),
                 ...(_cidEscolhido  ? { codigo_cid: _cidEscolhido }        : {}),
@@ -1824,7 +1897,7 @@
             }
 
             // Atualizar histórico em memória (para exibição na tela de sucesso)
-            if (receitaEmEdicaoId) {
+            if (receitaEmEdicaoId || _tipoEmissaoDerivada === 'correcao') {
                 novaReceitaObj.historico = [{ acao: "CORRECAO_E_REEMISSAO", data: new Date().toISOString() }];
             } else {
                 novaReceitaObj.historico = [{ acao: "EMISSAO_E_TRANSFERENCIA", de: `CNS:${medicoLogado.cns}`, para: `Chave:${chave}`, data: new Date().toISOString() }];
@@ -2032,47 +2105,74 @@
         }
 
         function renderizarHistoricoMedico() {
-            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
-            const receitasDoMedico = db.receitas ? db.receitas.filter(r => r.medico_cns === medicoLogado.cns).reverse() : []; 
             const container = document.getElementById('lista-historico-medico');
+            let cards = [];
 
-            if(receitasDoMedico.length === 0) {
+            if (_painelBackend) {
+                // Backend é fonte de verdade para o ciclo digital.
+                cards = _painelBackend.historico.map(p => ({
+                    nome: p.paciente_nome || '—',
+                    data: p.data_emissao,
+                    protoId: p.protocolo,
+                    renovarId: p.protocolo,
+                    medCount: (p.itens || []).length,
+                    badgeKind: p.tem_devolucao ? 'devolvida' : 'digital',
+                }));
+                // Emissões FÍSICAS permanecem só no localStorage (§6, fire-and-forget)
+                // — anexamos para não sumirem da vista do médico.
+                try {
+                    const db = JSON.parse(localStorage.getItem('pix_saude_db_v27')) || {};
+                    (db.receitas || [])
+                        .filter(r => r.medico_cns === medicoLogado.cns && r.status === 'emitida_fisica')
+                        .forEach(r => cards.push({
+                            nome: r.paciente_nome, data: r.data_emissao, protoId: r.id,
+                            renovarId: r.id, medCount: (r.medicamentos || []).length,
+                            badgeKind: 'fisica',
+                        }));
+                } catch (_e) { /* localStorage indisponível */ }
+            } else {
+                const db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
+                const receitasDoMedico = db && db.receitas ? db.receitas.filter(r => r.medico_cns === medicoLogado.cns).reverse() : [];
+                cards = receitasDoMedico.map(r => ({
+                    nome: r.paciente_nome, data: r.data_emissao, protoId: r.id, renovarId: r.id,
+                    medCount: (r.medicamentos || []).length,
+                    badgeKind: r.status === 'emitida_fisica' ? 'fisica' : (r.status === 'devolvida_medico' ? 'devolvida' : 'digital'),
+                }));
+            }
+
+            if (cards.length === 0) {
                 container.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; padding:20px; border:1px dashed #cbd5e1; border-radius:6px;">Nenhuma prescrição gerada por este usuário.</p>';
                 return;
             }
 
-            let html = '';
-            receitasDoMedico.forEach(r => {
-                const data = new Date(r.data_emissao).toLocaleDateString('pt-BR');
-                let badge = '';
-                
-                if (r.status === 'emitida_fisica') {
-                    badge = '<span class="badge-fisica">Impressão Física</span>';
-                } else if (r.status === 'devolvida_medico') {
-                    badge = '<span class="badge-digital" style="background:#fef2f2; color:#dc2626;">Devolvida</span>';
-                } else {
-                    badge = '<span class="badge-digital">Envio Digital</span>';
-                }
+            const _badge = (kind) => kind === 'fisica'
+                ? '<span class="badge-fisica">Impressão Física</span>'
+                : (kind === 'devolvida'
+                    ? '<span class="badge-digital" style="background:#fef2f2; color:#dc2626;">Devolvida</span>'
+                    : '<span class="badge-digital">Envio Digital</span>');
 
-                html += `
+            container.innerHTML = cards.map(c => {
+                const data = c.data ? new Date(c.data).toLocaleDateString('pt-BR') : '—';
+                return `
                     <div class="historico-item">
                         <div>
-                            <p style="font-weight:bold; color:#1e3a8a; font-size:14px;">${r.paciente_nome}</p>
-                            <p style="font-size:12px; color:#64748b; margin-top:4px;">${data} • Prot: ${r.id}</p>
-                            <p style="font-size:12px; color:#475569; margin-top:2px;">${r.medicamentos.length} fármaco(s) prescrito(s)</p>
+                            <p style="font-weight:bold; color:#1e3a8a; font-size:14px;">${c.nome}</p>
+                            <p style="font-size:12px; color:#64748b; margin-top:4px;">${data} • Prot: ${c.protoId}</p>
+                            <p style="font-size:12px; color:#475569; margin-top:2px;">${c.medCount} fármaco(s) prescrito(s)</p>
                         </div>
                         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-                            ${badge}
-                            <button onclick="renovarReceita('${r.id}')" class="btn-text" style="font-size:11px; color:#1e3a8a;">↻ Renovar Receita</button>
+                            ${_badge(c.badgeKind)}
+                            <button onclick="renovarReceita('${c.renovarId}')" class="btn-text" style="font-size:11px; color:#1e3a8a;">↻ Renovar Receita</button>
                         </div>
                     </div>
                 `;
-            });
-            container.innerHTML = html;
+            }).join('');
         }
 
         function irParaDashboard() {
             receitaEmEdicaoId = null;
+            _origemPrescricaoId = null;
+            _tipoEmissaoDerivada = null;
             esconderTudo();
             document.getElementById('main-prescription-form').reset();
             document.getElementById('lista-medicamentos').innerHTML = '';
@@ -2080,41 +2180,28 @@
             document.getElementById('titulo-formulario').textContent = "Prescrição Médica — Emissão Documentada";
             medCount = 0;
             document.getElementById('tela-dashboard').classList.remove('hidden');
-            renderizarHistoricoMedico();
+            atualizarPainel();   // re-busca o backend: caixa limpa + derivada aparece
         }
 
         function renovarReceita(id) {
-            let db = JSON.parse(localStorage.getItem('pix_saude_db_v27'));
-            const r = db.receitas.find(rec => rec.id === id);
-            if (!r) return;
-
+            let r = null;
+            if (_painelBackend) {
+                const pres = _painelBackend.historico.find(p => p.protocolo === id);
+                if (pres) { r = _receitaDoBackend(pres); _origemPrescricaoId = pres.id; _tipoEmissaoDerivada = 'renovacao'; }
+            }
+            if (!r) {
+                const db = JSON.parse(localStorage.getItem('pix_saude_db_v27')) || {};
+                const local = (db.receitas || []).find(rec => rec.id === id);
+                if (!local) return;
+                r = local; _origemPrescricaoId = null; _tipoEmissaoDerivada = null;
+            }
             receitaEmEdicaoId = null;
+
             esconderTudo();
             document.getElementById('tela-dashboard').classList.remove('hidden');
             mostrarSubmodulo('receita');
-
             document.getElementById('titulo-formulario').textContent = "Renovação de Prescrição";
-            document.getElementById('pac-nome').value = r.paciente_nome;
-            document.getElementById('pac-idade').value = r.paciente_idade || '';
-            document.getElementById('pac-telefone').value = r.paciente_telefone || '';
-            document.getElementById('pac-chave').value = r.paciente_chave;
-
-            const enderecoSplit = r.paciente_endereco ? r.paciente_endereco.split(' | Comp: ') : ['', ''];
-            document.getElementById('pac-endereco').value = enderecoSplit[0] || '';
-            document.getElementById('pac-complemento').value = enderecoSplit[1] || '';
-            document.getElementById('pac-cep').value = r.paciente_cep || '';
-
-            const cidadeUfSplit = r.paciente_cidade_uf ? r.paciente_cidade_uf.split(' - ') : ['', 'PE'];
-            document.getElementById('pac-cidade').value = cidadeUfSplit[0] || '';
-            document.getElementById('pac-uf').value = cidadeUfSplit[1] || 'PE';
-
-            const medContainer = document.getElementById('lista-medicamentos');
-            medContainer.innerHTML = '';
-            medCount = 0;
-            r.medicamentos.forEach(m => {
-                adicionarMedicamento(m.nome, m.concentracao, m.forma, m.quantidade, m.posologia, m.validade, m.unidade || '');
-            });
-
+            _preencherFormularioReceita(r);
             document.getElementById('btn-emitir').textContent = "Assinar Digitalmente e Emitir";
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
             document.getElementById('form-receita').scrollIntoView({ behavior: 'smooth' });

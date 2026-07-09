@@ -511,6 +511,24 @@ def test_devolucao_e_redispensacao_parcial_em_outra_farmacia_transfere_custodia(
         "detentor_tipo": "paciente", "detentor_id": SEED_PACIENTE_CPF,
     }
 
+    # T1.5 — re-apresentação na Farmácia B: a retenção é pré-requisito da
+    # dispensação (o dispensador precisa DETER o item). Modela o passo que a
+    # demo faz por auto-retenção: o paciente apresenta a receita em B, custódia
+    # paciente→B. Sem isto, o T1.5 (corretamente) rejeitaria a dispensação de B.
+    _reapresentar = datetime.utcnow().isoformat()
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE prescricao_custodia SET encerrada_em = %s "
+            "WHERE prescricao_id = %s AND item_id = %s AND encerrada_em IS NULL",
+            (_reapresentar, prescricao_id, item_id),
+        )
+        cur.execute(
+            "INSERT INTO prescricao_custodia (prescricao_id, item_id, detentor_tipo, "
+            "detentor_id, transferida_em, encerrada_em, motivo, created_at) "
+            "VALUES (%s, %s, 'dispensador', %s, %s, NULL, 'reapresentacao', %s)",
+            (prescricao_id, item_id, _DISPENSADOR_CNPJ_NORTE, _reapresentar, _reapresentar),
+        )
+
     # Farmácia B (T0.5) dispensa parte do saldo remanescente (3 de 6).
     r3 = client.post(
         f"/prescricoes/{proto}/itens/{item_id}/dispensar",
@@ -691,3 +709,201 @@ def test_dispensar_item_retido_por_outra_farmacia_retorna_409(client, outer_conn
             "SELECT COUNT(*) FROM dispensacoes WHERE prescricao_item_id = %s", (item_id,),
         )
         assert cur.fetchone()[0] == 0
+
+
+# ---------------------------------------------------------------------------
+# T (PLANO_DEMO_CIRCULACAO): a devolução volta a ser VISÍVEL ao prescritor
+#
+# Fecha o loop de circulação da receita: um item devolvido ao prescritor
+# (erro clínico) precisa reaparecer no painel do médico via
+# GET /prescritor/prescricoes — backend como fonte de verdade, substituindo a
+# leitura de localStorage no prescritor.html. Escopo por CNS = `sub` do JWT.
+# ---------------------------------------------------------------------------
+
+def test_prescritor_ve_devolucao_no_painel(client, outer_conn):
+    """Item devolvido ao prescritor reaparece no histórico E na caixa de correções."""
+    prescricao_id, proto, item_ids = _seed_prescricao_com_itens_em_custodia(
+        outer_conn, num_itens=2,
+    )
+    item_devolvido, item_intacto = item_ids
+
+    # Dispensador devolve UM item ao prescritor (erro clínico).
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_devolvido}/devolver",
+        json={"para": "prescritor", "motivo": "dose inadequada — paciente pediátrico"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r.status_code == 200, r.text
+
+    # O prescritor consulta seu painel.
+    r = client.get("/prescritor/prescricoes", headers=_headers(_jwt_prescritor()))
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    protos_hist = {p["protocolo"] for p in body["historico"]}
+    protos_corr = {p["protocolo"] for p in body["correcoes"]}
+    assert proto in protos_hist, "prescrição sumiu do histórico do prescritor"
+    assert proto in protos_corr, "devolução não apareceu na caixa de correções"
+
+    # id real presente (para reemissão com origem_prescricao_id) e status do
+    # item refletindo a devolução; o item intacto permanece em_custodia.
+    pres = next(p for p in body["historico"] if p["protocolo"] == proto)
+    assert pres["id"] == prescricao_id
+    assert pres["tem_devolucao"] is True
+    status_por_id = {i["id"]: i["status_item"] for i in pres["itens"]}
+    assert status_por_id[item_devolvido] == "devolvido_prescritor"
+    assert status_por_id[item_intacto] == "em_custodia"
+
+    # Motivo da recusa vem do ledger — o médico precisa saber por que corrigir.
+    item_dev = next(i for i in pres["itens"] if i["id"] == item_devolvido)
+    assert item_dev["motivo_devolucao"] == "dose inadequada — paciente pediátrico"
+
+
+def test_painel_prescritor_isolado_por_cns(client, outer_conn):
+    """RBAC: um prescritor só enxerga as próprias prescrições (escopo por CNS = sub)."""
+    _, proto, _ = _seed_prescricao_com_itens_em_custodia(outer_conn, num_itens=1)
+
+    token_outro = criar_access_token(
+        sub="111222333444555", role="prescritor", nome="DR. OUTRO PRESCRITOR",
+    )
+    r = client.get("/prescritor/prescricoes", headers=_headers(token_outro))
+    assert r.status_code == 200, r.text
+    protos = {p["protocolo"] for p in r.json()["historico"]}
+    assert proto not in protos, "vazou prescrição de outro prescritor — escopo por CNS falhou"
+
+
+def _seed_correcao(outer_conn, origem_id: int):
+    """Seed direto de uma prescrição-filha de correção derivando de `origem_id`."""
+    now = datetime.utcnow().isoformat()
+    proto = f"PROTO-CORR-{uuid.uuid4().hex[:10]}"
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO prescritores (cns, nome, ativo, created_at, updated_at) "
+            "VALUES (%s, %s, true, %s, %s) "
+            "ON CONFLICT (cns) DO UPDATE SET nome = EXCLUDED.nome RETURNING id",
+            (SEED_PRESCRITOR_CNS, SEED_PRESCRITOR_NOME, now, now),
+        )
+        pres_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO pacientes (cpf, nome, ativo, created_at, updated_at) "
+            "VALUES (%s, %s, true, %s, %s) "
+            "ON CONFLICT (cpf) DO UPDATE SET nome = EXCLUDED.nome RETURNING id",
+            (SEED_PACIENTE_CPF, SEED_PACIENTE_NOME, now, now),
+        )
+        pac_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO prescricoes
+              (protocolo, prescritor_id, paciente_id, status, tipo_emissao,
+               origem_prescricao_id, data_emissao, created_at, updated_at)
+            VALUES (%s, %s, %s, 'pendente', 'correcao', %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (proto, pres_id, pac_id, origem_id, now, now, now),
+        )
+        nova_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO prescricao_itens
+              (prescricao_id, nome_medicamento, concentracao, quantidade,
+               posologia, status_item, created_at, updated_at)
+            VALUES (%s, 'MEDICAMENTO_CORRIGIDO', '250mg', 10, '1cp 12/12h', 'pendente', %s, %s)
+            """,
+            (nova_id, now, now),
+        )
+    return nova_id, proto
+
+
+def test_caixa_correcao_limpa_apos_correcao_emitida(client, outer_conn):
+    """Devolução sai da caixa quando a correção derivada é emitida (permanece no histórico)."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/devolver",
+        json={"para": "prescritor", "motivo": "erro de dose"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r.status_code == 200, r.text
+
+    # Antes da correção: aparece na caixa de correções.
+    body = client.get("/prescritor/prescricoes", headers=_headers(_jwt_prescritor())).json()
+    assert proto in {p["protocolo"] for p in body["correcoes"]}
+
+    # Emite a correção derivada (origem = prescrição devolvida).
+    _seed_correcao(outer_conn, origem_id=prescricao_id)
+
+    # Depois: some da caixa (foi tratada), mas permanece no histórico.
+    body = client.get("/prescritor/prescricoes", headers=_headers(_jwt_prescritor())).json()
+    assert proto not in {p["protocolo"] for p in body["correcoes"]}, "caixa não limpou após correção"
+    assert proto in {p["protocolo"] for p in body["historico"]}
+
+
+# ---------------------------------------------------------------------------
+# B1 — dispensar_item devolve dispensacao_id (PLANO_DEMO_CIRCULACAO.md, T5)
+# ---------------------------------------------------------------------------
+#
+# Sem o id da dispensação na resposta, o balcão não tinha como linkar o
+# comprovante (GET /dispensacoes/{id}/comprovante) logo após dispensar —
+# tinha que "adivinhar" o id por outra via. Estes testes travam o contrato:
+# a resposta traz `dispensacao_id`, e ele resolve o comprovante de verdade.
+
+def test_dispensar_item_retorna_dispensacao_id(client, outer_conn):
+    """A resposta do dispensar inclui `dispensacao_id` (inteiro positivo)."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    r = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 4},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert "dispensacao_id" in body, "resposta do dispensar não traz dispensacao_id"
+    assert isinstance(body["dispensacao_id"], int)
+    assert body["dispensacao_id"] > 0
+
+    # Bate com a linha realmente gravada em `dispensacoes`.
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM dispensacoes WHERE prescricao_item_id = %s "
+            "ORDER BY id DESC LIMIT 1",
+            (item_id,),
+        )
+        assert cur.fetchone()[0] == body["dispensacao_id"]
+
+
+def test_comprovante_alcancavel_com_dispensacao_id_do_dispensar(client, outer_conn):
+    """
+    Fecha o fluxo do balcão (T5): o `dispensacao_id` devolvido pelo dispensar
+    resolve o comprovante — o mesmo dispensador que dispensou consegue lê-lo.
+    """
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    disp = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 10},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert disp.status_code == 201, disp.text
+    dispensacao_id = disp.json()["dispensacao_id"]
+
+    comp = client.get(
+        f"/dispensacoes/{dispensacao_id}/comprovante?formato=json",
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert comp.status_code == 200, comp.text
+    dados = comp.json()
+    assert dados["dispensacao_id"] == dispensacao_id
+    assert dados["protocolo_prescricao"] == proto
+    assert dados["medicamento"]["quantidade_dispensada"] == 10
+
+    # O balcão baixa o comprovante em PDF (?formato=pdf) — mesma chamada do
+    # frontend. Cobre o caminho de data no PDF, que quebrava contra o PG
+    # (dispensado_em é DateTime → PostgreSQL devolve objeto, não string ISO).
+    pdf = client.get(
+        f"/dispensacoes/{dispensacao_id}/comprovante?formato=pdf",
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.headers["content-type"].startswith("application/pdf")
+    assert pdf.content[:4] == b"%PDF"

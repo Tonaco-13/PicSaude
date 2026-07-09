@@ -15,14 +15,19 @@ Formatos suportados em GET /dispensacoes/{id}/comprovante:
 from __future__ import annotations
 
 import io
+import uuid
 from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
+from app.domain.ledger import registrar_evento_ledger
+from app.domain.states import MOTIVOS_ESTORNO
+from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cns
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
@@ -191,14 +196,19 @@ def _gerar_pdf(dados: dict) -> bytes:
         return itens
 
     # Formatar data
-    def fmt_data(s: Optional[str]) -> str:
+    def fmt_data(s) -> str:
         if not s:
             return "N/I"
+        # Paridade SQLite×PostgreSQL: a coluna `dispensado_em` é DateTime, então
+        # o PostgreSQL devolve um objeto `datetime` e o SQLite uma string ISO.
+        # Sem tratar o datetime, o comprovante em PDF sairia com a data crua.
+        if isinstance(s, datetime):
+            return s.strftime("%d/%m/%Y %H:%M")
         try:
             dt = datetime.fromisoformat(s)
             return dt.strftime("%d/%m/%Y %H:%M")
         except Exception:
-            return s
+            return str(s)
 
     med = dados["medicamento"]
     lot = dados["lote"]
@@ -340,3 +350,147 @@ def comprovante(
         )
 
     return dados
+
+
+# ---------------------------------------------------------------------------
+# POST /dispensacoes/{id}/estornar — estorno como objeto sanitário DERIVADO (T2)
+# ---------------------------------------------------------------------------
+# TICKET-ESTORNO-OBJETO-DERIVADO.md (martelo Fabiano 2026-06-15). O estorno NÃO
+# muta a dispensação nem o item: cria um objeto derivado imutável (`estornos`)
+# que referencia a dispensação de origem e emite `estorno_registrado` no ledger
+# da prescrição. A `dispensacoes` original permanece intocada (CLAUDE.md §1). O
+# saldo efetivo do item passa a ser Σ dispensado − Σ estornado (reposto na
+# leitura pelas queries de saldo — custodia.py, dispensadores.py, hospitalares.py).
+
+class EstornarIn(BaseModel):
+    motivo: str                              # enum MOTIVOS_ESTORNO
+    quantidade: Optional[int] = None         # default = saldo remanescente da dispensação
+    observacao: Optional[str] = None
+
+
+@router.post("/{dispensacao_id}/estornar", status_code=201)
+def estornar_dispensacao(
+    dispensacao_id: int,
+    payload: EstornarIn,
+    usuario=Depends(require_role("dispensador", "admin")),
+):
+    """
+    Estorna (reverte) uma dispensação registrada — cria o objeto derivado
+    `estornos` e repõe o saldo efetivo do item. A dispensação de origem
+    permanece imutável. Evento no ledger da prescrição: `estorno_registrado`.
+
+    - Dispensador só estorna dispensação do próprio CNPJ (admin bypassa).
+    - Nunca estorna mais do que o saldo remanescente da própria dispensação.
+    - O item NÃO é mutado (a reversão vive no objeto-estorno).
+    """
+    if payload.motivo not in MOTIVOS_ESTORNO:
+        raise HTTPException(
+            status_code=422,
+            detail={"codigo": "motivo_invalido",
+                    "mensagem": f"motivo deve ser um de: {sorted(MOTIVOS_ESTORNO)}."},
+        )
+
+    agora = datetime.utcnow().isoformat()
+
+    with get_tx() as conn:
+        instance_id = get_instance_id_conn(conn)
+
+        disp = conn.execute(
+            """
+            SELECT d.id, d.cnpj_estabelecimento, d.quantidade_dispensada,
+                   i.id AS item_id, i.quantidade AS qtd_prescrita, i.status_item,
+                   p.id AS prescricao_id, p.status AS status_prescricao, p.paciente_id
+              FROM dispensacoes d
+              JOIN prescricao_itens i ON i.id = d.prescricao_item_id
+              JOIN prescricoes p       ON p.id = i.prescricao_id
+             WHERE d.id = ?
+            """,
+            (dispensacao_id,),
+        ).fetchone()
+        if not disp:
+            raise HTTPException(status_code=404, detail=f"Dispensação {dispensacao_id} não encontrada.")
+
+        # Owner-check (espelha o comprovante): dispensador exige CNPJ; admin bypassa.
+        if usuario["role"] == "dispensador" and normalize_cnpj(usuario["sub"]) != disp["cnpj_estabelecimento"]:
+            raise HTTPException(
+                status_code=403,
+                detail={"codigo": "nao_e_dono_da_dispensacao",
+                        "mensagem": "Esta dispensação foi realizada por outro estabelecimento."},
+            )
+
+        # Saldo remanescente DESTA dispensação — nunca estorna mais do que dispensou.
+        ja_estornado = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada), 0) AS total FROM estornos WHERE origem_dispensacao_id = ?",
+            (dispensacao_id,),
+        ).fetchone()["total"]
+        remanescente = disp["quantidade_dispensada"] - ja_estornado
+        if remanescente <= 0:
+            raise HTTPException(status_code=409, detail="Dispensação já totalmente estornada.")
+
+        qtd = payload.quantidade if payload.quantidade is not None else remanescente
+        if qtd <= 0 or qtd > remanescente:
+            raise HTTPException(
+                status_code=422,
+                detail=f"quantidade a estornar ({qtd}) inválida — remanescente desta dispensação: {remanescente}.",
+            )
+
+        # Objeto derivado imutável.
+        protocolo = str(uuid.uuid4())
+        cur = conn.execute(
+            """
+            INSERT INTO estornos
+              (protocolo, origem_dispensacao_id, prescricao_item_id, prescricao_id,
+               cnpj_estabelecimento, paciente_id, autor_tipo, autor_id,
+               quantidade_estornada, motivo, assinatura_hash, data_emissao, criado_em)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+            """,
+            (protocolo, dispensacao_id, disp["item_id"], disp["prescricao_id"],
+             disp["cnpj_estabelecimento"], disp["paciente_id"], usuario["role"], usuario["sub"],
+             qtd, payload.motivo, agora, agora),
+        )
+        estorno_id = cur.lastrowid
+
+        # Evento no ledger da prescrição — reconciliável (T7).
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="prescricao",
+            objeto_id=disp["prescricao_id"],
+            tipo_evento="estorno_registrado",
+            instance_id=instance_id,
+            payload={
+                "estorno_id": estorno_id,
+                "estorno_protocolo": protocolo,
+                "origem_dispensacao_id": dispensacao_id,
+                "item_id": disp["item_id"],
+                "quantidade_estornada": qtd,
+                "motivo": payload.motivo,
+                "observacao": payload.observacao,
+            },
+            ator_tipo="dispensador",
+            ator_id=usuario["sub"],
+        )
+
+        # Saldo efetivo do item = Σ dispensado − Σ estornado (o mesmo que as
+        # queries de saldo passam a computar em custodia/dispensadores/hospitalares).
+        disp_total = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_dispensada), 0) AS t FROM dispensacoes WHERE prescricao_item_id = ?",
+            (disp["item_id"],),
+        ).fetchone()["t"]
+        est_total = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada), 0) AS t FROM estornos WHERE prescricao_item_id = ?",
+            (disp["item_id"],),
+        ).fetchone()["t"]
+        saldo_efetivo = (disp["qtd_prescrita"] or 0) - (disp_total - est_total)
+
+        return {
+            "estorno_id": estorno_id,
+            "protocolo": protocolo,
+            "origem_dispensacao_id": dispensacao_id,
+            "item_id": disp["item_id"],
+            "quantidade_estornada": qtd,
+            "motivo": payload.motivo,
+            "saldo_restante": saldo_efetivo,
+            # item NÃO é mutado — objeto derivado (TICKET-ESTORNO-OBJETO-DERIVADO §1)
+            "status_item": disp["status_item"],
+            "status_prescricao": disp["status_prescricao"],
+        }
