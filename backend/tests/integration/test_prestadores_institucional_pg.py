@@ -102,3 +102,43 @@ def test_login_prestador_200_path_cnes_ausente_fail_open(client):
     body = r.json()
     assert body["org_id"] == "org-cnes"
     assert body["cnes_verificado"] is False       # tabela CNES ausente → fail open
+
+
+def test_cnes_verificado_true_com_linha_cnes(client, outer_conn):
+    """
+    T0.5b — com a linha CNES presente (CNPJ + TP_UNIDADE de farmácia ∈ _TP_FARMACIA),
+    /auth/me/institucional devolve cnes_verificado=true. É o que a Farmácia Demo passa
+    a ter (deixa de cair no modal de confirmação manual de CNES).
+
+    Check do Jules (no-orphan): `estabelecimentos_cnes` é dado de REFERÊNCIA (sem FK)
+    e `cnes_verificado` é flag COMPUTADO read-only (não persistido) — semear a linha
+    não cria estado órfão em tabela adjacente.
+    """
+    h = _admin()
+    cnpj = "99999999000191"
+    assert client.post("/prestadores", json={
+        "org_id": "org-demo-farm", "nome": "Farmácia Demo", "tipo": "farmacia", "cnpj": cnpj,
+    }, headers=h).status_code == 201
+
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS estabelecimentos_cnes "
+            "(CO_CNES TEXT, NU_CNPJ TEXT, TP_UNIDADE TEXT, NO_FANTASIA TEXT, CO_MUNICIPIO TEXT)"
+        )
+        cur.execute(
+            "INSERT INTO estabelecimentos_cnes (CO_CNES, NU_CNPJ, TP_UNIDADE, NO_FANTASIA, CO_MUNICIPIO) "
+            "VALUES ('9900001', %s, '04', 'Farmácia Demo', '261160')",
+            (cnpj,),
+        )
+
+    disp = {"Authorization": f"Bearer {criar_access_token(sub=cnpj, role='dispensador', nome='X')}"}
+    r = client.get("/auth/me/institucional", headers=disp)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["org_id"] == "org-demo-farm"
+    assert body["cnes_verificado"] is True        # ← T0.5b: farmácia demo verificada
+
+    # No-orphan: apenas a linha de referência CNES; nada persistido em tabela adjacente.
+    with outer_conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM estabelecimentos_cnes WHERE NU_CNPJ = %s", (cnpj,))
+        assert cur.fetchone()[0] == 1

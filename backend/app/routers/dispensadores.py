@@ -79,9 +79,8 @@ def busca(
 # custódia (prescricao_custodia ativa), nunca uma view sem máquina de estados.
 # Polling no front basta para a demo.
 #
-# Classe `module`. Independente da cadeia de estorno (T2): o saldo é calculado
-# só sobre `dispensacoes` — não referencia `estornos` (que pode ainda não existir
-# no schema desta base).
+# Classe `module`. Saldo efetivo = Σ dispensado − Σ estornado (T2): a query
+# subtrai `estornos` para que a fila reflita o saldo reposto por um estorno.
 
 @router.get("/fila")
 def fila(
@@ -161,3 +160,102 @@ def fila(
             })
 
         return {"cnpj": cnpj_alvo, "total": len(fila_out), "fila": fila_out}
+
+
+# ---------------------------------------------------------------------------
+# T6 — Histórico de retenções desta unidade (PLANO_DEMO_CIRCULACAO §5)
+# ---------------------------------------------------------------------------
+# Prescrições em que ESTE estabelecimento dispensou ≥1 item, com dispensacao_id
+# (para linkar comprovante e estorno), comprador (T5) e estorno por item.
+#
+# Check de Determinismo (Jules): toda leitura tem ORDER BY explícito. E o
+# histórico é reconstruído a partir de `dispensacoes`/`estornos` — NÃO de
+# `prescricao_custodia` — exatamente como recomendado no portão de core (a
+# dívida do fetchone sem ORDER BY em custodia.py:766 fica fora deste caminho).
+
+@router.get("/historico")
+def historico(
+    usuario=Depends(require_role("dispensador", "admin")),
+    cnpj: Optional[str] = Query(None, description="Só admin: filtra por CNPJ."),
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Histórico de retenções: prescrições dispensadas por este estabelecimento."""
+    if usuario["role"] == "dispensador":
+        cnpj_alvo = normalize_cnpj(usuario["sub"])
+    else:
+        if not cnpj:
+            raise HTTPException(
+                status_code=422,
+                detail={"codigo": "cnpj_obrigatorio_admin",
+                        "mensagem": "admin deve informar ?cnpj= para consultar o histórico."},
+            )
+        cnpj_alvo = normalize_cnpj(cnpj)
+
+    with get_tx() as conn:
+        # Prescrições onde este CNPJ dispensou — ORDER BY determinístico.
+        prescricoes = conn.execute(
+            """
+            SELECT p.id, p.protocolo, p.status,
+                   pac.nome AS paciente_nome, pac.cpf AS paciente_cpf,
+                   MAX(d.dispensado_em) AS ultima_dispensacao
+              FROM dispensacoes d
+              JOIN prescricao_itens i ON i.id = d.prescricao_item_id
+              JOIN prescricoes p       ON p.id = i.prescricao_id
+              JOIN pacientes pac       ON pac.id = p.paciente_id
+             WHERE d.cnpj_estabelecimento = ?
+             GROUP BY p.id, p.protocolo, p.status, pac.nome, pac.cpf
+             ORDER BY MAX(d.dispensado_em) DESC, p.id DESC
+             LIMIT ?
+            """,
+            (cnpj_alvo, limit),
+        ).fetchall()
+
+        historico_out = []
+        for p in prescricoes:
+            disps = conn.execute(
+                """
+                SELECT d.id AS dispensacao_id, d.prescricao_item_id AS item_id,
+                       i.nome_medicamento, i.concentracao,
+                       d.quantidade_dispensada, d.lote,
+                       d.comprador_nome, d.comprador_documento,
+                       COALESCE((SELECT SUM(e.quantidade_estornada) FROM estornos e
+                                  WHERE e.origem_dispensacao_id = d.id), 0) AS quantidade_estornada
+                  FROM dispensacoes d
+                  JOIN prescricao_itens i ON i.id = d.prescricao_item_id
+                 WHERE d.cnpj_estabelecimento = ? AND i.prescricao_id = ?
+                 ORDER BY d.id
+                """,
+                (cnpj_alvo, p["id"]),
+            ).fetchall()
+
+            comprador_nome = None
+            itens_out = []
+            for d in disps:
+                q_disp = d["quantidade_dispensada"] or 0
+                q_est = d["quantidade_estornada"] or 0
+                if d["comprador_nome"] and not comprador_nome:
+                    comprador_nome = d["comprador_nome"]
+                itens_out.append({
+                    "dispensacao_id": d["dispensacao_id"],
+                    "item_id": d["item_id"],
+                    "nome_medicamento": d["nome_medicamento"],
+                    "concentracao": d["concentracao"],
+                    "quantidade_dispensada": q_disp,
+                    "lote": d["lote"],
+                    "comprador_nome": d["comprador_nome"],
+                    "quantidade_estornada": q_est,
+                    "estornado": q_est > 0 and q_est >= q_disp,
+                })
+
+            historico_out.append({
+                "protocolo": p["protocolo"],
+                "status": p["status"],
+                "ultima_dispensacao": p["ultima_dispensacao"],
+                "paciente": {"nome": p["paciente_nome"], "cpf": _cpf_display(p["paciente_cpf"])},
+                # Comprador da unidade (T5) — fallback ao paciente no MVP.
+                "comprador": {"nome": comprador_nome or p["paciente_nome"],
+                              "eh_paciente": not comprador_nome},
+                "itens_dispensados": itens_out,
+            })
+
+        return {"cnpj": cnpj_alvo, "total": len(historico_out), "historico": historico_out}

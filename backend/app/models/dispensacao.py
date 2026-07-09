@@ -32,6 +32,10 @@ class Dispensacao(Base):
     fabricante            = Column(String, nullable=True)
     observacao            = Column(Text, nullable=True)
     origem_contexto       = Column(String(30), nullable=True)   # 'cnes_verificado' | 'manual' | NULL (legado)
+    # T5 — comprador (portador que retira) × paciente (indicação clínica). Opcional,
+    # gravado no INSERT e imutável (atributo por-dispensação). NULL → comprador = paciente (MVP).
+    comprador_nome        = Column(String, nullable=True)
+    comprador_documento   = Column(String, nullable=True)
     created_at            = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     item = relationship("PrescricaoItem")
