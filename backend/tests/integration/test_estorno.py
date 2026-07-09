@@ -286,14 +286,18 @@ def test_t1_5_auto_retencao_demo_emite_custodia_transferida(client, outer_conn, 
     )
     assert r.status_code == 201, r.text
 
-    # Custódia auto-aberta para o dispensador.
+    # §3 — UM detentor a cada momento: exatamente UMA custódia ativa do item,
+    # e é a do dispensador (a do paciente foi encerrada). A retenção é
+    # TRANSFERÊNCIA de posse, não brota uma segunda custódia em paralelo.
     with outer_conn.cursor() as cur:
         cur.execute(
             "SELECT detentor_tipo, detentor_id FROM prescricao_custodia "
-            "WHERE prescricao_id=%s AND item_id=%s AND detentor_tipo='dispensador' AND encerrada_em IS NULL",
+            "WHERE prescricao_id=%s AND item_id=%s AND encerrada_em IS NULL",
             (prescricao_id, item_id),
         )
-        assert cur.fetchone() == ("dispensador", _CNPJ_A)
+        ativas = cur.fetchall()
+    assert len(ativas) == 1, f"custódia dupla (viola §3 — posse brotou): {ativas}"
+    assert ativas[0] == ("dispensador", _CNPJ_A)
 
     # Evento custodia_transferida gravado (ledger completo).
     with outer_conn.cursor() as cur:
