@@ -71,3 +71,20 @@ jobs:
           --ignore=tests/integration/test_concorrencia.py
           -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico"
           -q
+
+      - name: Predeploy smoke — o que o Render roda (migrations + seed idempotente)
+        # Fecha o gap que deixou o deploy #84 quebrar: o gate rodava as migrations
+        # mas NUNCA o `seed_demo.py`, que o predeploy roda contra a PG de prod (set -e).
+        # Aqui replicamos o preDeployCommand num DB dedicado e re-seedamos (o deploy
+        # re-roda o seed a cada push → tem que ser idempotente). Sem isto, um INSERT
+        # que quebra só na PG (ex.: RETURNING id em tabela sem `id`) passa despercebido.
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://picsaude:picsaude@localhost:5432/picsaude_predeploy
+          PICSAUDE_ENV: stg
+          PICSAUDE_DEMO_MODE: "true"
+        run: |
+          python -c "import psycopg2; c=psycopg2.connect('postgresql://picsaude:picsaude@localhost:5432/postgres'); c.autocommit=True; k=c.cursor(); k.execute('DROP DATABASE IF EXISTS picsaude_predeploy'); k.execute('CREATE DATABASE picsaude_predeploy')"
+          sh predeploy.sh
+          echo "[smoke] re-seed (idempotência — o deploy re-roda a cada push)"
+          python3 seed_demo.py

@@ -305,7 +305,11 @@ def main() -> None:
             conn.execute(
                 "INSERT INTO estabelecimentos_cnes "
                 "  (CO_CNES, NU_CNPJ, TP_UNIDADE, NO_FANTASIA, CO_MUNICIPIO) "
-                "VALUES (?, ?, '04', ?, '261160')",
+                # estabelecimentos_cnes NÃO tem coluna `id`, e database.py anexa
+                # `RETURNING id` a todo INSERT sem RETURNING (emula lastrowid na PG) —
+                # o que quebrava o deploy (#84). Um RETURNING de coluna existente
+                # suprime a injeção; funciona na PG e no SQLite (3.35+).
+                "VALUES (?, ?, '04', ?, '261160') RETURNING NU_CNPJ",
                 (_cnes, _cnpj, _nome),
             )
         # Tabelas de validação do prescritor (vazias): garantem que a consulta
