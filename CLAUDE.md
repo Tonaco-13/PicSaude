@@ -500,10 +500,6 @@ cd backend && python3 init_tables.py
 
 ## 10. Taxonomia de contribuição — classificação obrigatória de mudanças
 
-**Padrão Arquitetural (Jules, PR #84):** estados computados não são persistidos;
-flag read-only deriva de fonte autoritativa. Ex.: `cnes_verificado` é derivado de
-`estabelecimentos_cnes` em runtime — nunca gravado numa coluna que poderia divergir.
-
 Toda mudança no PicSaúde deve ser classificada antes de ser implementada.
 A classificação determina o nível de revisão exigido.
 
