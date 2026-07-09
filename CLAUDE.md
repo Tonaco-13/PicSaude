@@ -500,6 +500,8 @@ cd backend && python3 init_tables.py
 
 ## 10. Taxonomia de contribuição — classificação obrigatória de mudanças
 
+**Padrão Arquitetural**: estados computados não são persistidos; flag read-only deriva de fonte autoritativa.
+
 Toda mudança no PicSaúde deve ser classificada antes de ser implementada.
 A classificação determina o nível de revisão exigido.
 
