@@ -25,6 +25,7 @@
 | 🔴 | **dispensa token-less direta**: `dispensar_item` não exige custódia quando não há token (só CNPJ==JWT). **Deprecar?** É decisão de produto/regulatória — `test_dispensa_sem_token_funciona` é contrato garantido | 5C-BIS-F §2 follow-up |
 | 🟡 | **H1** `DEV_PRESET_CONTEXT=true` nos 3 HTML — auto-login dev (real, contra seed; JWT só em memória), mas flag **hardcoded** → prod exige flip manual | Etapa 6 (DEMO_MODE) |
 | 🔴 | **Idempotência/lock** nas mutações de objetos sanitários — leitura-então-escrita sem `SELECT … FOR UPDATE`; double-submit concorrente pode duplicar (E1/E2/custódia). Cross-cutting | /code-review E2 |
+| 🔴 | **`custodia.py:766`** — a reabertura de custódia na dispensação parcial (`_abrir_custodia(dispensador, "dispensacao_parcial")`) **não emite `custodia_transferida`** → abre custódia sem rastro no ledger. O **T6** (PR #84) CONTORNA lendo o histórico de `dispensacoes`/`estornos` (não de `prescricao_custodia`), então a dívida não sangra no histórico determinístico — **mas a dívida original segue aberta**. Solução definitiva: emitir `custodia_transferida` nesse caminho, mesmo padrão do fix T1.5 (`785aec4`). Não bloqueia a Fase 4. ⚠️ **`prescricao_custodia` NÃO está deprecated** — é fonte válida; o T6 apenas escolheu fonte alternativa por determinismo. | portão #83 + #84 |
 
 ---
 
