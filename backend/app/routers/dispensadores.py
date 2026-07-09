@@ -126,7 +126,10 @@ def fila(
                 SELECT i.id, i.nome_medicamento, i.concentracao, i.quantidade, i.status_item,
                        COALESCE((SELECT SUM(d.quantidade_dispensada)
                                    FROM dispensacoes d
-                                  WHERE d.prescricao_item_id = i.id), 0) AS ja_dispensado
+                                  WHERE d.prescricao_item_id = i.id), 0)
+                     - COALESCE((SELECT SUM(e.quantidade_estornada)
+                                   FROM estornos e
+                                  WHERE e.prescricao_item_id = i.id), 0) AS ja_dispensado
                   FROM prescricao_itens i
                  WHERE i.prescricao_id = ?
                  ORDER BY i.id

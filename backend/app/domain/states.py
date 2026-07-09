@@ -122,6 +122,25 @@ TRANSICOES_ITEM: dict[str, frozenset[str]] = {
 }
 
 # ---------------------------------------------------------------------------
+# Estorno — objeto sanitário DERIVADO (T2, TICKET-ESTORNO-OBJETO-DERIVADO.md)
+# ---------------------------------------------------------------------------
+# O estorno NÃO é uma transição de estado do item: é um objeto derivado e
+# imutável (tabela `estornos`) que referencia a dispensação de origem. Por isso
+# o item NÃO é mutado para `estornado` no fluxo real — a transição
+# `dispensado → estornado` acima permanece como scaffolding dormente (§5 do
+# ticket: sua remoção/SM2 é adiada para não desincronizar o paper). O efeito do
+# estorno é contábil: saldo efetivo do item = Σ dispensado − Σ estornado.
+#
+# Enum de motivo (Fase 0.2 do PLANO_DEMO_CIRCULACAO.md), ancorado no vocabulário
+# do ledger (CLAUDE.md §2 — `pagamento_nao_concluido` já existe).
+MOTIVOS_ESTORNO: frozenset[str] = frozenset({
+    "pagamento_nao_concluido",   # cartão recusado / pagamento falhou no balcão
+    "desistencia_paciente",      # paciente desistiu da compra
+    "erro_dispensacao",          # lote/fármaco registrado por engano
+    "outro",                     # outro motivo (detalhar em observação livre)
+})
+
+# ---------------------------------------------------------------------------
 # Helpers de validação
 # ---------------------------------------------------------------------------
 

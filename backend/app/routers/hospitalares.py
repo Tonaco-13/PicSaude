@@ -325,14 +325,20 @@ def dispensar_hospitalar(
             )
 
         # ── 3. Validar saldo disponível ────────────────────────────────────
+        # Saldo efetivo = Σ dispensado − Σ estornado (T2: estorno repõe saldo).
         ja_dispensado = conn.execute(
             "SELECT COALESCE(SUM(quantidade_dispensada), 0) AS total "
             "FROM dispensacoes WHERE prescricao_item_id = ?",
             (item_id,),
         ).fetchone()["total"]
+        ja_estornado = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada), 0) AS total "
+            "FROM estornos WHERE prescricao_item_id = ?",
+            (item_id,),
+        ).fetchone()["total"]
 
         prescrito = item["quantidade"] or 0
-        saldo = prescrito - ja_dispensado
+        saldo = prescrito - (ja_dispensado - ja_estornado)
 
         if saldo <= 0:
             raise HTTPException(
