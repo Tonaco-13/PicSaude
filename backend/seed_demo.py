@@ -291,6 +291,23 @@ def main() -> None:
                 CO_MUNICIPIO TEXT
             )
         """)
+        # T0.5b — semeia o CNES das farmácias demo (TP_UNIDADE '04' ∈ _TP_FARMACIA)
+        # para que /auth/me/institucional devolva cnes_verificado=true. Sem isto, a
+        # demo cai no modal de confirmação manual de CNES a cada dispensação.
+        # Idempotente (seed re-executável). Check do Jules: estabelecimentos_cnes é
+        # dado de REFERÊNCIA (sem FK) e cnes_verificado é flag COMPUTADO read-only
+        # (não persistido) — semear a linha não cria estado órfão em tabela adjacente.
+        for _cnpj, _nome, _cnes in (
+            (DISPENSADOR["cnpj"],       DISPENSADOR["nome"],       "9900001"),
+            (DISPENSADOR_NORTE["cnpj"], DISPENSADOR_NORTE["nome"], "9900002"),
+        ):
+            conn.execute("DELETE FROM estabelecimentos_cnes WHERE NU_CNPJ = ?", (_cnpj,))
+            conn.execute(
+                "INSERT INTO estabelecimentos_cnes "
+                "  (CO_CNES, NU_CNPJ, TP_UNIDADE, NO_FANTASIA, CO_MUNICIPIO) "
+                "VALUES (?, ?, '04', ?, '261160')",
+                (_cnes, _cnpj, _nome),
+            )
         # Tabelas de validação do prescritor (vazias): garantem que a consulta
         # CNES (cnes_prescritor.py) rode e retorne `nao_encontrado` em vez de
         # falhar por tabela ausente. Colunas = as referenciadas pela query.
