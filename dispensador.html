@@ -448,11 +448,11 @@
                     <div style="display:flex; gap:12px;">
                         <div style="flex:1;">
                             <label class="fila-modal-label">Fabricação</label>
-                            <input id="ml-fab" class="form-input" placeholder="DD/MM/AAAA">
+                            <input id="ml-fab" class="form-input" placeholder="DD/MM/AAAA" maxlength="10" oninput="this.value=_fmtDataInput(this.value)">
                         </div>
                         <div style="flex:1;">
                             <label class="fila-modal-label">Validade</label>
-                            <input id="ml-val" class="form-input" placeholder="DD/MM/AAAA">
+                            <input id="ml-val" class="form-input" placeholder="DD/MM/AAAA" maxlength="10" oninput="this.value=_fmtDataInput(this.value)">
                         </div>
                     </div>
                     <div id="ml-msg" class="msg-inline hidden"></div>
@@ -1296,6 +1296,14 @@
 
         function _fecharLoteFila() { document.getElementById('modal-lote-fila').classList.add('hidden'); }
 
+        // Máscara/formatação de data DD/MM/AAAA (fabricação/validade do lote).
+        function _fmtDataInput(v) {
+            const d = String(v || '').replace(/\D/g, '').slice(0, 8);
+            if (d.length <= 2) return d;
+            if (d.length <= 4) return d.slice(0, 2) + '/' + d.slice(2);
+            return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
+        }
+
         async function _confirmarLoteFila() {
             const msg  = document.getElementById('ml-msg');
             const qtd  = parseInt(document.getElementById('ml-qtd').value, 10);
@@ -1304,7 +1312,7 @@
             const val  = document.getElementById('ml-val').value.trim();
             if (!qtd || qtd < 1) { msg.className = 'msg-inline error'; msg.textContent = 'Informe uma quantidade válida.'; return; }
             if (!lote)          { msg.className = 'msg-inline error'; msg.textContent = 'Informe o lote (escrituração — Portaria 344/98).'; return; }
-            const obs = [fab && ('Fabricação: ' + fab), val && ('Validade: ' + val)].filter(Boolean).join(' · ') || null;
+            const obs = [fab && ('Fabricação: ' + _fmtDataInput(fab)), val && ('Validade: ' + _fmtDataInput(val))].filter(Boolean).join(' · ') || null;
             const payload = {
                 cnpj_estabelecimento:  dispensadorLogado.cnpj,
                 quantidade_dispensada: qtd,
