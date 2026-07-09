@@ -1,0 +1,37 @@
+# LEARNINGS — PicSaúde
+
+Aprendizados de processo que viram **check obrigatório** de revisão. Cada item nasce
+de um furo real; a régua existe para não repetir.
+
+---
+
+## Checks obrigatórios de revisão
+
+### [PII-EXAUSTIVIDADE] — mudança que adiciona/toca coluna PII
+Toda mudança que adiciona ou toca uma coluna PII (nome, CPF, documento, endereço,
+telefone, comprador, paciente…) **deve**, antes do merge:
+
+1. **Listar TODAS as rotas** que leem **ou** escrevem a coluna, com a **auth de cada uma**
+   (`require_role(...)` ou público).
+2. **Confirmar que nenhuma é pública** (sem auth). CPF/documento em rota `/public/*`
+   é problema **regulatório**, não técnico — bloqueia merge.
+3. A lista deve ser **exaustiva** — não pode faltar rota **do próprio PR**.
+
+**Diferenciação (Fabiano, 2026-07-09):** auditoria independente (Jules) é obrigatória
+para **interpretação arquitetural** ("viola §3?", "design correto?"). Para **fato
+factual** ("a rota X é pública?"), **code + grep é suficiente** — aceitar a tabela
+verificada no código aqui não quebra o princípio de auditoria-sobre-self-check.
+
+**Origem:** PR #84 (T5 comprador). A auditoria Jules **omitiu** `GET /dispensadores/historico`
+— rota do próprio PR que retorna `comprador_nome`. Risco real = zero (grep confirmou:
+todas as 4 rotas que tocam `comprador_*` exigem `require_role`, nenhuma `/public/*`),
+mas a falha metodológica (auditoria não-exaustiva) virou esta régua.
+
+---
+
+## Log de aprendizados
+
+| Data | Origem | Aprendizado |
+|---|---|---|
+| 2026-07-09 | #84 | **Exaustividade PII** (check acima). Auditoria independente não pode perder rota do próprio PR; para fato factual, grep no código basta. |
+| 2026-07-09 | #83 | **Portão de core pega o erro adjacente que a auditoria de implementação passa.** Ex.: a auto-correção do estorno-objeto-derivado (difícil) acertou, mas deixou custódia dupla no T1.5 (adjacente). Verificar o relatório contra o código real é o que faz o processo funcionar. |
