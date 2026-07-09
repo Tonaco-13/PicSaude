@@ -417,8 +417,12 @@
             <div id="fila-container" class="card">
                 <div class="fila-card-head">
                     <h2 class="section-title">Fila de Dispensação <span id="fila-count" class="fila-count">0</span></h2>
-                    <button type="button" class="fila-refresh" onclick="carregarFila()">↻ Atualizar</button>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <button type="button" class="fila-refresh" onclick="baixarRelatorioDia()">📊 Relatório do dia</button>
+                        <button type="button" class="fila-refresh" onclick="carregarFila()">↻ Atualizar</button>
+                    </div>
                 </div>
+                <div id="fila-msg" class="msg-inline hidden"></div>
                 <div id="fila-lista">
                     <p class="fila-vazia">Carregando fila…</p>
                 </div>
@@ -1233,8 +1237,7 @@
                     } else {
                         acoes = `
                             <button type="button" class="btn btn-action btn-sm" onclick="_abrirLoteFila('${proto}', ${i.item_id})">✓ Dispensar</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="_devolverPacienteFila('${proto}', ${i.item_id})">← Paciente</button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="_devolverPrescritorFila('${proto}', ${i.item_id})">✕ Prescritor</button>`;
+                            <button type="button" class="btn btn-outline btn-sm" onclick="_devolverPacienteFila('${proto}', ${i.item_id})">← Devolver ao paciente</button>`;
                     }
                     return `
                     <div class="fila-med-row">
@@ -1314,6 +1317,8 @@
                     return;
                 }
                 _fecharLoteFila();
+                const data = await resp.json().catch(() => ({}));
+                _filaMsgComprovante(data.dispensacao_id);
                 carregarFila();
             } catch (e) { msg.className = 'msg-inline error'; msg.textContent = 'Sem conexão com o servidor.'; }
         }
@@ -1331,6 +1336,9 @@
                     alert('Não foi possível devolver: ' + ((e.detail && (e.detail.mensagem || e.detail)) || resp.status));
                     return;
                 }
+                // Sinal explícito: o item sai da fila (custódia volta ao paciente),
+                // então sem esta mensagem a devolução parecia "não ter funcionado".
+                _filaMsg('success', '✓ Item devolvido ao paciente — liberado para nova apresentação em outra farmácia.');
                 carregarFila();
             } catch (e) { alert('Sem conexão com o servidor.'); }
         }
@@ -1339,15 +1347,74 @@
                 _devolverFila(proto, item, 'paciente', 'Devolução no balcão');
             }
         }
-        function _devolverPrescritorFila(proto, item) {
-            const motivo = prompt('Devolução ao prescritor — informe o motivo (ex.: dose incorreta, medicamento contraindicado):');
-            if (motivo && motivo.trim()) _devolverFila(proto, item, 'prescritor', motivo.trim());
+
+        // Mensagem temporária no topo da fila (feedback de devolução/erro).
+        let _filaMsgTimer = null;
+        function _filaMsg(tipo, texto) {
+            const el = document.getElementById('fila-msg');
+            if (!el) return;
+            el.className = 'msg-inline ' + (tipo || 'success');
+            el.textContent = texto;
+            if (_filaMsgTimer) clearTimeout(_filaMsgTimer);
+            _filaMsgTimer = setTimeout(() => { el.className = 'msg-inline hidden'; el.textContent = ''; }, 8000);
+        }
+
+        // Sucesso de dispensação na fila + botão de comprovante (janela maior
+        // para dar tempo de clicar). dispensacao_id vem do backend (B1).
+        function _filaMsgComprovante(dispensacaoId) {
+            const el = document.getElementById('fila-msg');
+            if (!el) return;
+            el.className = 'msg-inline success';
+            el.innerHTML = '✓ Dispensação registrada.' + (dispensacaoId
+                ? ` <button type="button" class="btn btn-outline btn-sm" style="margin-left:8px;"`
+                  + ` onclick="baixarComprovante(${dispensacaoId})">📄 Comprovante (PDF)</button>`
+                : '');
+            if (_filaMsgTimer) clearTimeout(_filaMsgTimer);
+            _filaMsgTimer = setTimeout(() => { el.className = 'msg-inline hidden'; el.innerHTML = ''; }, 15000);
         }
 
         function _iniciarFila() {
             carregarFila();
             if (_filaPollTimer) clearInterval(_filaPollTimer);
             _filaPollTimer = setInterval(carregarFila, 15000);
+        }
+
+        // ── Downloads autenticados (comprovante + relatório) ────────────────
+        // Endpoints exigem Bearer token, então um <a download> simples não serve
+        // (não carrega o header). Baixa via fetch→blob→objectURL.
+        function _baixarBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        async function baixarComprovante(dispensacaoId) {
+            if (!dispensacaoId) return;
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/dispensacoes/${dispensacaoId}/comprovante?formato=pdf`,
+                    { headers: authHeaders() }
+                );
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) { alert('Não foi possível gerar o comprovante.'); return; }
+                _baixarBlob(await resp.blob(), `comprovante_${dispensacaoId}.pdf`);
+            } catch (e) { alert('Sem conexão com o servidor.'); }
+        }
+
+        async function baixarRelatorioDia() {
+            const hoje = new Date().toISOString().slice(0, 10);
+            // Escopo por CNPJ é forçado no backend (dispensador só vê o próprio).
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/relatorios/dispensacoes.pdf?data_inicio=${hoje}&data_fim=${hoje}`,
+                    { headers: authHeaders() }
+                );
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) { alert('Não foi possível gerar o relatório do dia.'); return; }
+                _baixarBlob(await resp.blob(), `relatorio_dispensacoes_${hoje}.pdf`);
+            } catch (e) { alert('Sem conexão com o servidor.'); }
         }
 
         // ─────────────────────────────────────────────────
@@ -1484,42 +1551,10 @@
                     </div>
                     <button class="btn btn-outline btn-sm"
                             onclick="devolverItemPaciente('${p}', ${itemId})">
-                        ← Dev. ao Paciente
+                        ← Devolver ao paciente
                     </button>
-                    <button class="btn btn-danger btn-sm"
-                            onclick="toggleMotivoPrescritor(${itemId})">
-                        ✕ Dev. ao Prescritor
-                    </button>
-                </div>
-                <div id="motivo-prescritor-${itemId}" class="motivo-section hidden">
-                    <p style="font-size:13px; color:#dc2626; font-weight:700; margin-bottom:8px;">
-                        Devolução ao prescritor — informe o motivo:
-                    </p>
-                    <input type="text" id="motivo-${itemId}" class="form-input"
-                           placeholder="Ex: medicamento contraindicado, dosagem incorreta…">
-                    <div class="motivo-row">
-                        <button class="btn btn-danger btn-sm"
-                                onclick="devolverItemPrescritor('${p}', ${itemId})">
-                            Confirmar Devolução
-                        </button>
-                        <button class="btn btn-outline btn-sm"
-                                onclick="toggleMotivoPrescritor(${itemId})">
-                            Cancelar
-                        </button>
-                    </div>
                 </div>
             `;
-        }
-
-        // ─────────────────────────────────────────────────
-        // Toggle formulário de motivo (devolução ao prescritor)
-        // ─────────────────────────────────────────────────
-        function toggleMotivoPrescritor(itemId) {
-            const el = document.getElementById(`motivo-prescritor-${itemId}`);
-            el.classList.toggle('hidden');
-            if (!el.classList.contains('hidden')) {
-                document.getElementById(`motivo-${itemId}`).focus();
-            }
         }
 
         // ─────────────────────────────────────────────────
@@ -1656,6 +1691,13 @@
                 const el = document.getElementById(`msg-item-${itemId}`);
                 if (el) el.insertAdjacentHTML('afterend', _renderizarScoreConfianca(data.score_confianca));
             }
+            // T5 — comprovante em PDF (dispensacao_id devolvido pelo backend, B1).
+            if (data.dispensacao_id) {
+                const anchor = document.getElementById(`msg-item-${itemId}`);
+                if (anchor) anchor.insertAdjacentHTML('afterend',
+                    `<button type="button" class="btn btn-outline btn-sm" style="margin-top:8px;" ` +
+                    `onclick="baixarComprovante(${data.dispensacao_id})">📄 Comprovante (PDF)</button>`);
+            }
         }
 
         // ─────────────────────────────────────────────────
@@ -1743,19 +1785,10 @@
                 'Item devolvido ao paciente. Disponível para nova dispensação em outra farmácia.');
         }
 
-        // ─────────────────────────────────────────────────
-        // Devolver ao prescritor (erro na prescrição)
-        // ─────────────────────────────────────────────────
-        async function devolverItemPrescritor(protocolo, itemId) {
-            const motivo = (document.getElementById(`motivo-${itemId}`) || {}).value || '';
-            if (!motivo.trim()) {
-                mostrarMsgItem(itemId, 'error', 'O motivo da devolução ao prescritor é obrigatório.');
-                document.getElementById(`motivo-${itemId}`).focus();
-                return;
-            }
-            await _devolverItem(protocolo, itemId, 'prescritor', motivo.trim(),
-                'Item devolvido ao prescritor para correção. Status: devolvido_prescritor.');
-        }
+        // Devolução ao prescritor foi retirada da UI do balcão (decisão de
+        // produto, 2026-07-08): o balcão só devolve ao paciente. O endpoint
+        // dispensador→prescritor permanece no backend (transição de custódia
+        // válida — CLAUDE.md §3), apenas não é mais exposto aqui.
 
         async function _devolverItem(protocolo, itemId, para, motivo, msgSucesso) {
             const payload = { para };

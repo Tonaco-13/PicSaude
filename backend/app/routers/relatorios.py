@@ -33,11 +33,28 @@ from fastapi.responses import StreamingResponse
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
 from app.domain.pdf_relatorio_dispensacoes import gerar_pdf_dispensacoes
+from app.utils.helpers import normalize_cnpj
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
 
 # CPF sentinela: não é um cidadão real — excluir de relatórios analíticos
 _CPF_NAO_IDENTIFICADO = "00000000000"
+
+
+def _cnpj_escopo(usuario: dict, cnpj_param: Optional[str]) -> Optional[str]:
+    """Escopo institucional do relatório (CLAUDE.md §6b — guardrail de `org_id`).
+
+    O dispensador só pode enxergar as PRÓPRIAS dispensações: o CNPJ é FORÇADO
+    ao do JWT (`sub`), ignorando qualquer valor recebido na query — um
+    dispensador nunca consegue ler o relatório de outro estabelecimento.
+    Auditor/admin filtram livremente (ou veem tudo, quando nenhum CNPJ é dado).
+
+    Retorna o CNPJ normalizado a aplicar em `WHERE d.cnpj_estabelecimento = ?`,
+    ou None quando não há filtro (auditor/admin sem CNPJ informado).
+    """
+    if usuario["role"] == "dispensador":
+        return normalize_cnpj(usuario["sub"])
+    return normalize_cnpj(cnpj_param) if cnpj_param else None
 
 
 # ---------------------------------------------------------------------------
@@ -129,21 +146,32 @@ def relatorio_dispensacoes(
         default=None,
         description="Data final no formato YYYY-MM-DD (inclusive)",
     ),
-    _=Depends(require_role("auditor", "admin")),
+    cnpj_estabelecimento: Optional[str] = Query(
+        default=None,
+        description="Filtrar por CNPJ do estabelecimento (auditor/admin). "
+                    "Ignorado para dispensador — sempre travado ao próprio CNPJ.",
+    ),
+    usuario=Depends(require_role("auditor", "admin", "dispensador")),
 ):
     """
-    Exporta relatório CSV de dispensações para auditoria sanitária.
+    Exporta relatório CSV de dispensações.
 
-    - Retorna todas as dispensações por padrão.
+    - Retorna todas as dispensações por padrão (auditor/admin).
     - Filtrar por período com `data_inicio` e/ou `data_fim`.
     - CPF sentinela `00000000000` excluído automaticamente.
     - Comprador = Paciente no MVP (tabela de comprador ainda não implementada).
 
-    **SEGURANÇA:** endpoint expõe CPF e nome de pacientes.
-    Proteger com autenticação antes de expor fora de ambiente local.
+    **SEGURANÇA:** requer JWT `auditor`, `admin` ou `dispensador`. O dispensador
+    só enxerga as próprias dispensações (escopo por CNPJ forçado — CLAUDE.md §6b).
     """
     sql    = _SQL_BASE
     params: list = [_CPF_NAO_IDENTIFICADO]
+
+    # Escopo institucional (CLAUDE.md §6b): dispensador travado ao próprio CNPJ.
+    _cnpj = _cnpj_escopo(usuario, cnpj_estabelecimento)
+    if _cnpj:
+        sql += " AND d.cnpj_estabelecimento = ?"
+        params.append(_cnpj)
 
     if data_inicio:
         sql += " AND d.dispensado_em >= ?"
@@ -223,17 +251,18 @@ def relatorio_dispensacoes_pdf(
         default=None,
         description="Filtrar por nome do medicamento (busca parcial, case-insensitive)",
     ),
-    _=Depends(require_role("auditor", "admin")),
+    usuario=Depends(require_role("auditor", "admin", "dispensador")),
 ):
     """
-    Exporta relatório PDF de dispensações para auditoria sanitária.
+    Exporta relatório PDF de dispensações.
 
     - A4 landscape, 14 colunas, fonte 6.5pt.
     - Limitado a 1 000 registros; use o CSV para exportação completa.
     - CPF sentinela `00000000000` substituído por 'Não identificado'.
     - Sem filtro de período: retorna os últimos 30 dias.
 
-    **SEGURANÇA:** requer JWT com role `auditor` ou `admin`.
+    **SEGURANÇA:** requer JWT `auditor`, `admin` ou `dispensador`. O dispensador
+    só enxerga as próprias dispensações (escopo por CNPJ forçado — CLAUDE.md §6b).
     """
     from datetime import date, timedelta
 
@@ -249,10 +278,11 @@ def relatorio_dispensacoes_pdf(
     sql += " AND d.dispensado_em <= ?"
     params.append(f"{_data_fim}T23:59:59")
 
-    if cnpj_estabelecimento:
-        cnpj_norm = cnpj_estabelecimento.replace(".", "").replace("/", "").replace("-", "")
+    # Escopo institucional (CLAUDE.md §6b): dispensador travado ao próprio CNPJ.
+    _cnpj = _cnpj_escopo(usuario, cnpj_estabelecimento)
+    if _cnpj:
         sql += " AND d.cnpj_estabelecimento = ?"
-        params.append(cnpj_norm)
+        params.append(_cnpj)
 
     if medicamento:
         sql += " AND LOWER(i.nome_medicamento) LIKE ?"
@@ -270,7 +300,8 @@ def relatorio_dispensacoes_pdf(
     filtros = {
         "data_inicio":          _data_inicio,
         "data_fim":             _data_fim,
-        "cnpj_estabelecimento": cnpj_estabelecimento,
+        # CNPJ efetivamente aplicado (para dispensador = o próprio, forçado).
+        "cnpj_estabelecimento": _cnpj,
         "medicamento":          medicamento,
     }
 

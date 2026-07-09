@@ -163,14 +163,19 @@ _COL_WIDTHS = [col[1] for col in _COLUNAS]
 # Formatação de data
 # ---------------------------------------------------------------------------
 
-def _fmt_data(s: str | None) -> str:
+def _fmt_data(s) -> str:
     if not s:
         return "N/I"
+    # Paridade SQLite×PostgreSQL: a coluna `dispensado_em` é DateTime, então o
+    # PostgreSQL devolve um objeto `datetime`, enquanto o SQLite devolve string
+    # ISO. Tratar ambos — sem isto o PDF quebra (TypeError) contra o PG de prod.
+    if isinstance(s, datetime):
+        return s.strftime("%d/%m/%Y\n%H:%M")
     try:
         dt = datetime.fromisoformat(s)
         return dt.strftime("%d/%m/%Y\n%H:%M")
-    except ValueError:
-        return s[:16] if s else "N/I"
+    except (ValueError, TypeError):
+        return str(s)[:16]
 
 
 def _fmt_cpf(cpf: str | None) -> str:
