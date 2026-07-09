@@ -49,6 +49,14 @@ _PERSONAS: dict[str, dict] = {
         "nome":  "Farmácia Demo Central",
         "identificador_visivel": "CNPJ 99.999.999/0001-91",
     },
+    # T0.6 — segunda farmácia para o ciclo A→B (re-apresentação em outra
+    # farmácia). Mesmo papel `dispensador`; muda só o CNPJ/estabelecimento.
+    "dispensador_norte": {
+        "role":  "dispensador",
+        "sub":   "99999999000272",
+        "nome":  "Farmácia Demo Norte",
+        "identificador_visivel": "CNPJ 99.999.999/0002-72",
+    },
     "paciente": {
         "role":  "paciente",   # §3.3 — usa "paciente" (não "cidadao") por
                                 #         compatibilidade com routers reais
@@ -66,7 +74,7 @@ _PERSONAS: dict[str, dict] = {
 
 
 def _papeis_demo_disponiveis() -> list[str]:
-    base = ["prescritor", "dispensador", "paciente"]
+    base = ["prescritor", "dispensador", "dispensador_norte", "paciente"]
     if PICSAUDE_DEMO_ADMIN:
         base.append("admin")
     return base

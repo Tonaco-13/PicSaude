@@ -63,9 +63,11 @@ jobs:
         #   suítes de integração ainda não validadas neste schema.
         # test_custodia_devolucao: adicionado no T1 (PLANO_DEMO_CIRCULACAO.md) —
         #   estava implementado (TICKET-4E-2) mas nunca rodava neste gate.
+        #   Cobre também B1 (dispensacao_id + comprovante) — mesma suíte.
         # fila: T4 (PLANO_DEMO_CIRCULACAO §5) — casa test_fila_dispensador.
+        # relatorio: T8 — escopo por CNPJ do dispensador (test_relatorio_escopo_dispensador).
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno"
           -q
