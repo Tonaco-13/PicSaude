@@ -6,6 +6,34 @@
 > **inventário de invariantes verificado em código** (evidência arquivo:linha —
 > não reinvestigar).
 
+---
+
+## STATUS — 2026-07-09 · Fases 1–4 PUBLICADAS ✅
+
+O **ciclo mínimo do dispensador está no `main` (`fc7417d`) e na vitrine**:
+login demo → farmácia com CNES verificado → dispensar parcial → estornar →
+comprovante COMPRADOR × PACIENTE → histórico de retenções.
+
+| Fase | Escopo | PR | Estado |
+|---|---|---|---|
+| Fase 1 (core) | estorno objeto-derivado (T2), trigger Σ efetivo (T3), detenção prévia/auto-retenção (T1.5) | #83 | ✅ merged |
+| Fase 2 (backend) | comprador no comprovante (T5), histórico (T6), CNES demo (T0.5b) | #84 | ✅ merged |
+| hotfix deploy | seed `estabelecimentos_cnes` na PG + guard predeploy no gate | #87 | ✅ merged |
+| audit | Jules — audit independente do #84 + backport | #85 | ✅ merged |
+| Fase 4 (frontend) | `dispensador.html`: auto-login, dispensar, estornar, comprovante, histórico | #86 | ✅ merged |
+
+**Cortado do ciclo mínimo (vai para a Fase 5 — paridade v27):** T7 reconciliação,
+T8 relatório consolidado/SNGPC CSV, campo comprador na UI da fila, devolução ao
+prescritor (decisão de produto), e os módulos **cidadão** e **prescritor** no
+nível v27.
+
+> **Próxima fase e roadmap de paridade v27:** o objetivo agora é levar a demo à
+> paridade completa com o v27 (os 3 módulos wired ao backend real). O plano de
+> handoff, papéis (Cowork = arquiteto, Z AI = conselheiro) e o gap detalhado
+> estão em **`docs/PROMPT-COWORK-ARQUITETO-V27.md`**.
+
+---
+
 ## 0. Decisão de prioridade (registro)
 
 **2026-07-05, Fabiano:** avançar o módulo dispensador — "circulação perfeita dos
