@@ -47,6 +47,8 @@ SELECT
     d.lote,
     d.fabricante,
     d.observacao,
+    d.comprador_nome,
+    d.comprador_documento,
 
     i.nome_medicamento,
     i.concentracao,
@@ -89,6 +91,10 @@ def _montar_json(d: dict) -> dict:
     # CPF sentinela não representa cidadão real — omitir no comprovante
     cpf_exibir = d["paciente_cpf"] if d["paciente_cpf"] != "00000000000" else "Não identificado"
 
+    # T5 — COMPRADOR (portador que retira) × PACIENTE (indicação clínica).
+    # MVP: sem comprador declarado na dispensação → o comprador é o próprio paciente.
+    comprador_declarado = bool(d.get("comprador_nome"))
+
     return {
         "dispensacao_id":      d["dispensacao_id"],
         "protocolo_prescricao": d["protocolo"],
@@ -98,6 +104,12 @@ def _montar_json(d: dict) -> dict:
         "paciente": {
             "nome": d["paciente_nome"],
             "cpf":  cpf_exibir,
+        },
+
+        "comprador": {
+            "nome":       d["comprador_nome"] if comprador_declarado else d["paciente_nome"],
+            "documento":  d["comprador_documento"] if comprador_declarado else cpf_exibir,
+            "eh_paciente": not comprador_declarado,
         },
 
         "medicamento": {
@@ -234,6 +246,15 @@ def _gerar_pdf(dados: dict) -> bytes:
         ("Nome", dados["paciente"]["nome"]),
         ("CPF",  dados["paciente"]["cpf"]),
     ])
+
+    # T5 — Comprador (portador que retira), distinto do paciente. No MVP, sem
+    # comprador declarado, é o próprio paciente (sinalizado explicitamente).
+    story.append(Spacer(1, 0.2 * cm))
+    _comp = dados["comprador"]
+    story += secao("Comprador (portador)", [
+        ("Nome",      _comp["nome"]),
+        ("Documento", _comp["documento"]),
+    ] + ([("Obs.", "Mesmo que o paciente")] if _comp["eh_paciente"] else []))
 
     story.append(Spacer(1, 0.2 * cm))
     story += secao("Medicamento", [

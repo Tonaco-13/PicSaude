@@ -88,6 +88,9 @@ class DispensarItemIn(BaseModel):
     origem_contexto:              Optional[str]  = None
     # Ticket 46 — gate leve: True quando usuário explicitamente confirmou operação manual
     contexto_confirmado_manual:   Optional[bool] = None
+    # T5 — comprador (portador que retira), distinto do paciente. Opcional; NULL → comprador = paciente (MVP).
+    comprador_nome:               Optional[str]  = None
+    comprador_documento:          Optional[str]  = None
 
     @field_validator("quantidade_dispensada")
     @classmethod
@@ -771,12 +774,12 @@ def dispensar_item(
             INSERT INTO dispensacoes
               (prescricao_item_id, cnpj_estabelecimento, quantidade_dispensada,
                dispensado_por, dispensado_em, lote, fabricante, observacao,
-               origem_contexto, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               origem_contexto, comprador_nome, comprador_documento, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (item_id, cnpj, payload.quantidade_dispensada, payload.dispensado_por,
              agora, payload.lote, payload.fabricante, payload.observacao,
-             payload.origem_contexto, agora),
+             payload.origem_contexto, payload.comprador_nome, payload.comprador_documento, agora),
         )
         dispensacao_id = cur_disp.lastrowid
 
