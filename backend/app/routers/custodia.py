@@ -645,6 +645,12 @@ def dispensar_item(
         # auto-retém para manter o fluxo fluido sem burlar a cadeia de custódia.
         if not _dispensador_detem_custodia(conn, presc["id"], item_id, cnpj):
             if PICSAUDE_DEMO_MODE:
+                # Transferência atômica de posse (§3 — UM detentor a cada momento):
+                # fecha a custódia anterior (ex.: do paciente) ANTES de abrir a do
+                # dispensador. Sem o fechar, ficariam duas custódias ativas e a
+                # correção dependeria da lógica a jusante + ordenação do fetchone —
+                # "posse brota". Aqui a retenção é transferência, não brota.
+                _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
                 _abrir_custodia(conn, presc["id"], item_id, "dispensador", cnpj,
                                 "auto_retencao_demo", agora)
                 # Ledger completo (CLAUDE.md §2): a retenção é evento de negócio.
