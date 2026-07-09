@@ -28,6 +28,7 @@ from app.database_tx import get_tx
 from app.domain.confianca_cuidado import calcular_score_confianca_dispensacao
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_PRESCRICAO, ESTADOS_TERMINAIS_PRESCRICAO
+from app.config import PICSAUDE_DEMO_MODE
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf, normalize_cns
 
@@ -637,6 +638,40 @@ def dispensar_item(
                 },
             )
 
+        # T1.5 — detenção prévia: dispensar exige que ESTE estabelecimento
+        # detenha o item (custódia ativa, nível-prescrição ou nível-item). Em
+        # produção, rejeita se o item não foi retido (apresentação/retenção é
+        # pré-requisito da dispensação). Em DEMO (laboratório de invariantes),
+        # auto-retém para manter o fluxo fluido sem burlar a cadeia de custódia.
+        if not _dispensador_detem_custodia(conn, presc["id"], item_id, cnpj):
+            if PICSAUDE_DEMO_MODE:
+                # Transferência atômica de posse (§3 — UM detentor a cada momento):
+                # fecha a custódia anterior (ex.: do paciente) ANTES de abrir a do
+                # dispensador. Sem o fechar, ficariam duas custódias ativas e a
+                # correção dependeria da lógica a jusante + ordenação do fetchone —
+                # "posse brota". Aqui a retenção é transferência, não brota.
+                _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
+                _abrir_custodia(conn, presc["id"], item_id, "dispensador", cnpj,
+                                "auto_retencao_demo", agora)
+                # Ledger completo (CLAUDE.md §2): a retenção é evento de negócio.
+                # Sem isto, a auto-retenção abriria custódia sem rastro no ledger
+                # (buraco apontado no portão — afeta a reconstrução do T6).
+                _gravar_evento(
+                    conn, presc["id"], "custodia_transferida", "dispensador", cnpj,
+                    {"item_id": item_id, "de": "paciente", "para": "dispensador",
+                     "motivo": "auto_retencao_demo"}, agora,
+                    instance_id=instance_id,
+                )
+            else:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "codigo": "item_nao_retido",
+                        "mensagem": "Item não está retido por este estabelecimento. "
+                                    "Faça a apresentação/retenção antes de dispensar.",
+                    },
+                )
+
         # -----------------------------------------------------------------------
         # Ticket 44 — Fase 2: validação de token atomizado (quando fornecido)
         # -----------------------------------------------------------------------
@@ -704,11 +739,18 @@ def dispensar_item(
                 detail=f"Item com status '{item['status_item']}' não pode ser dispensado.",
             )
 
-        # Calcular saldo disponível
+        # Calcular saldo disponível — saldo efetivo = Σ dispensado − Σ estornado
+        # (T2: o estorno é objeto derivado que repõe saldo; a dispensação
+        # original permanece imutável).
         ja_dispensado = conn.execute(
             "SELECT COALESCE(SUM(quantidade_dispensada), 0) AS total FROM dispensacoes WHERE prescricao_item_id = ?",
             (item_id,),
         ).fetchone()["total"]
+        ja_estornado = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada), 0) AS total FROM estornos WHERE prescricao_item_id = ?",
+            (item_id,),
+        ).fetchone()["total"]
+        ja_dispensado = ja_dispensado - ja_estornado
 
         prescrito = item["quantidade"] or 0
         saldo = prescrito - ja_dispensado
@@ -721,8 +763,10 @@ def dispensar_item(
                 detail=f"Quantidade solicitada ({payload.quantidade_dispensada}) supera o saldo disponível ({saldo}).",
             )
 
-        # Gravar dispensação
-        conn.execute(
+        # Gravar dispensação — captura o id para o comprovante (mesmo padrão
+        # de `hospitalares.py`, PG-safe via camada `database.py`). Sem ele, o
+        # frontend não tem como linkar GET /dispensacoes/{id}/comprovante.
+        cur_disp = conn.execute(
             """
             INSERT INTO dispensacoes
               (prescricao_item_id, cnpj_estabelecimento, quantidade_dispensada,
@@ -734,6 +778,7 @@ def dispensar_item(
              agora, payload.lote, payload.fabricante, payload.observacao,
              payload.origem_contexto, agora),
         )
+        dispensacao_id = cur_disp.lastrowid
 
         novo_saldo = saldo - payload.quantidade_dispensada
         novo_status_item = "dispensado" if novo_saldo == 0 else "em_custodia"
@@ -818,6 +863,9 @@ def dispensar_item(
 
         return {
             "protocolo": protocolo,
+            # id da dispensação recém-gravada — chave para o comprovante
+            # (GET /dispensacoes/{dispensacao_id}/comprovante).
+            "dispensacao_id": dispensacao_id,
             "item_id": item_id,
             "nome_medicamento": item["nome_medicamento"],
             "quantidade_dispensada": payload.quantidade_dispensada,

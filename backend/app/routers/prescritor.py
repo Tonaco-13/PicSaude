@@ -18,6 +18,7 @@ POST /prescritor/certificado
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime
 from typing import Optional
 
@@ -68,6 +69,124 @@ def _serializa_emissor(cert) -> str:
         return cert.issuer.rfc4514_string()
     except Exception:
         return "?"
+
+
+# ---------------------------------------------------------------------------
+# GET /prescritor/prescricoes — painel do prescritor logado
+#
+# Espelho de GET /paciente/prescricoes (auth.py), porém na ótica do EMISSOR.
+# Escopo por CNS = `sub` do JWT (o mesmo CNS exigido na emissão — ver
+# prescricoes.py: `usuario["sub"] == cns_prescritor`). Backend é fonte de
+# verdade: substitui a leitura de localStorage no prescritor.html, de modo
+# que devoluções registradas no backend (item `devolvido_prescritor`) voltem
+# a ser visíveis para o médico — fechando o loop de circulação da receita.
+#
+# Emissões FÍSICAS (fire-and-forget, §6) permanecem só no localStorage por
+# design — por isso `tipo_emissao != 'fisica'`, igual ao espelho do paciente.
+# ---------------------------------------------------------------------------
+
+@router.get("/prescricoes", summary="Prescrições do prescritor logado (histórico + correções)")
+def listar_prescricoes_do_prescritor(usuario=Depends(require_role("prescritor"))):
+    cns = usuario["sub"]
+
+    with get_tx() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                p.id,
+                p.protocolo,
+                p.status,
+                p.tipo_emissao,
+                p.origem_prescricao_id,
+                p.data_emissao,
+                pa.cpf  AS paciente_cpf,
+                pa.nome AS paciente_nome
+            FROM prescricoes p
+            JOIN prescritores pr ON pr.id = p.prescritor_id
+            JOIN pacientes    pa ON pa.id = p.paciente_id
+            WHERE pr.cns = ?
+              AND p.tipo_emissao != 'fisica'
+            ORDER BY p.id DESC
+            """,
+            (cns,),
+        ).fetchall()
+
+        prescricoes = []
+        for row in rows:
+            itens = conn.execute(
+                """
+                SELECT id, nome_medicamento, concentracao, quantidade,
+                       unidade_quantidade, forma_farmaceutica, posologia, status_item
+                FROM prescricao_itens
+                WHERE prescricao_id = ?
+                ORDER BY id
+                """,
+                (row["id"],),
+            ).fetchall()
+            itens_l = [dict(i) for i in itens]
+            # Caixa de correções: prescrição entra quando ao menos um item foi
+            # devolvido ao prescritor (erro clínico). A devolução é granular
+            # (nível do item) — CLAUDE.md §3.
+            tem_devolucao = any(
+                i["status_item"] == "devolvido_prescritor" for i in itens_l
+            )
+            # Motivo da recusa: vem do ledger (evento `item_devolvido_prescritor`),
+            # não da custódia — o médico precisa saber POR QUE corrigir. Lemos o
+            # payload em Python (portável SQLite/PG; sem operador JSON específico).
+            if tem_devolucao:
+                eventos = conn.execute(
+                    """
+                    SELECT payload_json
+                    FROM prescricao_eventos
+                    WHERE prescricao_id = ?
+                      AND tipo_evento = 'item_devolvido_prescritor'
+                    ORDER BY id DESC
+                    """,
+                    (row["id"],),
+                ).fetchall()
+                motivo_por_item: dict = {}
+                for ev in eventos:
+                    raw = ev["payload_json"]
+                    try:
+                        pl = raw if isinstance(raw, dict) else json.loads(raw or "{}")
+                    except (ValueError, TypeError):
+                        pl = {}
+                    iid = pl.get("item_id")
+                    if iid is not None and iid not in motivo_por_item:
+                        motivo_por_item[iid] = pl.get("motivo")
+                for it in itens_l:
+                    if it["status_item"] == "devolvido_prescritor":
+                        it["motivo_devolucao"] = motivo_por_item.get(it["id"])
+            prescricoes.append({
+                "id":                   row["id"],
+                "protocolo":            row["protocolo"],
+                "status":               row["status"],
+                "tipo_emissao":         row["tipo_emissao"],
+                "origem_prescricao_id": row["origem_prescricao_id"],
+                "data_emissao":         row["data_emissao"],
+                "paciente_cpf":         row["paciente_cpf"],
+                "paciente_nome":        row["paciente_nome"],
+                "itens":                itens_l,
+                "tem_devolucao":        tem_devolucao,
+            })
+
+    # A caixa de correções deve LIMPAR após a correção ser emitida: senão a
+    # devolução (item `devolvido_prescritor`, terminal) reapareceria para
+    # sempre — reintroduzindo o atrito que estamos eliminando. Uma devolução
+    # está "pendente" enquanto não houver prescrição-filha de correção
+    # (`tipo_emissao='correcao'` apontando para ela via origem).
+    origens_corrigidas = {
+        p["origem_prescricao_id"]
+        for p in prescricoes
+        if p["tipo_emissao"] == "correcao" and p["origem_prescricao_id"] is not None
+    }
+    return {
+        "historico": prescricoes,
+        "correcoes": [
+            p for p in prescricoes
+            if p["tem_devolucao"] and p["id"] not in origens_corrigidas
+        ],
+    }
 
 
 @router.post(

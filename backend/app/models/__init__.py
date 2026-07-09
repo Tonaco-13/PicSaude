@@ -44,6 +44,7 @@ from app.models.contrarreferencia_custodia import ContrarreferenciaCustodia     
 from app.models.atestado import Atestado                                               # Atestado (objeto sanitário)
 from app.models.atestado_evento import AtestadoEvento                                  # Atestado
 from app.models.atestado_custodia import AtestadoCustodia                              # Atestado
+from app.models.estorno import Estorno                                                 # T2 — estorno (objeto derivado)
 
 __all__ = [
     "Paciente",
@@ -93,4 +94,5 @@ __all__ = [
     "Atestado",                    # Atestado (objeto sanitário)
     "AtestadoEvento",              # Atestado
     "AtestadoCustodia",            # Atestado
+    "Estorno",                     # T2 — estorno (objeto derivado)
 ]

@@ -65,12 +65,19 @@ Vocabulário de eventos conhecido:
 | `assinatura_registrada` | Metadados de assinatura digital declarados pelo prescritor (stub MVP) |
 | `decisao_clinica_avaliada` | **Camada 3** — trilha de auditoria do semáforo: sinal + versão da regra por item, gravado na emissão (não-bloqueante; só com a flag `PICSAUDE_DECISAO_CLINICA` ativa e `codigo_cid` presente). Ver `docs/EXPLICABILIDADE_DECISAO_CLINICA.md` §11 |
 | `pdf_assinado_pades` | Geração de PDF com assinatura ICP-Brasil PAdES-B (cofre server-side). Emitido pela prescrição comum (`POST /prescricoes/{proto}/pdf-assinado`) e pelo receituário. Payload: hash do PDF + serial do certificado |
+| `estorno_registrado` | **T2** — reversão de uma dispensação registrada. O estorno é um **objeto sanitário derivado e imutável** (`estornos`, padrão `origem_dispensacao_id`), **não** uma transição de estado do item (a `dispensacoes` original permanece intocada). Efeito contábil: saldo efetivo do item = Σ dispensado − Σ estornado. Emitido por `POST /dispensacoes/{id}/estornar`. Payload: `estorno_id` + `estorno_protocolo` + `origem_dispensacao_id` + `item_id` + `quantidade_estornada` + `motivo` (enum `MOTIVOS_ESTORNO`). Ver `docs/tickets/TICKET-ESTORNO-OBJETO-DERIVADO.md` |
 
 **Fluxo físico emite DOIS eventos em sequência:**
 1. `prescricao_impressa` — ato de impressão (quem, quando, quantos itens)
 2. `encerrada_localmente` — transição de estado (motivo: emissão exclusivamente física)
 
 Nunca criar endpoints que apaguem ou alterem eventos.
+
+**Invariante de retenção (ratificado por Fabiano, 2026-07-09):** toda retenção de
+custódia — **inclusive a auto-retenção** do T1.5 em modo demo — DEVE emitir
+`custodia_transferida`. Abrir custódia (`_abrir_custodia`) sem o evento é **bug,
+não feature**: o ledger é a fonte da verdade da cadeia de custódia (§3). Em
+produção não existe auto-retenção — item não retido → 409 `item_nao_retido`.
 
 ---
 
