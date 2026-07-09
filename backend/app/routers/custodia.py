@@ -824,7 +824,7 @@ def dispensar_item(
         _ev_emitida = conn.execute(
             """SELECT payload_json FROM prescricao_eventos
                WHERE prescricao_id = ? AND tipo_evento = 'prescricao_emitida'
-               ORDER BY created_at DESC LIMIT 1""",
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
             (presc["id"],),
         ).fetchone()
         if _ev_emitida and _ev_emitida["payload_json"]:
