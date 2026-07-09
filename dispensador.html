@@ -419,8 +419,20 @@
                     <h2 class="section-title">Fila de Dispensação <span id="fila-count" class="fila-count">0</span></h2>
                     <button type="button" class="fila-refresh" onclick="carregarFila()">↻ Atualizar</button>
                 </div>
+                <div id="fila-msg" class="msg-inline hidden" style="margin-bottom:12px;"></div>
                 <div id="fila-lista">
                     <p class="fila-vazia">Carregando fila…</p>
+                </div>
+            </div>
+
+            <!-- Fase 4 — Histórico de retenções desta unidade (GET /dispensadores/historico) -->
+            <div id="historico-container" class="card">
+                <div class="fila-card-head">
+                    <h2 class="section-title">Histórico de Retenções desta Unidade</h2>
+                    <button type="button" class="fila-refresh" onclick="carregarHistorico()">↻ Atualizar</button>
+                </div>
+                <div id="historico-lista">
+                    <p class="fila-vazia">—</p>
                 </div>
             </div>
 
@@ -436,11 +448,11 @@
                     <div style="display:flex; gap:12px;">
                         <div style="flex:1;">
                             <label class="fila-modal-label">Fabricação</label>
-                            <input id="ml-fab" class="form-input" placeholder="DD/MM/AAAA">
+                            <input id="ml-fab" class="form-input" placeholder="DD/MM/AAAA" maxlength="10" oninput="this.value=_fmtDataInput(this.value)">
                         </div>
                         <div style="flex:1;">
                             <label class="fila-modal-label">Validade</label>
-                            <input id="ml-val" class="form-input" placeholder="DD/MM/AAAA">
+                            <input id="ml-val" class="form-input" placeholder="DD/MM/AAAA" maxlength="10" oninput="this.value=_fmtDataInput(this.value)">
                         </div>
                     </div>
                     <div id="ml-msg" class="msg-inline hidden"></div>
@@ -1284,6 +1296,14 @@
 
         function _fecharLoteFila() { document.getElementById('modal-lote-fila').classList.add('hidden'); }
 
+        // Máscara/formatação de data DD/MM/AAAA (fabricação/validade do lote).
+        function _fmtDataInput(v) {
+            const d = String(v || '').replace(/\D/g, '').slice(0, 8);
+            if (d.length <= 2) return d;
+            if (d.length <= 4) return d.slice(0, 2) + '/' + d.slice(2);
+            return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
+        }
+
         async function _confirmarLoteFila() {
             const msg  = document.getElementById('ml-msg');
             const qtd  = parseInt(document.getElementById('ml-qtd').value, 10);
@@ -1292,7 +1312,7 @@
             const val  = document.getElementById('ml-val').value.trim();
             if (!qtd || qtd < 1) { msg.className = 'msg-inline error'; msg.textContent = 'Informe uma quantidade válida.'; return; }
             if (!lote)          { msg.className = 'msg-inline error'; msg.textContent = 'Informe o lote (escrituração — Portaria 344/98).'; return; }
-            const obs = [fab && ('Fabricação: ' + fab), val && ('Validade: ' + val)].filter(Boolean).join(' · ') || null;
+            const obs = [fab && ('Fabricação: ' + _fmtDataInput(fab)), val && ('Validade: ' + _fmtDataInput(val))].filter(Boolean).join(' · ') || null;
             const payload = {
                 cnpj_estabelecimento:  dispensadorLogado.cnpj,
                 quantidade_dispensada: qtd,
@@ -1314,7 +1334,10 @@
                     return;
                 }
                 _fecharLoteFila();
+                const data = await resp.json().catch(() => ({}));   // Fase 4: lê dispensacao_id
+                _filaMsgDispensa(data);
                 carregarFila();
+                carregarHistorico();
             } catch (e) { msg.className = 'msg-inline error'; msg.textContent = 'Sem conexão com o servidor.'; }
         }
 
@@ -1346,8 +1369,170 @@
 
         function _iniciarFila() {
             carregarFila();
+            carregarHistorico();
             if (_filaPollTimer) clearInterval(_filaPollTimer);
             _filaPollTimer = setInterval(carregarFila, 15000);
+        }
+
+        // ═════════════════════════════════════════════════════════════════
+        // Fase 4 — ciclo mínimo: feedback, estorno, comprovante, histórico
+        // ═════════════════════════════════════════════════════════════════
+
+        let _filaMsgTimer = null;
+        function _filaMsg(tipo, html) {
+            const el = document.getElementById('fila-msg');
+            if (!el) return;
+            el.className = 'msg-inline ' + (tipo || 'success');
+            el.innerHTML = html;
+            if (_filaMsgTimer) clearTimeout(_filaMsgTimer);
+            _filaMsgTimer = setTimeout(() => { el.className = 'msg-inline hidden'; el.innerHTML = ''; }, 20000);
+        }
+
+        // Sucesso da dispensação + ações (comprovante / estornar) via dispensacao_id.
+        function _filaMsgDispensa(data) {
+            const id = data && data.dispensacao_id;
+            const saldo = (data && data.saldo_restante != null) ? ` Saldo restante: ${data.saldo_restante}.` : '';
+            let html = `✓ Dispensação registrada.${saldo}`;
+            if (id) {
+                html += ` <button type="button" class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="verComprovante(${id})">📄 Comprovante</button>`
+                      + ` <button type="button" class="btn btn-danger btn-sm" style="margin-left:6px;" onclick="estornarDispensacao(${id})">⏪ Estornar</button>`;
+            }
+            _filaMsg('success', html);
+        }
+
+        // Estorno (desfazer baixa) — POST /dispensacoes/{id}/estornar {motivo}.
+        const _MOTIVOS_ESTORNO = {
+            pagamento_nao_concluido: 'Pagamento não concluído',
+            desistencia_paciente:    'Desistência do paciente',
+            erro_dispensacao:        'Erro de dispensação',
+            outro:                   'Outro',
+        };
+        async function estornarDispensacao(dispensacaoId) {
+            const chaves = Object.keys(_MOTIVOS_ESTORNO);
+            const opts = chaves.map((k, i) => `${i + 1}) ${_MOTIVOS_ESTORNO[k]}`).join('\n');
+            const escolha = prompt(`Estornar a dispensação #${dispensacaoId} — motivo:\n${opts}\n\nDigite o número (1-4):`);
+            if (!escolha) return;
+            const motivo = chaves[parseInt(escolha, 10) - 1];
+            if (!motivo) { alert('Motivo inválido.'); return; }
+            try {
+                const resp = await fetch(`${BACKEND}/dispensacoes/${dispensacaoId}/estornar`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify({ motivo }) });
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) {
+                    const e = await resp.json().catch(() => ({}));
+                    _filaMsg('error', 'Não foi possível estornar: ' + ((e.detail && (e.detail.mensagem || e.detail)) || resp.status));
+                    return;
+                }
+                const data = await resp.json();
+                _filaMsg('success', `✓ Estorno registrado. Saldo reposto: ${data.saldo_restante}. O item volta a poder ser dispensado.`);
+                carregarFila();
+                carregarHistorico();
+            } catch (e) { _filaMsg('error', 'Sem conexão com o servidor.'); }
+        }
+
+        // Comprovante COMPRADOR × PACIENTE — GET /dispensacoes/{id}/comprovante?formato=json.
+        let _comprovanteId = null;
+        async function verComprovante(dispensacaoId) {
+            try {
+                const resp = await fetch(`${BACKEND}/dispensacoes/${dispensacaoId}/comprovante?formato=json`,
+                    { headers: authHeaders() });
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) { _filaMsg('error', 'Não foi possível abrir o comprovante.'); return; }
+                _renderComprovante(await resp.json(), dispensacaoId);
+            } catch (e) { _filaMsg('error', 'Sem conexão com o servidor.'); }
+        }
+        function _renderComprovante(c, id) {
+            _comprovanteId = id;
+            const med = c.medicamento || {}, lote = c.lote || {}, disp = c.dispensador || {};
+            const pac = c.paciente || {}, comp = c.comprador || {};
+            document.getElementById('comprovante-body').innerHTML = `
+                <div class="comp-linha"><strong>Dispensação nº</strong> ${c.dispensacao_id} · <strong>Protocolo</strong> ${_cEsc(c.protocolo_prescricao || '')}</div>
+                <div class="comp-linha"><strong>Data</strong> ${_cEsc(c.data_dispensacao || '')}</div>
+                <div class="comp-grid">
+                    <div class="comp-box">
+                        <div class="comp-box-tit">COMPRADOR (portador)</div>
+                        <div>${_cEsc(comp.nome || '')}</div>
+                        <div>${_cEsc(comp.documento || '')}</div>
+                        ${comp.eh_paciente ? '<div class="comp-obs">Mesmo que o paciente</div>' : ''}
+                    </div>
+                    <div class="comp-box">
+                        <div class="comp-box-tit">PACIENTE (indicação clínica)</div>
+                        <div>${_cEsc(pac.nome || '')}</div>
+                        <div>${_cEsc(pac.cpf || '')}</div>
+                    </div>
+                </div>
+                <div class="comp-box">
+                    <div class="comp-box-tit">MEDICAMENTO</div>
+                    <div>${_cEsc(med.nome || '')} ${_cEsc(med.concentracao || '')}</div>
+                    <div>Qtd. dispensada: ${_cEsc(String(med.quantidade_dispensada ?? ''))} · Lote: ${_cEsc(lote.numero || 'N/I')}</div>
+                </div>
+                <div class="comp-box">
+                    <div class="comp-box-tit">ESTABELECIMENTO</div>
+                    <div>${_cEsc(disp.estabelecimento || '')}</div>
+                    <div>CNPJ: ${_cEsc(disp.cnpj || '')}</div>
+                </div>`;
+            document.getElementById('modal-comprovante').classList.remove('hidden');
+        }
+        function fecharComprovante() { document.getElementById('modal-comprovante').classList.add('hidden'); }
+
+        function _baixarBlob(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        async function baixarComprovantePdf() {
+            if (!_comprovanteId) return;
+            try {
+                const resp = await fetch(`${BACKEND}/dispensacoes/${_comprovanteId}/comprovante?formato=pdf`, { headers: authHeaders() });
+                if (!resp.ok) { alert('Não foi possível gerar o PDF.'); return; }
+                _baixarBlob(await resp.blob(), `comprovante_${_comprovanteId}.pdf`);
+            } catch (e) { alert('Sem conexão com o servidor.'); }
+        }
+
+        // Histórico de retenções — GET /dispensadores/historico (determinístico).
+        async function carregarHistorico() {
+            try {
+                const resp = await fetch(`${BACKEND}/dispensadores/historico`, { headers: authHeaders() });
+                if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+                if (!resp.ok) return;
+                _renderHistorico((await resp.json()).historico || []);
+            } catch (e) { /* silencioso */ }
+        }
+        function _renderHistorico(hist) {
+            const lista = document.getElementById('historico-lista');
+            if (!lista) return;
+            if (!hist.length) { lista.innerHTML = '<p class="fila-vazia">Nenhuma retenção registrada nesta unidade ainda.</p>'; return; }
+            lista.innerHTML = hist.map(h => {
+                const itens = (h.itens_dispensados || []).map(i => {
+                    const acao = i.estornado
+                        ? '<span class="badge badge-cancelado">Estornado</span>'
+                        : `<button type="button" class="btn btn-danger btn-sm" onclick="estornarDispensacao(${i.dispensacao_id})">⏪ Estornar</button>`;
+                    return `
+                    <div class="fila-med-row">
+                        <div class="fila-med-info">
+                            <span class="fila-med-nome">${_filaEsc(i.nome_medicamento)} ${_filaEsc(i.concentracao || '')}</span>
+                            <span class="fila-saldo">disp. ${i.quantidade_dispensada}${i.quantidade_estornada ? ' · estorn. ' + i.quantidade_estornada : ''}</span>
+                        </div>
+                        <div class="fila-med-acoes">
+                            <button type="button" class="btn btn-outline btn-sm" onclick="verComprovante(${i.dispensacao_id})">📄 Comprovante</button>
+                            ${acao}
+                        </div>
+                    </div>`;
+                }).join('');
+                const comp = h.comprador || {};
+                return `
+                <div class="fila-item">
+                    <div class="fila-item-head">
+                        <div>
+                            <p class="fila-paciente">${_filaEsc(h.paciente?.nome)}</p>
+                            <p class="fila-proto">Comprador: ${_filaEsc(comp.nome || '—')} · Protocolo: ${_filaEsc(h.protocolo)}</p>
+                        </div>
+                    </div>
+                    <div class="fila-meds-lista">${itens}</div>
+                </div>`;
+            }).join('');
         }
 
         // ─────────────────────────────────────────────────
@@ -2118,6 +2303,35 @@
             } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
         })();
 
+        // ── Fase 4 — auto-login demo: a página entra JÁ LOGADA como Farmácia Demo ──
+        // Se demo_mode e ninguém foi hidratado acima, chama POST /demo/login e entra
+        // no dashboard sem passar pelo portal. cnes_verificado vem true do backend
+        // (T0.5b), então o modal manual de CNES não dispara.
+        (async function _autoLoginDemo() {
+            if (dispensadorLogado) return;   // _hidratarSessaoDemo já entrou
+            try {
+                const cfg = await fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+                                    .then(r => r.json()).catch(() => ({}));
+                if (!cfg.demo_mode) return;  // fora de demo → mantém tela de login
+                const resp = await fetch(`${BACKEND}/demo/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'dispensador' }),
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                sessionStorage.setItem('picsaude_demo_token', data.access_token);
+                sessionStorage.setItem('picsaude_demo_role',  data.role);
+                sessionStorage.setItem('picsaude_demo_sub',   data.sub);
+                sessionStorage.setItem('picsaude_demo_nome',  data.nome);
+                jwtAccessToken    = data.access_token;
+                dispensadorLogado = { nome: data.nome, cnpj: data.sub, role: 'dispensador',
+                                      org_id: null, tipo: null, unidades: [] };
+                document.getElementById('tela-login').classList.add('hidden');
+                _iniciarSessao(data.access_token);
+            } catch (_e) { /* fallback: mantém a tela de login */ }
+        })();
+
         // ── DEV_PRESET_CONTEXT — login automático com farmácia de teste ─────────
         // Só ativa se DEV_PRESET_CONTEXT=true e nenhum dispensador já logado.
         // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
@@ -2183,6 +2397,26 @@
             <div class="modal-ctx-warn-btns">
                 <button class="btn-ctx-identificar" type="button" onclick="_ctxWarnIdentificar()">Identificar via CNES</button>
                 <button class="btn-ctx-continuar"   type="button" onclick="_ctxWarnContinuar()">Continuar assim mesmo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fase 4 — Modal do comprovante: COMPRADOR × PACIENTE -->
+    <style>
+        #comprovante-body .comp-linha { margin-bottom: 6px; color:#334155; }
+        #comprovante-body .comp-grid  { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+        #comprovante-body .comp-box   { border:1px solid #e2e8f0; border-radius:6px; padding:12px; background:#f8fafc; margin-bottom:12px; }
+        #comprovante-body .comp-box-tit { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px; letter-spacing:.5px; }
+        #comprovante-body .comp-obs   { font-size:12px; color:#16a34a; margin-top:4px; }
+    </style>
+    <div id="modal-comprovante" class="fila-modal-overlay hidden">
+        <div class="fila-modal" style="max-width:560px;">
+            <h3 class="fila-modal-titulo">Comprovante de Dispensação</h3>
+            <p class="fila-modal-sub">Separação legal: Comprador (portador) × Paciente (indicação clínica)</p>
+            <div id="comprovante-body" style="margin:16px 0; font-size:14px;"></div>
+            <div class="fila-modal-acoes">
+                <button type="button" class="btn btn-outline btn-sm" onclick="fecharComprovante()">Fechar</button>
+                <button type="button" class="btn btn-action btn-sm" onclick="baixarComprovantePdf()">📄 Baixar PDF (oficial)</button>
             </div>
         </div>
     </div>
