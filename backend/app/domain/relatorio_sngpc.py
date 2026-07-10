@@ -11,7 +11,7 @@ O estorno é objeto derivado e imutável (T2, TICKET-ESTORNO-OBJETO-DERIVADO): n
 muta a dispensação de origem. O saldo efetivo do item = Σ dispensado − Σ estornado.
 
 CORTE TEMPORAL DO SALDO (nota 2 do Z AI, §3 do ticket):
-  `saldo_efetivo_item` de cada linha é o saldo NA DATA DO MOVIMENTO (running
+  `saldo_escriturado_item` de cada linha é o saldo NA DATA DO MOVIMENTO (running
   balance): Σ dos movimentos do mesmo item cuja chave-de-ordem é ≤ a da linha.
   Consequência normativa: o relatório de um período fechado é estável para sempre
   — um estorno registrado depois do `data_fim` não altera nenhuma linha já emitida
@@ -45,7 +45,7 @@ CABECALHO_CSV = [
     "dose",
     "unidade_quantidade",
     "quantidade",
-    "saldo_efetivo_item",
+    "saldo_escriturado_item",
     "lote",
     "fabricante",
     "paciente_nome",
@@ -172,7 +172,7 @@ def _chave_ordem(m: dict) -> tuple:
 
 
 def construir_movimentos(disp_rows, est_rows) -> list[dict]:
-    """Unifica dispensações e estornos e calcula `saldo_efetivo_item` com CORTE
+    """Unifica dispensações e estornos e calcula `saldo_escriturado_item` com CORTE
     TEMPORAL (running balance) por item, considerando TODOS os movimentos do
     estabelecimento — nunca só os do período de exibição, senão o saldo estaria
     errado no recorte. Retorna a lista em ordem ASCENDENTE (cronológica)."""
@@ -184,7 +184,7 @@ def construir_movimentos(disp_rows, est_rows) -> list[dict]:
     for m in movs:
         item = m["_item_id"]
         saldo_por_item[item] = saldo_por_item.get(item, 0) + m["_signed"]
-        m["saldo_efetivo_item"] = saldo_por_item[item]
+        m["saldo_escriturado_item"] = saldo_por_item[item]
     return movs
 
 
@@ -225,7 +225,7 @@ def linha_csv(m: dict) -> list:
         m["dose"] or "",
         m["unidade_quantidade"] or "",
         m["quantidade"],
-        m["saldo_efetivo_item"],
+        m["saldo_escriturado_item"],
         m["lote"] or "",
         m["fabricante"] or "",
         m["paciente_nome"] or "",

@@ -101,7 +101,7 @@ def test_csv_2xx_e_cabecalho(prescritor, dispensador, db_path):
     assert linha["tipo_movimento"] == "dispensacao"
     assert linha["medicamento"] == "AMOXICILINA"
     assert linha["quantidade"] == "3"
-    assert linha["saldo_efetivo_item"] == "3"
+    assert linha["saldo_escriturado_item"] == "3"
     assert linha["data_movimento"]              # datetime normalizada, não vazia
 
 
@@ -138,8 +138,8 @@ def test_csv_dispensacao_e_estorno_duas_linhas_saldo_reposto(prescritor, dispens
     rows = [x for x in _csv_rows(dispensador) if x["protocolo_prescricao"] == proto]
     por_tipo = {x["tipo_movimento"]: x for x in rows}
     assert set(por_tipo) == {"dispensacao", "estorno"}          # 2 linhas
-    assert por_tipo["dispensacao"]["saldo_efetivo_item"] == "3"
-    assert por_tipo["estorno"]["saldo_efetivo_item"] == "0"     # reposto
+    assert por_tipo["dispensacao"]["saldo_escriturado_item"] == "3"
+    assert por_tipo["estorno"]["saldo_escriturado_item"] == "0"     # reposto
     assert por_tipo["estorno"]["estorno_protocolo"]            # protocolo presente
     assert por_tipo["estorno"]["motivo_estorno"] == "outro"
 

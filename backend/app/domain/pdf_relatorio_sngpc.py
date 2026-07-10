@@ -214,7 +214,7 @@ def gerar_pdf_sngpc(
             Paragraph(m.get("medicamento") or "", celula_s),
             Paragraph(m.get("dose") or "", celula_s),
             Paragraph(str(m.get("quantidade") if m.get("quantidade") is not None else ""), celula_s),
-            Paragraph(str(m.get("saldo_efetivo_item") if m.get("saldo_efetivo_item") is not None else ""), celula_s),
+            Paragraph(str(m.get("saldo_escriturado_item") if m.get("saldo_escriturado_item") is not None else ""), celula_s),
             Paragraph(m.get("lote") or "", celula_s),
             Paragraph(m.get("paciente_nome") or "", celula_s),
             Paragraph(_fmt_cpf(m.get("paciente_cpf")), celula_s),

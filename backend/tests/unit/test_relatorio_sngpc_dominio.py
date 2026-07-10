@@ -74,8 +74,8 @@ def test_saldo_corrido_dispensacao_e_estorno_reposto():
     por_tipo = {m["tipo_movimento"]: m for m in movs}
 
     # Na dispensação: saldo = +3. No estorno: saldo reposto a 0 (Σdisp − Σest).
-    assert por_tipo["dispensacao"]["saldo_efetivo_item"] == 3
-    assert por_tipo["estorno"]["saldo_efetivo_item"] == 0
+    assert por_tipo["dispensacao"]["saldo_escriturado_item"] == 3
+    assert por_tipo["estorno"]["saldo_escriturado_item"] == 0
 
 
 def test_saldo_corrido_estorno_parcial():
@@ -83,15 +83,15 @@ def test_saldo_corrido_estorno_parcial():
     est = _est(1, origem_dispensacao_id=1, item_id=10, quantidade=2, data="2026-07-02T10:00:00")
     movs = sngpc.construir_movimentos([disp], [est])
     por_tipo = {m["tipo_movimento"]: m for m in movs}
-    assert por_tipo["dispensacao"]["saldo_efetivo_item"] == 5
-    assert por_tipo["estorno"]["saldo_efetivo_item"] == 3   # 5 − 2
+    assert por_tipo["dispensacao"]["saldo_escriturado_item"] == 5
+    assert por_tipo["estorno"]["saldo_escriturado_item"] == 3   # 5 − 2
 
 
 def test_saldo_por_item_independente():
     d1 = _disp(1, item_id=10, quantidade=3, data="2026-07-01T10:00:00")
     d2 = _disp(2, item_id=20, quantidade=7, data="2026-07-01T11:00:00")
     movs = sngpc.construir_movimentos([d1, d2], [])
-    saldo = {m["dispensacao_id"]: m["saldo_efetivo_item"] for m in movs}
+    saldo = {m["dispensacao_id"]: m["saldo_escriturado_item"] for m in movs}
     assert saldo[1] == 3 and saldo[2] == 7   # itens distintos não se somam
 
 
@@ -115,7 +115,7 @@ def test_corte_temporal_periodo_fechado_estavel():
     assert exib[0]["tipo_movimento"] == "dispensacao"
     # Saldo da linha = 3 (só considera movimentos ≤ a data da linha; o estorno
     # de junho é posterior e não entra no corte).
-    assert exib[0]["saldo_efetivo_item"] == 3
+    assert exib[0]["saldo_escriturado_item"] == 3
 
 
 def test_corte_temporal_saldo_da_linha_ignora_futuro():
@@ -126,8 +126,8 @@ def test_corte_temporal_saldo_da_linha_ignora_futuro():
     movs = sngpc.construir_movimentos([disp], [est])
     exib = sngpc.ordenar_exibicao(movs)   # janela ampla (sem filtro)
     por_tipo = {m["tipo_movimento"]: m for m in exib}
-    assert por_tipo["dispensacao"]["saldo_efetivo_item"] == 3   # inalterado
-    assert por_tipo["estorno"]["saldo_efetivo_item"] == 0
+    assert por_tipo["dispensacao"]["saldo_escriturado_item"] == 3   # inalterado
+    assert por_tipo["estorno"]["saldo_escriturado_item"] == 0
 
 
 # --------------------------------------------------------------------------- §5.7
