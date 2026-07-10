@@ -17,7 +17,7 @@ contratos de estado, ordem de execução, define o gap e as fatias. Você segura
 | **Arquiteto** | **Cowork (você)** | specs, tickets, ordem, gap v27, guarda de invariantes |
 | **Conselheiro** | **Z AI** | revisa cada spec/ticket contra invariantes e UX; parecer verde/nota/bloqueio |
 | **Engenheiro** | code/MS | implementa, testa contra PG, abre PR, roda o gate |
-| **Auditor** | Jules | audita cada PR core/module de forma independente (pós-commit) |
+| **Auditor** | Jules | **cadência ratificada por Fabiano (2026-07-10):** PRs `core` → auditoria por PR (inalterado); `module` → auditoria **por marco** (fatia completa ou fechamento de fase, não por PR). Audita sempre o **SHA exato** do PR/fatia com o ticket como referência — nunca branch própria divergente (raiz da dissonância de #84). Intervalo coberto por: gate PG + revisão do arquiteto (relatório×código) + teste manual do dono |
 | **Dono** | Fabiano | decide produto, dispara ultra-review, testa manual, autoriza merge |
 
 Regra de ouro herdada: **backend antes de frontend, sempre.** Nada de UI de feature
