@@ -100,7 +100,7 @@ def test_csv_2xx_datetime_pg(client, outer_conn):
     linha = next(r for r in _csv(client, _CNPJ_A) if r["protocolo_prescricao"] == proto)
     assert linha["tipo_movimento"] == "dispensacao"
     assert linha["quantidade"] == "3"
-    assert linha["saldo_efetivo_item"] == "3"
+    assert linha["saldo_escriturado_item"] == "3"
     assert linha["comprador_nome"] == "MARIA PORTADORA"
     assert linha["comprador_eh_paciente"] == "nao"
     # datetime PG normalizada para ISO — parseável e não vazia.
@@ -124,8 +124,8 @@ def test_csv_dispensacao_estorno_saldo_pg(client, outer_conn):
     linhas = [x for x in _csv(client, _CNPJ_A) if x["protocolo_prescricao"] == proto]
     por_tipo = {x["tipo_movimento"]: x for x in linhas}
     assert set(por_tipo) == {"dispensacao", "estorno"}
-    assert por_tipo["dispensacao"]["saldo_efetivo_item"] == "3"
-    assert por_tipo["estorno"]["saldo_efetivo_item"] == "0"
+    assert por_tipo["dispensacao"]["saldo_escriturado_item"] == "3"
+    assert por_tipo["estorno"]["saldo_escriturado_item"] == "0"
     assert por_tipo["estorno"]["motivo_estorno"] == "outro"
 
 
@@ -169,7 +169,7 @@ def test_periodo_fechado_estavel_pg(client, outer_conn):
     antes = [x for x in _csv(client, _CNPJ_A, **janela) if x["protocolo_prescricao"] == proto]
     assert len(antes) == 1
     assert antes[0]["tipo_movimento"] == "dispensacao"
-    assert antes[0]["saldo_efetivo_item"] == "3"
+    assert antes[0]["saldo_escriturado_item"] == "3"
 
     # Estorno HOJE (criado_em ~ 2026) — posterior ao data_fim de 2020.
     r = client.post(f"/dispensacoes/{disp_id}/estornar", json={"motivo": "outro"}, headers=_h(_CNPJ_A))
@@ -179,5 +179,5 @@ def test_periodo_fechado_estavel_pg(client, outer_conn):
     # Período fechado é estável: mesma linha, mesmo saldo; o estorno não aparece.
     assert len(depois) == 1
     assert depois[0]["tipo_movimento"] == "dispensacao"
-    assert depois[0]["saldo_efetivo_item"] == "3"
+    assert depois[0]["saldo_escriturado_item"] == "3"
     assert all(x["tipo_movimento"] != "estorno" for x in depois)
