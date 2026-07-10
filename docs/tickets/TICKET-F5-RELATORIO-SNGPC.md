@@ -67,7 +67,7 @@ estorno_protocolo         (só em estorno)
 protocolo_prescricao
 medicamento · dose · unidade_quantidade
 quantidade                dispensada (saída) | estornada (reversão)
-saldo_efetivo_item        saldo NA DATA DO MOVIMENTO (regra abaixo — nota 2 do Z AI)
+saldo_escriturado_item        saldo NA DATA DO MOVIMENTO (regra abaixo — nota 2 do Z AI)
 lote · fabricante
 paciente_nome · paciente_cpf
 comprador_nome · comprador_documento · comprador_eh_paciente
@@ -76,7 +76,7 @@ motivo_estorno            (só em estorno; enum MOTIVOS_ESTORNO)
 status_item
 ```
 
-### Regra de corte temporal do `saldo_efetivo_item` (nota 2 do Z AI — ratificada)
+### Regra de corte temporal do `saldo_escriturado_item` (nota 2 do Z AI — ratificada)
 
 O saldo de cada linha é o **saldo na data do movimento** (running balance):
 Σ dispensado − Σ estornado do item considerando **apenas movimentos com
@@ -87,6 +87,14 @@ do ORDER BY). Consequências normativas:
   o relatório de um período fechado é **estável para sempre** (reexecutar = idêntico).
 - A linha nunca "muda de valor" quando o futuro acontece — mesma filosofia do
   ledger imutável.
+
+**Escopo do saldo (ratificado pelo arquiteto na revisão do PR #88):** o saldo é o
+running balance **da escrituração deste estabelecimento** (todos os movimentos do
+CNPJ do JWT, nunca só o período exibido) — semântica do livro SNGPC, que é por
+estabelecimento. **Não** é o saldo clínico global do item: se o item circular entre
+farmácias (re-apresentação A→B), cada livro reflete só os próprios movimentos.
+Isso também preserva o isolamento do §5.1 (nenhuma leitura de movimento de outro
+CNPJ). O saldo clínico global permanece sendo o do backend de dispensação (T2).
 
 ### Invariantes tocados (read-only — nenhum é alterado)
 
@@ -133,7 +141,7 @@ Só depois da Fatia A mergeada.
 
 1. CSV do dispensador A não contém movimento do dispensador B (troca de JWT → 403/escopo).
 2. Dispensação parcial + estorno → CSV mostra 2 linhas (saída e reversão) e
-   `saldo_efetivo_item` reposto; nada foi alterado em `dispensacoes`/`estornos`.
+   `saldo_escriturado_item` reposto; nada foi alterado em `dispensacoes`/`estornos`.
 3. Comprador declarado no balcão aparece como comprador; sem comprador →
    `comprador_eh_paciente=true` e dados do paciente.
 4. CPF sentinela ausente de qualquer linha.
