@@ -163,8 +163,13 @@ Só depois da Fatia A mergeada.
 - Campo comprador na UI da fila (fatia seguinte da Fase 5).
 - Devolução ao prescritor (decisão de produto pendente).
 
-## §7 Fluxo de aprovação
+## §7 Fluxo de aprovação (atualizado pelo martelo de 2026-07-10 — auditoria por marco)
 
-1. Z AI (conselheiro): parecer verde/nota/bloqueio sobre este ticket.
-2. code/MS implementa Fatia A → PR → gate (PG + predeploy) → Jules audita (module).
-3. Fatia B → PR → validação UI↔invariante (padrão TICKET-ZAI-FASE4) → teste manual Fabiano.
+1. Z AI (conselheiro): parecer verde/nota/bloqueio sobre este ticket. ✅ (verde com 3 notas)
+2. code/MS implementa Fatia A → PR #88 → gate PG ✅ → revisão do arquiteto ✅ →
+   teste manual Fabiano → **merge** (Jules não bloqueia PR `module`).
+3. Fatia B → PR → gate → validação UI↔invariante (padrão TICKET-ZAI-FASE4) →
+   teste manual Fabiano → merge.
+4. **Jules audita a fatia F5 completa (A+B) após o merge da B**, sobre o SHA
+   mergeado, com este ticket como referência — cadência por marco ratificada
+   por Fabiano (ver LEARNINGS 2026-07-10).
