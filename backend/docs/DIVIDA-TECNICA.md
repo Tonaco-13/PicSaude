@@ -61,6 +61,7 @@
 | 📋 | **B.1** correção de laudo cross-patient | TICKET-5C-BIS-B.1 |
 | 📋 | **SM1 = TICKET-5C-BIS-A.1** — `resultado_disponivel` terminal torna `encerrar` inalcançável. **Corroborado independentemente** pela verificação formal (paper §VII, propriedade P2) — duas detecções por métodos distintos (gate PG + checagem de absorvência) | TICKET-5C-BIS-A.1 · `core` states_exame.py |
 | 📋 | **SM2 → TICKET-ESTORNO-OBJETO-DERIVADO** — martelo de Fabiano (2026-06-15): estorno vira **objeto derivado** imutável (não transição `dispensado→estornado`). Resolve o SM2 tornando `dispensado` absorvente. Implementação `core` **adiada p/ pós-paper** (forks de domínio + desincronia com a §VII) | TICKET-ESTORNO-OBJETO-DERIVADO · `core` states.py |
+| 🔴 | **DIVIDA-RELATORIO-AUDITOR** (severidade **ALTA** — risco regulatório; registrado por parecer Z AI 2026-07-10): a visão do auditor `/relatorios/dispensacoes.{csv,pdf}` é **pré-T2/T5** — emite comprador=paciente (ignora `dispensacoes.comprador_*`) e **ignora `estornos`**, mostrando dispensação estornada como saída plena = **escrituração incorreta**. Enquanto coexistirem 2 endpoints de escrituração (dispensador correto pós-F5, auditor incorreto), o auditor confia no errado. Corrigir na fatia seguinte ao TICKET-F5-RELATORIO-SNGPC, reusando a mesma semântica de movimento/corte temporal | TICKET-F5-RELATORIO-SNGPC §1/§6 · relatorios.py:106,179 |
 
 ---
 

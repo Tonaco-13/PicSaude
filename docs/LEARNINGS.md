@@ -35,3 +35,4 @@ mas a falha metodológica (auditoria não-exaustiva) virou esta régua.
 |---|---|---|
 | 2026-07-09 | #84 | **Exaustividade PII** (check acima). Auditoria independente não pode perder rota do próprio PR; para fato factual, grep no código basta. |
 | 2026-07-09 | #83 | **Portão de core pega o erro adjacente que a auditoria de implementação passa.** Ex.: a auto-correção do estorno-objeto-derivado (difícil) acertou, mas deixou custódia dupla no T1.5 (adjacente). Verificar o relatório contra o código real é o que faz o processo funcionar. |
+| 2026-07-10 | TICKET-F5 (parecer Z AI) | **Protótipo é spec de UX, não contrato de dados.** Ao derivar ticket de um protótipo (v27 .txt), cada campo de dado passa pelo crivo dos invariantes — ex.: `End_Paciente` no CSV do protótipo foi **rejeitado** por minimização de PII, com desvio documentado no ticket (§2.4). Padrão a reproduzir em toda fatia cidadão/prescritor. |

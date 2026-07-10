@@ -8,6 +8,7 @@
 | **Origem** | Era o T8 cortado (handoff §4a) · spec UX `dispensador.txt` (botões "Relatório Consolidado" e "SNGPC (CSV)") |
 | **Pré-requisito** | `main@ba307b7` (ciclo mínimo publicado: T1.5, T2 estorno, T5 comprador, T6 histórico) |
 | **Ordem** | **Fatia A (backend) → Fatia B (frontend).** Nada de UI antes do endpoint real. |
+| **Parecer Z AI** | **VERDE com 3 notas** (2026-07-10) — notas 1–2 incorporadas (§3 + DIVIDA-TECNICA); nota 3 virou critério §5.8 |
 
 ## §1 Contexto (não reabrir)
 
@@ -66,7 +67,7 @@ estorno_protocolo         (só em estorno)
 protocolo_prescricao
 medicamento · dose · unidade_quantidade
 quantidade                dispensada (saída) | estornada (reversão)
-saldo_efetivo_item        Σ dispensado − Σ estornado do item, na data do corte
+saldo_efetivo_item        saldo NA DATA DO MOVIMENTO (regra abaixo — nota 2 do Z AI)
 lote · fabricante
 paciente_nome · paciente_cpf
 comprador_nome · comprador_documento · comprador_eh_paciente
@@ -74,6 +75,18 @@ prescritor_nome · prescritor_cns
 motivo_estorno            (só em estorno; enum MOTIVOS_ESTORNO)
 status_item
 ```
+
+### Regra de corte temporal do `saldo_efetivo_item` (nota 2 do Z AI — ratificada)
+
+O saldo de cada linha é o **saldo na data do movimento** (running balance):
+Σ dispensado − Σ estornado do item considerando **apenas movimentos com
+`data_movimento` ≤ a data da linha** (desempate por `id` do movimento, mesma ordem
+do ORDER BY). Consequências normativas:
+
+- Estornos posteriores ao `data_fim` do filtro **não afetam** linhas do período —
+  o relatório de um período fechado é **estável para sempre** (reexecutar = idêntico).
+- A linha nunca "muda de valor" quando o futuro acontece — mesma filosofia do
+  ledger imutável.
 
 ### Invariantes tocados (read-only — nenhum é alterado)
 
@@ -127,6 +140,11 @@ Só depois da Fatia A mergeada.
 5. Sem endereço em CSV, PDF ou tela de impressão.
 6. Testes verdes **contra PG** (incl. tipos datetime) + gate com predeploy.
 7. Ordem estável entre execuções (determinismo).
+8. PDF com mais de 1000 registros exibe **aviso visível de truncamento** no próprio
+   documento ("relatório truncado em 1000 registros — use o CSV para exportação
+   completa"), nunca truncamento silencioso (nota 3 do Z AI).
+9. Relatório de período fechado é estável: estorno registrado após `data_fim` não
+   altera nenhuma linha do período (regra de corte temporal do §3).
 
 ## §6 Fora de escopo
 
