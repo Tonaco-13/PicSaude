@@ -1,12 +1,18 @@
+import csv
+import io
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import require_role
 from app.config import DEFAULT_LIMIT, MAX_LIMIT
 from app.database import get_conn
 from app.database_tx import get_tx
 from app.domain.cnes_prescritor import _get_cnes_conn
+from app.domain import relatorio_sngpc as sngpc
+from app.domain.pdf_relatorio_sngpc import gerar_pdf_sngpc
 from app.utils.helpers import normalize_cnpj, normalize_nome
 
 router = APIRouter(prefix="/dispensadores")
@@ -259,3 +265,191 @@ def historico(
             })
 
         return {"cnpj": cnpj_alvo, "total": len(historico_out), "historico": historico_out}
+
+
+# ---------------------------------------------------------------------------
+# TICKET-F5 — Relatório consolidado + escrituração SNGPC (Fatia A, `module`)
+# ---------------------------------------------------------------------------
+# Visão do DISPENSADOR: escrituração da própria farmácia, travada ao CNPJ do JWT
+# (§2.2 — CNPJ nunca por query param). Distinta da visão do auditor
+# (/relatorios/*, escopo global, pré-T2/T5 — ver DIVIDA-RELATORIO-AUDITOR).
+#
+# Escrituração POR MOVIMENTO (§2.3, CLAUDE.md §2): cada dispensação e cada estorno
+# são 1 linha. Toda a lógica de unificação/saldo/ordenação vive em
+# app/domain/relatorio_sngpc.py (pura, testável). READ-ONLY: nenhum INSERT/UPDATE
+# em tabela clínica, nenhum evento novo no ledger.
+
+_MAX_REGISTROS_PDF = 1000
+
+# CNPJ do JWT → dispensações do estabelecimento. Sentinela de CPF excluída (§6a).
+# Toda a PII (paciente/comprador/prescritor) atrás de require_role("dispensador").
+_SQL_DISPENSACOES_MOV = """
+SELECT
+    d.id                    AS dispensacao_id,
+    d.dispensado_em         AS data_movimento,
+    d.prescricao_item_id    AS item_id,
+    p.protocolo             AS protocolo_prescricao,
+    i.nome_medicamento      AS medicamento,
+    i.concentracao          AS dose,
+    i.unidade_quantidade    AS unidade_quantidade,
+    d.quantidade_dispensada AS quantidade,
+    d.lote                  AS lote,
+    d.fabricante            AS fabricante,
+    pac.nome                AS paciente_nome,
+    pac.cpf                 AS paciente_cpf,
+    d.comprador_nome        AS comprador_nome,
+    d.comprador_documento   AS comprador_documento,
+    pr.nome                 AS prescritor_nome,
+    pr.cns                  AS prescritor_cns,
+    i.status_item           AS status_item
+FROM dispensacoes d
+JOIN prescricao_itens i ON i.id  = d.prescricao_item_id
+JOIN prescricoes p      ON p.id  = i.prescricao_id
+JOIN pacientes pac      ON pac.id = p.paciente_id
+JOIN prescritores pr    ON pr.id  = p.prescritor_id
+WHERE d.cnpj_estabelecimento = ?
+  AND pac.cpf != ?
+"""
+
+# Estornos do estabelecimento. lote/fabricante/comprador vêm da dispensação de
+# origem (JOIN em origem_dispensacao_id). `dispensacao_id` da linha = origem (§3).
+_SQL_ESTORNOS_MOV = """
+SELECT
+    e.origem_dispensacao_id AS dispensacao_id,
+    e.protocolo             AS estorno_protocolo,
+    e.criado_em             AS data_movimento,
+    e.prescricao_item_id    AS item_id,
+    p.protocolo             AS protocolo_prescricao,
+    i.nome_medicamento      AS medicamento,
+    i.concentracao          AS dose,
+    i.unidade_quantidade    AS unidade_quantidade,
+    e.quantidade_estornada  AS quantidade,
+    d.lote                  AS lote,
+    d.fabricante            AS fabricante,
+    pac.nome                AS paciente_nome,
+    pac.cpf                 AS paciente_cpf,
+    d.comprador_nome        AS comprador_nome,
+    d.comprador_documento   AS comprador_documento,
+    pr.nome                 AS prescritor_nome,
+    pr.cns                  AS prescritor_cns,
+    e.motivo                AS motivo_estorno,
+    i.status_item           AS status_item,
+    e.id                    AS estorno_id
+FROM estornos e
+JOIN dispensacoes d     ON d.id  = e.origem_dispensacao_id
+JOIN prescricao_itens i ON i.id  = e.prescricao_item_id
+JOIN prescricoes p      ON p.id  = e.prescricao_id
+JOIN pacientes pac      ON pac.id = p.paciente_id
+JOIN prescritores pr    ON pr.id  = p.prescritor_id
+WHERE e.cnpj_estabelecimento = ?
+  AND pac.cpf != ?
+"""
+
+
+def _parse_dia(valor: Optional[str], campo: str) -> Optional[date]:
+    if not valor:
+        return None
+    try:
+        return date.fromisoformat(valor)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail={"codigo": "data_invalida",
+                    "mensagem": f"{campo} deve estar no formato YYYY-MM-DD."},
+        )
+
+
+def _janela_periodo(data_inicio: Optional[str], data_fim: Optional[str]):
+    """Resolve a janela de exibição. Sem filtros → últimos 30 dias (§3 contrato).
+    Retorna (dt_inicio 00:00:00, dt_fim 23:59:59, filtros_str) para corte/cabeçalho."""
+    di = _parse_dia(data_inicio, "data_inicio")
+    df = _parse_dia(data_fim, "data_fim")
+    if di is None and df is None:
+        df = date.today()
+        di = df - timedelta(days=30)
+    dt_inicio = datetime.combine(di, datetime.min.time()) if di else None
+    dt_fim = datetime.combine(df, datetime.max.time().replace(microsecond=0)) if df else None
+    filtros = {"data_inicio": di.isoformat() if di else None,
+               "data_fim": df.isoformat() if df else None}
+    return dt_inicio, dt_fim, filtros
+
+
+def _movimentos_do_cnpj(conn, cnpj: str) -> list[dict]:
+    """Constrói os movimentos (com saldo corrido por corte temporal) do CNPJ.
+    Saldo calculado sobre TODO o histórico do estabelecimento; o filtro de período
+    é aplicado só na exibição (mantém o período fechado estável — §5.9)."""
+    disp_rows = conn.execute(
+        _SQL_DISPENSACOES_MOV, (cnpj, _CPF_NAO_IDENTIFICADO)
+    ).fetchall()
+    est_rows = conn.execute(
+        _SQL_ESTORNOS_MOV, (cnpj, _CPF_NAO_IDENTIFICADO)
+    ).fetchall()
+    return sngpc.construir_movimentos(disp_rows, est_rows)
+
+
+@router.get("/relatorio.csv", summary="Escrituração SNGPC (CSV) do dispensador")
+def relatorio_csv(
+    usuario=Depends(require_role("dispensador")),
+    data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+):
+    """CSV por movimento (dispensação|estorno) da própria farmácia. Escopo = CNPJ
+    do JWT. Sentinela de CPF excluída. Sem endereço em nenhuma coluna (§2.4)."""
+    cnpj = normalize_cnpj(usuario["sub"])
+    dt_inicio, dt_fim, _ = _janela_periodo(data_inicio, data_fim)
+
+    with get_tx() as conn:
+        movs = _movimentos_do_cnpj(conn, cnpj)
+
+    movs = sngpc.ordenar_exibicao(sngpc.filtrar_periodo(movs, dt_inicio, dt_fim))
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, quoting=csv.QUOTE_ALL)
+    writer.writerow(sngpc.CABECALHO_CSV)
+    for m in movs:
+        writer.writerow(sngpc.linha_csv(m))
+    buffer.seek(0)
+
+    filename = f"dispensacoes_sngpc_{date.today().isoformat()}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/relatorio.pdf", summary="Relatório consolidado (PDF) do dispensador")
+def relatorio_pdf(
+    usuario=Depends(require_role("dispensador")),
+    data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (padrão: 30 dias atrás)"),
+    data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (padrão: hoje)"),
+):
+    """PDF consolidado (A4 landscape) da própria farmácia. Limitado a 1000
+    registros — acima disso, aviso VISÍVEL de truncamento no documento (§5.8)."""
+    cnpj = normalize_cnpj(usuario["sub"])
+    dt_inicio, dt_fim, filtros = _janela_periodo(data_inicio, data_fim)
+    filtros["cnpj"] = normalize_cnpj(cnpj)
+
+    with get_tx() as conn:
+        movs = _movimentos_do_cnpj(conn, cnpj)
+
+    movs = sngpc.ordenar_exibicao(sngpc.filtrar_periodo(movs, dt_inicio, dt_fim))
+
+    total_no_periodo = len(movs)
+    limitado = total_no_periodo > _MAX_REGISTROS_PDF
+    if limitado:
+        movs = movs[:_MAX_REGISTROS_PDF]
+
+    pdf_bytes = gerar_pdf_sngpc(
+        movimentos=movs,
+        filtros=filtros,
+        limitado=limitado,
+        total_no_periodo=total_no_periodo if limitado else None,
+    )
+
+    filename = f"relatorio_dispensacoes_{date.today().isoformat()}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
