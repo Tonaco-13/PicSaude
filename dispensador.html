@@ -288,6 +288,25 @@
         .cnes-ok-banner{background:#dcfce7;border:1px solid #86efac;border-radius:7px;padding:7px 12px;font-size:12px;color:#166534;font-weight:600;margin-bottom:10px;}
         .btn-localizar-cnes{padding:5px 12px;border-radius:6px;border:1.5px solid #1e3a8a;color:#1e3a8a;background:#fff;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;white-space:nowrap;}
         .btn-localizar-cnes:hover{background:#eff6ff;}
+
+        /* B1 (TICKET-F5 Fatia B) — barra de relatório + view de impressão consolidada */
+        .fila-head-acoes { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .btn-rel { padding: 6px 12px; border-radius: 6px; border: 1.5px solid #1a5276; background: #fff; color: #1a5276; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        .btn-rel:hover { background: #eaf2f8; }
+        .relatorio-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; font-size: 13px; color: #475569; }
+        .relatorio-bar input.rb-data { width: 116px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+        #print-area { display: none; }
+        #print-area h2 { color: #000; border: none; }
+        #print-area table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 8px; }
+        #print-area th, #print-area td { border: 1px solid #999; padding: 3px 5px; text-align: left; vertical-align: top; }
+        #print-area thead th { background: #eee; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; width: 100%; padding: 12px; font-family: 'Courier New', Courier, monospace; color: #000; }
+            .no-print { display: none !important; }
+            body { background: #fff; }
+        }
     </style>
   <script src="config.js"></script>
 </head>
@@ -417,7 +436,21 @@
             <div id="fila-container" class="card">
                 <div class="fila-card-head">
                     <h2 class="section-title">Fila de Dispensação <span id="fila-count" class="fila-count">0</span></h2>
-                    <button type="button" class="fila-refresh" onclick="carregarFila()">↻ Atualizar</button>
+                    <div class="fila-head-acoes no-print">
+                        <button type="button" class="btn-rel" onclick="abrirRelatorioConsolidado()">🖨️ Relatório Consolidado</button>
+                        <button type="button" class="btn-rel" onclick="exportarSngpc('csv')">SNGPC CSV</button>
+                        <button type="button" class="btn-rel" onclick="exportarSngpc('pdf')">SNGPC PDF</button>
+                        <button type="button" class="fila-refresh" onclick="carregarFila()">↻ Atualizar</button>
+                    </div>
+                </div>
+                <div class="relatorio-bar no-print">
+                    <span>Relatório — período:</span>
+                    <input type="text" id="rel-inicio" class="rb-data" placeholder="DD/MM/AAAA" maxlength="10"
+                           oninput="this.value=_fmtDataInput(this.value)" aria-label="Data inicial do relatório">
+                    <span>até</span>
+                    <input type="text" id="rel-fim" class="rb-data" placeholder="DD/MM/AAAA" maxlength="10"
+                           oninput="this.value=_fmtDataInput(this.value)" aria-label="Data final do relatório">
+                    <span style="font-size:12px;color:#94a3b8;">(padrão: últimos 30 dias · escopo = CNPJ logado)</span>
                 </div>
                 <div id="fila-msg" class="msg-inline hidden" style="margin-bottom:12px;"></div>
                 <div id="fila-lista">
@@ -1198,6 +1231,7 @@
         async function carregarFila() {
             const lista = document.getElementById('fila-lista');
             if (!lista) return;
+            _initRelatorioPeriodo();   // B1: default de 30 dias no seletor de período (idempotente)
             try {
                 const resp = await fetch(BACKEND + '/dispensadores/fila', { headers: authHeaders() });
                 if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
@@ -1481,6 +1515,183 @@
             a.href = url; a.download = filename;
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // ─────────────────────────────────────────────────
+        // B1 (TICKET-F5 Fatia B) — relatório SNGPC do dispensador
+        // Consome a Fatia A (GET /dispensadores/relatorio.{csv,pdf}), escopo = CNPJ
+        // do JWT. Download SEMPRE via fetch+Bearer→blob (nunca <a href> para o
+        // endpoint: relatório tem PII e exige auth — LEARNINGS PII-EXAUSTIVIDADE).
+        // ─────────────────────────────────────────────────
+        function _isoLocal(dt) {   // Date → 'YYYY-MM-DD' (local, sem desvio de fuso)
+            const y = dt.getFullYear();
+            const m = String(dt.getMonth() + 1).padStart(2, '0');
+            const d = String(dt.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+        function _isoParaBR(iso) {  // 'YYYY-MM-DD' → 'DD/MM/AAAA'
+            if (!iso) return '';
+            const [y, m, d] = iso.split('-');
+            return `${d}/${m}/${y}`;
+        }
+        function _brParaISO(br) {   // 'DD/MM/AAAA' → 'YYYY-MM-DD' ('' se inválido)
+            const d = String(br || '').replace(/\D/g, '');
+            if (d.length !== 8) return '';
+            return d.slice(4) + '-' + d.slice(2, 4) + '-' + d.slice(0, 2);
+        }
+        function _escHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Preenche o seletor de período com o default de 30 dias, se vazio (idempotente).
+        function _initRelatorioPeriodo() {
+            const iIni = document.getElementById('rel-inicio');
+            const iFim = document.getElementById('rel-fim');
+            if (!iIni || !iFim) return;
+            if (!iFim.value) iFim.value = _isoParaBR(_isoLocal(new Date()));
+            if (!iIni.value) {
+                const d = new Date(); d.setDate(d.getDate() - 30);
+                iIni.value = _isoParaBR(_isoLocal(d));
+            }
+        }
+
+        function _periodoParams() {
+            const isoIni = _brParaISO((document.getElementById('rel-inicio') || {}).value);
+            const isoFim = _brParaISO((document.getElementById('rel-fim') || {}).value);
+            const p = {};
+            if (isoIni) p.data_inicio = isoIni;
+            if (isoFim) p.data_fim = isoFim;
+            return { isoIni, isoFim, p };
+        }
+
+        function _validarPeriodo(isoIni, isoFim) {
+            const iniRaw = (document.getElementById('rel-inicio') || {}).value || '';
+            const fimRaw = (document.getElementById('rel-fim') || {}).value || '';
+            if (iniRaw && !isoIni) { _filaMsg('error', 'Data inicial inválida — use DD/MM/AAAA.'); return false; }
+            if (fimRaw && !isoFim) { _filaMsg('error', 'Data final inválida — use DD/MM/AAAA.'); return false; }
+            if (isoIni && isoFim && isoIni > isoFim) { _filaMsg('error', 'Período inválido: a data inicial é posterior à final.'); return false; }
+            return true;
+        }
+
+        // Parser CSV mínimo (campos entre aspas, aspas escapadas "", CRLF/LF).
+        function _parseCsv(text) {
+            const linhas = []; let campo = '', campos = [], emAspas = false;
+            for (let i = 0; i < text.length; i++) {
+                const c = text[i];
+                if (emAspas) {
+                    if (c === '"') { if (text[i + 1] === '"') { campo += '"'; i++; } else emAspas = false; }
+                    else campo += c;
+                } else if (c === '"') { emAspas = true; }
+                else if (c === ',') { campos.push(campo); campo = ''; }
+                else if (c === '\n' || c === '\r') {
+                    if (c === '\r' && text[i + 1] === '\n') i++;
+                    campos.push(campo); linhas.push(campos); campos = []; campo = '';
+                } else campo += c;
+            }
+            if (campo !== '' || campos.length) { campos.push(campo); linhas.push(campos); }
+            if (!linhas.length) return [];
+            const header = linhas[0];
+            return linhas.slice(1)
+                .filter(r => r.some(x => x !== ''))
+                .map(r => { const o = {}; header.forEach((h, idx) => o[h] = r[idx] == null ? '' : r[idx]); return o; });
+        }
+
+        // Fetch ÚNICO do CSV do período (fonte única — sem query divergente): alimenta
+        // o consolidado, o download CSV e a contagem para o aviso de truncamento do PDF.
+        async function _carregarCsvPeriodo(p) {
+            const qs = new URLSearchParams(p).toString();
+            const url = `${BACKEND}/dispensadores/relatorio.csv` + (qs ? `?${qs}` : '');
+            let resp;
+            try { resp = await fetch(url, { headers: authHeaders() }); }
+            catch (e) { _filaMsg('error', 'Sem conexão com o servidor para gerar o relatório.'); return null; }
+            if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return null; }
+            if (!resp.ok) {
+                let msg = 'Não foi possível gerar o relatório.';
+                try { const e = await resp.json(); msg = (e.detail && (e.detail.mensagem || e.detail)) || msg; } catch (_) {}
+                _filaMsg('error', 'Relatório: ' + msg);
+                return null;
+            }
+            const text = await resp.text();
+            const rows = _parseCsv(text);
+            return { text, rows, count: rows.length };
+        }
+
+        async function exportarSngpc(fmt) {
+            _initRelatorioPeriodo();
+            const { isoIni, isoFim, p } = _periodoParams();
+            if (!_validarPeriodo(isoIni, isoFim)) return;
+            const dataFim = isoFim || _isoLocal(new Date());
+            const nome = `dispensacoes_sngpc_${dataFim}.${fmt}`;
+
+            if (fmt === 'csv') {
+                const r = await _carregarCsvPeriodo(p);
+                if (!r) return;
+                _baixarBlob(new Blob([r.text], { type: 'text/csv;charset=utf-8' }), nome);
+                _filaMsg('success', `CSV SNGPC baixado — ${r.count} movimento(s) no período.`);
+                return;
+            }
+
+            // PDF: conta pelo CSV (fonte completa, mesmo período) para nunca truncar
+            // em silêncio; depois baixa o PDF do endpoint via fetch+Bearer→blob.
+            const r = await _carregarCsvPeriodo(p);
+            if (!r) return;
+            const qs = new URLSearchParams(p).toString();
+            let resp;
+            try { resp = await fetch(`${BACKEND}/dispensadores/relatorio.pdf` + (qs ? `?${qs}` : ''), { headers: authHeaders() }); }
+            catch (e) { _filaMsg('error', 'Sem conexão com o servidor para gerar o PDF.'); return; }
+            if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
+            if (!resp.ok) {
+                let msg = 'Não foi possível gerar o PDF do relatório.';
+                try { const e = await resp.json(); msg = (e.detail && (e.detail.mensagem || e.detail)) || msg; } catch (_) {}
+                _filaMsg('error', 'Relatório: ' + msg);
+                return;
+            }
+            _baixarBlob(await resp.blob(), nome);
+            if (r.count > 1000) {
+                _filaMsg('error', `⚠ PDF truncado em 1000 de ${r.count} registros — baixe o CSV para a exportação completa.`);
+            } else {
+                _filaMsg('success', `PDF do relatório baixado — ${r.count} movimento(s) no período.`);
+            }
+        }
+
+        async function abrirRelatorioConsolidado() {
+            _initRelatorioPeriodo();
+            const { isoIni, isoFim, p } = _periodoParams();
+            if (!_validarPeriodo(isoIni, isoFim)) return;
+            const r = await _carregarCsvPeriodo(p);
+            if (!r) return;
+            _renderConsolidado(r.rows, isoIni, isoFim);
+            window.print();
+        }
+
+        function _renderConsolidado(rows, isoIni, isoFim) {
+            const area = document.getElementById('print-area');
+            if (!area) return;
+            const farm = (typeof dispensadorLogado === 'object' && dispensadorLogado) || {};
+            const periodo = `${isoIni ? _isoParaBR(isoIni) : '—'} a ${isoFim ? _isoParaBR(isoFim) : _isoParaBR(_isoLocal(new Date()))}`;
+            const cols = [
+                ['tipo_movimento', 'Movimento'], ['data_movimento', 'Data'], ['dispensacao_id', 'Disp.ID'],
+                ['protocolo_prescricao', 'Protocolo'], ['medicamento', 'Medicamento'], ['quantidade', 'Qtd'],
+                ['saldo_escriturado_item', 'Saldo'], ['paciente_nome', 'Paciente'], ['comprador_nome', 'Comprador'],
+                ['prescritor_nome', 'Prescritor'], ['motivo_estorno', 'Motivo estorno'],
+            ];
+            const thead = cols.map(c => `<th>${_escHtml(c[1])}</th>`).join('');
+            const tbody = rows.map(m => '<tr>' + cols.map(c => {
+                let v = m[c[0]] || '';
+                if (c[0] === 'data_movimento') v = String(v).replace('T', ' ').slice(0, 16);
+                return `<td>${_escHtml(v)}</td>`;
+            }).join('') + '</tr>').join('');
+            area.innerHTML =
+                `<h2>Relatório Consolidado — Dispensação (SNGPC)</h2>
+                 <p style="font-size:12px;margin:2px 0;"><strong>${_escHtml(farm.nome || 'Farmácia')}</strong>`
+                + (farm.cnpj ? ` — CNPJ ${_escHtml(farm.cnpj)}` : '') + `</p>
+                 <p style="font-size:12px;margin:2px 0;">Período: ${_escHtml(periodo)} · Movimentos: ${rows.length}</p>
+                 <p style="font-size:10px;color:#333;margin:2px 0 6px;">Escrituração por movimento (dispensação/estorno) · saldo escriturado por item · escopo travado ao CNPJ logado.</p>`
+                + (rows.length
+                    ? `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`
+                    : `<p>Nenhum movimento no período.</p>`);
         }
         async function baixarComprovantePdf() {
             if (!_comprovanteId) return;
@@ -2435,5 +2646,7 @@
     })();
     </script>
 
+    <!-- B1 — área de impressão do Relatório Consolidado (preenchida por _renderConsolidado) -->
+    <div id="print-area"></div>
 </body>
 </html>
