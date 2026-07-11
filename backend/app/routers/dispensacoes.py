@@ -24,6 +24,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import require_role
+from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import MOTIVOS_ESTORNO
@@ -416,6 +417,11 @@ def estornar_dispensacao(
     with get_tx() as conn:
         instance_id = get_instance_id_conn(conn)
 
+        # TICKET-CORE-R2 §3.1: trava a linha da dispensação de origem (FOR UPDATE
+        # OF d na PG — só a tabela `dispensacoes`, não o JOIN inteiro) para
+        # serializar estornos concorrentes da MESMA dispensação. A 2ª requisição
+        # bloqueia até a 1ª commitar, relê o Σ estornado abaixo e a checagem de
+        # remanescente rejeita o excedente — nunca grava 2 estornos duplicados.
         disp = conn.execute(
             """
             SELECT d.id, d.cnpj_estabelecimento, d.quantidade_dispensada,
@@ -425,7 +431,8 @@ def estornar_dispensacao(
               JOIN prescricao_itens i ON i.id = d.prescricao_item_id
               JOIN prescricoes p       ON p.id = i.prescricao_id
              WHERE d.id = ?
-            """,
+            """
+            + row_lock_suffix(of="d"),
             (dispensacao_id,),
         ).fetchone()
         if not disp:
