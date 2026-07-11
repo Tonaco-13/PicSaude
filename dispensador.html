@@ -1487,7 +1487,27 @@
             _comprovanteId = id;
             const med = c.medicamento || {}, lote = c.lote || {}, disp = c.dispensador || {};
             const pac = c.paciente || {}, comp = c.comprador || {};
+            // B3 §5.B: carimbo inequívoco quando a dispensação foi estornada, no
+            // TOPO do modal (acima de COMPRADOR/PACIENTE). Os campos estorno_total
+            // e quantidade_restante vêm PRONTOS do backend (§5.A) — a UI só
+            // renderiza, NUNCA infere "parcial" comparando quantidades no cliente.
+            // O comprovante continua abrindo normalmente; a identificação (nº da
+            // dispensação e protocolo) é idêntica antes/depois do estorno (§6b).
+            const est = c.estorno || {};
+            let carimbo = '';
+            if (est.estornado) {
+                const refs = (est.estornos || []).map(e => _cEsc(e.protocolo || '')).filter(Boolean).join(', ');
+                const txt = est.estorno_total
+                    ? '⏪ DISPENSAÇÃO ESTORNADA'
+                    : `⏪ DISPENSAÇÃO PARCIALMENTE ESTORNADA — ${_cEsc(String(est.quantidade_estornada ?? ''))} de ${_cEsc(String(med.quantidade_dispensada ?? ''))} un. (restam ${_cEsc(String(est.quantidade_restante ?? ''))})`;
+                carimbo = `
+                <div class="comp-carimbo-estorno">
+                    <div class="comp-carimbo-tit">${txt}</div>
+                    ${refs ? `<div class="comp-carimbo-ref">ref. estorno ${refs}</div>` : ''}
+                </div>`;
+            }
             document.getElementById('comprovante-body').innerHTML = `
+                ${carimbo}
                 <div class="comp-linha"><strong>Dispensação nº</strong> ${c.dispensacao_id} · <strong>Protocolo</strong> ${_cEsc(c.protocolo_prescricao || '')}</div>
                 <div class="comp-linha"><strong>Data</strong> ${_cEsc(c.data_dispensacao || '')}</div>
                 <div class="comp-grid">
@@ -2592,6 +2612,10 @@
         #comprovante-body .comp-box   { border:1px solid #e2e8f0; border-radius:6px; padding:12px; background:#f8fafc; margin-bottom:12px; }
         #comprovante-body .comp-box-tit { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px; letter-spacing:.5px; }
         #comprovante-body .comp-obs   { font-size:12px; color:#16a34a; margin-top:4px; }
+        /* B3 §5.B — carimbo inequívoco de dispensação estornada (faixa vermelha, topo) */
+        #comprovante-body .comp-carimbo-estorno { background:#c0392b; color:#fff; border-radius:6px; padding:10px 14px; margin-bottom:14px; }
+        #comprovante-body .comp-carimbo-tit { font-size:14px; font-weight:800; letter-spacing:.3px; }
+        #comprovante-body .comp-carimbo-ref { font-size:11px; margin-top:4px; opacity:.95; word-break:break-all; }
     </style>
     <div id="modal-comprovante" class="fila-modal-overlay hidden">
         <div class="fila-modal" style="max-width:560px;">
