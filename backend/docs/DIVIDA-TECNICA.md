@@ -27,6 +27,11 @@
 | 🔴 | **Idempotência/lock** nas mutações de objetos sanitários — leitura-então-escrita sem `SELECT … FOR UPDATE`; double-submit concorrente pode duplicar (E1/E2/custódia). Cross-cutting | /code-review E2 |
 | 🔴 | **`custodia.py:766`** — a reabertura de custódia na dispensação parcial (`_abrir_custodia(dispensador, "dispensacao_parcial")`) **não emite `custodia_transferida`** → abre custódia sem rastro no ledger. O **T6** (PR #84) CONTORNA lendo o histórico de `dispensacoes`/`estornos` (não de `prescricao_custodia`), então a dívida não sangra no histórico determinístico — **mas a dívida original segue aberta**. Solução definitiva: emitir `custodia_transferida` nesse caminho, mesmo padrão do fix T1.5 (`785aec4`). Não bloqueia a Fase 4. ⚠️ **`prescricao_custodia` NÃO está deprecated** — é fonte válida; o T6 apenas escolheu fonte alternativa por determinismo. | portão #83 + #84 |
 
+- 📋 **Auditoria de tokens malformados (pós-R2).** O R2 passa a rejeitar `expira_em` malformado na
+  escrita, mas não sana tokens já persistidos. Abrir ticket próprio: varredura + rota de invalidação
+  de `tokens_apresentacao` com `expira_em` inválido. Não bloqueia R2. Origem: obs. transversal Z AI,
+  parecer F5 2026-07-11.
+
 ---
 
 ## 2. Bloqueadores de deploy (`docs/PLANO-PRODUCAO-V2.md`)
