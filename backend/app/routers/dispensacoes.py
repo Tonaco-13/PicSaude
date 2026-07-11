@@ -29,6 +29,7 @@ from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
+from app.routers.custodia import _abrir_custodia
 from app.utils.helpers import normalize_cnpj, normalize_cns
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
@@ -510,6 +511,48 @@ def estornar_dispensacao(
         ).fetchone()["t"]
         saldo_efetivo = (disp["qtd_prescrita"] or 0) - (disp_total - est_total)
 
+        # TICKET-B0 §3.2: se o estorno repôs saldo e o item ficou SEM custódia
+        # ativa (caso da dispensação total — custodia.py fecha a custódia ao
+        # zerar o saldo), reabrir a custódia do item para o estabelecimento que
+        # detinha a dispensação (retém o item de novo para re-dispensação) e
+        # emitir `custodia_transferida` — retenção sem o evento é bug (CLAUDE.md
+        # §2, invariante de retenção). No estorno PARCIAL o item seguia
+        # `em_custodia` com custódia aberta → nada a reabrir (não duplica).
+        # Reabrir custódia é evento de custódia legítimo, NÃO a transição
+        # proibida dispensado→estornado nem edição da dispensação (o item não é
+        # mutado — invariante do TICKET-ESTORNO preservado).
+        custodia_reaberta = False
+        if saldo_efetivo > 0:
+            custodia_ativa = conn.execute(
+                """
+                SELECT 1 FROM prescricao_custodia
+                 WHERE prescricao_id = ? AND item_id = ? AND encerrada_em IS NULL
+                 LIMIT 1
+                """,
+                (disp["prescricao_id"], disp["item_id"]),
+            ).fetchone()
+            if not custodia_ativa:
+                _abrir_custodia(conn, disp["prescricao_id"], disp["item_id"],
+                                "dispensador", disp["cnpj_estabelecimento"],
+                                "reabertura_pos_estorno", agora)
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="prescricao",
+                    objeto_id=disp["prescricao_id"],
+                    tipo_evento="custodia_transferida",
+                    instance_id=instance_id,
+                    payload={
+                        "item_id": disp["item_id"],
+                        "de": "paciente",
+                        "para": "dispensador",
+                        "motivo": "reabertura_pos_estorno",
+                        "origem_estorno_protocolo": protocolo,
+                    },
+                    ator_tipo="dispensador",
+                    ator_id=usuario["sub"],
+                )
+                custodia_reaberta = True
+
         return {
             "estorno_id": estorno_id,
             "protocolo": protocolo,
@@ -521,4 +564,6 @@ def estornar_dispensacao(
             # item NÃO é mutado — objeto derivado (TICKET-ESTORNO-OBJETO-DERIVADO §1)
             "status_item": disp["status_item"],
             "status_prescricao": disp["status_prescricao"],
+            # TICKET-B0 §3.2: custódia reaberta p/ re-dispensação (saldo reposto).
+            "custodia_reaberta": custodia_reaberta,
         }

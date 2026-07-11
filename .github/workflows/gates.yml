@@ -77,7 +77,7 @@ jobs:
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel"
           -q
 
       - name: Predeploy smoke — o que o Render roda (migrations + seed idempotente)
