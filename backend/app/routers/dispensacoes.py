@@ -24,10 +24,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.auth.dependencies import require_role
+from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
+from app.routers.custodia import _abrir_custodia
 from app.utils.helpers import normalize_cnpj, normalize_cns
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
@@ -83,7 +85,41 @@ def _buscar_dados(dispensacao_id: int) -> dict:
         row = conn.execute(_SQL_COMPROVANTE, (dispensacao_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"Dispensação {dispensacao_id} não encontrada.")
-        return dict(row)
+        d = dict(row)
+        # §5.A — estado de estorno (read-only sobre `estornos`, objeto derivado).
+        # Determinismo (régua Jules): ORDER BY id. Nunca edita a dispensação.
+        estornos = conn.execute(
+            "SELECT protocolo, quantidade_estornada, motivo, criado_em "
+            "FROM estornos WHERE origem_dispensacao_id = ? ORDER BY id",
+            (dispensacao_id,),
+        ).fetchall()
+        d["_estornos"] = [dict(e) for e in estornos]
+        return d
+
+
+def _montar_estorno(estorno_rows: list, quantidade_dispensada) -> dict:
+    """Seção derivada de estorno do comprovante (§5.A). Semântica binária vs.
+    parcial computada no BACKEND — a UI nunca infere 'parcial' comparando
+    quantidades no cliente. Estorno é objeto derivado; a dispensação é imutável."""
+    qd = quantidade_dispensada or 0
+    total = sum((e["quantidade_estornada"] or 0) for e in estorno_rows)
+    estornado = total > 0
+    return {
+        "estornado":            estornado,
+        "estorno_total":        estornado and total >= qd,
+        "quantidade_estornada": total,
+        "quantidade_restante":  qd - total,
+        "estornos": [
+            {
+                "protocolo": e["protocolo"],
+                "quantidade": e["quantidade_estornada"],
+                "motivo":     e["motivo"],
+                # criado_em: PG devolve datetime, SQLite string ISO — normalizar.
+                "data": e["criado_em"].isoformat() if isinstance(e["criado_em"], datetime) else e["criado_em"],
+            }
+            for e in estorno_rows
+        ],
+    }
 
 
 def _montar_json(d: dict) -> dict:
@@ -143,6 +179,10 @@ def _montar_json(d: dict) -> dict:
         },
 
         "observacao": d["observacao"] or None,
+
+        # §5.A — estado de estorno (read-only). Sempre presente; estornado=false
+        # quando não há estorno (o comprovante atual continua idêntico nesse caso).
+        "estorno": _montar_estorno(d.get("_estornos", []), d["quantidade_dispensada"]),
     }
 
 
@@ -232,6 +272,27 @@ def _gerar_pdf(dados: dict) -> bytes:
     story.append(Paragraph("COMPROVANTE DE DISPENSAÇÃO", estilo_subtitulo))
     story.append(HRFlowable(width="100%", thickness=1.5, color=cor_primaria))
     story.append(Spacer(1, 0.3 * cm))
+
+    # §5.A — carimbo inequívoco de estorno (visível, acima dos blocos). O estorno
+    # ADICIONA informação; nunca some nem edita a dispensação original (CLAUDE.md §2).
+    _est = dados.get("estorno") or {}
+    if _est.get("estornado"):
+        _refs = ", ".join(str(e["protocolo"]) for e in _est.get("estornos", []))
+        if _est.get("estorno_total"):
+            _carimbo_txt = f"DISPENSAÇÃO ESTORNADA — ref. estorno {_refs}"
+        else:
+            _carimbo_txt = (
+                f"DISPENSAÇÃO PARCIALMENTE ESTORNADA — "
+                f"{_est['quantidade_estornada']} de {dados['medicamento']['quantidade_dispensada']} un. "
+                f"(restam {_est['quantidade_restante']}) — ref. estorno {_refs}"
+            )
+        estilo_carimbo = ParagraphStyle(
+            "Carimbo", parent=styles["Normal"], fontSize=12, leading=16,
+            textColor=colors.white, backColor=colors.HexColor("#c0392b"),
+            borderPadding=6, alignment=1, spaceBefore=2, spaceAfter=6,
+        )
+        story.append(Paragraph(f"<b>{_carimbo_txt}</b>", estilo_carimbo))
+        story.append(Spacer(1, 0.3 * cm))
 
     # Protocolo e data
     story += secao("Identificação", [
@@ -416,6 +477,11 @@ def estornar_dispensacao(
     with get_tx() as conn:
         instance_id = get_instance_id_conn(conn)
 
+        # TICKET-CORE-R2 §3.1: trava a linha da dispensação de origem (FOR UPDATE
+        # OF d na PG — só a tabela `dispensacoes`, não o JOIN inteiro) para
+        # serializar estornos concorrentes da MESMA dispensação. A 2ª requisição
+        # bloqueia até a 1ª commitar, relê o Σ estornado abaixo e a checagem de
+        # remanescente rejeita o excedente — nunca grava 2 estornos duplicados.
         disp = conn.execute(
             """
             SELECT d.id, d.cnpj_estabelecimento, d.quantidade_dispensada,
@@ -425,7 +491,8 @@ def estornar_dispensacao(
               JOIN prescricao_itens i ON i.id = d.prescricao_item_id
               JOIN prescricoes p       ON p.id = i.prescricao_id
              WHERE d.id = ?
-            """,
+            """
+            + row_lock_suffix(of="d"),
             (dispensacao_id,),
         ).fetchone()
         if not disp:
@@ -503,6 +570,48 @@ def estornar_dispensacao(
         ).fetchone()["t"]
         saldo_efetivo = (disp["qtd_prescrita"] or 0) - (disp_total - est_total)
 
+        # TICKET-B0 §3.2: se o estorno repôs saldo e o item ficou SEM custódia
+        # ativa (caso da dispensação total — custodia.py fecha a custódia ao
+        # zerar o saldo), reabrir a custódia do item para o estabelecimento que
+        # detinha a dispensação (retém o item de novo para re-dispensação) e
+        # emitir `custodia_transferida` — retenção sem o evento é bug (CLAUDE.md
+        # §2, invariante de retenção). No estorno PARCIAL o item seguia
+        # `em_custodia` com custódia aberta → nada a reabrir (não duplica).
+        # Reabrir custódia é evento de custódia legítimo, NÃO a transição
+        # proibida dispensado→estornado nem edição da dispensação (o item não é
+        # mutado — invariante do TICKET-ESTORNO preservado).
+        custodia_reaberta = False
+        if saldo_efetivo > 0:
+            custodia_ativa = conn.execute(
+                """
+                SELECT 1 FROM prescricao_custodia
+                 WHERE prescricao_id = ? AND item_id = ? AND encerrada_em IS NULL
+                 LIMIT 1
+                """,
+                (disp["prescricao_id"], disp["item_id"]),
+            ).fetchone()
+            if not custodia_ativa:
+                _abrir_custodia(conn, disp["prescricao_id"], disp["item_id"],
+                                "dispensador", disp["cnpj_estabelecimento"],
+                                "reabertura_pos_estorno", agora)
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="prescricao",
+                    objeto_id=disp["prescricao_id"],
+                    tipo_evento="custodia_transferida",
+                    instance_id=instance_id,
+                    payload={
+                        "item_id": disp["item_id"],
+                        "de": "paciente",
+                        "para": "dispensador",
+                        "motivo": "reabertura_pos_estorno",
+                        "origem_estorno_protocolo": protocolo,
+                    },
+                    ator_tipo="dispensador",
+                    ator_id=usuario["sub"],
+                )
+                custodia_reaberta = True
+
         return {
             "estorno_id": estorno_id,
             "protocolo": protocolo,
@@ -514,4 +623,6 @@ def estornar_dispensacao(
             # item NÃO é mutado — objeto derivado (TICKET-ESTORNO-OBJETO-DERIVADO §1)
             "status_item": disp["status_item"],
             "status_prescricao": disp["status_prescricao"],
+            # TICKET-B0 §3.2: custódia reaberta p/ re-dispensação (saldo reposto).
+            "custodia_reaberta": custodia_reaberta,
         }

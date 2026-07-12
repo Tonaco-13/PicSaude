@@ -236,6 +236,30 @@ class _PgConnection:
 
 
 # ---------------------------------------------------------------------------
+# row_lock_suffix() — serialização de concorrentes (TICKET-CORE-R2 §3.1)
+# ---------------------------------------------------------------------------
+
+def row_lock_suffix(of: str | None = None) -> str:
+    """Sufixo de lock de linha para serializar transações concorrentes.
+
+    Enforcement de §2a R2 (CLAUDE.md): mutação de objeto sanitário é idempotente
+    e protegida contra duplo-submit. Anexado ao `SELECT` que lê a linha antes da
+    leitura-então-escrita (saldo), a transação concorrente bloqueia até a primeira
+    commitar — então relê o saldo já atualizado e a checagem existente rejeita o
+    excedente, em vez de gravar um segundo movimento.
+
+    - **PostgreSQL:** ``FOR UPDATE`` (ou ``FOR UPDATE OF <alias>`` para travar só
+      uma tabela do JOIN, evitando lock desnecessário nas demais).
+    - **SQLite:** ``''`` — a transação já serializa writes (lock global de escrita)
+      e ``FOR UPDATE`` é erro de sintaxe. O efeito real do lock só existe na PG;
+      por isso o caminho de concorrência é testado contra PG.
+    """
+    if _USE_SQLITE:
+        return ""
+    return f" FOR UPDATE OF {of}" if of else " FOR UPDATE"
+
+
+# ---------------------------------------------------------------------------
 # get_conn() — ponto único de acesso ao banco para raw SQL
 # ---------------------------------------------------------------------------
 
