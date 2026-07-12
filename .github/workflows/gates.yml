@@ -8,6 +8,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    # TICKET-CORE-R2 §3.2 (§2a R2) — o guard-rail de unicidade de identificadores
+    # roda NIGHTLY além de em todo PR. O gate já roda em todo PR (superset de "PR
+    # que toca dispensacoes/estornos/prescricao_itens"); o nightly captura
+    # duplicidade introduzida por migração ou data-fix, não só por código de PR.
+    - cron: "0 6 * * *"   # 06:00 UTC, diário
 
 concurrency:
   group: gates-${{ github.ref }}
@@ -66,10 +72,12 @@ jobs:
         #   Cobre também B1 (dispensacao_id + comprovante) — mesma suíte.
         # fila: T4 (PLANO_DEMO_CIRCULACAO §5) — casa test_fila_dispensador.
         # relatorio: T8 — escopo por CNPJ do dispensador (test_relatorio_escopo_dispensador).
+        # idempotencia/unicidade: TICKET-CORE-R2 — concorrência (FOR UPDATE) +
+        #   guard-rail de unicidade de identificadores no relatório.
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante"
           -q
 
       - name: Predeploy smoke — o que o Render roda (migrations + seed idempotente)
