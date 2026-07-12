@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from app.auth.dependencies import require_role
+from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.confianca_cuidado import calcular_score_confianca_dispensacao
 from app.domain.ledger import registrar_evento_ledger
@@ -622,8 +623,13 @@ def dispensar_item(
 
         presc = _get_prescricao_by_protocolo(conn, protocolo)
 
+        # TICKET-CORE-R2 §3.1: trava a linha do item (FOR UPDATE na PG) para
+        # serializar dispensações concorrentes do MESMO item. A 2ª requisição
+        # bloqueia aqui até a 1ª commitar, relê o saldo já atualizado abaixo e a
+        # checagem de saldo rejeita o excedente (409/422) — nunca grava 2 movimentos.
         item = conn.execute(
-            "SELECT * FROM prescricao_itens WHERE id = ? AND prescricao_id = ?",
+            "SELECT * FROM prescricao_itens WHERE id = ? AND prescricao_id = ?"
+            + row_lock_suffix(),
             (item_id, presc["id"]),
         ).fetchone()
         if not item:
@@ -730,7 +736,20 @@ def dispensar_item(
                         detail=f"Token '{payload.codigo_curto_token}' expirou.",
                     )
             except (ValueError, TypeError):
-                pass  # expira_em malformado — segue sem rejeitar por tempo
+                # M1 (TICKET-CORE-R2 §3.3): expira_em malformado = token não
+                # confiável. Antes seguia sem rejeitar ("pass") — uma janela de
+                # aceitação de token cuja validade não se pode verificar. Passa a
+                # REJEITAR: token com expira_em inválido não dispensa.
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "codigo": "token_expira_em_malformado",
+                        "mensagem": (
+                            f"Token '{payload.codigo_curto_token}' tem expira_em inválido; "
+                            "não é confiável para dispensação."
+                        ),
+                    },
+                )
 
             _origem_token = "atomizado"
 
