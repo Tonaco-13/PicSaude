@@ -11,6 +11,7 @@ from app.config import DEFAULT_LIMIT, MAX_LIMIT
 from app.database import get_conn
 from app.database_tx import get_tx
 from app.domain.cnes_prescritor import _get_cnes_conn
+from app.domain.states import BLOQUEADOS_HARD_DISPENSA
 from app.domain import relatorio_sngpc as sngpc
 from app.domain.pdf_relatorio_sngpc import gerar_pdf_sngpc
 from app.utils.helpers import normalize_cnpj, normalize_nome
@@ -146,14 +147,19 @@ def fila(
             for it in itens:
                 prescrito = it["quantidade"] or 0
                 ja = it["ja_dispensado"] or 0
+                saldo = prescrito - ja
                 itens_out.append({
                     "item_id": it["id"],
                     "nome_medicamento": it["nome_medicamento"],
                     "concentracao": it["concentracao"],
                     "quantidade": prescrito,
                     "quantidade_dispensada": ja,
-                    "saldo": prescrito - ja,
+                    "saldo": saldo,
                     "status_item": it["status_item"],
+                    # TICKET-B0 §3.3: dispensabilidade derivada, computada no
+                    # backend — FONTE ÚNICA para a UI (Fatia B lê i.acionavel,
+                    # nunca recalcula "terminal" no cliente). §2a R1.
+                    "acionavel": saldo > 0 and it["status_item"] not in BLOQUEADOS_HARD_DISPENSA,
                 })
 
             fila_out.append({
