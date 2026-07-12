@@ -1263,24 +1263,32 @@
             _filaAtual = fila || [];
             const lista = document.getElementById('fila-lista');
             const count = document.getElementById('fila-count');
-            if (count) count.textContent = _filaAtual.length;
-            if (!_filaAtual.length) {
+            // B2 §4.1: a receita só aparece na fila enquanto tiver ao menos um item
+            // ACIONÁVEL. `i.acionavel` vem do backend (B0: saldo_efetivo>0 AND
+            // status_item NOT IN bloqueados_hard) — NUNCA recalculado no cliente.
+            // Sem nenhum item acionável, a receita sai da fila e permanece só no
+            // histórico (estado do backend, nunca local).
+            const visiveis = _filaAtual.filter(p => (p.itens || []).some(i => i.acionavel));
+            if (count) count.textContent = visiveis.length;
+            if (!visiveis.length) {
                 lista.innerHTML = '<p class="fila-vazia">Nenhuma receita aguardando atendimento no balcão.</p>';
                 return;
             }
-            lista.innerHTML = _filaAtual.map(p => {
+            lista.innerHTML = visiveis.map(p => {
                 const proto = _filaEsc(p.protocolo);
                 const meds = (p.itens || []).map(i => {
                     const nome = _filaEsc(i.nome_medicamento) + (i.concentracao ? ' ' + _filaEsc(i.concentracao) : '');
                     let acoes;
-                    if (_FILA_TERMINAIS.includes(i.status_item) || i.saldo <= 0) {
+                    // Dispensabilidade = i.acionavel (backend). _FILA_TERMINAIS/saldo
+                    // seguem só para EXIBIR badge/saldo nos itens não-acionáveis que
+                    // ainda apareçam numa receita mista.
+                    if (!i.acionavel) {
                         const [cls, label] = _filaStatusInfo(i.status_item);
                         acoes = `<span class="badge ${cls}">${label}</span>`;
                     } else {
                         acoes = `
                             <button type="button" class="btn btn-action btn-sm" onclick="_abrirLoteFila('${proto}', ${i.item_id})">✓ Dispensar</button>
-                            <button type="button" class="btn btn-outline btn-sm" onclick="_devolverPacienteFila('${proto}', ${i.item_id})">← Paciente</button>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="_devolverPrescritorFila('${proto}', ${i.item_id})">✕ Prescritor</button>`;
+                            <button type="button" class="btn btn-outline btn-sm" onclick="_devolverPacienteFila('${proto}', ${i.item_id})">← Paciente</button>`;
                     }
                     return `
                     <div class="fila-med-row">
@@ -1396,10 +1404,10 @@
                 _devolverFila(proto, item, 'paciente', 'Devolução no balcão');
             }
         }
-        function _devolverPrescritorFila(proto, item) {
-            const motivo = prompt('Devolução ao prescritor — informe o motivo (ex.: dose incorreta, medicamento contraindicado):');
-            if (motivo && motivo.trim()) _devolverFila(proto, item, 'prescritor', motivo.trim());
-        }
+        // B2 §4.3: a AÇÃO de devolução ao prescritor foi removida da UI (fila e
+        // painel). O endpoint de backend (dispensador→prescritor) e os badges de
+        // ESTADO `devolvido_prescritor` permanecem; só a ação de disparo saiu.
+        // `_devolverFila` segue genérico, usado só pela devolução ao paciente.
 
         function _iniciarFila() {
             carregarFila();
@@ -1882,41 +1890,13 @@
                             onclick="devolverItemPaciente('${p}', ${itemId})">
                         ← Dev. ao Paciente
                     </button>
-                    <button class="btn btn-danger btn-sm"
-                            onclick="toggleMotivoPrescritor(${itemId})">
-                        ✕ Dev. ao Prescritor
-                    </button>
-                </div>
-                <div id="motivo-prescritor-${itemId}" class="motivo-section hidden">
-                    <p style="font-size:13px; color:#dc2626; font-weight:700; margin-bottom:8px;">
-                        Devolução ao prescritor — informe o motivo:
-                    </p>
-                    <input type="text" id="motivo-${itemId}" class="form-input"
-                           placeholder="Ex: medicamento contraindicado, dosagem incorreta…">
-                    <div class="motivo-row">
-                        <button class="btn btn-danger btn-sm"
-                                onclick="devolverItemPrescritor('${p}', ${itemId})">
-                            Confirmar Devolução
-                        </button>
-                        <button class="btn btn-outline btn-sm"
-                                onclick="toggleMotivoPrescritor(${itemId})">
-                            Cancelar
-                        </button>
-                    </div>
+                    <!-- B2 §4.3: ação de devolução ao médico emissor removida do painel (endpoint + badge de estado permanecem) -->
                 </div>
             `;
         }
 
-        // ─────────────────────────────────────────────────
-        // Toggle formulário de motivo (devolução ao prescritor)
-        // ─────────────────────────────────────────────────
-        function toggleMotivoPrescritor(itemId) {
-            const el = document.getElementById(`motivo-prescritor-${itemId}`);
-            el.classList.toggle('hidden');
-            if (!el.classList.contains('hidden')) {
-                document.getElementById(`motivo-${itemId}`).focus();
-            }
-        }
+        // B2 §4.3: o toggle do formulário de motivo foi removido junto com a ação
+        // de devolução ao médico emissor (endpoint de backend e badges de estado permanecem).
 
         // ─────────────────────────────────────────────────
         // Dispensar item — ambulatorial ou hospitalar
@@ -2142,16 +2122,9 @@
         // ─────────────────────────────────────────────────
         // Devolver ao prescritor (erro na prescrição)
         // ─────────────────────────────────────────────────
-        async function devolverItemPrescritor(protocolo, itemId) {
-            const motivo = (document.getElementById(`motivo-${itemId}`) || {}).value || '';
-            if (!motivo.trim()) {
-                mostrarMsgItem(itemId, 'error', 'O motivo da devolução ao prescritor é obrigatório.');
-                document.getElementById(`motivo-${itemId}`).focus();
-                return;
-            }
-            await _devolverItem(protocolo, itemId, 'prescritor', motivo.trim(),
-                'Item devolvido ao prescritor para correção. Status: devolvido_prescritor.');
-        }
+        // B2 §4.3: o handler de devolução ao médico emissor (painel) foi removido
+        // (ação retirada da UI). O helper genérico `_devolverItem` permanece —
+        // usado pela devolução ao paciente.
 
         async function _devolverItem(protocolo, itemId, para, motivo, msgSucesso) {
             const payload = { para };
