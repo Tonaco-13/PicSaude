@@ -107,6 +107,17 @@ ESTADOS_TERMINAIS_ITEM: frozenset[str] = frozenset({
 })
 
 # ---------------------------------------------------------------------------
+# TICKET-B0 — bloqueio HARD de dispensação (independe do saldo)
+# ---------------------------------------------------------------------------
+# Estados terminais que impedem dispensação MESMO com saldo efetivo > 0. É o
+# conjunto dos terminais de item MENOS 'dispensado': o rótulo 'dispensado'
+# permanece como registro histórico (§2 estorno-derivado), mas deixa de ser o
+# critério de dispensabilidade — com saldo reposto por um estorno o item volta a
+# ser dispensável (CLAUDE.md §4 · §2a R1). Fonte ÚNICA para o guard de
+# dispensação (custodia.py) e o campo `acionavel` da fila (dispensadores.py).
+BLOQUEADOS_HARD_DISPENSA: frozenset[str] = ESTADOS_TERMINAIS_ITEM - frozenset({"dispensado"})
+
+# ---------------------------------------------------------------------------
 # Transições válidas de Item
 # ---------------------------------------------------------------------------
 
