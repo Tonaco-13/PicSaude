@@ -11,6 +11,7 @@
 | Tópico | Seção |
 |---|---|
 | Regras invioláveis (imutabilidade, ledger, custódia, dispensação parcial) | 1 · 2 · 3 · 4 |
+| Regras de ouro do relatório regulatório (R1–R4) | 2a |
 | Estados de prescrição física vs digital | 5 |
 | Referência completa de estados (prescrição e item) | 5a |
 | Contrato de Estados (invariantes + fonte de verdade) | 5b |
@@ -78,6 +79,53 @@ custódia — **inclusive a auto-retenção** do T1.5 em modo demo — DEVE emit
 `custodia_transferida`. Abrir custódia (`_abrir_custodia`) sem o evento é **bug,
 não feature**: o ledger é a fonte da verdade da cadeia de custódia (§3). Em
 produção não existe auto-retenção — item não retido → 409 `item_nao_retido`.
+
+---
+
+## 2a. Regras de ouro do relatório regulatório (R1–R4)
+
+O ledger é a fonte da verdade (§2). O relatório regulatório é a sua **projeção verificável** — a
+superfície onde a vigilância *confere* a verdade, nunca a fonte dela. (Declarar o relatório como fonte
+deixaria uma query com bug redefinir a realidade.) O relatório é a verdade final **para o auditor**
+porque é derivável do ledger de forma **determinística e reproduzível**. Disso derivam:
+
+**R1 — Reprodutibilidade.** Todo relatório regulatório é projeção pura e determinística do ledger.
+Reexecutar um período fechado produz resultado **byte-idêntico, para sempre** (corte temporal na data
+do movimento — TICKET-F5 §3). Relatório não tem estado próprio e nunca é editado.
+
+**R2 — Unicidade de identificadores.** Cada movimento (`dispensacao_id`, `estorno_protocolo`) aparece
+**EXATAMENTE UMA VEZ** no relatório. Duplicidade de identificador = **alarme de fraude**, não erro
+cosmético. **Guard-rail test permanente no gate**, executado em (a) todo PR que toque `dispensacoes`,
+`estornos` **ou** `prescricao_itens`, e (b) **nightly** — captura duplicidade introduzida por migração
+ou data-fix, não só por código de PR. Consequência técnica: toda mutação de objeto sanitário deve ser
+**idempotente** e protegida contra duplo-submit (lock / idempotency-key).
+
+**R3 — Linhagem-mãe indelével.** A primeira prescrição é mãe de todas as derivações. Todo objeto
+derivado resolve ao **protocolo-raiz** pela cadeia `origem_prescricao_id`, e o `protocolo_raiz` é
+**coluna visível** do relatório. **Critério de parada da recursão: `origem_prescricao_id IS NULL` — a
+mãe não tem mãe; prescrição sem origem é a própria raiz.** "Excluir" não existe: cancelamento é
+*estado*, nunca DELETE. O número da mãe nunca se perde — nem quando o prescritor cancela.
+
+**R4 — Identificadores externos são referência congelada.** Números de vigilância externos (ex.:
+registro ANVISA do medicamento) entram por **importação periódica** no catálogo local (padrão
+CNES/CMED) e são **congelados no movimento** por *snapshot*. **O snapshot é tirado no ato da
+DISPENSAÇÃO** (evento que conta para a escrituração regulatória — registro vigente à época da saída
+do produto), **não** na emissão da prescrição. **Nunca** chamada externa ao vivo no caminho clínico de
+escrita ou na geração do relatório (feriria R1 e a disponibilidade). Import de catálogo nunca escreve
+em tabela clínica (regra de adapter, §10).
+
+---
+
+### O que R1–R4 acrescentam ao que já é invariante
+
+Já existem: não-deleção (§1/§2), protocolo imutável (§6b), estorno-como-derivado. **Novo:**
+reprodutibilidade como **princípio**, unicidade como **teste de fraude executável no gate**,
+`protocolo_raiz` como **coluna visível**, e registro externo como **snapshot congelado na dispensação**.
+
+### Nota de governança
+
+Este bloco é `core` (altera CLAUDE.md). Ao adicioná-lo, atualizar também o MAPA RÁPIDO (topo do
+CLAUDE.md) com a linha: `| Regras de ouro do relatório regulatório (R1–R4) | 2a |`.
 
 ---
 
