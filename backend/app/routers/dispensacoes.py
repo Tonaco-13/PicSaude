@@ -85,7 +85,41 @@ def _buscar_dados(dispensacao_id: int) -> dict:
         row = conn.execute(_SQL_COMPROVANTE, (dispensacao_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail=f"Dispensação {dispensacao_id} não encontrada.")
-        return dict(row)
+        d = dict(row)
+        # §5.A — estado de estorno (read-only sobre `estornos`, objeto derivado).
+        # Determinismo (régua Jules): ORDER BY id. Nunca edita a dispensação.
+        estornos = conn.execute(
+            "SELECT protocolo, quantidade_estornada, motivo, criado_em "
+            "FROM estornos WHERE origem_dispensacao_id = ? ORDER BY id",
+            (dispensacao_id,),
+        ).fetchall()
+        d["_estornos"] = [dict(e) for e in estornos]
+        return d
+
+
+def _montar_estorno(estorno_rows: list, quantidade_dispensada) -> dict:
+    """Seção derivada de estorno do comprovante (§5.A). Semântica binária vs.
+    parcial computada no BACKEND — a UI nunca infere 'parcial' comparando
+    quantidades no cliente. Estorno é objeto derivado; a dispensação é imutável."""
+    qd = quantidade_dispensada or 0
+    total = sum((e["quantidade_estornada"] or 0) for e in estorno_rows)
+    estornado = total > 0
+    return {
+        "estornado":            estornado,
+        "estorno_total":        estornado and total >= qd,
+        "quantidade_estornada": total,
+        "quantidade_restante":  qd - total,
+        "estornos": [
+            {
+                "protocolo": e["protocolo"],
+                "quantidade": e["quantidade_estornada"],
+                "motivo":     e["motivo"],
+                # criado_em: PG devolve datetime, SQLite string ISO — normalizar.
+                "data": e["criado_em"].isoformat() if isinstance(e["criado_em"], datetime) else e["criado_em"],
+            }
+            for e in estorno_rows
+        ],
+    }
 
 
 def _montar_json(d: dict) -> dict:
@@ -145,6 +179,10 @@ def _montar_json(d: dict) -> dict:
         },
 
         "observacao": d["observacao"] or None,
+
+        # §5.A — estado de estorno (read-only). Sempre presente; estornado=false
+        # quando não há estorno (o comprovante atual continua idêntico nesse caso).
+        "estorno": _montar_estorno(d.get("_estornos", []), d["quantidade_dispensada"]),
     }
 
 
@@ -234,6 +272,27 @@ def _gerar_pdf(dados: dict) -> bytes:
     story.append(Paragraph("COMPROVANTE DE DISPENSAÇÃO", estilo_subtitulo))
     story.append(HRFlowable(width="100%", thickness=1.5, color=cor_primaria))
     story.append(Spacer(1, 0.3 * cm))
+
+    # §5.A — carimbo inequívoco de estorno (visível, acima dos blocos). O estorno
+    # ADICIONA informação; nunca some nem edita a dispensação original (CLAUDE.md §2).
+    _est = dados.get("estorno") or {}
+    if _est.get("estornado"):
+        _refs = ", ".join(str(e["protocolo"]) for e in _est.get("estornos", []))
+        if _est.get("estorno_total"):
+            _carimbo_txt = f"DISPENSAÇÃO ESTORNADA — ref. estorno {_refs}"
+        else:
+            _carimbo_txt = (
+                f"DISPENSAÇÃO PARCIALMENTE ESTORNADA — "
+                f"{_est['quantidade_estornada']} de {dados['medicamento']['quantidade_dispensada']} un. "
+                f"(restam {_est['quantidade_restante']}) — ref. estorno {_refs}"
+            )
+        estilo_carimbo = ParagraphStyle(
+            "Carimbo", parent=styles["Normal"], fontSize=12, leading=16,
+            textColor=colors.white, backColor=colors.HexColor("#c0392b"),
+            borderPadding=6, alignment=1, spaceBefore=2, spaceAfter=6,
+        )
+        story.append(Paragraph(f"<b>{_carimbo_txt}</b>", estilo_carimbo))
+        story.append(Spacer(1, 0.3 * cm))
 
     # Protocolo e data
     story += secao("Identificação", [
