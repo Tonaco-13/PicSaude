@@ -28,7 +28,11 @@ from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.confianca_cuidado import calcular_score_confianca_dispensacao
 from app.domain.ledger import registrar_evento_ledger
-from app.domain.states import ESTADOS_PRESCRICAO, ESTADOS_TERMINAIS_PRESCRICAO
+from app.domain.states import (
+    BLOQUEADOS_HARD_DISPENSA,
+    ESTADOS_PRESCRICAO,
+    ESTADOS_TERMINAIS_PRESCRICAO,
+)
 from app.config import PICSAUDE_DEMO_MODE
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf, normalize_cns
@@ -753,17 +757,15 @@ def dispensar_item(
 
             _origem_token = "atomizado"
 
-        _BLOQUEADOS_DISPENSAR = {"dispensado", "cancelado", "devolvido_prescritor",
-                                  "estornado", "encerrado_fisico"}
-        if item["status_item"] in _BLOQUEADOS_DISPENSAR:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Item com status '{item['status_item']}' não pode ser dispensado.",
-            )
-
-        # Calcular saldo disponível — saldo efetivo = Σ dispensado − Σ estornado
-        # (T2: o estorno é objeto derivado que repõe saldo; a dispensação
-        # original permanece imutável).
+        # TICKET-B0 §3.1: dispensabilidade deriva do SALDO EFETIVO (ledger), não
+        # do rótulo status_item. Computa o saldo PRIMEIRO; o bloqueio por status
+        # cobre só os terminais que impedem dispensação independentemente do saldo
+        # (BLOQUEADOS_HARD_DISPENSA). 'dispensado' NÃO bloqueia: com saldo>0
+        # (reposto por um estorno) o item volta a ser dispensável (CLAUDE.md §4 ·
+        # §2a R1). O rótulo permanece como registro histórico, deixa de ser o critério.
+        #
+        # Saldo efetivo = Σ dispensado − Σ estornado (T2: o estorno é objeto
+        # derivado que repõe saldo; a dispensação original permanece imutável).
         ja_dispensado = conn.execute(
             "SELECT COALESCE(SUM(quantidade_dispensada), 0) AS total FROM dispensacoes WHERE prescricao_item_id = ?",
             (item_id,),
@@ -779,6 +781,13 @@ def dispensar_item(
 
         if saldo <= 0:
             raise HTTPException(status_code=409, detail="Não há saldo disponível para dispensação neste item.")
+
+        if item["status_item"] in BLOQUEADOS_HARD_DISPENSA:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Item com status '{item['status_item']}' não pode ser dispensado.",
+            )
+
         if payload.quantidade_dispensada > saldo:
             raise HTTPException(
                 status_code=422,
