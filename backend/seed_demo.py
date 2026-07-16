@@ -233,15 +233,19 @@ def _garantir_receita_na_fila(conn) -> None:
         "SELECT id FROM prescricoes WHERE protocolo = ?", (proto,)
     ).fetchone()["id"]
 
-    for nome, conc, qtd, poso in (
-        ("LOSARTANA", "50mg", 30, "1 comprimido ao dia"),
-        ("AMOXICILINA", "500mg", 21, "1 cápsula de 8/8h por 7 dias"),
+    # unidade_quantidade derivada da posologia (vocabulário controlado,
+    # domain/medicamento.py). Sem ela, o comprovante imprimiria "21" sem dizer
+    # 21 de quê (TICKET-UNIDADE-QUANTIDADE-VISIVEL, Frente A). NUNCA inventar:
+    # aqui a unidade é lida direto da posologia que já está no seed.
+    for nome, conc, qtd, poso, unidade in (
+        ("LOSARTANA", "50mg", 30, "1 comprimido ao dia", "comprimido"),
+        ("AMOXICILINA", "500mg", 21, "1 cápsula de 8/8h por 7 dias", "cápsula"),
     ):
         conn.execute(
             "INSERT INTO prescricao_itens (prescricao_id, nome_medicamento, concentracao, "
-            "quantidade, posologia, status_item, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, 'pendente', ?, ?)",
-            (pid, nome, conc, qtd, poso, now, now),
+            "quantidade, unidade_quantidade, posologia, status_item, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?)",
+            (pid, nome, conc, qtd, unidade, poso, now, now),
         )
 
     # Custódia ATIVA da Farmácia Demo Central (= efeito da transferência
