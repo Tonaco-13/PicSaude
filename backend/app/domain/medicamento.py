@@ -104,6 +104,47 @@ def unidade_valida(unidade: str | None) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Exibição honesta de unidade (TICKET-UNIDADE-QUANTIDADE-VISIVEL)
+# ---------------------------------------------------------------------------
+# Toda superfície que exibe quantidade DEVE exibir a unidade junto ("21" é
+# ambíguo — 21 comprimidos ou 21 caixas?). Regra sanitária inviolável:
+#   NUNCA inventar unidade. Dado ausente/fora do vocabulário → "não informada".
+#   Defaultar para "unidade" é PROIBIDO — afirmaria "30 unidades" onde o real
+#   pode ser "30 caixas". Silêncio honesto > precisão falsa.
+
+_UNIDADE_NAO_INFORMADA = "não informada"
+
+
+def formatar_unidade(unidade: str | None, quantidade: int | None = None) -> str:
+    """
+    Display canônico da unidade de dispensação, pluralizado pela quantidade.
+
+    - Unidade ausente ou fora do vocabulário → "não informada" (nunca "unidade").
+    - Pluralização ingênua (+s) para quantidade != 1 — suficiente para o
+      vocabulário atual (unidades terminam em vogal ou já pluralizam com 's').
+      Plural morfológico sofisticado está fora de escopo.
+    """
+    canon = normalizar_unidade(unidade)
+    if canon is None:
+        return _UNIDADE_NAO_INFORMADA
+    if quantidade is not None and quantidade != 1:
+        return f"{canon}s"
+    return canon
+
+
+def formatar_quantidade(quantidade: int | None, unidade: str | None) -> str:
+    """
+    Junta quantidade + unidade numa superfície única de exibição.
+    Ex.: "30 comprimidos" · "1 cápsula" · "30 (unidade não informada)".
+    """
+    q = quantidade if quantidade is not None else "?"
+    canon = normalizar_unidade(unidade)
+    if canon is None:
+        return f"{q} (unidade {_UNIDADE_NAO_INFORMADA})"
+    return f"{q} {formatar_unidade(unidade, quantidade)}"
+
+
+# ---------------------------------------------------------------------------
 # Circulação atomizada — política de elegibilidade (Ticket 44)
 # ---------------------------------------------------------------------------
 
