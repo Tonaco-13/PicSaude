@@ -1400,7 +1400,7 @@
                 if (!resp.ok) {
                     const e = await resp.json().catch(() => ({}));
                     msg.className = 'msg-inline error';
-                    msg.textContent = (e.detail && (e.detail.mensagem || e.detail)) || 'Não foi possível dispensar.';
+                    msg.textContent = _extrairMsgErro(e, 'Não foi possível dispensar.');
                     return;
                 }
                 _fecharLoteFila();
@@ -1421,7 +1421,7 @@
                 if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
                 if (!resp.ok) {
                     const e = await resp.json().catch(() => ({}));
-                    alert('Não foi possível devolver: ' + ((e.detail && (e.detail.mensagem || e.detail)) || resp.status));
+                    alert('Não foi possível devolver: ' + _extrairMsgErro(e, resp.status));
                     return;
                 }
                 carregarFila();
@@ -1490,7 +1490,7 @@
                 if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
                 if (!resp.ok) {
                     const e = await resp.json().catch(() => ({}));
-                    _filaMsg('error', 'Não foi possível estornar: ' + ((e.detail && (e.detail.mensagem || e.detail)) || resp.status));
+                    _filaMsg('error', 'Não foi possível estornar: ' + _extrairMsgErro(e, resp.status));
                     return;
                 }
                 const data = await resp.json();
@@ -1665,7 +1665,7 @@
             if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return null; }
             if (!resp.ok) {
                 let msg = 'Não foi possível gerar o relatório.';
-                try { const e = await resp.json(); msg = (e.detail && (e.detail.mensagem || e.detail)) || msg; } catch (_) {}
+                try { const e = await resp.json(); msg = _extrairMsgErro(e, msg); } catch (_) {}
                 _filaMsg('error', 'Relatório: ' + msg);
                 return null;
             }
@@ -1700,7 +1700,7 @@
             if (resp.status === 401 || resp.status === 403) { tratarSessaoExpirada(); return; }
             if (!resp.ok) {
                 let msg = 'Não foi possível gerar o PDF do relatório.';
-                try { const e = await resp.json(); msg = (e.detail && (e.detail.mensagem || e.detail)) || msg; } catch (_) {}
+                try { const e = await resp.json(); msg = _extrairMsgErro(e, msg); } catch (_) {}
                 _filaMsg('error', 'Relatório: ' + msg);
                 return;
             }
