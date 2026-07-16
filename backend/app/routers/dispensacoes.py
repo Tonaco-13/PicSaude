@@ -27,6 +27,7 @@ from app.auth.dependencies import require_role
 from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
+from app.domain.medicamento import formatar_quantidade, normalizar_unidade
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
 from app.routers.custodia import _abrir_custodia
@@ -55,6 +56,7 @@ SELECT
     i.nome_medicamento,
     i.concentracao,
     i.quantidade                AS quantidade_prescrita,
+    i.unidade_quantidade,
     i.posologia,
 
     p.protocolo,
@@ -154,6 +156,9 @@ def _montar_json(d: dict) -> dict:
             "posologia":           d["posologia"]    or "N/I",
             "quantidade_prescrita": d["quantidade_prescrita"],
             "quantidade_dispensada": d["quantidade_dispensada"],
+            # Unidade canônica (ou null → a UI renderiza "não informada"). NUNCA
+            # defaultar para "unidade" (TICKET-UNIDADE-QUANTIDADE-VISIVEL).
+            "unidade_quantidade":  normalizar_unidade(d.get("unidade_quantidade")),
         },
 
         "lote": {
@@ -281,9 +286,14 @@ def _gerar_pdf(dados: dict) -> bytes:
         if _est.get("estorno_total"):
             _carimbo_txt = f"DISPENSAÇÃO ESTORNADA — ref. estorno {_refs}"
         else:
+            # Unidade real no carimbo, não "un." genérico
+            # (TICKET-UNIDADE-QUANTIDADE-VISIVEL). formatar_quantidade é o
+            # caminho autoritativo: pluraliza e trata unidade ausente.
+            _q_disp = dados["medicamento"]["quantidade_dispensada"]
+            _un_carimbo = dados["medicamento"].get("unidade_quantidade")
             _carimbo_txt = (
                 f"DISPENSAÇÃO PARCIALMENTE ESTORNADA — "
-                f"{_est['quantidade_estornada']} de {dados['medicamento']['quantidade_dispensada']} un. "
+                f"{_est['quantidade_estornada']} de {formatar_quantidade(_q_disp, _un_carimbo)} "
                 f"(restam {_est['quantidade_restante']}) — ref. estorno {_refs}"
             )
         estilo_carimbo = ParagraphStyle(
@@ -318,12 +328,18 @@ def _gerar_pdf(dados: dict) -> bytes:
     ] + ([("Obs.", "Mesmo que o paciente")] if _comp["eh_paciente"] else []))
 
     story.append(Spacer(1, 0.2 * cm))
+    # Toda quantidade sai com a unidade junto — "30 comprimidos", nunca "30".
+    # formatar_quantidade é o caminho autoritativo: pluraliza e, sem unidade,
+    # devolve "30 (unidade não informada)" — jamais inventa "unidade".
+    _un = med.get("unidade_quantidade")
+    _q_presc = med["quantidade_prescrita"]
+    _q_disp = med["quantidade_dispensada"]
     story += secao("Medicamento", [
         ("Nome",          med["nome"]),
         ("Concentração",  med["concentracao"]),
         ("Posologia",     med["posologia"]),
-        ("Qtd. prescrita",   str(med["quantidade_prescrita"]  or "N/I")),
-        ("Qtd. dispensada",  str(med["quantidade_dispensada"])),
+        ("Qtd. prescrita",  formatar_quantidade(_q_presc, _un) if _q_presc is not None else "N/I"),
+        ("Qtd. dispensada", formatar_quantidade(_q_disp, _un)),
     ])
 
     story.append(Spacer(1, 0.2 * cm))

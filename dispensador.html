@@ -1228,6 +1228,21 @@
                 ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
         }
 
+        // TICKET-UNIDADE-QUANTIDADE-VISIVEL — toda quantidade sai com a unidade
+        // junto. Unidade ausente (null) → "não informada", NUNCA "unidade"
+        // (defaultar afirmaria "30 unidades" onde pode ser "30 caixas"). Plural
+        // ingênuo (+s) espelha o backend (domain/medicamento.formatar_unidade).
+        function _unidadeDisplay(unidade, qtd) {
+            if (!unidade) return 'não informada';
+            return (qtd != null && Number(qtd) !== 1) ? unidade + 's' : unidade;
+        }
+        // "30 comprimidos" · "1 cápsula" · "30 (unidade não informada)"
+        function _qtdComUnidade(qtd, unidade) {
+            const q = (qtd == null) ? '?' : qtd;
+            if (!unidade) return q + ' (unidade não informada)';
+            return q + ' ' + _unidadeDisplay(unidade, qtd);
+        }
+
         async function carregarFila() {
             const lista = document.getElementById('fila-lista');
             if (!lista) return;
@@ -1294,7 +1309,7 @@
                     <div class="fila-med-row">
                         <div class="fila-med-info">
                             <span class="fila-med-nome">${nome}</span>
-                            <span class="fila-saldo">saldo ${i.saldo}/${i.quantidade}</span>
+                            <span class="fila-saldo">saldo ${i.saldo}/${i.quantidade} ${_filaEsc(_unidadeDisplay(i.unidade_quantidade, i.quantidade))}</span>
                         </div>
                         <div class="fila-med-acoes">${acoes}</div>
                     </div>`;
@@ -1499,7 +1514,7 @@
                 const refs = (est.estornos || []).map(e => _cEsc(e.protocolo || '')).filter(Boolean).join(', ');
                 const txt = est.estorno_total
                     ? '⏪ DISPENSAÇÃO ESTORNADA'
-                    : `⏪ DISPENSAÇÃO PARCIALMENTE ESTORNADA — ${_cEsc(String(est.quantidade_estornada ?? ''))} de ${_cEsc(String(med.quantidade_dispensada ?? ''))} un. (restam ${_cEsc(String(est.quantidade_restante ?? ''))})`;
+                    : `⏪ DISPENSAÇÃO PARCIALMENTE ESTORNADA — ${_cEsc(String(est.quantidade_estornada ?? ''))} de ${_cEsc(String(med.quantidade_dispensada ?? ''))} ${_cEsc(_unidadeDisplay(med.unidade_quantidade, med.quantidade_dispensada))} (restam ${_cEsc(String(est.quantidade_restante ?? ''))})`;
                 carimbo = `
                 <div class="comp-carimbo-estorno">
                     <div class="comp-carimbo-tit">${txt}</div>
@@ -1526,7 +1541,7 @@
                 <div class="comp-box">
                     <div class="comp-box-tit">MEDICAMENTO</div>
                     <div>${_cEsc(med.nome || '')} ${_cEsc(med.concentracao || '')}</div>
-                    <div>Qtd. dispensada: ${_cEsc(String(med.quantidade_dispensada ?? ''))} · Lote: ${_cEsc(lote.numero || 'N/I')}</div>
+                    <div>Qtd. dispensada: ${_cEsc(_qtdComUnidade(med.quantidade_dispensada, med.unidade_quantidade))} · Lote: ${_cEsc(lote.numero || 'N/I')}</div>
                 </div>
                 <div class="comp-box">
                     <div class="comp-box-tit">ESTABELECIMENTO</div>
