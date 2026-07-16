@@ -27,7 +27,7 @@ from app.auth.dependencies import require_role
 from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
-from app.domain.medicamento import formatar_unidade, normalizar_unidade
+from app.domain.medicamento import formatar_quantidade, normalizar_unidade
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
 from app.routers.custodia import _abrir_custodia
@@ -287,12 +287,13 @@ def _gerar_pdf(dados: dict) -> bytes:
             _carimbo_txt = f"DISPENSAÇÃO ESTORNADA — ref. estorno {_refs}"
         else:
             # Unidade real no carimbo, não "un." genérico
-            # (TICKET-UNIDADE-QUANTIDADE-VISIVEL). Pluraliza pela qtd dispensada.
+            # (TICKET-UNIDADE-QUANTIDADE-VISIVEL). formatar_quantidade é o
+            # caminho autoritativo: pluraliza e trata unidade ausente.
             _q_disp = dados["medicamento"]["quantidade_dispensada"]
-            _un_carimbo = formatar_unidade(dados["medicamento"].get("unidade_quantidade"), _q_disp)
+            _un_carimbo = dados["medicamento"].get("unidade_quantidade")
             _carimbo_txt = (
                 f"DISPENSAÇÃO PARCIALMENTE ESTORNADA — "
-                f"{_est['quantidade_estornada']} de {_q_disp} {_un_carimbo} "
+                f"{_est['quantidade_estornada']} de {formatar_quantidade(_q_disp, _un_carimbo)} "
                 f"(restam {_est['quantidade_restante']}) — ref. estorno {_refs}"
             )
         estilo_carimbo = ParagraphStyle(
@@ -328,7 +329,8 @@ def _gerar_pdf(dados: dict) -> bytes:
 
     story.append(Spacer(1, 0.2 * cm))
     # Toda quantidade sai com a unidade junto — "30 comprimidos", nunca "30".
-    # Unidade ausente → "não informada" (formatar_unidade), jamais "unidade".
+    # formatar_quantidade é o caminho autoritativo: pluraliza e, sem unidade,
+    # devolve "30 (unidade não informada)" — jamais inventa "unidade".
     _un = med.get("unidade_quantidade")
     _q_presc = med["quantidade_prescrita"]
     _q_disp = med["quantidade_dispensada"]
@@ -336,8 +338,8 @@ def _gerar_pdf(dados: dict) -> bytes:
         ("Nome",          med["nome"]),
         ("Concentração",  med["concentracao"]),
         ("Posologia",     med["posologia"]),
-        ("Qtd. prescrita",  f"{_q_presc} {formatar_unidade(_un, _q_presc)}" if _q_presc is not None else "N/I"),
-        ("Qtd. dispensada", f"{_q_disp} {formatar_unidade(_un, _q_disp)}"),
+        ("Qtd. prescrita",  formatar_quantidade(_q_presc, _un) if _q_presc is not None else "N/I"),
+        ("Qtd. dispensada", formatar_quantidade(_q_disp, _un)),
     ])
 
     story.append(Spacer(1, 0.2 * cm))
