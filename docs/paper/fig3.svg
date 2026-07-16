@@ -1,0 +1,75 @@
+<svg viewBox="0 0 1000 900" width="2000" height="1800" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+<title>Figure 3 — custody chain and derivation lineage, with reversal (estorno) as a derived object</title>
+<defs>
+<marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#555"/></marker>
+</defs>
+<rect x="0" y="0" width="1000" height="900" fill="#ffffff"/>
+
+<!-- Panel 1: Derivation lineage -->
+<rect x="15" y="15" width="970" height="490" rx="16" fill="none" stroke="#AFAFAF" stroke-width="1.5" stroke-dasharray="7,6"/>
+<text x="38" y="48" font-size="20" fill="#333">Derivation lineage (origin reference)</text>
+
+<!-- Row A: prescription versions (solid) -->
+<rect x="45" y="75" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="132" y="98" font-size="16" fill="#2b2b2b" text-anchor="middle">REC-001</text>
+<text x="132" y="118" font-size="16" fill="#2b2b2b" text-anchor="middle">(original)</text>
+<rect x="412" y="75" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="499" y="109" font-size="16" fill="#2b2b2b" text-anchor="middle">REC-002</text>
+<rect x="780" y="75" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="867" y="109" font-size="16" fill="#2b2b2b" text-anchor="middle">REC-003</text>
+<path d="M222,103 L410,103" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+<path d="M589,103 L778,103" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+<text x="316" y="95" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">correction</text>
+<text x="683" y="95" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">renewal</text>
+
+<!-- Row B: lab order -> report (dotted) -->
+<rect x="45" y="183" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="132" y="217" font-size="16" fill="#2b2b2b" text-anchor="middle">lab order</text>
+<rect x="412" y="183" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="499" y="217" font-size="16" fill="#2b2b2b" text-anchor="middle">report</text>
+<path d="M222,211 L410,211" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="2,5" marker-end="url(#arr)"/>
+<text x="316" y="203" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">originates</text>
+
+<!-- Row C: referral -> counter-referral (dotted) -->
+<rect x="45" y="273" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="132" y="307" font-size="16" fill="#2b2b2b" text-anchor="middle">referral</text>
+<rect x="412" y="273" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="499" y="299" font-size="16" fill="#2b2b2b" text-anchor="middle">counter-</text>
+<text x="499" y="318" font-size="16" fill="#2b2b2b" text-anchor="middle">referral</text>
+<path d="M222,301 L410,301" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="2,5" marker-end="url(#arr)"/>
+<text x="316" y="293" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">originates</text>
+
+<!-- Row D: dispensing -> reversal (estorno)  [NEW] -->
+<rect x="45" y="368" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#D3A63C" stroke-width="1.6"/>
+<text x="132" y="402" font-size="16" fill="#2b2b2b" text-anchor="middle">dispensing</text>
+<rect x="412" y="368" width="175" height="56" rx="10" fill="#FBEDCB" stroke="#C67B2E" stroke-width="2.2"/>
+<text x="499" y="394" font-size="16" fill="#2b2b2b" text-anchor="middle">reversal</text>
+<text x="499" y="413" font-size="16" fill="#2b2b2b" text-anchor="middle">(estorno)</text>
+<path d="M222,396 L410,396" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="2,5" marker-end="url(#arr)"/>
+<text x="316" y="388" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">reverses</text>
+<text x="500" y="460" font-size="13.5" fill="#7a5a1e" text-anchor="middle" font-style="italic">immutable derived object — restores the item's ledger balance (no custody change)</text>
+
+<!-- Panel 2: Custody chain -->
+<rect x="15" y="525" width="970" height="360" rx="16" fill="none" stroke="#AFAFAF" stroke-width="1.5" stroke-dasharray="7,6"/>
+<text x="38" y="558" font-size="20" fill="#333">Custody chain (prescription)</text>
+
+<rect x="55" y="655" width="185" height="58" rx="10" fill="#DBE8FB" stroke="#7C9FD3" stroke-width="1.6"/>
+<text x="147" y="690" font-size="16" fill="#2b2b2b" text-anchor="middle">prescriber</text>
+<rect x="760" y="655" width="185" height="58" rx="10" fill="#DBE8FB" stroke="#7C9FD3" stroke-width="1.6"/>
+<text x="852" y="690" font-size="16" fill="#2b2b2b" text-anchor="middle">dispenser</text>
+<rect x="408" y="795" width="185" height="58" rx="10" fill="#DBE8FB" stroke="#7C9FD3" stroke-width="1.6"/>
+<text x="500" y="830" font-size="16" fill="#2b2b2b" text-anchor="middle">patient</text>
+
+<!-- issuance prescriber -> patient -->
+<path d="M240,700 L406,812" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+<text x="300" y="740" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">issuance</text>
+<!-- presentation patient -> dispenser -->
+<path d="M595,812 L761,706" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+<text x="700" y="742" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">presentation</text>
+<!-- return dispenser -> patient (dashed) -->
+<path d="M780,715 Q660,810 596,822" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="7,5" marker-end="url(#arr)"/>
+<text x="712" y="800" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">return / abandonment</text>
+<!-- Rx error dispenser -> prescriber (dashed arc) -->
+<path d="M760,672 Q500,612 242,672" stroke="#555" stroke-width="2" fill="none" stroke-dasharray="7,5" marker-end="url(#arr)"/>
+<text x="500" y="628" font-size="15" fill="#444" text-anchor="middle" paint-order="stroke" stroke="#fff" stroke-width="4">Rx error</text>
+</svg>
