@@ -11,6 +11,7 @@ from app.config import DEFAULT_LIMIT, MAX_LIMIT
 from app.database import get_conn
 from app.database_tx import get_tx
 from app.domain.cnes_prescritor import _get_cnes_conn
+from app.domain.medicamento import normalizar_unidade
 from app.domain.states import BLOQUEADOS_HARD_DISPENSA
 from app.domain import relatorio_sngpc as sngpc
 from app.domain.pdf_relatorio_sngpc import gerar_pdf_sngpc
@@ -129,7 +130,8 @@ def fila(
         for p in prescricoes:
             itens = conn.execute(
                 """
-                SELECT i.id, i.nome_medicamento, i.concentracao, i.quantidade, i.status_item,
+                SELECT i.id, i.nome_medicamento, i.concentracao, i.quantidade,
+                       i.unidade_quantidade, i.status_item,
                        COALESCE((SELECT SUM(d.quantidade_dispensada)
                                    FROM dispensacoes d
                                   WHERE d.prescricao_item_id = i.id), 0)
@@ -155,6 +157,10 @@ def fila(
                     "quantidade": prescrito,
                     "quantidade_dispensada": ja,
                     "saldo": saldo,
+                    # Unidade canônica (ou null → UI mostra "não informada"). A
+                    # fila exibe saldo/qtd sempre com a unidade junto
+                    # (TICKET-UNIDADE-QUANTIDADE-VISIVEL). Nunca "unidade".
+                    "unidade_quantidade": normalizar_unidade(it["unidade_quantidade"]),
                     "status_item": it["status_item"],
                     # TICKET-B0 §3.3: dispensabilidade derivada, computada no
                     # backend — FONTE ÚNICA para a UI (Fatia B lê i.acionavel,
