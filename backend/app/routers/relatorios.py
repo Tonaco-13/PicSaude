@@ -99,6 +99,7 @@ _CABECALHO = [
     "dose",
     "quantidade_prescrita",
     "quantidade_dispensada",
+    "unidade_quantidade",
     "lote",
     "fabricante",
     "paciente_nome",
@@ -172,6 +173,7 @@ def relatorio_dispensacoes(
             r["dose"]                  or "",
             r["quantidade_prescrita"]  or "",
             r["quantidade_dispensada"],
+            r["unidade_quantidade"]    or "",   # item legado (NULL) → célula vazia
             r["lote"]                  or "",
             r["fabricante"]            or "",
             r["paciente_nome"],

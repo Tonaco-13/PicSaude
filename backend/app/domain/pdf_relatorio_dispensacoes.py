@@ -138,25 +138,29 @@ def _rodape(canvas, doc):
 # Larguras das colunas (mm) — total ≈ 252 mm (dentro dos 273 mm úteis em landscape)
 # ---------------------------------------------------------------------------
 
+# Cada coluna declara os campos de ``_SQL_BASE`` (routers/relatorios.py) que
+# consome. A declaração é o contrato conferido pelo teste de paridade CSV↔PDF:
+# todo campo projetado aqui tem coluna correspondente no CSV de auditoria.
 _COLUNAS = [
-    ("Data Disp.",    18 * mm),
-    ("Protocolo",     21 * mm),
-    ("Medicamento",   26 * mm),
-    ("Concentração",  15 * mm),
-    ("Qtd. Pres.",    11 * mm),
-    ("Qtd. Disp.",    11 * mm),
-    ("Unidade",       12 * mm),
-    ("Lote",          13 * mm),
-    ("Fabricante",    19 * mm),
-    ("Paciente",      24 * mm),
-    ("CPF Paciente",  16 * mm),
-    ("Prescritor",    22 * mm),
-    ("CNS",           15 * mm),
-    ("Estab. / CNPJ", 29 * mm),  # "Nome Fantasia (CNPJ)"
+    ("Data Disp.",    ("data_dispensacao",),      18 * mm),
+    ("Protocolo",     ("protocolo_prescricao",),  21 * mm),
+    ("Medicamento",   ("medicamento",),           26 * mm),
+    ("Concentração",  ("dose",),                  15 * mm),
+    ("Qtd. Pres.",    ("quantidade_prescrita",),  11 * mm),
+    ("Qtd. Disp.",    ("quantidade_dispensada",), 11 * mm),
+    ("Unidade",       ("unidade_quantidade",),    12 * mm),
+    ("Lote",          ("lote",),                  13 * mm),
+    ("Fabricante",    ("fabricante",),            19 * mm),
+    ("Paciente",      ("paciente_nome",),         24 * mm),
+    ("CPF Paciente",  ("paciente_cpf",),          16 * mm),
+    ("Prescritor",    ("prescritor_nome",),       22 * mm),
+    ("CNS",           ("prescritor_cns",),        15 * mm),
+    ("Estab. / CNPJ", ("estabelecimento_nome", "estabelecimento_cnpj"), 29 * mm),
 ]
 
-_HEADERS   = [col[0] for col in _COLUNAS]
-_COL_WIDTHS = [col[1] for col in _COLUNAS]
+_HEADERS    = [col[0] for col in _COLUNAS]
+_CAMPOS     = [campo for col in _COLUNAS for campo in col[1]]
+_COL_WIDTHS = [col[2] for col in _COLUNAS]
 
 
 # ---------------------------------------------------------------------------
