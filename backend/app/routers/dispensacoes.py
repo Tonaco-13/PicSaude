@@ -28,6 +28,7 @@ from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.medicamento import formatar_quantidade, normalizar_unidade
+from app.domain.motor_regulatorio import grupo_por_id
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
 from app.routers.custodia import _abrir_custodia
@@ -191,8 +192,14 @@ def _montar_json(d: dict) -> dict:
         # Projeta o valor gravado (nunca re-resolve). grupo=None → item não-controlado
         # (a UI mostra vazio; NUNCA inventa grupo). versao = carimbo da regra sob a
         # qual o movimento foi escriturado.
+        # grupo_regulatorio_nome: nome humano resolvido do SLUG congelado via
+        # grupo_por_id (fonte única — o motor). A tela NÃO hardcoda nomes. Slug
+        # desconhecido → None (a UI degrada para o slug, não quebra).
         "escrituracao_regulatoria": {
             "grupo_regulatorio_id":  d.get("grupo_regulatorio_id"),
+            "grupo_regulatorio_nome": (
+                g.nome if (g := grupo_por_id(d.get("grupo_regulatorio_id"))) else None
+            ),
             "motor_regulatorio_versao": d.get("motor_regulatorio_versao"),
             "controlado": d.get("grupo_regulatorio_id") is not None,
         },
