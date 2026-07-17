@@ -52,6 +52,8 @@ SELECT
     d.observacao,
     d.comprador_nome,
     d.comprador_documento,
+    d.grupo_regulatorio_id,
+    d.motor_regulatorio_versao,
 
     i.nome_medicamento,
     i.concentracao,
@@ -184,6 +186,16 @@ def _montar_json(d: dict) -> dict:
         },
 
         "observacao": d["observacao"] or None,
+
+        # R4 (CLAUDE.md §2a) — escrituração regulatória CONGELADA na dispensação.
+        # Projeta o valor gravado (nunca re-resolve). grupo=None → item não-controlado
+        # (a UI mostra vazio; NUNCA inventa grupo). versao = carimbo da regra sob a
+        # qual o movimento foi escriturado.
+        "escrituracao_regulatoria": {
+            "grupo_regulatorio_id":  d.get("grupo_regulatorio_id"),
+            "motor_regulatorio_versao": d.get("motor_regulatorio_versao"),
+            "controlado": d.get("grupo_regulatorio_id") is not None,
+        },
 
         # §5.A — estado de estorno (read-only). Sempre presente; estornado=false
         # quando não há estorno (o comprovante atual continua idêntico nesse caso).
