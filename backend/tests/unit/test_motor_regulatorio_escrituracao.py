@@ -19,6 +19,7 @@ import pytest
 from app.domain.motor_regulatorio import (
     MOTOR_REGULATORIO_VERSAO,
     escriturar_grupo_regulatorio,
+    grupo_por_id,
 )
 
 
@@ -66,3 +67,24 @@ def test_classe_desconhecida_falha_alto():
 def test_retencao_desconhecida_falha_alto():
     with pytest.raises(ValueError):
         escriturar_grupo_regulatorio(None, "tipo_inexistente")
+
+
+# ------------------------------------------------ grupo_por_id (slug → nome, R4-FE)
+
+def test_grupo_por_id_resolve_nome_do_slug():
+    """Fonte única slug→nome: a tela pergunta ao motor, não hardcoda nomes."""
+    g = grupo_por_id("notificacao_receita_b")
+    assert g is not None
+    assert g.nome == "Notificação de Receita B (Azul)"
+
+
+def test_grupo_por_id_ida_e_volta_com_escrituracao():
+    """O nome resolve exatamente do slug que a escrituração congela."""
+    slug, _versao = escriturar_grupo_regulatorio("B1", None)
+    assert grupo_por_id(slug).nome == "Notificação de Receita B (Azul)"
+
+
+@pytest.mark.parametrize("slug", [None, "", "grupo_inexistente"])
+def test_grupo_por_id_slug_desconhecido_ou_vazio_retorna_none(slug):
+    """Slug desconhecido/vazio → None (UI degrada para o slug, não quebra)."""
+    assert grupo_por_id(slug) is None

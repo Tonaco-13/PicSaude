@@ -132,6 +132,7 @@ def fila(
                 """
                 SELECT i.id, i.nome_medicamento, i.concentracao, i.quantidade,
                        i.unidade_quantidade, i.status_item,
+                       i.classe_controle, i.tipo_retencao,
                        COALESCE((SELECT SUM(d.quantidade_dispensada)
                                    FROM dispensacoes d
                                   WHERE d.prescricao_item_id = i.id), 0)
@@ -166,6 +167,11 @@ def fila(
                     # backend — FONTE ÚNICA para a UI (Fatia B lê i.acionavel,
                     # nunca recalcula "terminal" no cliente). §2a R1.
                     "acionavel": saldo > 0 and it["status_item"] not in BLOQUEADOS_HARD_DISPENSA,
+                    # R4-FRONTEND — selo de controlado na fila. Derivado no backend
+                    # (item é controlado se tem classe_controle ou tipo_retencao);
+                    # a escrituração congelada só nasce na dispensação, então aqui o
+                    # sinal vem do próprio item. Não-controlado → False (sem selo).
+                    "controlado": bool(it["classe_controle"] or it["tipo_retencao"]),
                 })
 
             fila_out.append({
