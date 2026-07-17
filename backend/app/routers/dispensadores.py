@@ -300,6 +300,7 @@ SELECT
     d.id                    AS dispensacao_id,
     d.dispensado_em         AS data_movimento,
     d.prescricao_item_id    AS item_id,
+    p.id                    AS prescricao_id,
     p.protocolo             AS protocolo_prescricao,
     i.nome_medicamento      AS medicamento,
     i.concentracao          AS dose,
@@ -331,6 +332,7 @@ SELECT
     e.protocolo             AS estorno_protocolo,
     e.criado_em             AS data_movimento,
     e.prescricao_item_id    AS item_id,
+    p.id                    AS prescricao_id,
     p.protocolo             AS protocolo_prescricao,
     i.nome_medicamento      AS medicamento,
     i.concentracao          AS dose,
@@ -386,6 +388,44 @@ def _janela_periodo(data_inicio: Optional[str], data_fim: Optional[str]):
     return dt_inicio, dt_fim, filtros
 
 
+# Lote do fetch de linhagem — abaixo do teto de variáveis do SQLite (999) para
+# não estourar o `IN (?)` em farmácias com muitas prescrições distintas.
+_LOTE_LINHAGEM = 400
+
+
+def _carregar_linhagem(conn, prescricao_ids) -> dict:
+    """Carrega o FECHO TRANSITIVO da linhagem (id → origem, protocolo) dos
+    `prescricao_ids` dados e de todos os seus ancestrais, para a walk R3 resolver
+    o protocolo-raiz em memória (domain/relatorio_sngpc.resolver_protocolo_raiz).
+
+    Fetch iterativo por lote de SELECTs planos — NÃO CTE recursiva (paridade
+    SQLite×PG, coerência com o motor puro; §1 do ticket). READ-ONLY: só SELECT.
+
+    A linhagem é GLOBAL (sem filtro de CNPJ): ancestrais podem ter sido criados
+    por qualquer prescritor, e a raiz precisa resolver independentemente de quem
+    derivou. Expõe apenas id/origem/protocolo (UUID) — nenhuma PII."""
+    linhagem: dict = {}
+    pendentes = {i for i in prescricao_ids if i is not None}
+    while pendentes:
+        lote = list(pendentes)[:_LOTE_LINHAGEM]
+        marcadores = ",".join("?" * len(lote))
+        rows = conn.execute(
+            f"SELECT id, origem_prescricao_id, protocolo FROM prescricoes "
+            f"WHERE id IN ({marcadores})",
+            tuple(lote),
+        ).fetchall()
+        pendentes.difference_update(lote)   # sai da fila mesmo se não achou (evita loop)
+        for r in rows:
+            linhagem[r["id"]] = {
+                "origem": r["origem_prescricao_id"],
+                "protocolo": r["protocolo"],
+            }
+            origem = r["origem_prescricao_id"]
+            if origem is not None and origem not in linhagem:
+                pendentes.add(origem)
+    return linhagem
+
+
 def _movimentos_do_cnpj(conn, cnpj: str) -> list[dict]:
     """Constrói os movimentos (com saldo corrido por corte temporal) do CNPJ.
     Saldo calculado sobre TODO o histórico do estabelecimento; o filtro de período
@@ -396,7 +436,9 @@ def _movimentos_do_cnpj(conn, cnpj: str) -> list[dict]:
     est_rows = conn.execute(
         _SQL_ESTORNOS_MOV, (cnpj, _CPF_NAO_IDENTIFICADO)
     ).fetchall()
-    return sngpc.construir_movimentos(disp_rows, est_rows)
+    ids = {r["prescricao_id"] for r in disp_rows} | {r["prescricao_id"] for r in est_rows}
+    linhagem = _carregar_linhagem(conn, ids)
+    return sngpc.construir_movimentos(disp_rows, est_rows, linhagem)
 
 
 @router.get("/relatorio.csv", summary="Escrituração SNGPC (CSV) do dispensador")
