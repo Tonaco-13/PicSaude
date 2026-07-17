@@ -412,13 +412,22 @@
             });
         }
 
+        function _extrairMsgErro(errData, fallback) {
+            const d = errData && errData.detail;
+            if (d == null) return fallback;
+            if (typeof d === 'string') return d;
+            if (Array.isArray(d)) return d.map(e => (e && e.msg) ? e.msg : JSON.stringify(e)).join('; ');
+            if (typeof d === 'object') return d.mensagem || d.msg || JSON.stringify(d);
+            return String(d);
+        }
+
         async function apiFetch(path, opts = {}) {
             const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
             if (sessaoAtual.token) headers['Authorization'] = `Bearer ${sessaoAtual.token}`;
             const res = await fetch(API + path, { ...opts, headers });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: res.statusText }));
-                throw new Error(err.detail || res.statusText);
+                throw new Error(_extrairMsgErro(err, res.statusText));
             }
             return res.json();
         }
