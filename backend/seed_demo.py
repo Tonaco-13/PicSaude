@@ -237,15 +237,23 @@ def _garantir_receita_na_fila(conn) -> None:
     # domain/medicamento.py). Sem ela, o comprovante imprimiria "21" sem dizer
     # 21 de quê (TICKET-UNIDADE-QUANTIDADE-VISIVEL, Frente A). NUNCA inventar:
     # aqui a unidade é lida direto da posologia que já está no seed.
-    for nome, conc, qtd, poso, unidade in (
-        ("LOSARTANA", "50mg", 30, "1 comprimido ao dia", "comprimido"),
-        ("AMOXICILINA", "500mg", 21, "1 cápsula de 8/8h por 7 dias", "cápsula"),
+    #
+    # R4 (CLAUDE.md §2a) — o CLONAZEPAM é B1 (benzodiazepínico, Notificação de
+    # Receita Azul). Sem um item controlado no seed a escrituração regulatória
+    # sairia sempre NULL e o grupo congelado nunca apareceria na tela da demo.
+    # `classe_controle="B1"` faz o motor resolver `notificacao_receita_b` no ato
+    # da dispensação; itens comuns ficam com NULL (não-controlado, vazio no relatório).
+    for nome, conc, qtd, poso, unidade, classe in (
+        ("LOSARTANA", "50mg", 30, "1 comprimido ao dia", "comprimido", None),
+        ("AMOXICILINA", "500mg", 21, "1 cápsula de 8/8h por 7 dias", "cápsula", None),
+        ("CLONAZEPAM", "2mg", 30, "1 comprimido à noite", "comprimido", "B1"),
     ):
         conn.execute(
             "INSERT INTO prescricao_itens (prescricao_id, nome_medicamento, concentracao, "
-            "quantidade, unidade_quantidade, posologia, status_item, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?)",
-            (pid, nome, conc, qtd, unidade, poso, now, now),
+            "quantidade, unidade_quantidade, posologia, classe_controle, status_item, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?)",
+            (pid, nome, conc, qtd, unidade, poso, classe, now, now),
         )
 
     # Custódia ATIVA da Farmácia Demo Central (= efeito da transferência
@@ -256,7 +264,7 @@ def _garantir_receita_na_fila(conn) -> None:
         "VALUES (?, NULL, 'dispensador', ?, ?, NULL, 'seed_demo_fila_t4', ?)",
         (pid, DISPENSADOR["cnpj"], now, now),
     )
-    print(f"  ✅ receita-demo (fila): '{proto}' — 2 itens sob custódia de {DISPENSADOR['cnpj']}")
+    print(f"  ✅ receita-demo (fila): '{proto}' — 3 itens (1 controlado B1) sob custódia de {DISPENSADOR['cnpj']}")
 
 
 def main() -> None:
