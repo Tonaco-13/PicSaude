@@ -114,6 +114,7 @@
 | 🟡 | **M8** import local p/ evitar ciclo `medicamento↔catalogo_regulatorio` |
 | 🟡 | `_cns_origem` recomputado no read (micro-opt) |
 | 📋 | Cobertura focal de ledger (receituarios/hospitalares/assinaturas) | TICKET-COBERTURA-LEDGER-COMPLEMENTAR |
+| 📋 | **`protocolo_raiz` (R3) só para prescrição** — a walk de linhagem-mãe (`origem_prescricao_id`) só é projetada no relatório SNGPC. Laudo/encaminhamento/contrarreferência **têm** `origem_*_id`, mas **nenhum relatório** hoje. Generalizar a resolução de raiz (motor `resolver_protocolo_raiz` + fetch de fecho transitivo) para os demais objetos é **ticket próprio** quando cada um ganhar relatório. Ref: TICKET-R3-PROTOCOLO-RAIZ |
 | ⚠️ | **Armadilha bool×integer** (coluna Boolean + literal `0/1`) passa em SQLite, quebra na PG — vigilância contínua; rodar gate PG nos 2xx |
 
 ---
