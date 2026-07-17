@@ -1,6 +1,6 @@
 # Registro de Dívida Técnica — PicSaúde
 
-> Atualizado em **2026-06-14**. Consolida o que foi **verificado** (não confiar em
+> Atualizado em **2026-07-16**. Consolida o que foi **verificado** (não confiar em
 > alegação de revisor automático — a ultra-review de 2026-06-14 teve 54% de falso-positivo
 > nos críticos/altos). Cada item tem status e fonte.
 
@@ -66,6 +66,7 @@
 | 📋 | **B.1** correção de laudo cross-patient | TICKET-5C-BIS-B.1 |
 | 📋 | **SM1 = TICKET-5C-BIS-A.1** — `resultado_disponivel` terminal torna `encerrar` inalcançável. **Corroborado independentemente** pela verificação formal (paper §VII, propriedade P2) — duas detecções por métodos distintos (gate PG + checagem de absorvência) | TICKET-5C-BIS-A.1 · `core` states_exame.py |
 | 📋 | **SM2 → TICKET-ESTORNO-OBJETO-DERIVADO** — martelo de Fabiano (2026-06-15): estorno vira **objeto derivado** imutável (não transição `dispensado→estornado`). Resolve o SM2 tornando `dispensado` absorvente. Implementação `core` **adiada p/ pós-paper** (forks de domínio + desincronia com a §VII) | TICKET-ESTORNO-OBJETO-DERIVADO · `core` states.py |
+| 🔴 | **CSV do auditor perde a unidade** (achado da triagem 2026-07-16, ao verificar o #96): `_SQL_BASE` **seleciona** `i.unidade_quantidade` (relatorios.py:57), o **PDF** a exibe em coluna própria (`Unidade` → "cápsula"), mas o **CSV** a descarta — `_CABECALHO` (relatorios.py:94) não tem a coluna e o `writerow` não a emite. Resultado: CSV traz `"21"` sem dizer 21 de quê, **divergindo do PDF gerado da mesma query**. Não é dado faltando no banco (o seed grava a unidade desde o #96) — é coluna perdida na serialização. Fix é aditivo (1 coluna no `_CABECALHO` + 1 campo no `writerow`), mas muda o contrato do CSV → merece a mesma fatia do DIVIDA-RELATORIO-AUDITOR abaixo, que já reescreve esse endpoint | triagem 2026-07-16 · relatorios.py:57,94 |
 | 🔴 | **DIVIDA-RELATORIO-AUDITOR** (severidade **ALTA** — risco regulatório; registrado por parecer Z AI 2026-07-10): a visão do auditor `/relatorios/dispensacoes.{csv,pdf}` é **pré-T2/T5** — emite comprador=paciente (ignora `dispensacoes.comprador_*`) e **ignora `estornos`**, mostrando dispensação estornada como saída plena = **escrituração incorreta**. Enquanto coexistirem 2 endpoints de escrituração (dispensador correto pós-F5, auditor incorreto), o auditor confia no errado. Corrigir na fatia seguinte ao TICKET-F5-RELATORIO-SNGPC, reusando a mesma semântica de movimento/corte temporal | TICKET-F5-RELATORIO-SNGPC §1/§6 · relatorios.py:106,179 |
 
 ---
@@ -84,6 +85,24 @@
 |---|---|
 | ✅ | H8 outbox traceback (#17) |
 | 🔴 | **M7** pool de DB hardcoded (`pool_size=10`, `max_overflow=20`) — não configurável por env (database.py) |
+| 🔴 | **Banco demo fora do controle de migração** — `data/pix_saude_demo.db` **não tem tabela `alembic_version`**; `alembic/env.py` ignora `PICSAUDE_DEMO_MODE` e sempre migra `DB_PATH`. O schema do demo pode **driftar silenciosamente** das migrações — uma migração nova não chega nele, e a demo quebra **parecendo bug de código**. Origem: triagem 2026-07-16 |
+
+**Detalhe do drift do banco demo** (verificado 2026-07-16, não implementar agora):
+
+- `alembic/env.py:67-77` resolve o fallback SQLite com o path **hardcoded**
+  `data/pix_saude_pe.db`, e **nunca** chama `database._resolve_sqlite_db_path()`.
+  O comentário em `env.py:59` diz *"mesma lógica de database.py, sem duplicar código"* —
+  mas ele **duplica** a lógica, e duplica **errado**: `database.py:27` devolve
+  `PIX_SAUDE_DEMO_DB if PICSAUDE_DEMO_MODE else DB_PATH`; o `env.py` só conhece `DB_PATH`.
+- Consequência medida: `pix_saude_pe.db` está em `alembic_version = d4e5f6a7b8c9`;
+  `pix_saude_demo.db` **não tem a tabela** — o Alembic nunca o tocou. O schema do demo
+  existe hoje por `init_tables.py` (`create_all` do ORM) + `CREATE TABLE IF NOT EXISTS`
+  no próprio `seed_demo.py`, **não** pelas migrações.
+- Por que arde: `create_all` reproduz o **estado final** dos models, mas não o que a
+  migração faz **além** do DDL (backfill, transformação de dado, constraint via `op.execute`).
+  Migração com data-fix não roda no demo — e o gate não pega, porque o gate roda em PG.
+- Reparo (quando for a hora): fazer `env.py` importar `_resolve_sqlite_db_path()` em vez de
+  reimplementá-la, e carimbar `alembic stamp head` no banco demo. É `ops`.
 
 ---
 
