@@ -28,6 +28,7 @@ from app.database import row_lock_suffix
 from app.database_tx import get_tx
 from app.domain.confianca_cuidado import calcular_score_confianca_dispensacao
 from app.domain.ledger import registrar_evento_ledger
+from app.domain.motor_regulatorio import escriturar_grupo_regulatorio
 from app.domain.states import (
     BLOQUEADOS_HARD_DISPENSA,
     ESTADOS_PRESCRICAO,
@@ -794,6 +795,27 @@ def dispensar_item(
                 detail=f"Quantidade solicitada ({payload.quantidade_dispensada}) supera o saldo disponível ({saldo}).",
             )
 
+        # R4 (CLAUDE.md §2a) — escrituração regulatória CONGELADA POR VALOR no ato
+        # da dispensação (regime vigente à saída do produto). Resolve o grupo do
+        # motor LOCAL a partir de campos ESTRUTURADOS do item; sem fuzzy, sem
+        # chamada externa. NULL honesto p/ não-controlado; falha alta se um item
+        # COM classe/tipo preenchido não classificar (não congela NULL p/ controlado).
+        try:
+            grupo_regulatorio_id, motor_regulatorio_versao = escriturar_grupo_regulatorio(
+                item["classe_controle"], item["tipo_retencao"],
+            )
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "codigo": "classe_controle_inconsistente",
+                    "mensagem": (
+                        "Item tem classe de controle/retenção que o motor regulatório "
+                        f"não classifica; dispensação bloqueada. Detalhe: {exc}"
+                    ),
+                },
+            )
+
         # Gravar dispensação — captura o id para o comprovante (mesmo padrão
         # de `hospitalares.py`, PG-safe via camada `database.py`). Sem ele, o
         # frontend não tem como linkar GET /dispensacoes/{id}/comprovante.
@@ -802,12 +824,14 @@ def dispensar_item(
             INSERT INTO dispensacoes
               (prescricao_item_id, cnpj_estabelecimento, quantidade_dispensada,
                dispensado_por, dispensado_em, lote, fabricante, observacao,
-               origem_contexto, comprador_nome, comprador_documento, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               origem_contexto, comprador_nome, comprador_documento,
+               grupo_regulatorio_id, motor_regulatorio_versao, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (item_id, cnpj, payload.quantidade_dispensada, payload.dispensado_por,
              agora, payload.lote, payload.fabricante, payload.observacao,
-             payload.origem_contexto, payload.comprador_nome, payload.comprador_documento, agora),
+             payload.origem_contexto, payload.comprador_nome, payload.comprador_documento,
+             grupo_regulatorio_id, motor_regulatorio_versao, agora),
         )
         dispensacao_id = cur_disp.lastrowid
 

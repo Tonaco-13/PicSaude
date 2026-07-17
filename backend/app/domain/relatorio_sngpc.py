@@ -48,6 +48,10 @@ CABECALHO_CSV = [
     "medicamento",
     "dose",
     "unidade_quantidade",
+    # R4 (CLAUDE.md §2a) — identidade regulatória CONGELADA no movimento (dispensação).
+    # Projeção do valor gravado em dispensacoes.grupo_regulatorio_id; NUNCA re-resolvido
+    # na leitura (fixa o regime vigente à saída do produto). Vazio = não-controlado.
+    "grupo_regulatorio_id",
     "quantidade",
     "saldo_escriturado_item",
     "lote",
@@ -110,6 +114,7 @@ def _movimento_de_dispensacao(r: dict) -> dict:
         "medicamento": r["medicamento"],
         "dose": r.get("dose"),
         "unidade_quantidade": r.get("unidade_quantidade"),
+        "grupo_regulatorio_id": r.get("grupo_regulatorio_id"),
         "quantidade": q,
         "lote": r.get("lote"),
         "fabricante": r.get("fabricante"),
@@ -149,6 +154,9 @@ def _movimento_de_estorno(r: dict) -> dict:
         "medicamento": r["medicamento"],
         "dose": r.get("dose"),
         "unidade_quantidade": r.get("unidade_quantidade"),
+        # Estorno herda a identidade regulatória da dispensação de origem (JOIN
+        # em origem_dispensacao_id): o mesmo movimento, revertido.
+        "grupo_regulatorio_id": r.get("grupo_regulatorio_id"),
         "quantidade": q,
         "lote": r.get("lote"),
         "fabricante": r.get("fabricante"),
@@ -305,6 +313,7 @@ def linha_csv(m: dict) -> list:
         m["medicamento"] or "",
         m["dose"] or "",
         m["unidade_quantidade"] or "",
+        m.get("grupo_regulatorio_id") or "",   # R4 — vazio = não-controlado
         m["quantidade"],
         m["saldo_escriturado_item"],
         m["lote"] or "",

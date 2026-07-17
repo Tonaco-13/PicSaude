@@ -42,6 +42,19 @@ from app.domain.medicamento import CLASSES_CONTROLE_ESPECIAL
 from app.domain.retencao import TIPOS_RETENCAO_VALIDOS
 
 # ---------------------------------------------------------------------------
+# Versão do motor — carimbo de escrituração regulatória (R4, CLAUDE.md §2a)
+# ---------------------------------------------------------------------------
+# Congelada POR VALOR no movimento de dispensação junto com o grupo resolvido
+# (ver escriturar_grupo_regulatorio). É o que dá R1 pleno: se a definição de um
+# grupo mudar amanhã (RDC nova), o movimento passado guarda sob QUAL versão de
+# regra foi escriturado — sem precisar congelar todos os campos materiais.
+#
+# Bump SOMENTE quando a semântica de um grupo mudar (classes, vias, retenção,
+# assinatura mínima). É um marco regulatório, não um número de build.
+MOTOR_REGULATORIO_VERSAO = "1.0.0"
+
+
+# ---------------------------------------------------------------------------
 # Vocabulário de nível de assinatura
 # ---------------------------------------------------------------------------
 
@@ -285,6 +298,45 @@ def grupo_regulatorio(
 
     # 4. Sem classificação → simples.
     return GRUPO_SIMPLES
+
+
+# ---------------------------------------------------------------------------
+# Escrituração regulatória — R4 (CLAUDE.md §2a)
+# ---------------------------------------------------------------------------
+
+def escriturar_grupo_regulatorio(
+    classe_controle: Optional[str],
+    tipo_retencao: Optional[str] = None,
+) -> tuple[Optional[str], Optional[str]]:
+    """Resolve a **identidade regulatória a congelar no movimento** (R4).
+
+    Devolve `(grupo_regulatorio_id, motor_regulatorio_versao)` para o chamador
+    gravar POR VALOR na dispensação — como já se faz com `lote`/`fabricante`.
+    Congelar por valor (não FK/derivação ao vivo) é o coração do R4: re-resolver
+    na leitura daria a resposta do motor de HOJE; se a regra mudou, o período
+    fechado mudaria (feriria R1). O snapshot fixa o que valeu à saída do produto.
+
+    Semântica (decisões marteladas no TICKET-R4):
+      - **NULL honesto para não-controlado.** `classe_controle` e `tipo_retencao`
+        ambos vazios → grupo `receita_simples` → devolve `(None, None)`. O
+        relatório mostra vazio; NUNCA se inventa grupo para um item comum.
+      - **Item controlado** → `(id_grupo, MOTOR_REGULATORIO_VERSAO)`: a identidade
+        regulatória (slug estável) mais o carimbo de versão da regra.
+      - **Falha alta, não NULL silencioso.** Item COM `classe_controle`/
+        `tipo_retencao` preenchido que o motor não classifica → `grupo_regulatorio`
+        levanta `ValueError`/`RuntimeError` e este helper **propaga**. O chamador
+        converte em erro HTTP: nunca se congela NULL para um controlado. Coerência
+        com o "não silenciar" do próprio motor.
+
+    Fronteira (§ ticket — sem API ANVISA/SNCR ao vivo): o motor é local e puro;
+    nenhuma chamada externa. Congelamos só o que NÓS sabemos dizer do movimento
+    (grupo + versão da regra), nunca um dado que dependeria de terceiro.
+    """
+    grupo = grupo_regulatorio(classe_controle, tipo_retencao)
+    if grupo.id_grupo == GRUPO_SIMPLES.id_grupo:
+        # Não-controlado: sem escrituração regulatória (NULL honesto).
+        return None, None
+    return grupo.id_grupo, MOTOR_REGULATORIO_VERSAO
 
 
 # ---------------------------------------------------------------------------

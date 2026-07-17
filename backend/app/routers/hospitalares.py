@@ -30,6 +30,7 @@ from pydantic import BaseModel, field_validator
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
+from app.domain.motor_regulatorio import escriturar_grupo_regulatorio
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, _assert_or_403, _normalizar_identidade_jwt
 
@@ -354,19 +355,40 @@ def dispensar_hospitalar(
                 ),
             )
 
+        # R4 (CLAUDE.md §2a) — escrituração regulatória congelada por valor, idêntica
+        # ao caminho ambulatorial (custodia.py): a constraint e o registro base são
+        # os mesmos, o contexto hospitalar não muda o regime do movimento. Falha
+        # alta em classe inconsistente; NULL honesto p/ não-controlado.
+        try:
+            grupo_regulatorio_id, motor_regulatorio_versao = escriturar_grupo_regulatorio(
+                item["classe_controle"], item["tipo_retencao"],
+            )
+        except (ValueError, RuntimeError) as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "codigo": "classe_controle_inconsistente",
+                    "mensagem": (
+                        "Item tem classe de controle/retenção que o motor regulatório "
+                        f"não classifica; dispensação bloqueada. Detalhe: {exc}"
+                    ),
+                },
+            )
+
         # ── 4. Gravar registro base em `dispensacoes` ──────────────────────
         cursor = conn.execute(
             """
             INSERT INTO dispensacoes
               (prescricao_item_id, cnpj_estabelecimento, quantidade_dispensada,
                dispensado_por, dispensado_em, lote, fabricante, observacao,
-               origem_contexto, created_at)
-            VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)
+               origem_contexto, grupo_regulatorio_id, motor_regulatorio_versao, created_at)
+            VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?)
             """,
             (
                 item_id, cnpj_base, payload.quantidade_dispensada,
                 payload.dispensado_por or "farmaceutico_hospitalar",
-                agora, payload.origem_contexto, agora,
+                agora, payload.origem_contexto,
+                grupo_regulatorio_id, motor_regulatorio_versao, agora,
             ),
         )
         dispensacao_id = cursor.lastrowid

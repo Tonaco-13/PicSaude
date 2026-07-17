@@ -32,6 +32,14 @@ class Dispensacao(Base):
     fabricante            = Column(String, nullable=True)
     observacao            = Column(Text, nullable=True)
     origem_contexto       = Column(String(30), nullable=True)   # 'cnes_verificado' | 'manual' | NULL (legado)
+    # R4 (CLAUDE.md §2a) — escrituração regulatória CONGELADA POR VALOR no ato da
+    # dispensação (regime vigente à saída do produto). Resolvidos pelo motor local
+    # (motor_regulatorio.escriturar_grupo_regulatorio) a partir de classe_controle/
+    # tipo_retencao do item. NULL honesto = item não-controlado (sem escrituração).
+    # NUNCA re-resolver na leitura: fixar o que valeu à época (R1). Precedente de
+    # nullable congelado: lote/fabricante.
+    grupo_regulatorio_id   = Column(String, nullable=True)      # id_grupo (slug estável) | NULL
+    motor_regulatorio_versao = Column(String, nullable=True)    # carimbo da versão da regra | NULL
     # T5 — comprador (portador que retira) × paciente (indicação clínica). Opcional,
     # gravado no INSERT e imutável (atributo por-dispensação). NULL → comprador = paciente (MVP).
     comprador_nome        = Column(String, nullable=True)
