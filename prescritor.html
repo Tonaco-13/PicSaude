@@ -764,7 +764,7 @@
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(o CFM exige local e data)</span>
                             </label>
                             <input type="text" id="atestado-municipio" class="form-input"
-                                   placeholder="ex.: Recife">
+                                   required placeholder="ex.: Recife">
                         </div>
                     </div>
 
@@ -2940,12 +2940,6 @@
             });
         })();
 
-        // Popula conselho/UF do registro assim que a página carrega. Idempotente:
-        // sai cedo se os seletores já estiverem montados.
-        (function _wireRegistroAtestado() {
-            _montarSeletoresRegistroAtestado();
-        })();
-
         // ── Wire-up: indicação clínica da prescrição (opcional + IA CID) ──────
         // Triangulação leve: o texto da indicação sugere CID(s); as etiquetas ficam
         // em #ia-cid-prescricao-chips. Em emitirReceitaDigital, o 1º CID (primário)
@@ -3454,28 +3448,47 @@
             return _catalogoConselhos;
         }
 
+        /** Aviso de degradação honesta — o único estado em que o seletor fica vazio. */
+        function _degradarSeletorConselho(motivo) {
+            const hint = document.getElementById('atestado-conselho-hint');
+            if (hint) {
+                hint.textContent = 'Catálogo de conselhos indisponível — o atestado sairá como médico.';
+                hint.style.color = '#b45309';
+            }
+            console.warn('[atestado] seletor de conselho degradado: ' + motivo);
+        }
+
         /** Popula os seletores de conselho e UF do formulário de atestado. */
         async function _montarSeletoresRegistroAtestado() {
-            const selCons = document.getElementById('atestado-conselho');
-            const selUf   = document.getElementById('atestado-uf-registro');
-            if (!selCons || !selUf) return;
+            // try/catch envolve TUDO: um seletor vazio e MUDO é a pior saída —
+            // um dentista emitiria ATESTADO MÉDICO sem perceber. Qualquer falha
+            // inesperada tem de cair na degradação honesta, que é visível.
+            // (Regressão real: a chamada de bootstrap ficava ANTES da declaração
+            // `let _catalogoConselhos`, e o ReferenceError da temporal dead zone
+            // estourava fora do try do fetch — seletor vazio, hint em branco.)
+            try {
+                const selCons = document.getElementById('atestado-conselho');
+                const selUf   = document.getElementById('atestado-uf-registro');
+                if (!selCons || !selUf) return;
 
-            if (selUf.options.length <= 1) {
-                UFS.forEach(u => selUf.add(new Option(u, u)));
-            }
+                if (selUf.options.length <= 1) {
+                    UFS.forEach(u => selUf.add(new Option(u, u)));
+                }
 
-            const cat = await _carregarCatalogoConselhos();
-            if (selCons.options.length > 1) return;
-            if (!cat.length) {
-                // Backend inacessível: não inventamos o catálogo. Sem conselho
-                // declarado o backend trata como legado e o PDF sai como
-                // "ATESTADO MÉDICO" — degradação honesta, nada de palpite.
-                document.getElementById('atestado-conselho-hint').textContent =
-                    'Catálogo de conselhos indisponível — o atestado sairá como médico.';
-                return;
+                const cat = await _carregarCatalogoConselhos();
+                if (selCons.options.length > 1) return;
+                if (!cat.length) {
+                    // Backend inacessível: não inventamos o catálogo. Sem conselho
+                    // declarado o backend trata como legado e o PDF sai como
+                    // "ATESTADO MÉDICO" — degradação honesta, nada de palpite.
+                    _degradarSeletorConselho('catálogo vazio');
+                    return;
+                }
+                cat.forEach(c => selCons.add(new Option(c.sigla_registro, c.id_conselho)));
+                _aoMudarConselhoAtestado();
+            } catch (e) {
+                _degradarSeletorConselho(e && e.message ? e.message : String(e));
             }
-            cat.forEach(c => selCons.add(new Option(c.sigla_registro, c.id_conselho)));
-            _aoMudarConselhoAtestado();
         }
 
         /** Mostra qual documento o conselho escolhido vai produzir. */
@@ -3497,6 +3510,17 @@
             if (!num) return '';
             const c = _catalogoConselhos.find(x => x.id_conselho === sel.value);
             return (c && uf) ? `${c.sigla_registro}-${uf} ${num}` : num;
+        }
+
+        // Bootstrap do seletor de conselho. Fica AQUI, depois das declarações
+        // acima, e não junto dos outros wire-ups (~2940): `_catalogoConselhos` é
+        // `let`, então chamar antes desta linha cai na temporal dead zone e o
+        // ReferenceError deixava o seletor vazio e silencioso. `defer` via
+        // DOMContentLoaded garante ainda que o <select> já exista no DOM.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _montarSeletoresRegistroAtestado);
+        } else {
+            _montarSeletoresRegistroAtestado();
         }
 
         /**
