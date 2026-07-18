@@ -14232,3 +14232,10 @@ Z99.2,Dependência de diálise renal,DATASUS/CID-10 V2008
 Z99.3,Dependência de cadeira de rodas,DATASUS/CID-10 V2008
 Z99.8,Dependência de outras máquinas e aparelhos capacitantes,DATASUS/CID-10 V2008
 Z99.9,Dependência de máquina e aparelho capacitante não especificado,DATASUS/CID-10 V2008
+U07.1,"COVID-19, vírus identificado",OMS/CID-10 uso emergencial 2020
+U07.2,"COVID-19, vírus não identificado",OMS/CID-10 uso emergencial 2020
+U08.9,"História pessoal de COVID-19, não especificada",OMS/CID-10 uso emergencial 2020 (set/2020)
+U09.9,"Condição de saúde posterior à COVID-19, não especificada",OMS/CID-10 uso emergencial 2020 (set/2020)
+U10.9,"Síndrome inflamatória multissistêmica associada à COVID-19, não especificada",OMS/CID-10 uso emergencial 2020 (set/2020)
+U11.9,"Necessidade de imunização contra a COVID-19, não especificada",OMS/CID-10 uso emergencial 2021 (jan/2021)
+U12.9,"Vacinas contra a COVID-19 usadas com finalidade terapêutica causando efeitos adversos, não especificada",OMS/CID-10 uso emergencial 2021 (jan/2021)
