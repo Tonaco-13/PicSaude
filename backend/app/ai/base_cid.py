@@ -55,7 +55,16 @@ def _norm(s: str) -> str:
 # Base curada
 # ---------------------------------------------------------------------------
 
-_VERSAO_BASE = "DATASUS CID-10 V2008 + curadoria 2026-03"
+# A string ANTERIOR já dizia "V2008" e ainda assim a defasagem passou
+# despercebida — ninguém relê uma constante. Por isso ela agora nomeia
+# explicitamente o que falta, e a proveniência auditável de verdade é
+# `BASE_CID.manifesto()`, DERIVADA da coluna `fonte` de cada registro
+# (não tem como mentir). Ver TICKET-CID-VALIDACAO, Frente A.
+_VERSAO_BASE = (
+    "DATASUS CID-10 V2008 (base) "
+    "+ uso emergencial OMS 2020/2021 (família U07–U12, COVID-19) "
+    "+ curadoria 2026-07"
+)
 _FONTE       = "CID10/BASE_LOCAL"
 
 _BASE_CID_RAW: list[dict] = [
@@ -453,6 +462,28 @@ _BASE_CID_RAW: list[dict] = [
      "categoria": "preventivo", "aliases": ["historico cancer mama", "ex cancer mama", "seguimento cancer mama"]},
     {"codigo_cid": "Z96.6","descricao": "Presença de implantes ortopédicos em articulações",
      "categoria": "preventivo", "aliases": ["protese articular", "implante ortopedico", "joelho protese"]},
+
+    # ── Uso emergencial pós-2008 (OMS) — COVID-19 ───────────────────────────
+    # TICKET-CID-VALIDACAO, Frente A. Os códigos vêm do CSV (com a `fonte` real
+    # de cada um); a curadoria aqui existe só pelos ALIASES.
+    #
+    # Sem eles a busca depende da descrição oficial, e nenhum prescritor digita
+    # "vírus identificado" — digita "covid". Este é o caso que expôs a defasagem:
+    # o médico não achava COVID na busca porque o código sequer existia na base.
+    {"codigo_cid": "U07.1", "descricao": "COVID-19, vírus identificado",
+     "categoria": "infectologia",
+     "aliases": ["covid", "covid-19", "covid 19", "coronavirus", "sars-cov-2",
+                 "covid confirmado", "covid laboratorial"]},
+    {"codigo_cid": "U07.2", "descricao": "COVID-19, vírus não identificado",
+     "categoria": "infectologia",
+     "aliases": ["covid clinico", "covid sem confirmacao", "covid suspeito",
+                 "covid epidemiologico"]},
+    {"codigo_cid": "U09.9", "descricao": "Condição de saúde posterior à COVID-19, não especificada",
+     "categoria": "infectologia",
+     "aliases": ["covid longa", "pos covid", "sindrome pos covid", "long covid"]},
+    {"codigo_cid": "U10.9", "descricao": "Síndrome inflamatória multissistêmica associada à COVID-19, não especificada",
+     "categoria": "infectologia",
+     "aliases": ["sim-p", "sindrome inflamatoria multissistemica", "mis-c"]},
 ]
 
 
@@ -493,6 +524,31 @@ class _BaseCID:
     @property
     def versao(self) -> str:
         return _VERSAO_BASE
+
+    # ── Proveniência auditável ──────────────────────────────────────────────
+
+    def manifesto(self) -> dict:
+        """Proveniência DERIVADA dos dados carregados — não uma string declarada.
+
+        TICKET-CID-VALIDACAO, Frente A. A defasagem da base (sem U07.1/COVID-19)
+        passou despercebida mesmo com `_VERSAO_BASE` dizendo "V2008": uma string
+        escrita à mão envelhece em silêncio e ninguém relê. Este manifesto conta
+        os registros POR FONTE a partir do que foi de fato carregado, então não
+        tem como mentir — se alguém acrescentar códigos sem declarar a origem,
+        aparece aqui como uma fonte nova (ou como o default `CID10/BASE_LOCAL`).
+
+        Serve à pergunta que ninguém conseguia responder: "quão velha é esta base?"
+        """
+        por_fonte: dict[str, int] = {}
+        for r in self._registros:
+            fonte = r.get("fonte") or _FONTE
+            por_fonte[fonte] = por_fonte.get(fonte, 0) + 1
+        return {
+            "versao_declarada": _VERSAO_BASE,
+            "total_registros":  self.total,
+            "por_fonte":        dict(sorted(por_fonte.items())),
+            "arquivo_csv":      _resolver_cid_csv(),
+        }
 
     # ── Busca exata por código ──────────────────────────────────────────────
 
