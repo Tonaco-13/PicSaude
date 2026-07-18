@@ -31,6 +31,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from app.auth.dependencies import require_role
 from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
+from app.domain.cid import (
+    consultar_catalogo_cid,
+    normalizar_codigo_cid,
+    validar_codigo_cid_schema,
+)
 from app.domain.cofre_pfx import decifrar_pfx
 from app.domain.conselho_profissional import IDS_CONSELHO_VALIDOS
 from app.domain.ledger import registrar_evento_ledger
@@ -129,6 +134,9 @@ class AtestadoIn(BaseModel):
     _normalizar_conselho   = field_validator("conselho")(_validar_conselho)
     _normalizar_uf         = field_validator("uf_registro")(_validar_uf_registro)
     _normalizar_horas      = field_validator("hora_inicio", "hora_fim")(_validar_hora)
+    # FORMATO é estrito (422); CATÁLOGO é suave e resolvido no endpoint.
+    # Ver domain/cid.py para o porquê da assimetria.
+    _normalizar_cid        = field_validator("codigo_cid")(validar_codigo_cid_schema)
 
     @field_validator("finalidade")
     @classmethod
@@ -194,6 +202,22 @@ class AtestadoFisicaIn(BaseModel):
     _normalizar_conselho = field_validator("conselho")(_validar_conselho)
     _normalizar_uf       = field_validator("uf_registro")(_validar_uf_registro)
     _normalizar_horas    = field_validator("hora_inicio", "hora_fim")(_validar_hora)
+
+    @field_validator("codigo_cid")
+    @classmethod
+    def _cid_normalizado_sem_rejeitar(cls, v: Optional[str]) -> Optional[str]:
+        """No FÍSICO o CID é normalizado mas NUNCA rejeitado — só no digital.
+
+        Mesma razão já documentada acima para `municipio_emissao`: este POST é
+        fire-and-forget (CLAUDE.md §6). O papel já saiu na impressora quando o
+        backend valida. Um 422 aqui não desimprime nada — só descarta o registro
+        central, que é o pior dos dois mundos: atestado no mundo, nada no ledger.
+
+        Um CID malformado num atestado físico é um dado ruim; um atestado físico
+        sem NENHUM registro é um buraco de auditoria. Preferimos o dado ruim,
+        gravado e depois audível, ao silêncio.
+        """
+        return normalizar_codigo_cid(v)
 
     @field_validator("finalidade")
     @classmethod
@@ -407,12 +431,23 @@ def criar_atestado(
             ator_tipo="prescritor", ator_id=cns,
         )
 
+    # CATÁLOGO — camada suave. Consultada DEPOIS da escrita, de propósito: o
+    # resultado não pode influenciar se o atestado é gravado. Só informa a tela.
+    #
+    # Deliberadamente FORA do hash canônico e FORA do ledger. "Consta na nossa
+    # base" é propriedade do NOSSO catálogo naquele instante, não do documento
+    # clínico. No hash, quebraria a reprodutibilidade (CLAUDE.md §2a R1): o mesmo
+    # atestado passaria a ter hash diferente só porque atualizamos o CSV.
+    cid = consultar_catalogo_cid(payload.codigo_cid)
+
     return {
         "protocolo": protocolo,
         "status": "emitido",
         "tipo_emissao": payload.tipo_emissao,
         "finalidade": payload.finalidade,
         "codigo_cid": payload.codigo_cid,
+        "cid_consta_na_base": cid.consta_na_base if cid else None,
+        "cid_descricao": cid.descricao if cid else None,
         "dias_afastamento": payload.dias_afastamento,
         "data_documento": data_documento,
         "data_validade": data_validade,

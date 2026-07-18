@@ -16,6 +16,7 @@ from app.config import PICSAUDE_DECISAO_CLINICA, PICSAUDE_DEMO_MODE
 from app.database import get_conn
 from app.database_tx import get_tx
 from app.domain.auditoria_decisao import TIPO_EVENTO_DECISAO, montar_trilha_decisao
+from app.domain.cid import consultar_catalogo_cid, validar_codigo_cid_schema
 from app.domain.cofre_pfx import decifrar_pfx
 from app.domain.documento_canonico import montar_documento, montar_documento_de_conn
 from app.domain.ledger import registrar_evento_ledger
@@ -135,7 +136,10 @@ class PrescricaoIn(BaseModel):
     tipo_emissao: str = "nova"
     origem_prescricao_id: Optional[int] = None
     # Ticket 36 — Contexto clínico estruturado (ambos opcionais, sem default)
-    # A validação semântica do CID é responsabilidade da IA CID, não do backend.
+    # A validação SEMÂNTICA do CID segue sendo responsabilidade da IA CID, não do
+    # backend — se o código é clinicamente adequado à indicação, o backend não
+    # julga. TICKET-CID-VALIDACAO acrescenta só a camada SINTÁTICA: "I10" é um
+    # código, "gripe" não é. E consulta o catálogo sem bloquear. Ver domain/cid.py.
     indicacao_clinica: Optional[str] = None   # texto clínico livre (hipótese diagnóstica)
     codigo_cid: Optional[str] = None          # código CID-10 escolhido explicitamente (ex: "I10")
     # Ticket 63 — Escolha de modo de entrega na emissão.
@@ -152,6 +156,9 @@ class PrescricaoIn(BaseModel):
     # Quando cert_pem presente mas assinatura_b64 ausente → binding ICP sem verificação de assinatura.
     assinatura_b64: Optional[str] = None
     itens: List[ItemIn] = []
+
+    # FORMATO é estrito (422); CATÁLOGO é suave e resolvido no endpoint.
+    _normalizar_cid = field_validator("codigo_cid")(validar_codigo_cid_schema)
 
     @field_validator("tipo_emissao")
     @classmethod
@@ -659,6 +666,11 @@ def criar_prescricao(payload: PrescricaoIn, usuario=Depends(require_role("prescr
 
         conn.commit()
 
+        # CATÁLOGO — camada suave. Consultada DEPOIS do commit, de propósito: o
+        # resultado não pode influenciar se a prescrição é gravada. Só informa a
+        # tela. Nunca levanta (ver domain/cid.py).
+        _cid_catalogo = consultar_catalogo_cid(payload.codigo_cid)
+
         return {
             "id": prescricao_id,
             "protocolo": protocolo,
@@ -673,6 +685,13 @@ def criar_prescricao(payload: PrescricaoIn, usuario=Depends(require_role("prescr
             # Ticket 36 — contexto clínico (None quando não informado)
             "indicacao_clinica": payload.indicacao_clinica or None,
             "codigo_cid": payload.codigo_cid or None,
+            # TICKET-CID-VALIDACAO — camada SUAVE do catálogo. Informa a tela,
+            # nunca bloqueia. Fora do documento canônico e do ledger de propósito:
+            # "consta na nossa base" é propriedade do catálogo, não da prescrição
+            # (no hash, quebraria a reprodutibilidade — CLAUDE.md §2a R1).
+            # None = nenhum CID informado; False = bem-formado e fora da base.
+            "cid_consta_na_base": _cid_catalogo.consta_na_base if _cid_catalogo else None,
+            "cid_descricao": _cid_catalogo.descricao if _cid_catalogo else None,
             # Ticket 47 — resultado da validação CNES do prescritor
             "cnes_validacao": cnes_validacao,
             # Ticket 50 — score composto de confiança do cuidado
