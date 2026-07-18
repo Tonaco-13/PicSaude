@@ -110,6 +110,23 @@ _TABELAS_APP = [
 
 
 # ---------------------------------------------------------------------------
+# Path do SQLite — fonte ÚNICA, a mesma do engine
+# ---------------------------------------------------------------------------
+
+def _sqlite_path() -> str:
+    """Path do SQLite pelo mesmo resolver que o engine do SQLAlchemy usa.
+
+    Todo `sqlite3.connect()` deste arquivo passa por aqui. Importar
+    `app.config.DB_PATH` direto ignora o redirecionamento de `PICSAUDE_DEMO_MODE`
+    para `PIX_SAUDE_DEMO_DB` e faz este script operar num arquivo diferente
+    daquele onde o `create_all` criou as tabelas. Ver a nota em
+    `_aplicar_triggers_sqlite`.
+    """
+    from app.database import _resolve_sqlite_db_path
+    return _resolve_sqlite_db_path()
+
+
+# ---------------------------------------------------------------------------
 # Triggers de imutabilidade do ledger
 # ---------------------------------------------------------------------------
 
@@ -118,17 +135,30 @@ def _aplicar_triggers_sqlite(db_path: str | None = None) -> None:
 
     Parâmetros
     ----------
-    db_path : caminho explícito do banco SQLite. Quando ``None``, usa
-        ``app.config.DB_PATH`` (uso normal). Quando fornecido, conecta
-        diretamente nesse path — usado por fixtures de teste para
-        aplicar triggers em SQLite temporário sem alterar a config
-        global.
+    db_path : caminho explícito do banco SQLite. Quando ``None``, resolve pelo
+        MESMO caminho que o engine do SQLAlchemy usa. Quando fornecido, conecta
+        diretamente nesse path — usado por fixtures de teste para aplicar
+        triggers em SQLite temporário sem alterar a config global.
+
+    Nota (achado do TICKET-GATE-BROWSER)
+    ------------------------------------
+    Isto usava ``app.config.DB_PATH`` direto, enquanto o ``create_all`` roda no
+    engine, que resolve por ``_resolve_sqlite_db_path()`` — e esse resolver
+    redireciona para ``PIX_SAUDE_DEMO_DB`` quando ``PICSAUDE_DEMO_MODE=true``.
+    Com DEMO_MODE ligado os dois apontavam para ARQUIVOS DIFERENTES: as tabelas
+    nasciam no banco demo e os triggers eram tentados no banco de dev (vazio),
+    quebrando com "no such table: main.prescricao_eventos".
+
+    A consequência silenciosa era pior que o crash: o banco demo ficava com as
+    48 tabelas e ZERO triggers de imutabilidade — ou seja, sem a proteção de
+    banco que sustenta o ledger imutável (CLAUDE.md §2) justamente no ambiente
+    que vai à vitrine. Usar o resolver único elimina a divergência na origem.
     """
     import sqlite3
 
     if db_path is None:
-        from app.config import DB_PATH
-        db_path = DB_PATH
+        from app.database import _resolve_sqlite_db_path
+        db_path = _resolve_sqlite_db_path()
 
     conn = sqlite3.connect(db_path)
     try:
@@ -214,9 +244,8 @@ def _aplicar_triggers_postgres() -> None:
 
 def _get_tables_sqlite() -> set[str]:
     import sqlite3
-    from app.config import DB_PATH
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(_sqlite_path())
     try:
         return {
             row[0]
@@ -243,9 +272,8 @@ def _get_tables_postgres() -> set[str]:
 
 def _get_triggers_sqlite() -> set[str]:
     import sqlite3
-    from app.config import DB_PATH
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(_sqlite_path())
     try:
         return {
             row[0]
@@ -272,9 +300,8 @@ def _get_triggers_postgres() -> set[str]:
 
 def _has_column_sqlite(table: str, column: str) -> bool:
     import sqlite3
-    from app.config import DB_PATH
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(_sqlite_path())
     try:
         return any(
             row[1] == column
@@ -311,9 +338,8 @@ def _add_column_if_missing(table: str, column: str, definition: str) -> None:
     if not _has_column(table, column):
         if _USE_SQLITE:
             import sqlite3
-            from app.config import DB_PATH
 
-            conn = sqlite3.connect(DB_PATH)
+            conn = sqlite3.connect(_sqlite_path())
             try:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
                 conn.commit()
