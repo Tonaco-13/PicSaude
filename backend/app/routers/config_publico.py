@@ -19,6 +19,7 @@ from app.config import (
     PICSAUDE_DEMO_MODE,
     PICSAUDE_VERSION,
 )
+from app.domain.conselho_profissional import catalogo_publico
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -49,6 +50,12 @@ def get_config_publico(response: Response) -> dict:
     `demo_roles` é lista fixa, `proximo_reset` é uma hora cheia futura.
     `instance_id` real NÃO é exposto.
 
+    `conselhos_profissionais` é o catálogo CFM/CFO servido a partir da fonte única
+    (`domain/conselho_profissional.py`). É por aqui que o formulário de atestado
+    "pergunta ao domínio" em vez de repetir "ATESTADO ODONTOLÓGICO" no HTML —
+    mesma régua do nome do grupo regulatório no comprovante (R4). Catálogo
+    estático e sem dado de paciente: cabe no endpoint público.
+
     Cache-Control: no-store (P3#10 TICKET-6) — `proximo_reset` muda com o
     tempo; cache do navegador atrasaria o banner.
     """
@@ -61,4 +68,5 @@ def get_config_publico(response: Response) -> dict:
         "demo_roles":    _papeis_demo_disponiveis() if PICSAUDE_DEMO_MODE else [],
         "proximo_reset": proximo_reset,
         "instance_id":   None,
+        "conselhos_profissionais": catalogo_publico(),
     }
