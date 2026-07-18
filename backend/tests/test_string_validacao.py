@@ -542,12 +542,12 @@ def client_com_db(tmp_path):
 
     from app.database import Base
     import app.models  # noqa
-    from init_tables import aplicar_triggers_ledger
+    from app.domain.ledger_imutabilidade import aplicar_triggers_sqlite
 
     eng = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=eng)
     eng.dispose()
-    aplicar_triggers_ledger(db_path)
+    aplicar_triggers_sqlite(db_path)
 
     # Adicionar migration string_validacao_prescritor (pode não estar no schema SQLAlchemy)
     conn_raw = sqlite3.connect(db_path)

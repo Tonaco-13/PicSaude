@@ -16,11 +16,11 @@ from sqlalchemy import create_engine
 def _init_schema(db_path: str) -> None:
     from app.database import Base
     import app.models  # noqa
-    from init_tables import aplicar_triggers_ledger
+    from app.domain.ledger_imutabilidade import aplicar_triggers_sqlite
     eng = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=eng)
     eng.dispose()
-    aplicar_triggers_ledger(db_path)
+    aplicar_triggers_sqlite(db_path)
 
 
 def _make_get_conn(db_path: str):
