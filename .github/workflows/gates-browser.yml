@@ -1,0 +1,92 @@
+name: gates-browser
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TICKET-GATE-BROWSER — segunda camada do gate de frontend (opção C, híbrido).
+#
+# POR QUE SEPARADO DO gates.yml
+# O defeito do #103 (seletor de conselho vazio por temporal dead zone) só nasce
+# em PR que toca a tela. Rodar um navegador num PR de ledger é pagar por nada.
+#
+#   Guardas estáticas (tests/unit/test_frontend_atestado.py) → TODO PR, rápidas.
+#   Smokes de navegador (tests/browser/)                     → só PR de *.html.
+#
+# Estático é a primeira linha; navegador é a segunda, onde o estático é cego —
+# ele confere a ORDEM do código, não o RESULTADO na tela.
+#
+# POR QUE PLAYWRIGHT-PYTHON
+# O repo é Python puro: sem package.json, sem node_modules. pytest-playwright
+# roda dentro do pytest que já existe e traz o próprio Chromium (não depende de
+# Chrome no runner). Puppeteer/Cypress trariam uma toolchain Node inteira.
+#
+# NOTA — dívida #98: o job reconstrói o banco demo à mão (init_tables.py +
+# seed_demo.py), que é exatamente a receita que a dívida nos obriga a repetir.
+# Bônus: o CI passa a PROVAR que a receita funciona. Quando #98 for paga (o demo
+# entrar no alembic), o passo "Preparar banco demo" some daqui.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    paths:
+      - '**.html'
+      # O harness e as próprias dependências do gate também disparam: um PR que
+      # mexe no conftest/smokes precisa provar que eles ainda rodam.
+      - 'backend/tests/browser/**'
+      - 'requirements-browser.txt'
+      - '.github/workflows/gates-browser.yml'
+      # O seed é o fornecedor dos dados que o smoke da fila audita (item
+      # controlado + unidade). Quebrou o seed, quebrou o smoke.
+      - 'backend/seed_demo.py'
+  schedule:
+    # 06:20 UTC — 20 min depois do gate principal, para não disputar runner.
+    # O nightly pega o que o filtro de paths não pega: quebra vinda de mudança
+    # no backend que só aparece na tela (ex.: /config/public parar de servir os
+    # conselhos deixaria o seletor vazio sem tocar em nenhum .html).
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: gates-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smokes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest -r requirements-browser.txt
+
+      - name: Instalar Chromium do Playwright
+        # --with-deps traz as libs de sistema que o Chromium headless exige no
+        # ubuntu-latest. Só o Chromium: um navegador basta para um smoke.
+        run: python -m playwright install --with-deps chromium
+
+      - name: Smokes de navegador
+        working-directory: backend
+        # O app de demo (SQLite efêmero + uvicorn) sobe dentro do conftest da
+        # pasta — sem serviço externo. Ver tests/browser/conftest.py.
+        run: python -m pytest tests/browser -q
+
+      - name: Publicar rastro de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smokes-browser-falha
+          path: |
+            backend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
