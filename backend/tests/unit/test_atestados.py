@@ -4,9 +4,12 @@ Harness SQLite (prescritor/db_path do conftest).
 """
 from __future__ import annotations
 
+import base64
 import json
+import re
 import sqlite3
 import warnings
+import zlib
 
 import pytest
 
@@ -39,6 +42,7 @@ _BASE = {
     "cpf_paciente": "12345678901",
     "nome_paciente": "Paciente Atesta",
     "finalidade": "Afastamento do trabalho",
+    "municipio_emissao": "Recife",         # obrigatório: o CFM exige local e data
     "dias_afastamento": 3,
     "data_documento": "2026-06-23",
 }
@@ -46,6 +50,42 @@ _BASE = {
 
 def _payload(**ov):
     return {**_BASE, **ov}
+
+
+def _texto_pdf(pdf_bytes: bytes) -> str:
+    """Texto visível de um PDF do ReportLab, sem dependência externa.
+
+    Dois passos, ambos necessários:
+
+    1. O ReportLab comprime cada content stream com ASCII85 + Flate. Sem
+       desfazer isso, `b"ATESTADO ODONTOLÓGICO" in pdf` é SEMPRE falso e o teste
+       passaria por vacuidade.
+    2. Do stream inflado extrai só os literais de texto (operandos de `Tj`),
+       unidos por espaço. Sem isso, a frase vem picada por operadores de fonte
+       — `(...) Tj /F2 12 Tf (...)` — e uma asserção como "cuidados
+       odontológicos" quebraria só porque o ReportLab trocou de fonte no meio
+       ou mudou de linha. As asserções descrevem o documento, não o layout.
+
+    Devolve latin-1 (o WinAnsi das fontes base); as asserções usam trechos ASCII
+    para não depender do acento.
+    """
+    partes = []
+    for m in re.finditer(rb"stream\r?\n(.*?)endstream", pdf_bytes, re.S):
+        dado = m.group(1).strip()
+        try:
+            inflado = zlib.decompress(base64.a85decode(dado, adobe=True))
+        except Exception:
+            continue          # stream não-textual (fonte embutida, imagem)
+        for lit in re.finditer(rb"\((.*?)(?<!\\)\)\s*Tj", inflado, re.S):
+            partes.append(lit.group(1).replace(rb"\)", b")").replace(rb"\(", b"("))
+    return re.sub(r"\s+", " ", b" ".join(partes).decode("latin-1"))
+
+
+def _pdf_de(prescritor, **ov) -> str:
+    proto = prescritor.post("/atestados", json=_payload(**ov)).json()["protocolo"]
+    r = prescritor.get(f"/atestados/{proto}/pdf")
+    assert r.status_code == 200, r.text
+    return _texto_pdf(r.content)
 
 
 def _conn(db_path):
@@ -255,3 +295,183 @@ class TestRBACLeitura:
         for path in (f"/atestados/{proto}", f"/atestados/{proto}/pdf",
                      f"/atestados/{proto}/custodia"):
             assert _shared_client.get(path).status_code == 403, path
+
+
+# ---------------------------------------------------------------------------
+# TICKET-ATESTADO-CONFORMIDADE — pronto para imprimir e assinar (CFM/CFO)
+# ---------------------------------------------------------------------------
+
+class TestMunicipioEmissao:
+    """O CFM exige LOCAL e data. A data já existia; o local passa a ser exigido."""
+
+    def test_sem_municipio_422(self, prescritor):
+        payload = _payload()
+        del payload["municipio_emissao"]
+        assert prescritor.post("/atestados", json=payload).status_code == 422
+
+    def test_municipio_em_branco_422(self, prescritor):
+        assert prescritor.post(
+            "/atestados", json=_payload(municipio_emissao="   ")).status_code == 422
+
+    def test_fecho_local_e_data_no_pdf(self, prescritor):
+        texto = _pdf_de(prescritor, municipio_emissao="Recife", data_documento="2026-07-18")
+        assert "Recife, 18/07/2026" in texto
+
+    def test_fecho_vem_acima_da_area_de_assinatura(self, prescritor):
+        texto = _pdf_de(prescritor, municipio_emissao="Olinda", data_documento="2026-07-18")
+        # A linha de assinatura é a régua de underscores do bloco de assinatura.
+        assert texto.index("Olinda, 18/07/2026") < texto.index("______")
+
+    def test_municipio_devolvido_na_consulta(self, prescritor):
+        proto = prescritor.post("/atestados", json=_payload(
+            municipio_emissao="Caruaru")).json()["protocolo"]
+        assert prescritor.get(f"/atestados/{proto}").json()["municipio_emissao"] == "Caruaru"
+
+
+class TestConselhoNoDocumento:
+    """Título, adjetivo e sigla saem da fonte única — o PDF não hardcoda nada."""
+
+    def test_cfo_vira_atestado_odontologico(self, prescritor):
+        texto = _pdf_de(prescritor, conselho="CFO", uf_registro="PE",
+                        registro_profissional="1234")
+        assert "ATESTADO ODONTOL" in texto
+        assert "ATESTADO M" not in texto.split("PACIENTE")[0]
+        assert "CRO-PE 1234" in texto
+
+    def test_cfo_usa_adjetivo_odontologico_no_corpo(self, prescritor):
+        texto = _pdf_de(prescritor, conselho="CFO", uf_registro="PE",
+                        registro_profissional="1234", dias_afastamento=3)
+        assert "cuidados odontol" in texto
+
+    def test_cfm_vira_atestado_medico(self, prescritor):
+        texto = _pdf_de(prescritor, conselho="CFM", uf_registro="PE",
+                        registro_profissional="12345")
+        assert "ATESTADO M" in texto
+        assert "ATESTADO ODONTOL" not in texto
+        assert "CRM-PE 12345" in texto
+        assert "cuidados m" in texto
+
+    def test_legado_sem_conselho_mantem_atestado_medico(self, prescritor):
+        # conselho NULL = atestado anterior à migração: comportamento inalterado.
+        texto = _pdf_de(prescritor, registro_profissional="CRM-PE 999")
+        assert "ATESTADO M" in texto
+        assert "ATESTADO ODONTOL" not in texto
+        assert "CRM-PE 999" in texto      # texto livre legado sai como está
+
+    def test_conselho_invalido_422(self, prescritor):
+        assert prescritor.post(
+            "/atestados", json=_payload(conselho="COFEN")).status_code == 422
+
+    def test_uf_registro_invalida_422(self, prescritor):
+        assert prescritor.post(
+            "/atestados", json=_payload(uf_registro="PERNAMBUCO")).status_code == 422
+
+    def test_conselho_normalizado_para_maiuscula(self, prescritor):
+        proto = prescritor.post("/atestados", json=_payload(
+            conselho="cfo", uf_registro="pe", registro_profissional="1")).json()["protocolo"]
+        d = prescritor.get(f"/atestados/{proto}").json()
+        assert d["conselho"] == "CFO" and d["uf_registro"] == "PE"
+
+
+class TestEnfaseRegistroAntesDoCns:
+    """Quem identifica o profissional na norma é o CRM/CRO+UF, não o CNS."""
+
+    def test_registro_vem_antes_do_cns(self, prescritor):
+        texto = _pdf_de(prescritor, conselho="CFM", uf_registro="PE",
+                        registro_profissional="12345")
+        assert "CRM-PE 12345" in texto
+        assert texto.index("CRM-PE 12345") < texto.index("CNS ")
+
+    def test_sem_registro_a_linha_nao_quebra(self, prescritor):
+        texto = _pdf_de(prescritor, registro_profissional=None)
+        assert "CNS " in texto
+
+
+class TestHoraComparecimento:
+    """Horário é SEMPRE opcional — nunca condicionado à finalidade."""
+
+    def test_comparecimento_com_periodo(self, prescritor):
+        texto = _pdf_de(prescritor, finalidade="Comparecimento", dias_afastamento=None,
+                        hora_inicio="08:00", hora_fim="12:00")
+        assert "no per" in texto and "08:00" in texto and "12:00" in texto
+
+    def test_comparecimento_sem_hora_mantem_frase_atual(self, prescritor):
+        texto = _pdf_de(prescritor, finalidade="Comparecimento", dias_afastamento=None)
+        assert "compareceu a atendimento" in texto
+        assert "no per" not in texto
+
+    def test_apenas_hora_inicio(self, prescritor):
+        texto = _pdf_de(prescritor, finalidade="Comparecimento", dias_afastamento=None,
+                        hora_inicio="08:00")
+        assert "a partir das 08:00" in texto
+
+    def test_apenas_hora_fim(self, prescritor):
+        texto = _pdf_de(prescritor, finalidade="Comparecimento", dias_afastamento=None,
+                        hora_fim="12:00")
+        assert "12:00" in texto
+
+    def test_hora_declarada_nao_some_no_afastamento(self, prescritor):
+        # Dado digitado que não aparece no documento é perda silenciosa.
+        texto = _pdf_de(prescritor, dias_afastamento=3, hora_inicio="08:00", hora_fim="09:30")
+        assert "08:00" in texto and "09:30" in texto
+
+    def test_hora_invalida_422(self, prescritor):
+        for ruim in ("8:00", "25:00", "08:60", "0800"):
+            assert prescritor.post(
+                "/atestados", json=_payload(hora_inicio=ruim)).status_code == 422, ruim
+
+    def test_hora_nao_e_exigida_por_finalidade(self, prescritor):
+        # "Comparecimento" não torna a hora obrigatória (finalidade é texto livre).
+        assert prescritor.post("/atestados", json=_payload(
+            finalidade="Comparecimento", dias_afastamento=None)).status_code == 201
+
+
+class TestHashCobreConteudoNovo:
+    """O hash é a impressão digital do que está IMPRESSO no documento."""
+
+    def test_municipios_diferentes_geram_hashes_diferentes(self, prescritor):
+        a = prescritor.post("/atestados", json=_payload(
+            municipio_emissao="Recife")).json()["assinatura_hash"]
+        b = prescritor.post("/atestados", json=_payload(
+            municipio_emissao="Olinda")).json()["assinatura_hash"]
+        assert a != b
+
+    def test_conselhos_diferentes_geram_hashes_diferentes(self, prescritor):
+        a = prescritor.post("/atestados", json=_payload(conselho="CFM")).json()["assinatura_hash"]
+        b = prescritor.post("/atestados", json=_payload(conselho="CFO")).json()["assinatura_hash"]
+        assert a != b
+
+
+class TestFisicaAceitaCamposNovos:
+    """Física é fire-and-forget: município NÃO é 422 aqui (a tela é que exige)."""
+
+    def test_fisica_sem_municipio_ainda_registra(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json={
+            "cns_prescritor": "123456789012345", "nome_prescritor": "Dra. Atesta",
+            "finalidade": "Comparecimento",
+        })
+        assert r.status_code == 201, r.text
+
+    def test_fisica_persiste_conselho_e_municipio(self, prescritor, db_path):
+        proto = prescritor.post("/atestados/fisica", json={
+            "cns_prescritor": "123456789012345", "nome_prescritor": "Dra. Atesta",
+            "finalidade": "Comparecimento", "municipio_emissao": "Recife",
+            "conselho": "CFO", "uf_registro": "PE", "registro_profissional": "1234",
+        }).json()["protocolo"]
+        with _conn(db_path) as c:
+            row = c.execute(
+                "SELECT conselho, uf_registro, municipio_emissao FROM atestados WHERE protocolo = ?",
+                (proto,),
+            ).fetchone()
+        assert row["conselho"] == "CFO"
+        assert row["uf_registro"] == "PE"
+        assert row["municipio_emissao"] == "Recife"
+
+
+class TestCatalogoConselhosNaConfigPublica:
+    """A tela pergunta ao domínio em vez de repetir rótulos no HTML."""
+
+    def test_config_public_serve_o_catalogo(self, _shared_client):
+        cat = _shared_client.get("/config/public").json()["conselhos_profissionais"]
+        assert [c["id_conselho"] for c in cat] == ["CFM", "CFO"]
+        assert {c["sigla_registro"] for c in cat} == {"CRM", "CRO"}

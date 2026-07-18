@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -31,6 +32,7 @@ from app.auth.dependencies import require_role
 from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
 from app.domain.cofre_pfx import decifrar_pfx
+from app.domain.conselho_profissional import IDS_CONSELHO_VALIDOS
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
 from app.domain.pdf_assinatura import (
@@ -58,6 +60,46 @@ router = APIRouter(prefix="/atestados", tags=["atestados"])
 _CPF_NAO_IDENTIFICADO = "00000000000"      # convenção 6a — fluxo físico
 _TIPOS_EMISSAO_VALIDOS = {"nova", "correcao"}
 
+# "HH:MM" 24h — horário de comparecimento (sempre opcional, ver TICKET-ATESTADO-CONFORMIDADE).
+_RE_HORA = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+# ---------------------------------------------------------------------------
+# Validadores compartilhados entre a emissão digital e a física
+# ---------------------------------------------------------------------------
+
+def _validar_conselho(v: Optional[str]) -> Optional[str]:
+    """Aceita apenas conselhos do catálogo (`domain/conselho_profissional.py`).
+
+    Não inventa default: NULL é 'não declarado', e o PDF trata isso como legado.
+    """
+    if v is None or not str(v).strip():
+        return None
+    conselho = str(v).strip().upper()
+    if conselho not in IDS_CONSELHO_VALIDOS:
+        raise ValueError(
+            f"conselho inválido: {v!r}. Aceitos: {', '.join(sorted(IDS_CONSELHO_VALIDOS))}."
+        )
+    return conselho
+
+
+def _validar_uf_registro(v: Optional[str]) -> Optional[str]:
+    if v is None or not str(v).strip():
+        return None
+    uf = str(v).strip().upper()
+    if len(uf) != 2 or not uf.isalpha():
+        raise ValueError(f"uf_registro inválida: {v!r}. Use a sigla de 2 letras (ex.: 'PE').")
+    return uf
+
+
+def _validar_hora(v: Optional[str]) -> Optional[str]:
+    if v is None or not str(v).strip():
+        return None
+    hora = str(v).strip()
+    if not _RE_HORA.match(hora):
+        raise ValueError(f"hora inválida: {v!r}. Use o formato 'HH:MM' (24h).")
+    return hora
+
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -69,21 +111,42 @@ class AtestadoIn(BaseModel):
     cpf_paciente:          str
     nome_paciente:         str
     finalidade:            str                        # obrigatória
+    municipio_emissao:     str                        # obrigatório — "local" do CFM
     indicacao_clinica:     Optional[str] = None       # opcional (privacidade)
     codigo_cid:            Optional[str] = None        # opcional
     dias_afastamento:      Optional[int] = None        # opcional
     data_documento:        Optional[str] = None        # ISO; default hoje
+    hora_inicio:           Optional[str] = None        # "HH:MM" — comparecimento
+    hora_fim:              Optional[str] = None        # "HH:MM" — comparecimento
     nome_profissional:     Optional[str] = None
-    registro_profissional: Optional[str] = None
+    conselho:              Optional[str] = None        # CFM | CFO
+    uf_registro:           Optional[str] = None        # UF do conselho regional
+    registro_profissional: Optional[str] = None        # NÚMERO do registro
     assinatura_modo:       Optional[str] = None        # icp_brasil_local | gov_br_nuvem
     tipo_emissao:          str = "nova"
     origem_atestado_id:    Optional[int] = None
+
+    _normalizar_conselho   = field_validator("conselho")(_validar_conselho)
+    _normalizar_uf         = field_validator("uf_registro")(_validar_uf_registro)
+    _normalizar_horas      = field_validator("hora_inicio", "hora_fim")(_validar_hora)
 
     @field_validator("finalidade")
     @classmethod
     def _finalidade_nao_vazia(cls, v: str) -> str:
         if not (v or "").strip():
             raise ValueError("Finalidade é obrigatória.")
+        return v.strip()
+
+    @field_validator("municipio_emissao")
+    @classmethod
+    def _municipio_nao_vazio(cls, v: str) -> str:
+        # O CFM exige "local e data" no atestado. A data sempre existiu; o local
+        # passa a ser exigido AQUI (payload), não no schema — a coluna é nullable
+        # porque os atestados já emitidos não podem ser reescritos (CLAUDE.md §1).
+        if not (v or "").strip():
+            raise ValueError(
+                "Município de emissão é obrigatório (o CFM exige local e data no atestado)."
+            )
         return v.strip()
 
     @field_validator("dias_afastamento")
@@ -103,16 +166,34 @@ class AtestadoIn(BaseModel):
 
 
 class AtestadoFisicaIn(BaseModel):
+    """Emissão exclusivamente física (fire-and-forget, CLAUDE.md §6).
+
+    `municipio_emissao` é OPCIONAL aqui, ao contrário do digital. Motivo: o POST
+    físico é disparado sem aguardar resposta — o papel já saiu na impressora
+    quando o backend valida. Um 422 aqui não impediria a impressão; só perderia o
+    registro central (o pior dos dois mundos). O local é exigido na TELA, onde
+    ainda dá para corrigir antes de imprimir.
+    """
+
     cns_prescritor:        str
     nome_prescritor:       Optional[str] = None
     nome_paciente:         Optional[str] = None       # físico pode não identificar
     finalidade:            str
+    municipio_emissao:     Optional[str] = None
     indicacao_clinica:     Optional[str] = None
     codigo_cid:            Optional[str] = None
     dias_afastamento:      Optional[int] = None
     data_documento:        Optional[str] = None
+    hora_inicio:           Optional[str] = None
+    hora_fim:              Optional[str] = None
     nome_profissional:     Optional[str] = None
+    conselho:              Optional[str] = None
+    uf_registro:           Optional[str] = None
     registro_profissional: Optional[str] = None
+
+    _normalizar_conselho = field_validator("conselho")(_validar_conselho)
+    _normalizar_uf       = field_validator("uf_registro")(_validar_uf_registro)
+    _normalizar_horas    = field_validator("hora_inicio", "hora_fim")(_validar_hora)
 
     @field_validator("finalidade")
     @classmethod
@@ -160,18 +241,35 @@ def _localizar_ou_criar_paciente(conn, cpf: str, nome: str, agora: str) -> int:
 def _calcular_hash_atestado(
     protocolo: str, cns: str, cpf: str, finalidade: str,
     indicacao: Optional[str], cid: Optional[str], dias: Optional[int],
-    data_documento: str,
+    data_documento: str, municipio_emissao: Optional[str] = None,
+    conselho: Optional[str] = None, uf_registro: Optional[str] = None,
+    registro_profissional: Optional[str] = None,
+    hora_inicio: Optional[str] = None, hora_fim: Optional[str] = None,
 ) -> str:
+    """Hash do documento canônico do atestado.
+
+    `versao_esquema` sobe para "2" ao incorporar local de emissão, conselho/UF/
+    registro e horário — tudo isso é conteúdo MATERIAL impresso no documento;
+    fora do hash, dois atestados com locais diferentes teriam a mesma impressão
+    digital. Atestados v1 guardam o hash que calcularam à época e nunca são
+    recalculados (o hash é gravado uma vez na emissão), então o legado não muda.
+    """
     doc = {
-        "protocolo":         protocolo,
-        "prescritor_cns":    cns,
-        "paciente_cpf":      cpf,
-        "finalidade":        finalidade,
-        "indicacao_clinica": indicacao,
-        "codigo_cid":        cid,
-        "dias_afastamento":  dias,
-        "data_documento":    data_documento,
-        "versao_esquema":    "1",
+        "protocolo":             protocolo,
+        "prescritor_cns":        cns,
+        "paciente_cpf":          cpf,
+        "finalidade":            finalidade,
+        "indicacao_clinica":     indicacao,
+        "codigo_cid":            cid,
+        "dias_afastamento":      dias,
+        "data_documento":        data_documento,
+        "municipio_emissao":     municipio_emissao,
+        "conselho":              conselho,
+        "uf_registro":           uf_registro,
+        "registro_profissional": registro_profissional,
+        "hora_inicio":           hora_inicio,
+        "hora_fim":              hora_fim,
+        "versao_esquema":        "2",
     }
     return hashlib.sha256(
         json.dumps(doc, ensure_ascii=False, sort_keys=True).encode()
@@ -250,13 +348,16 @@ def criar_atestado(
               (protocolo, prescritor_id, paciente_id, status, tipo_emissao,
                origem_atestado_id, finalidade, indicacao_clinica, codigo_cid,
                dias_afastamento, nome_profissional, registro_profissional,
+               conselho, uf_registro, municipio_emissao, hora_inicio, hora_fim,
                assinatura_modo, data_documento, data_emissao, data_validade, criado_em)
-            VALUES (?, ?, ?, 'emitido', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, 'emitido', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (protocolo, prescritor_id, paciente_id, payload.tipo_emissao,
              payload.origem_atestado_id, payload.finalidade, payload.indicacao_clinica,
              payload.codigo_cid, payload.dias_afastamento, payload.nome_profissional,
-             payload.registro_profissional, payload.assinatura_modo,
+             payload.registro_profissional, payload.conselho, payload.uf_registro,
+             payload.municipio_emissao, payload.hora_inicio, payload.hora_fim,
+             payload.assinatura_modo,
              data_documento, data_emissao, data_validade, agora),
         )
         atestado_id = cursor.lastrowid
@@ -264,6 +365,10 @@ def criar_atestado(
         doc_hash = _calcular_hash_atestado(
             protocolo, cns, cpf, payload.finalidade, payload.indicacao_clinica,
             payload.codigo_cid, payload.dias_afastamento, data_documento,
+            municipio_emissao=payload.municipio_emissao, conselho=payload.conselho,
+            uf_registro=payload.uf_registro,
+            registro_profissional=payload.registro_profissional,
+            hora_inicio=payload.hora_inicio, hora_fim=payload.hora_fim,
         )
         conn.execute(
             "UPDATE atestados SET assinatura_hash = ? WHERE id = ?",
@@ -350,12 +455,15 @@ def criar_atestado_fisico(
               (protocolo, prescritor_id, paciente_id, status, tipo_emissao,
                finalidade, indicacao_clinica, codigo_cid, dias_afastamento,
                nome_profissional, registro_profissional,
+               conselho, uf_registro, municipio_emissao, hora_inicio, hora_fim,
                data_documento, data_emissao, criado_em)
-            VALUES (?, ?, ?, 'encerrada_localmente', 'fisica', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, 'encerrada_localmente', 'fisica', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (protocolo, prescritor_id, paciente_id, payload.finalidade,
              payload.indicacao_clinica, payload.codigo_cid, payload.dias_afastamento,
              payload.nome_profissional, payload.registro_profissional,
+             payload.conselho, payload.uf_registro, payload.municipio_emissao,
+             payload.hora_inicio, payload.hora_fim,
              data_documento, data_emissao, agora),
         )
         atestado_id = cursor.lastrowid
@@ -440,6 +548,12 @@ def get_atestado(
         "data_documento": dados["data_documento"],
         "data_emissao": dados["data_emissao"],
         "data_validade": dados["data_validade"],
+        "municipio_emissao": dados["municipio_emissao"],
+        "hora_inicio": dados["hora_inicio"],
+        "hora_fim": dados["hora_fim"],
+        "conselho": dados["conselho"],
+        "uf_registro": dados["uf_registro"],
+        "registro_profissional": dados["registro_profissional"],
         "assinatura_modo": dados["assinatura_modo"],
         "assinatura_hash": dados["assinatura_hash"],
         "nome_paciente": dados["nome_paciente"],
@@ -493,6 +607,9 @@ def _pdf_de_dados(dados: dict) -> bytes:
         assinatura_hash=dados["assinatura_hash"], nome_prescritor=dados["nome_prescritor"],
         cns_prescritor=dados["cns_prescritor"], registro_profissional=dados["registro_profissional"],
         nome_paciente=dados["nome_paciente"], cpf_paciente=dados["cpf_paciente"],
+        conselho=dados["conselho"], uf_registro=dados["uf_registro"],
+        municipio_emissao=dados["municipio_emissao"],
+        hora_inicio=dados["hora_inicio"], hora_fim=dados["hora_fim"],
         is_demo=PICSAUDE_DEMO_MODE,
     )
 

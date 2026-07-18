@@ -213,19 +213,51 @@
         .ia-doc-preview-wrap  { margin-top: 8px; }
         .ia-doc-preview-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
                                 letter-spacing: 0.8px; color: #475569; margin-bottom: 8px; }
+        /* O preview é RASCUNHO, e a tela precisa dizer isso sozinha: tarja lateral
+           vermelha e marca d'água. Antes ele imitava papel timbrado (branco,
+           serifado, com sombra) e podia passar por documento pronto. */
         .ia-doc-preview {
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
+            position: relative;
+            background: #fffdfd;
+            border: 1px solid #fecaca;
+            border-left: 5px solid #b91c1c;
             border-radius: 6px;
             padding: 32px 36px;
             font-family: Georgia, 'Times New Roman', serif;
             font-size: 14px;
             line-height: 1.9;
-            color: #1e293b;
+            color: #475569;
             white-space: pre-wrap;
-            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            overflow: hidden;
+        }
+        .ia-doc-preview::after {
+            content: "RASCUNHO";
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-32deg);
+            font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 62px; font-weight: 800; letter-spacing: 8px;
+            color: rgba(185, 28, 28, 0.09);
+            pointer-events: none; white-space: nowrap;
+        }
+        .ia-doc-selo-rascunho {
+            display: inline-block; margin-left: 8px; padding: 2px 8px;
+            border-radius: 999px; background: #fef2f2; border: 1px solid #fecaca;
+            color: #b91c1c; font-size: 10px; font-weight: 700; letter-spacing: 0.4px;
+        }
+        .ia-doc-rascunho-nota {
+            font-size: 11.5px; color: #b91c1c; margin: 8px 0 0; line-height: 1.5;
         }
         .ia-doc-print-acoes { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* Pulso curto que leva o olho do rascunho ao botão de emissão oficial. */
+        @keyframes picsaude-pulso {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55); }
+            50%      { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+        }
+        .destaque-pulso { animation: picsaude-pulso 0.9s ease-out 2; }
+        @media (prefers-reduced-motion: reduce) {
+            .destaque-pulso { animation: none; outline: 3px solid #16a34a; outline-offset: 2px; }
+        }
 
         /* ── Navegação de submódulos (abas) ────────────────────────────── */
         .submod-nav {
@@ -728,18 +760,57 @@
                             <input type="date" id="atestado-data" class="form-input">
                         </div>
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Nome do Profissional *</label>
-                            <input type="text" id="atestado-profissional" class="form-input"
-                                   placeholder="Nome completo do profissional responsável">
+                            <label class="form-label">Município de Emissão *
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(o CFM exige local e data)</span>
+                            </label>
+                            <input type="text" id="atestado-municipio" class="form-input"
+                                   required placeholder="ex.: Recife">
                         </div>
                     </div>
 
+                    <!-- Horário de comparecimento — SEMPRE opcional, nunca condicionado
+                         à finalidade (que é praticamente texto livre). -->
+                    <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Hora de Início
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — atestado de comparecimento)</span>
+                            </label>
+                            <input type="time" id="atestado-hora-inicio" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Hora de Término
+                                <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional)</span>
+                            </label>
+                            <input type="time" id="atestado-hora-fim" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label">Nome do Profissional *</label>
+                        <input type="text" id="atestado-profissional" class="form-input"
+                               placeholder="Nome completo do profissional responsável">
+                    </div>
+
+                    <!-- Registro: conselho + UF + número. O conselho decide o TÍTULO do
+                         documento (médico/odontológico) — as opções vêm do backend
+                         (/config/public), nunca hardcodadas aqui. -->
                     <div class="form-group" style="margin: 0;">
                         <label class="form-label">Registro Profissional *
-                            <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(ex: CRM-PE 12345)</span>
+                            <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(define o tipo do atestado)</span>
                         </label>
-                        <input type="text" id="atestado-registro" class="form-input"
-                               placeholder="CRM-UF 00000">
+                        <div style="display: grid; grid-template-columns: 1.6fr 0.8fr 2fr; gap: 10px;">
+                            <select id="atestado-conselho" class="form-input"
+                                    onchange="_aoMudarConselhoAtestado()">
+                                <option value="">Conselho…</option>
+                            </select>
+                            <select id="atestado-uf-registro" class="form-input">
+                                <option value="">UF</option>
+                            </select>
+                            <input type="text" id="atestado-registro" class="form-input"
+                                   placeholder="Número do registro">
+                        </div>
+                        <p id="atestado-conselho-hint"
+                           style="font-size:11px; color:#64748b; margin:6px 0 0;"></p>
                     </div>
                 </div>
 
@@ -748,7 +819,8 @@
                             style="padding: 10px 24px; font-size: 14px;">
                         Validar atestado
                     </button>
-                    <button type="button" class="btn btn-action" onclick="emitirAtestado()"
+                    <button type="button" id="btn-emitir-atestado" class="btn btn-action"
+                            onclick="emitirAtestado()"
                             style="padding: 10px 24px; font-size: 14px;">
                         🔏 Emitir atestado digital
                     </button>
@@ -3325,19 +3397,130 @@
             // (CID não é mais copiado da prescrição — agora é escolhido direto no
             //  atestado via busca + etiquetas; a prescrição não tem mais CID.)
 
-            // Profissional e registro
+            // Profissional e registro. O cadastro guarda a sigla que o profissional
+            // vê na carteira (CRM/CRO); o atestado grava o conselho federal
+            // (CFM/CFO). A tradução vem do catálogo do domínio — não daqui.
             if (medicoLogado) {
                 const atProf = document.getElementById('atestado-profissional');
-                const atReg  = document.getElementById('atestado-registro');
                 if (atProf) atProf.value = medicoLogado.nome || '';
-                if (atReg && medicoLogado.conselhos && medicoLogado.conselhos.length) {
-                    atReg.value = formatarConselhosDisplay(medicoLogado.conselhos);
+
+                const c = (medicoLogado.conselhos || [])[0];
+                if (c) {
+                    const doCatalogo = _catalogoConselhos.find(x => x.sigla_registro === c.tipo);
+                    const selCons = document.getElementById('atestado-conselho');
+                    const selUf   = document.getElementById('atestado-uf-registro');
+                    const atReg   = document.getElementById('atestado-registro');
+                    // Conselho fora do catálogo (ex.: COREN) fica em branco: o
+                    // atestado de enfermagem ainda não tem norma (ver DIVIDA-TECNICA).
+                    if (selCons && doCatalogo) { selCons.value = doCatalogo.id_conselho; _aoMudarConselhoAtestado(); }
+                    if (selUf && c.uf)         selUf.value  = c.uf;
+                    if (atReg && c.numero)     atReg.value  = c.numero;
                 }
+            }
+
+            // Município de emissão: só preenche se vazio (não sobrescreve o que o
+            // profissional já digitou).
+            const atMun = document.getElementById('atestado-municipio');
+            if (atMun && !atMun.value && medicoLogado && medicoLogado.municipio) {
+                atMun.value = medicoLogado.municipio;
             }
 
             // Data: hoje (só preenche se vazio)
             const atData = document.getElementById('atestado-data');
             if (atData && !atData.value) atData.value = _hojeISO();
+        }
+
+        // ── Conselho profissional do atestado ────────────────────────────────
+        // O conselho decide o TÍTULO do documento ("ATESTADO MÉDICO" vs.
+        // "ATESTADO ODONTOLÓGICO") e a sigla do registro (CRM/CRO). Esses rótulos
+        // NÃO moram aqui: vêm de /config/public, que os serve a partir da fonte
+        // única do domínio (backend/app/domain/conselho_profissional.py). Repetir
+        // "ATESTADO ODONTOLÓGICO" no HTML criaria um segundo lugar para divergir
+        // do PDF — mesma régua do nome do grupo regulatório no comprovante (R4).
+        let _catalogoConselhos = [];
+
+        async function _carregarCatalogoConselhos() {
+            if (_catalogoConselhos.length) return _catalogoConselhos;
+            try {
+                const r = await fetch(BACKEND + '/config/public', { cache: 'no-store' });
+                if (r.ok) _catalogoConselhos = (await r.json()).conselhos_profissionais || [];
+            } catch (_) { /* offline: degrada para seletor vazio, ver abaixo */ }
+            return _catalogoConselhos;
+        }
+
+        /** Aviso de degradação honesta — o único estado em que o seletor fica vazio. */
+        function _degradarSeletorConselho(motivo) {
+            const hint = document.getElementById('atestado-conselho-hint');
+            if (hint) {
+                hint.textContent = 'Catálogo de conselhos indisponível — o atestado sairá como médico.';
+                hint.style.color = '#b45309';
+            }
+            console.warn('[atestado] seletor de conselho degradado: ' + motivo);
+        }
+
+        /** Popula os seletores de conselho e UF do formulário de atestado. */
+        async function _montarSeletoresRegistroAtestado() {
+            // try/catch envolve TUDO: um seletor vazio e MUDO é a pior saída —
+            // um dentista emitiria ATESTADO MÉDICO sem perceber. Qualquer falha
+            // inesperada tem de cair na degradação honesta, que é visível.
+            // (Regressão real: a chamada de bootstrap ficava ANTES da declaração
+            // `let _catalogoConselhos`, e o ReferenceError da temporal dead zone
+            // estourava fora do try do fetch — seletor vazio, hint em branco.)
+            try {
+                const selCons = document.getElementById('atestado-conselho');
+                const selUf   = document.getElementById('atestado-uf-registro');
+                if (!selCons || !selUf) return;
+
+                if (selUf.options.length <= 1) {
+                    UFS.forEach(u => selUf.add(new Option(u, u)));
+                }
+
+                const cat = await _carregarCatalogoConselhos();
+                if (selCons.options.length > 1) return;
+                if (!cat.length) {
+                    // Backend inacessível: não inventamos o catálogo. Sem conselho
+                    // declarado o backend trata como legado e o PDF sai como
+                    // "ATESTADO MÉDICO" — degradação honesta, nada de palpite.
+                    _degradarSeletorConselho('catálogo vazio');
+                    return;
+                }
+                cat.forEach(c => selCons.add(new Option(c.sigla_registro, c.id_conselho)));
+                _aoMudarConselhoAtestado();
+            } catch (e) {
+                _degradarSeletorConselho(e && e.message ? e.message : String(e));
+            }
+        }
+
+        /** Mostra qual documento o conselho escolhido vai produzir. */
+        function _aoMudarConselhoAtestado() {
+            const sel  = document.getElementById('atestado-conselho');
+            const hint = document.getElementById('atestado-conselho-hint');
+            if (!sel || !hint) return;
+            const c = _catalogoConselhos.find(x => x.id_conselho === sel.value);
+            hint.textContent = c
+                ? `Este registro emite: ${c.titulo_documento} (${c.nome}).`
+                : '';
+        }
+
+        /** Registro em forma de exibição ("CRO-PE 1234") — para a IA Documental. */
+        function _registroAtestadoDisplay() {
+            const sel = document.getElementById('atestado-conselho');
+            const uf  = (document.getElementById('atestado-uf-registro').value || '').trim();
+            const num = (document.getElementById('atestado-registro').value || '').trim();
+            if (!num) return '';
+            const c = _catalogoConselhos.find(x => x.id_conselho === sel.value);
+            return (c && uf) ? `${c.sigla_registro}-${uf} ${num}` : num;
+        }
+
+        // Bootstrap do seletor de conselho. Fica AQUI, depois das declarações
+        // acima, e não junto dos outros wire-ups (~2940): `_catalogoConselhos` é
+        // `let`, então chamar antes desta linha cai na temporal dead zone e o
+        // ReferenceError deixava o seletor vazio e silencioso. `defer` via
+        // DOMContentLoaded garante ainda que o <select> já exista no DOM.
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', _montarSeletoresRegistroAtestado);
+        } else {
+            _montarSeletoresRegistroAtestado();
         }
 
         /**
@@ -3381,7 +3564,7 @@
             const diasRaw   = (document.getElementById('atestado-dias').value        || '').trim();
             const dataDoc   = (document.getElementById('atestado-data').value        || '').trim();
             const prof      = (document.getElementById('atestado-profissional').value || '').trim();
-            const registro  = (document.getElementById('atestado-registro').value    || '').trim();
+            const registro  = _registroAtestadoDisplay();
 
             const dias = diasRaw ? parseInt(diasRaw, 10) : null;
 
@@ -3485,14 +3668,29 @@
 
             // — Preview do documento (somente quando ok=true) —
             if (data.documento_base) {
+                // Rótulo e hierarquia dizem o que este bloco é: RASCUNHO. A ação
+                // primária leva ao documento oficial; imprimir é o desvio, e sai
+                // marcado como sem validade legal.
                 html += `<div class="ia-doc-preview-wrap">
-                    <div class="ia-doc-preview-label">Pré-visualização do atestado</div>
+                    <div class="ia-doc-preview-label">
+                        Rascunho para conferência
+                        <span class="ia-doc-selo-rascunho">sem validade legal</span>
+                    </div>
                     <div class="ia-doc-preview" id="atestado-preview-texto">${_escDoc(data.documento_base)}</div>
+                    <p class="ia-doc-rascunho-nota">
+                        Este texto não é o atestado: o documento válido é emitido pelo
+                        PicSaúde, com protocolo, hash e assinatura ICP-Brasil.
+                    </p>
                     <div class="ia-doc-print-acoes">
-                        <button type="button" class="btn btn-outline btn-small"
-                                onclick="imprimirAtestado()"
+                        <button type="button" class="btn btn-action btn-small"
+                                onclick="usarRascunhoAtestado()"
                                 style="font-size: 12px;">
-                            🖨️ Imprimir / Usar
+                            ✓ Usar — ir para a emissão oficial
+                        </button>
+                        <button type="button" class="btn btn-outline btn-small"
+                                onclick="imprimirRascunhoAtestado()"
+                                style="font-size: 12px;">
+                            🖨️ Imprimir rascunho
                         </button>
                     </div>
                 </div>`;
@@ -3509,10 +3707,37 @@
         }
 
         /**
-         * Abre uma janela nova com o preview do atestado e dispara impressão.
-         * Não grava nada — apenas apresenta o documento para o usuário.
+         * Adota o rascunho e leva ao caminho oficial.
+         *
+         * O rascunho nasce DOS campos do formulário — não há nada de novo para
+         * preencher de volta. O que "usar" significa, então, é seguir para a
+         * emissão de verdade, que é onde o documento ganha protocolo, hash e
+         * assinatura. Esta é a ação PRIMÁRIA: imprimir o rascunho é o desvio.
          */
-        function imprimirAtestado() {
+        function usarRascunhoAtestado() {
+            const btn = document.getElementById('btn-emitir-atestado');
+            if (!btn) return;
+            btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            btn.classList.add('destaque-pulso');
+            setTimeout(() => btn.classList.remove('destaque-pulso'), 2400);
+            btn.focus({ preventScroll: true });
+        }
+
+        /**
+         * Imprime o RASCUNHO — explicitamente marcado como sem validade legal.
+         *
+         * Antes, esta função imprimia o texto da IA num <pre> limpo, em fonte
+         * serifada, terminando em data + nome + registro: tinha a aparência de um
+         * atestado pronto para assinar, mas sem protocolo, sem hash e sem
+         * assinatura. Estava a um clique de ser confundido com o documento real.
+         *
+         * O documento oficial tem UM renderizador: o PDF do servidor
+         * (GET /atestados/{protocolo}/pdf). O que sai daqui é papel de trabalho —
+         * e tem de se parecer com papel de trabalho: tarja, marca d'água, fonte
+         * diferente da do PDF institucional, SEM área de assinatura e SEM
+         * qualquer campo de protocolo.
+         */
+        function imprimirRascunhoAtestado() {
             const el = document.getElementById('atestado-preview-texto');
             if (!el) return;
             const texto = el.innerText || el.textContent || '';
@@ -3522,21 +3747,47 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Atestado Médico — PicSaúde</title>
+  <title>RASCUNHO sem validade legal — PicSaúde</title>
   <style>
-    body  { font-family: Georgia, 'Times New Roman', serif; font-size: 14px;
-            line-height: 1.9; margin: 60px 80px; color: #1e293b; }
-    pre   { white-space: pre-wrap; font-family: inherit; font-size: inherit; }
-    .aviso{ font-size: 10px; color: #94a3b8; font-style: italic;
-            margin-top: 48px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-    @media print { .no-print { display: none; } }
+    @page { margin: 18mm; }
+    body  { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 13px; line-height: 1.8; margin: 28px 44px; color: #334155;
+            position: relative; }
+    .tarja{ border: 3px solid #b91c1c; background: #fef2f2; color: #b91c1c;
+            padding: 14px 18px; text-align: center; margin-bottom: 26px;
+            border-radius: 4px; }
+    .tarja-titulo { font-size: 21px; font-weight: 800; letter-spacing: 1.2px; }
+    .tarja-sub    { font-size: 11.5px; font-weight: 600; margin-top: 6px; }
+    pre   { white-space: pre-wrap; font-family: inherit; font-size: inherit;
+            color: #475569; }
+    .rodape { font-size: 10.5px; color: #64748b; margin-top: 40px;
+              border-top: 1px solid #e2e8f0; padding-top: 12px; }
+    .marca { position: fixed; inset: 0; z-index: -1; overflow: hidden;
+             display: flex; align-items: center; justify-content: center; }
+    .marca span { font-size: 88px; font-weight: 800; color: rgba(185,28,28,0.10);
+                  transform: rotate(-38deg); letter-spacing: 8px;
+                  white-space: nowrap; }
+    @media print { .marca span { color: rgba(185,28,28,0.16); } }
   </style>
 </head>
 <body>
+  <div class="marca" aria-hidden="true"><span>RASCUNHO</span></div>
+
+  <div class="tarja">
+    <div class="tarja-titulo">RASCUNHO — SEM VALIDADE LEGAL</div>
+    <div class="tarja-sub">
+      Papel de trabalho para conferência do profissional. NÃO é atestado:
+      não tem protocolo, não tem assinatura e não pode ser entregue ao paciente.
+    </div>
+  </div>
+
   <pre>${texto.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
-  <div class="aviso">
-    Documento assistido por validação estrutural (PicSaúde / IA Documental v1).
-    A responsabilidade clínica e legal permanece com o profissional.
+
+  <div class="rodape">
+    O atestado válido é emitido pelo PicSaúde e sai com protocolo, hash SHA-256 e
+    assinatura ICP-Brasil — use “Emitir atestado digital” e baixe o PDF oficial.
+    Texto conferido por validação estrutural (IA Documental v1); a responsabilidade
+    clínica e legal permanece com o profissional.
   </div>
   <script>window.onload = function() { window.print(); };<\/script>
 </body>
@@ -3546,14 +3797,17 @@
 
         /** Limpa todos os campos e o resultado da IA do formulário de atestado. */
         function limparAtestado() {
-            ['atestado-paciente','atestado-finalidade','atestado-finalidade-outro',
+            ['atestado-paciente','atestado-cpf','atestado-finalidade','atestado-finalidade-outro',
              'atestado-indicacao','atestado-cid','atestado-cid-busca',
-             'atestado-dias','atestado-data','atestado-profissional','atestado-registro']
+             'atestado-dias','atestado-data','atestado-municipio',
+             'atestado-hora-inicio','atestado-hora-fim',
+             'atestado-profissional','atestado-conselho','atestado-uf-registro','atestado-registro']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
-            _aoMudarFinalidade();   // re-oculta o campo "Outro"
+            _aoMudarFinalidade();          // re-oculta o campo "Outro"
+            _aoMudarConselhoAtestado();    // limpa a dica do tipo de documento
             // limpa também as sugestões e as etiquetas de CID selecionadas
             ['ia-cid-atestado','ia-cid-atestado-chips'].forEach(id => {
                 const d = document.getElementById(id);
@@ -3736,6 +3990,8 @@
             if (!finalidade) { container.innerHTML = erro('Selecione a finalidade do atestado.'); return; }
             if (!paciente) { container.innerHTML = erro('Informe o nome do paciente.'); return; }
             if (cpf.length !== 11) { container.innerHTML = erro('CPF do paciente é obrigatório (11 dígitos) no atestado digital.'); return; }
+            const municipio = (document.getElementById('atestado-municipio').value || '').trim();
+            if (!municipio) { container.innerHTML = erro('Informe o município de emissão (o CFM exige local e data no atestado).'); return; }
             const diasRaw = (document.getElementById('atestado-dias').value || '').trim();
             const payload = {
                 cns_prescritor:        medicoLogado.cns,
@@ -3743,11 +3999,18 @@
                 cpf_paciente:          cpf,
                 nome_paciente:         paciente,
                 finalidade:            finalidade,
+                municipio_emissao:     municipio,
                 indicacao_clinica:     (document.getElementById('atestado-indicacao').value || '').trim() || null,
                 codigo_cid:            (document.getElementById('atestado-cid').value || '').split('|').filter(Boolean)[0] || null,
                 dias_afastamento:      diasRaw ? parseInt(diasRaw, 10) : null,
                 data_documento:        (document.getElementById('atestado-data').value || '').trim() || null,
+                hora_inicio:           (document.getElementById('atestado-hora-inicio').value || '').trim() || null,
+                hora_fim:              (document.getElementById('atestado-hora-fim').value || '').trim() || null,
                 nome_profissional:     (document.getElementById('atestado-profissional').value || '').trim() || null,
+                // conselho/UF/número separados: é o conselho que decide o título do
+                // documento no PDF. Vazio = não declarado (backend trata como legado).
+                conselho:              (document.getElementById('atestado-conselho').value || '').trim() || null,
+                uf_registro:           (document.getElementById('atestado-uf-registro').value || '').trim() || null,
                 registro_profissional: (document.getElementById('atestado-registro').value || '').trim() || null,
                 assinatura_modo:       'icp_brasil_local',
             };
