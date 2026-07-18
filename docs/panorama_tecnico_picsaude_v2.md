@@ -166,7 +166,9 @@ profissionais_cnes, relacao_prof_estab, estabelecimentos_cnes
 
 **Triggers de ledger (Ticket 62A):**
 ```sql
--- Aplicados via init_tables.py::aplicar_triggers_ledger()
+-- Criados pela migração alembic f2b7c1d0a4e5 (TICKET-LEDGER-TRIGGERS-MIGRACAO),
+-- nos dois dialetos. DDL canônico em app/domain/ledger_imutabilidade.py.
+-- init_tables.py apenas CONFERE que existem.
 -- 5 tabelas: prescricao_eventos, pedido_exame_eventos, laudo_eventos,
 --            agendamento_eventos, circulacao_diagnostica_eventos
 CREATE TRIGGER IF NOT EXISTS prevent_update_{tabela}
