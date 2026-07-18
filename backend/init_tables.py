@@ -6,8 +6,15 @@ init_tables.py
 
 Este arquivo é mantido apenas para:
   - bootstrap inicial de ambientes de desenvolvimento
-  - criação de triggers de imutabilidade do ledger (funcionalidade ainda
-    não coberta pelas migrations Alembic)
+  - CHECAGEM de schema (tabelas esperadas + triggers de imutabilidade)
+
+Ele NÃO cria mais os triggers de imutabilidade do ledger
+(TICKET-LEDGER-TRIGGERS-MIGRACAO). Quem cria é a migração
+`f2b7c1d0a4e5_ledger_triggers_imutabilidade`, porque é a migração que roda em
+produção: o `predeploy.sh` do Render executa `alembic upgrade head` + `seed_demo.py`
+e NUNCA chama este script. Enquanto os triggers nasciam aqui — em código
+`sqlite3.connect()`, SQLite-only — o PostgreSQL jamais os teve. Invariante que só
+existe no script de bootstrap não chega em produção.
 
 A partir do Ticket 2, o mecanismo OFICIAL de evolução de schema é o Alembic:
   cd backend && alembic upgrade head
@@ -47,16 +54,10 @@ import app.models  # noqa: F401 — registra todos os models no Base.metadata
 # ---------------------------------------------------------------------------
 # Tabelas de eventos (ledger imutável) — protegidas por triggers no banco
 # ---------------------------------------------------------------------------
+# Fonte única: a MESMA lista que a migração usa para criar os triggers. Ver o
+# bloco "Triggers de imutabilidade do ledger" abaixo.
 
-_TABELAS_LEDGER = [
-    "prescricao_eventos",
-    "pedido_exame_eventos",
-    "laudo_eventos",
-    "agendamento_eventos",
-    "circulacao_diagnostica_eventos",
-    "encaminhamento_eventos",
-    "atestado_eventos",
-]
+from app.domain.ledger_imutabilidade import TABELAS_LEDGER as _TABELAS_LEDGER
 
 # ---------------------------------------------------------------------------
 # Tabelas esperadas na aplicação
@@ -119,123 +120,26 @@ def _sqlite_path() -> str:
     Todo `sqlite3.connect()` deste arquivo passa por aqui. Importar
     `app.config.DB_PATH` direto ignora o redirecionamento de `PICSAUDE_DEMO_MODE`
     para `PIX_SAUDE_DEMO_DB` e faz este script operar num arquivo diferente
-    daquele onde o `create_all` criou as tabelas. Ver a nota em
-    `_aplicar_triggers_sqlite`.
+    daquele onde o `create_all` criou as tabelas (achado do TICKET-GATE-BROWSER:
+    com `PICSAUDE_DEMO_MODE=true` os dois apontavam para ARQUIVOS DIFERENTES).
     """
     from app.database import _resolve_sqlite_db_path
     return _resolve_sqlite_db_path()
 
 
 # ---------------------------------------------------------------------------
-# Triggers de imutabilidade do ledger
+# Triggers de imutabilidade do ledger — CRIADOS PELA MIGRAÇÃO, não aqui
 # ---------------------------------------------------------------------------
-
-def _aplicar_triggers_sqlite(db_path: str | None = None) -> None:
-    """Cria triggers de imutabilidade no SQLite (idempotente).
-
-    Parâmetros
-    ----------
-    db_path : caminho explícito do banco SQLite. Quando ``None``, resolve pelo
-        MESMO caminho que o engine do SQLAlchemy usa. Quando fornecido, conecta
-        diretamente nesse path — usado por fixtures de teste para aplicar
-        triggers em SQLite temporário sem alterar a config global.
-
-    Nota (achado do TICKET-GATE-BROWSER)
-    ------------------------------------
-    Isto usava ``app.config.DB_PATH`` direto, enquanto o ``create_all`` roda no
-    engine, que resolve por ``_resolve_sqlite_db_path()`` — e esse resolver
-    redireciona para ``PIX_SAUDE_DEMO_DB`` quando ``PICSAUDE_DEMO_MODE=true``.
-    Com DEMO_MODE ligado os dois apontavam para ARQUIVOS DIFERENTES: as tabelas
-    nasciam no banco demo e os triggers eram tentados no banco de dev (vazio),
-    quebrando com "no such table: main.prescricao_eventos".
-
-    A consequência silenciosa era pior que o crash: o banco demo ficava com as
-    48 tabelas e ZERO triggers de imutabilidade — ou seja, sem a proteção de
-    banco que sustenta o ledger imutável (CLAUDE.md §2) justamente no ambiente
-    que vai à vitrine. Usar o resolver único elimina a divergência na origem.
-    """
-    import sqlite3
-
-    if db_path is None:
-        from app.database import _resolve_sqlite_db_path
-        db_path = _resolve_sqlite_db_path()
-
-    conn = sqlite3.connect(db_path)
-    try:
-        for tabela in _TABELAS_LEDGER:
-            conn.execute(f"""
-                CREATE TRIGGER IF NOT EXISTS prevent_update_{tabela}
-                BEFORE UPDATE ON {tabela}
-                BEGIN
-                    SELECT RAISE(FAIL, 'Ledger imutável: UPDATE não permitido em {tabela}');
-                END
-            """)
-            conn.execute(f"""
-                CREATE TRIGGER IF NOT EXISTS prevent_delete_{tabela}
-                BEFORE DELETE ON {tabela}
-                BEGIN
-                    SELECT RAISE(FAIL, 'Ledger imutável: DELETE não permitido em {tabela}');
-                END
-            """)
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def aplicar_triggers_ledger(db_path: str | None = None) -> None:
-    """Aplica triggers de imutabilidade do ledger.
-
-    API pública estável usada por fixtures de teste (chamada com
-    ``db_path`` explícito para SQLite temporário). Quando ``db_path``
-    é fornecido, força o caminho SQLite — apropriado para testes que
-    usam ``Base.metadata.create_all`` num banco isolado.
-
-    Sem argumentos, escolhe entre SQLite/PostgreSQL conforme o engine
-    global, idêntico ao comportamento histórico antes da divisão em
-    ``_aplicar_triggers_sqlite`` / ``_aplicar_triggers_postgres``.
-    """
-    if db_path is not None:
-        _aplicar_triggers_sqlite(db_path)
-        return
-    if _USE_SQLITE:
-        _aplicar_triggers_sqlite()
-    else:
-        _aplicar_triggers_postgres()
-
-
-def _aplicar_triggers_postgres() -> None:
-    """Cria triggers de imutabilidade no PostgreSQL (idempotente).
-
-    Usa DROP + CREATE para compatibilidade com todas as versões do PostgreSQL.
-    """
-    raw_conn = engine.raw_connection()
-    try:
-        cur = raw_conn.cursor()
-
-        # Função compartilhada (CREATE OR REPLACE — sempre atualiza)
-        cur.execute("""
-            CREATE OR REPLACE FUNCTION picsaude_prevent_ledger_mutation()
-            RETURNS TRIGGER LANGUAGE plpgsql AS $$
-            BEGIN
-                RAISE EXCEPTION 'Ledger imutável: % não permitido em %', TG_OP, TG_TABLE_NAME;
-            END;
-            $$
-        """)
-
-        for tabela in _TABELAS_LEDGER:
-            for acao in ("UPDATE", "DELETE"):
-                nome_trigger = f"prevent_{acao.lower()}_{tabela}"
-                cur.execute(f"DROP TRIGGER IF EXISTS {nome_trigger} ON {tabela}")
-                cur.execute(f"""
-                    CREATE TRIGGER {nome_trigger}
-                    BEFORE {acao} ON {tabela}
-                    FOR EACH ROW EXECUTE FUNCTION picsaude_prevent_ledger_mutation()
-                """)
-
-        raw_conn.commit()
-        cur.close()
-    finally:
-        raw_conn.close()
+# TICKET-LEDGER-TRIGGERS-MIGRACAO. Este script criava os 14 triggers via
+# `sqlite3.connect()` (SQLite-only) e o PostgreSQL nunca os recebeu, porque o
+# `predeploy.sh` do Render só roda `alembic upgrade head` + `seed_demo.py`.
+# A autoridade de schema é a migração `f2b7c1d0a4e5_ledger_triggers_imutabilidade`;
+# aqui restou apenas a CHECAGEM (passo 4 de `criar_tabelas`).
+#
+# O DDL canônico — e a lista de tabelas — vivem em
+# `app/domain/ledger_imutabilidade.py`. Importar (em vez de manter uma segunda
+# lista aqui) é o que impede a checagem de divergir silenciosamente do que a
+# migração realmente cria.
 
 
 # ---------------------------------------------------------------------------
@@ -371,11 +275,9 @@ def criar_tabelas() -> None:
     # 1. Criar tabelas via SQLAlchemy ORM (dialeto-agnostic)
     Base.metadata.create_all(engine)
 
-    # 2. Aplicar triggers de imutabilidade no ledger
-    if _USE_SQLITE:
-        _aplicar_triggers_sqlite()
-    else:
-        _aplicar_triggers_postgres()
+    # 2. (vago) Os triggers de imutabilidade são criados pela migração —
+    #    ver o bloco "Triggers de imutabilidade do ledger" acima. Aqui só se
+    #    confere, no passo 4.
 
     # 3. Verificar tabelas presentes
     tabelas_existentes = _get_tables_sqlite() if _USE_SQLITE else _get_tables_postgres()
@@ -398,11 +300,26 @@ def criar_tabelas() -> None:
     triggers_existentes = _get_triggers_sqlite() if _USE_SQLITE else _get_triggers_postgres()
 
     print("\nTriggers de imutabilidade do ledger:")
+    faltando: list[str] = []
     for tabela in _TABELAS_LEDGER:
         for acao in ("update", "delete"):
             nome = f"prevent_{acao}_{tabela}"
-            status = "✅" if nome in triggers_existentes else "❌ AUSENTE"
-            print(f"  {status}  {nome}")
+            presente = nome in triggers_existentes
+            print(f"  {'✅' if presente else '❌ AUSENTE'}  {nome}")
+            if not presente:
+                faltando.append(nome)
+
+    if faltando:
+        # Não é aviso cosmético: sem estes triggers o CLAUDE.md §2 ("o ledger é
+        # imutável") está sustentado só por convenção de código. Quem cria é a
+        # migração — e é ela que precisa rodar.
+        print(
+            f"\n❌ {len(faltando)} trigger(s) de imutabilidade ausente(s). "
+            f"O ledger NÃO está protegido pelo banco.\n"
+            f"   Rode as migrações:  cd backend && alembic upgrade head"
+        )
+        sys.exit(1)
+    print(f"  → {len(_TABELAS_LEDGER) * 2} triggers presentes (criados pela migração).")
 
     # 5. Migrations de colunas (idempotentes)
     print("\nMigrations de colunas:")
