@@ -86,7 +86,12 @@ Estados terminais: `cancelado · expirado · encerrada_localmente`.
 | `codigo_cid` | str, nullable | opcional |
 | `dias_afastamento` | int, nullable | **opcional** (nem todo atestado afasta — ex.: comparecimento) |
 | `nome_profissional` | str, nullable | declarado no formulário |
-| `registro_profissional` | str, nullable | CRM/registro declarado |
+| `registro_profissional` | str, nullable | **NÚMERO** do registro (a sigla vem do conselho) |
+| `conselho` | str(10), nullable | `CFM` \| `CFO` — decide título e adjetivos do documento (§6a). NULL = legado |
+| `uf_registro` | str(2), nullable | UF do conselho regional → `CRM-PE 12345` |
+| `municipio_emissao` | str(120), nullable | **"local" exigido pelo CFM**. Nullable no schema, **obrigatório no payload** (§6b) |
+| `hora_inicio` | str(5), nullable | `HH:MM` — comparecimento; **sempre** opcional |
+| `hora_fim` | str(5), nullable | `HH:MM` — comparecimento; **sempre** opcional |
 | `assinatura_modo` | str, nullable | `icp_brasil_local` \| `gov_br_nuvem` \| NULL |
 | `assinatura_hash` | str(64), nullable | SHA-256 do documento canônico |
 | `data_documento` | str(10) | data do atestado (ISO) |
@@ -162,9 +167,60 @@ A consulta pública confirma **autenticidade e vigência**, sem vazar clínica
 
 ReportLab, paleta institucional compartilhada, blocos: cabeçalho PicSaúde → prescritor
 → paciente (CPF mascarado) → **corpo do atestado** (finalidade + período + cláusula
-clínica opcional com CID) → identificação (protocolo, datas, hash) → área de
-assinatura → rodapé com protocolo. A assinatura PAdES reusa `assinar_pdf_icp` + cofre
-(idêntico ao #59 da prescrição).
+clínica opcional com CID) → identificação (protocolo, datas, hash) → **fecho "local,
+data"** → área de assinatura → rodapé com protocolo. A assinatura PAdES reusa
+`assinar_pdf_icp` + cofre (idêntico ao #59 da prescrição).
+
+Na linha do profissional o **registro vem antes do CNS** (`Nome — CRM-PE 12345 · CNS
+…`): quem identifica o profissional perante a norma é o CRM/CRO+UF; o CNS é
+identificador de sistema, não de habilitação.
+
+### 6a. Conselho emissor — fonte única (`domain/conselho_profissional.py`)
+
+O atestado odontológico **não** é um atestado médico. Três derivados mudam com o
+conselho, e os três moram num único catálogo:
+
+| Conselho | Sigla | Título do documento | "sob cuidados …" |
+|---|---|---|---|
+| `CFM` | CRM | ATESTADO MÉDICO | médicos |
+| `CFO` | CRO | ATESTADO ODONTOLÓGICO | odontológicos |
+
+O PDF e a tela **nunca hardcodam** esses rótulos — perguntam ao domínio, mesma régua
+do `grupo_por_id` do R4 (CLAUDE.md §2a). A tela recebe o catálogo por
+`GET /config/public` → `conselhos_profissionais`; duplicar "ATESTADO ODONTOLÓGICO" no
+HTML criaria um segundo lugar para divergir do documento.
+
+**Legado:** `conselho` NULL (atestado anterior à migração) cai em `CONSELHO_PADRAO`
+(CFM) e renderiza exatamente como sempre renderizou. Slug desconhecido degrada para o
+mesmo padrão em vez de levantar — um PDF de atestado não pode falhar por causa de um
+rótulo.
+
+**Fora de escopo:** enfermagem (COFEN) aguarda norma — ver `backend/docs/DIVIDA-TECNICA.md` §7-A.
+
+### 6b. Local e data — nullable no schema, obrigatório no payload
+
+O CFM exige "local e data". A data sempre existiu (`data_documento`); o local entra
+como `municipio_emissao`, e o PDF fecha com `Recife, 18/07/2026.` acima da assinatura.
+
+A coluna é **nullable** e o campo é **obrigatório em `AtestadoIn`** (sem ele → 422).
+Não é incoerência: atestados já emitidos não têm município e **não podem ser
+reescritos** (CLAUDE.md §1 — objeto sanitário emitido é imutável). Backfill com um
+município inventado seria falsificar o local de emissão de um documento assinado. O
+NULL é honesto — "não declarado à época" — e nesses casos o PDF simplesmente não
+imprime o fecho.
+
+Na emissão **física** (`AtestadoFisicaIn`) o município é opcional: o POST é
+fire-and-forget (CLAUDE.md §6), o papel já saiu da impressora quando o backend valida,
+e um 422 ali não impediria a impressão — só perderia o registro central. A exigência
+mora na **tela**, onde ainda dá para corrigir antes de imprimir.
+
+### 6c. O documento oficial tem UM renderizador
+
+O PDF do servidor é o único renderizador do atestado válido. O preview da IA
+Documental (`prescritor.html`) é **rascunho**: sai com tarja "RASCUNHO — SEM VALIDADE
+LEGAL", marca d'água, sem protocolo e **sem área de assinatura**. Antes ele imprimia o
+texto num `<pre>` serifado terminando em data + nome + registro — indistinguível de um
+atestado pronto para assinar, mas sem protocolo, hash ou assinatura.
 
 ---
 

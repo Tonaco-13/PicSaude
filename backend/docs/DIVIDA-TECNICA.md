@@ -119,6 +119,13 @@
 
 ---
 
+## 7-A. Aguardando norma externa (não é dívida de código — é dívida regulatória)
+| | Item | Fonte |
+|---|---|---|
+| 📋 | **Atestado de enfermagem (COFEN)** — `domain/conselho_profissional.py` nasce com **CFM** e **CFO** apenas. Enfermagem ficou **deliberadamente fora** do TICKET-ATESTADO-CONFORMIDADE (decisão do Fabiano): a norma que define competência e alcance do atestado de enfermagem está pendente, e implementar antes dela seria inventar regra sanitária no código. Quando a norma sair, o custo é **uma entrada** em `CONSELHOS` (id `COFEN`, sigla `COREN`, título e adjetivos) — sem migração, sem tocar PDF nem tela, porque ambos já perguntam ao catálogo. Nota: o cadastro do profissional **já aceita** `COREN` em `TIPOS_CONSELHO` (prescritor.html); nesse caso o seletor de conselho do atestado fica em branco e o documento sai como legado (ATESTADO MÉDICO) — comportamento intencional até a norma existir | TICKET-ATESTADO-CONFORMIDADE · `domain/conselho_profissional.py` |
+
+---
+
 ## 8. Núcleo / pendências de plano (não-dívida, mas bloqueiam expansão)
 - **Event Publishing Layer (G4A)** — `GET /eventos?since=…`, webhooks. Pré-requisito de **qualquer** adapter externo (HIS/TISS/HL7/e-SUS). Sem isso, adapters não têm onde conectar.
 - **Enforcement via JWT institucional** (`org_id`/`unidade_id` no token) — habilita ownership nível-unidade (dispensação hospitalar, etc.).
