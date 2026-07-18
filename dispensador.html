@@ -105,6 +105,8 @@
         .fila-med-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
         .fila-med-info { display: flex; flex-direction: column; gap: 3px; }
         .fila-med-nome { font-size: 14px; color: #1e293b; font-weight: 600; }
+        /* R4-FRONTEND — selo de controlado na fila (item sob controle regulatório) */
+        .fila-selo-controlado { display:inline-block; margin-left:6px; font-size:10px; font-weight:700; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; border-radius:999px; padding:1px 7px; text-transform:uppercase; letter-spacing:.4px; vertical-align:middle; }
         .fila-med-acoes { display: flex; gap: 6px; flex-wrap: wrap; }
         /* modal de lote */
         .fila-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
@@ -1306,6 +1308,9 @@
                 const proto = _filaEsc(p.protocolo);
                 const meds = (p.itens || []).map(i => {
                     const nome = _filaEsc(i.nome_medicamento) + (i.concentracao ? ' ' + _filaEsc(i.concentracao) : '');
+                    // R4-FRONTEND — selo de controlado (i.controlado vem do backend).
+                    // Só o controlado ganha selo; comum não recebe nada (ausência informa).
+                    const selo = i.controlado ? ' <span class="fila-selo-controlado">🔴 controlado</span>' : '';
                     let acoes;
                     // Dispensabilidade = i.acionavel (backend). _FILA_TERMINAIS/saldo
                     // seguem só para EXIBIR badge/saldo nos itens não-acionáveis que
@@ -1321,7 +1326,7 @@
                     return `
                     <div class="fila-med-row">
                         <div class="fila-med-info">
-                            <span class="fila-med-nome">${nome}</span>
+                            <span class="fila-med-nome">${nome}${selo}</span>
                             <span class="fila-saldo">saldo ${i.saldo}/${i.quantidade} ${_filaEsc(_unidadeDisplay(i.unidade_quantidade, i.quantidade))}</span>
                         </div>
                         <div class="fila-med-acoes">${acoes}</div>
@@ -1522,6 +1527,18 @@
             // O comprovante continua abrindo normalmente; a identificação (nº da
             // dispensação e protocolo) é idêntica antes/depois do estorno (§6b).
             const est = c.estorno || {};
+            // R4-FRONTEND — escrituração regulatória. Renderiza SÓ para item
+            // controlado (esc.controlado). Ausência do bloco é a informação: item
+            // não-controlado NÃO ganha bloco nem rótulo "não controlado". Nome vem
+            // do backend (slug→nome, fonte única); slug desconhecido → nome null,
+            // degrada para o próprio slug. Slug/versão discretos abaixo do nome.
+            const esc = c.escrituracao_regulatoria || {};
+            const escBloco = esc.controlado ? `
+                <div class="comp-box comp-box-reg">
+                    <div class="comp-box-tit">Escrituração Regulatória</div>
+                    <div class="comp-grupo">${_cEsc(esc.grupo_regulatorio_nome || esc.grupo_regulatorio_id || '')}</div>
+                    <div class="comp-meta">${_cEsc(esc.grupo_regulatorio_id || '')}${esc.motor_regulatorio_versao ? ' · motor v' + _cEsc(esc.motor_regulatorio_versao) : ''}</div>
+                </div>` : '';
             let carimbo = '';
             if (est.estornado) {
                 const refs = (est.estornos || []).map(e => _cEsc(e.protocolo || '')).filter(Boolean).join(', ');
@@ -1556,6 +1573,7 @@
                     <div>${_cEsc(med.nome || '')} ${_cEsc(med.concentracao || '')}</div>
                     <div>Qtd. dispensada: ${_cEsc(_qtdComUnidade(med.quantidade_dispensada, med.unidade_quantidade))} · Lote: ${_cEsc(lote.numero || 'N/I')}</div>
                 </div>
+                ${escBloco}
                 <div class="comp-box">
                     <div class="comp-box-tit">ESTABELECIMENTO</div>
                     <div>${_cEsc(disp.estabelecimento || '')}</div>
@@ -2640,6 +2658,11 @@
         #comprovante-body .comp-box   { border:1px solid #e2e8f0; border-radius:6px; padding:12px; background:#f8fafc; margin-bottom:12px; }
         #comprovante-body .comp-box-tit { font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px; letter-spacing:.5px; }
         #comprovante-body .comp-obs   { font-size:12px; color:#16a34a; margin-top:4px; }
+        /* R4-FRONTEND — bloco de escrituração regulatória (só p/ item controlado) */
+        #comprovante-body .comp-box-reg { border-color:#fecaca; background:#fef2f2; }
+        #comprovante-body .comp-box-reg .comp-box-tit { color:#b91c1c; }
+        #comprovante-body .comp-box-reg .comp-grupo { font-size:14px; font-weight:700; color:#0f172a; }
+        #comprovante-body .comp-box-reg .comp-meta { font-size:11px; color:#94a3b8; margin-top:4px; letter-spacing:.3px; }
         /* B3 §5.B — carimbo inequívoco de dispensação estornada (faixa vermelha, topo) */
         #comprovante-body .comp-carimbo-estorno { background:#c0392b; color:#fff; border-radius:6px; padding:10px 14px; margin-bottom:14px; }
         #comprovante-body .comp-carimbo-tit { font-size:14px; font-weight:800; letter-spacing:.3px; }

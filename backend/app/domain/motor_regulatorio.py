@@ -236,6 +236,28 @@ def _construir_mapa_classe_grupo() -> dict[str, GrupoRegulatorio]:
 
 MAPA_CLASSE_GRUPO: Mapping[str, GrupoRegulatorio] = _construir_mapa_classe_grupo()
 
+# Índice id_grupo (slug) → grupo. FONTE ÚNICA para resolver o NOME humano a partir
+# do slug congelado no movimento (R4): a tela nunca hardcoda nomes; pergunta aqui.
+MAPA_ID_GRUPO: Mapping[str, GrupoRegulatorio] = {g.id_grupo: g for g in GRUPOS_REGULATORIOS}
+
+
+def grupo_por_id(id_grupo: Optional[str]) -> Optional[GrupoRegulatorio]:
+    """Resolve o grupo regulatório a partir do `id_grupo` (slug) CONGELADO no
+    movimento — a fonte única do nome humano para a UI (R4, CLAUDE.md §2a).
+
+    O comprovante/relatório congelam o slug (`grupo_regulatorio_id`); a tela quer
+    exibir o nome ("Notificação de Receita B"). Este lookup faz o slug→nome a
+    partir do MESMO catálogo `GRUPOS_REGULATORIOS` que define a escrituração —
+    sem duplicar nomes no HTML (dois lugares divergiriam).
+
+    NÃO re-resolve `classe_controle`: parte do slug já gravado, preservando R1
+    (o nome acompanha o grupo que valeu à saída do produto). Slug desconhecido
+    (ex.: grupo renomeado numa versão futura) → `None`, nunca levanta: a UI
+    degrada para exibir só o slug, sem quebrar o comprovante."""
+    if not id_grupo:
+        return None
+    return MAPA_ID_GRUPO.get(id_grupo)
+
 
 # ---------------------------------------------------------------------------
 # Lookup: classe_controle → grupo
