@@ -31,7 +31,12 @@ class Atestado(Base):
     codigo_cid            = Column(String(10), nullable=True)      # opcional
     dias_afastamento      = Column(Integer, nullable=True)        # opcional (nem todo atestado afasta)
     nome_profissional     = Column(String(200), nullable=True)    # declarado no formulário
-    registro_profissional = Column(String(60), nullable=True)     # CRM/registro declarado
+    registro_profissional = Column(String(60), nullable=True)     # NÚMERO do registro (a sigla vem do conselho)
+    conselho              = Column(String(10), nullable=True)     # CFM | CFO — ver domain/conselho_profissional.py
+    uf_registro           = Column(String(2), nullable=True)      # UF do conselho regional → "CRM-PE 12345"
+    municipio_emissao     = Column(String(120), nullable=True)    # "local" do CFM; obrigatório no payload, NULL no legado
+    hora_inicio           = Column(String(5), nullable=True)      # "HH:MM" — comparecimento; sempre opcional
+    hora_fim              = Column(String(5), nullable=True)      # "HH:MM" — comparecimento; sempre opcional
     assinatura_modo       = Column(String(40), nullable=True)     # icp_brasil_local | gov_br_nuvem | NULL
     assinatura_hash       = Column(String(64), nullable=True)     # SHA-256 do documento canônico
     data_documento        = Column(String(10), nullable=False)    # ISO 8601 date

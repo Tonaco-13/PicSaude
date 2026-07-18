@@ -27,10 +27,11 @@ NÃO executar em produção. Idempotente — seguro para re-execução.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -267,6 +268,75 @@ def _garantir_receita_na_fila(conn) -> None:
     print(f"  ✅ receita-demo (fila): '{proto}' — 3 itens (1 controlado B1) sob custódia de {DISPENSADOR['cnpj']}")
 
 
+def _garantir_atestado_demo(conn) -> None:
+    """
+    TICKET-ATESTADO-CONFORMIDADE — semeia UM atestado já emitido, para que a demo
+    mostre um documento pronto para imprimir e assinar (com local e data, registro
+    do conselho e horário de comparecimento) em vez de exigir que o visitante
+    preencha o formulário antes de ver qualquer coisa.
+
+    Conselho CFM: a prescritora da demo é médica. Um atestado CFO aqui seria
+    incoerente com a persona — o caminho odontológico se demonstra trocando o
+    seletor de conselho na tela (o título do PDF vira ATESTADO ODONTOLÓGICO).
+
+    Emite o objeto COMPLETO: linha em `atestados` + custódia prescritor→paciente
+    + os dois eventos do ledger. Semear o documento sem a cadeia deixaria um
+    objeto sanitário órfão — exatamente o que §2/§3 do CLAUDE.md proíbem.
+
+    Idempotente (protocolo sentinela `DEMO-ATESTADO-0001`). Best-effort: o caller
+    isola em try/except — esta função NUNCA pode quebrar o seed/predeploy.
+    """
+    proto = "DEMO-ATESTADO-0001"
+    now = _agora()
+    hoje = date.today().isoformat()
+
+    if conn.execute("SELECT id FROM atestados WHERE protocolo = ?", (proto,)).fetchone():
+        print(f"  ·  atestado-demo: '{proto}' já existe")
+        return
+
+    presc = conn.execute(
+        "SELECT id FROM prescritores WHERE cns = ?", (PRESCRITOR["cns"],)
+    ).fetchone()
+    pac = conn.execute(
+        "SELECT id FROM pacientes WHERE cpf = ?", (PACIENTE["cpf"],)
+    ).fetchone()
+    if not presc or not pac:
+        print("  ⚠️  atestado-demo: prescritor/paciente ausente — pulado")
+        return
+
+    conn.execute(
+        "INSERT INTO atestados (protocolo, prescritor_id, paciente_id, status, "
+        "tipo_emissao, finalidade, dias_afastamento, nome_profissional, "
+        "conselho, uf_registro, registro_profissional, municipio_emissao, "
+        "hora_inicio, hora_fim, data_documento, data_emissao, criado_em) "
+        "VALUES (?, ?, ?, 'emitido', 'nova', 'trabalhistas', 3, ?, "
+        "'CFM', 'PE', '12345', 'Recife', '08:00', '09:30', ?, ?, ?)",
+        (proto, presc["id"], pac["id"], PRESCRITOR["nome"], hoje, hoje, now),
+    )
+    aid = conn.execute(
+        "SELECT id FROM atestados WHERE protocolo = ?", (proto,)
+    ).fetchone()["id"]
+
+    # Custódia prescritor → paciente: o atestado é entregue ao paciente na emissão.
+    conn.execute(
+        "INSERT INTO atestado_custodia (atestado_id, de, para, transferido_em, dados_json) "
+        "VALUES (?, 'prescritor', 'paciente', ?, ?)",
+        (aid, now, json.dumps(
+            {"de_id": PRESCRITOR["cns"], "para_id": PACIENTE["cpf"], "motivo": "emissao"},
+            ensure_ascii=False)),
+    )
+    for tipo, payload in (
+        ("atestado_emitido", {"finalidade": "trabalhistas", "dias_afastamento": 3}),
+        ("custodia_transferida", {"de": "prescritor", "para": "paciente"}),
+    ):
+        conn.execute(
+            "INSERT INTO atestado_eventos (atestado_id, tipo_evento, ator_tipo, ator_id, "
+            "payload, created_at) VALUES (?, ?, 'prescritor', ?, ?, ?)",
+            (aid, tipo, PRESCRITOR["cns"], json.dumps(payload, ensure_ascii=False), now),
+        )
+    print(f"  ✅ atestado-demo: '{proto}' — CFM/CRM-PE 12345, Recife, 3 dias")
+
+
 def main() -> None:
     if os.getenv("PICSAUDE_ENV") == "prod":
         print("❌ ABORTANDO: seed_demo não pode rodar em PICSAUDE_ENV=prod.")
@@ -391,6 +461,14 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001 — best-effort intencional
             conn.rollback()
             print(f"  ⚠️  receita-demo (fila): pulada por erro não-fatal ({e})")
+
+        # Atestado-demo — mesmo contrato best-effort da receita acima.
+        try:
+            _garantir_atestado_demo(conn)
+            conn.commit()
+        except Exception as e:  # noqa: BLE001 — best-effort intencional
+            conn.rollback()
+            print(f"  ⚠️  atestado-demo: pulado por erro não-fatal ({e})")
     finally:
         conn.close()
 
