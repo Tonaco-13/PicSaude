@@ -124,6 +124,29 @@ def test_dispensar_controlado_congela_grupo_e_versao(client, outer_conn):
     assert linha["grupo_regulatorio_id"] == "notificacao_receita_b"
 
 
+def test_comprovante_controlado_traz_nome_do_slug(client, outer_conn):
+    """R4-FRONTEND — o comprovante resolve o NOME humano do slug congelado
+    (grupo_por_id, fonte única). Item controlado → controlado=True + nome."""
+    _pid, proto, item = _seed_prescricao(outer_conn, classe_controle="B1")
+    disp_id = _dispensar(client, proto, item, 3).json()["dispensacao_id"]
+
+    comp = client.get(f"/dispensacoes/{disp_id}/comprovante", headers=_h()).json()
+    esc = comp["escrituracao_regulatoria"]
+    assert esc["controlado"] is True
+    assert esc["grupo_regulatorio_id"] == "notificacao_receita_b"
+    assert esc["grupo_regulatorio_nome"] == "Notificação de Receita B (Azul)"
+
+
+def test_comprovante_nao_controlado_sem_grupo(client, outer_conn):
+    """Não-controlado → controlado=False, nome None (a UI não renderiza o bloco)."""
+    _pid, proto, item = _seed_prescricao(outer_conn)   # sem classe/retenção
+    disp_id = _dispensar(client, proto, item, 3).json()["dispensacao_id"]
+
+    esc = client.get(f"/dispensacoes/{disp_id}/comprovante", headers=_h()).json()["escrituracao_regulatoria"]
+    assert esc["controlado"] is False
+    assert esc["grupo_regulatorio_nome"] is None
+
+
 # ----------------------------------------------------------------- não-controlado
 
 def test_dispensar_nao_controlado_congela_null(client, outer_conn):
