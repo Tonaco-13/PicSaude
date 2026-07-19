@@ -13,6 +13,7 @@ from app.auth.dependencies import require_role
 from app.auth.jwt import criar_access_token
 from app.config import PICSAUDE_DEMO_MODE
 from app.database_tx import get_tx
+from app.domain.conselho_profissional import conselho_ou_padrao, formatar_registro
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
 from app.domain.states_exame import ESTADOS_TERMINAIS_PEDIDO_EXAME
@@ -573,4 +574,106 @@ def listar_laudos(usuario=Depends(require_role("paciente"))):
     return {
         "disponiveis": [l for l in laudos if l["status"] in _DISPONIVEIS],
         "historico":   [l for l in laudos if l["status"] in _TERMINAIS_LAUDO],
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /paciente/atestados — atestados na carteira do cidadão
+# ---------------------------------------------------------------------------
+# TICKET-ATESTADO-CARTEIRA-CIDADAO. O atestado JÁ chegava ao paciente: a custódia
+# prescritor→paciente transfere na EMISSÃO (atestados.py) e o evento
+# `custodia_transferida` já ia ao ledger. Faltava só o cidadão CONSEGUIR VER —
+# sem listagem, ele precisaria saber o UUID de cor. Três objetos já tinham
+# carteira (prescrições, pedidos de exame, laudos) e o atestado ficou de fora por
+# omissão, não por decisão.
+#
+# Por que não há "enviar ao paciente" aqui (nem em lugar nenhum)
+# --------------------------------------------------------------
+# A prescrição exige um "Enviar ao paciente" explícito; o atestado NÃO, e isso
+# está certo: o atestado É do paciente. O profissional o entrega, não o retém.
+# Um estado "enviado" para atestado seria tratá-lo como receita.
+#
+# O que NÃO sai daqui
+# -------------------
+# `codigo_cid` e `indicacao_clinica` ficam de fora de propósito. O CID é opcional
+# e só entra no documento com anuência do paciente (CFM art. 3º); numa LISTA ele
+# viraria exibição incidental de diagnóstico — o titular abre a carteira para ver
+# um comprovante e leva o diagnóstico na tela junto. O PDF já os carrega quando
+# declarados, e o PDF é uma escolha deliberada de abrir.
+
+@router.get("/paciente/atestados")
+def listar_atestados(usuario=Depends(require_role("paciente"))):
+    """
+    Retorna os atestados do paciente autenticado, separados em:
+    - vigentes:  emitidos/assinados dentro da validade (ou sem validade definida)
+    - historico: cancelados, expirados, ou com validade já vencida
+
+    Ownership vem do TOKEN (`usuario["sub"]`), nunca de CPF na URL — mesmo molde
+    de /paciente/laudos.
+    """
+    cpf = normalize_cpf(usuario["sub"])
+    hoje = date.today().isoformat()
+
+    with get_tx() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                a.protocolo,
+                a.status,
+                a.finalidade,
+                a.dias_afastamento,
+                a.data_documento,
+                a.data_validade,
+                a.municipio_emissao,
+                a.conselho,
+                a.uf_registro,
+                a.registro_profissional,
+                pr.nome AS profissional_nome
+            FROM atestados a
+            JOIN prescritores pr ON pr.id = a.prescritor_id
+            JOIN pacientes    pa ON pa.id = a.paciente_id
+            WHERE pa.cpf = ?
+              AND a.tipo_emissao != 'fisico'
+            ORDER BY a.id DESC
+            """,
+            (cpf,),
+        ).fetchall()
+
+    atestados = []
+    for row in rows:
+        # Título e identificação do profissional vêm da FONTE ÚNICA
+        # (domain/conselho_profissional.py) — a tela não monta rótulo. Duplicar
+        # "ATESTADO ODONTOLÓGICO" no HTML criaria dois lugares que divergiriam;
+        # é a mesma régua de `formatar_quantidade` e `grupo_por_id`.
+        conselho = conselho_ou_padrao(row["conselho"])
+        atestados.append({
+            "protocolo":         row["protocolo"],
+            "status":            row["status"],
+            "titulo_documento":  conselho.titulo_documento,
+            "conselho":          conselho.id_conselho,
+            "finalidade":        row["finalidade"],
+            "dias_afastamento":  row["dias_afastamento"],
+            "data_documento":    row["data_documento"],
+            "data_validade":     row["data_validade"],
+            "municipio_emissao": row["municipio_emissao"],
+            "profissional_nome": row["profissional_nome"],
+            "registro_profissional": formatar_registro(
+                row["conselho"], row["uf_registro"], row["registro_profissional"]
+            ),
+        })
+
+    # Vencido por data entra no histórico mesmo que o status ainda diga
+    # 'emitido'/'assinado': não existe job que carimbe `expirado`, e mostrar um
+    # atestado vencido como vigente seria a tela mentindo. A comparação é textual
+    # porque as datas são ISO 'YYYY-MM-DD' — ordenáveis como string.
+    _TERMINAIS_ATESTADO = {"cancelado", "expirado", "encerrada_localmente"}
+
+    def _vigente(a: dict) -> bool:
+        if a["status"] in _TERMINAIS_ATESTADO:
+            return False
+        return not a["data_validade"] or a["data_validade"] >= hoje
+
+    return {
+        "vigentes":  [a for a in atestados if _vigente(a)],
+        "historico": [a for a in atestados if not _vigente(a)],
     }
