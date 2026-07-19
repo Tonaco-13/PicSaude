@@ -18,6 +18,8 @@ código; este cobre o RESULTADO. Ver o teste de mutação no docstring de
 """
 from __future__ import annotations
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 
@@ -225,7 +227,117 @@ class TestSeletorDeConselho:
 
 
 # ---------------------------------------------------------------------------
-# (d) Zero erro de console em cada tela
+# (d) Carteira do cidadão — seção de atestados
+# ---------------------------------------------------------------------------
+
+class TestAtestadoNaCarteira:
+    """TICKET-ATESTADO-CARTEIRA-CIDADAO — o atestado chega ao paciente.
+
+    O seed cria DEMO-ATESTADO-0001 já sob custódia do paciente (a transferência
+    acontece na emissão). Este smoke prova o ponto do ticket: entre emitir e o
+    cidadão VER não existe nenhuma ação do prescritor. Se um dia alguém
+    acrescentar um passo "enviar atestado", este teste fica vermelho — que é
+    exatamente o alarme desejado.
+    """
+
+    def _abrir_carteira(self, page, app_demo):
+        _autenticar(page, app_demo, "paciente", "12345678909", "João Demo da Silva")
+        page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        lista = page.locator("#lista-atestados")
+        expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
+        return lista
+
+    def test_atestado_do_seed_aparece_sem_acao_do_prescritor(
+        self, page, app_demo, erros_de_console
+    ):
+        lista = self._abrir_carteira(page, app_demo)
+
+        # Carregou de fato — não ficou no estado vazio.
+        expect(lista).not_to_contain_text("Nenhum atestado disponível", timeout=_TIMEOUT_MS)
+
+        # O TÍTULO vem do backend (domain/conselho_profissional). O HTML não
+        # conhece "ATESTADO MÉDICO"; se conhecesse, a bifurcação médico vs.
+        # odontológico existiria em dois lugares.
+        expect(lista).to_contain_text("ATESTADO MÉDICO", timeout=_TIMEOUT_MS)
+        expect(lista).to_contain_text("trabalhistas")
+        expect(lista).to_contain_text("Recife")
+
+        # O seed afasta por 3 dias — a linha de afastamento tem que existir.
+        expect(lista).to_contain_text("Afastamento")
+        expect(lista).to_contain_text("3 dia(s)")
+
+        # E o botão de PDF, que é como o documento sai da carteira.
+        expect(lista.get_by_role("button", name=re.compile("Baixar PDF"))).to_be_visible()
+
+        _sem_erros(erros_de_console, "cidadao.html (atestados)")
+
+    def test_carteira_nao_exibe_diagnostico(self, page, app_demo):
+        """CID não entra na LISTA (CFM art. 3º).
+
+        O CID é opcional e só entra no documento com anuência do paciente. Numa
+        lista viraria exibição incidental de diagnóstico — o titular abre a
+        carteira para ver um comprovante e leva o diagnóstico na tela junto.
+        """
+        lista = self._abrir_carteira(page, app_demo)
+        texto = lista.inner_text()
+
+        assert "CID" not in texto.upper(), (
+            f"Diagnóstico exposto na carteira: {texto!r}"
+        )
+
+    def test_atestado_sem_afastamento_nao_mostra_campo_de_dias(self, page, app_demo):
+        """AUSÊNCIA É INFORMAÇÃO: nem todo atestado afasta.
+
+        Um atestado de comparecimento não tem dias. Renderizar "Afastamento: —"
+        afirmaria que houve afastamento de nada; a linha inteira tem que sumir.
+        O atestado é emitido pela API (o seed só tem o de 3 dias) e chega à
+        carteira sem nenhuma ação extra — mesma prova do primeiro teste.
+        """
+        import httpx
+
+        token = httpx.post(
+            f"{app_demo}/demo/login", json={"role": "prescritor"}, timeout=10.0
+        ).json()["access_token"]
+        criado = httpx.post(
+            f"{app_demo}/atestados",
+            json={
+                "cns_prescritor": _PRESCRITOR["sub"],
+                "nome_prescritor": _PRESCRITOR["nome"],
+                "cpf_paciente": "12345678909",
+                "nome_paciente": "João Demo da Silva",
+                "finalidade": "Comparecimento a consulta",
+                "municipio_emissao": "Recife",
+                "dias_afastamento": None,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10.0,
+        )
+        assert criado.status_code == 201, criado.text
+
+        lista = self._abrir_carteira(page, app_demo)
+        expect(lista).to_contain_text("Comparecimento a consulta", timeout=_TIMEOUT_MS)
+
+        card = lista.locator(".exame-card").filter(
+            has_text="Comparecimento a consulta"
+        )
+        assert "Afastamento" not in card.inner_text(), (
+            f"Campo de dias renderizado num atestado que não afasta: "
+            f"{card.inner_text()!r}"
+        )
+
+    def test_sem_botao_de_enviar(self, page, app_demo):
+        """O atestado É do paciente: o profissional entrega, não retém.
+
+        Um "enviar ao paciente" aqui significaria estar tratando atestado como
+        receita — a receita exige o envio explícito, o atestado não.
+        """
+        lista = self._abrir_carteira(page, app_demo)
+
+        assert "enviar" not in lista.inner_text().lower()
+
+
+# ---------------------------------------------------------------------------
+# (e) Zero erro de console em cada tela
 # ---------------------------------------------------------------------------
 
 class TestConsoleLimpo:

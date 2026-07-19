@@ -475,3 +475,130 @@ class TestCatalogoConselhosNaConfigPublica:
         cat = _shared_client.get("/config/public").json()["conselhos_profissionais"]
         assert [c["id_conselho"] for c in cat] == ["CFM", "CFO"]
         assert {c["sigla_registro"] for c in cat} == {"CRM", "CRO"}
+
+
+class TestCarteiraDoCidadao:
+    """TICKET-ATESTADO-CARTEIRA-CIDADAO — GET /paciente/atestados.
+
+    O atestado já era ENTREGUE ao paciente (custódia transferida na emissão); o
+    que faltava era ele CONSEGUIR VER. Sem listagem, o cidadão precisaria saber
+    o UUID de cor.
+
+    Nota sobre as datas: o `_BASE` do módulo usa `data_documento` fixo em
+    2026-06-23, que já venceu — ele foi escrito para os testes de PDF, onde a
+    data é literal esperado. Os casos de VIGÊNCIA aqui emitem com a data de hoje
+    (`_hoje_payload`), senão testariam o ramo do histórico sem querer.
+    """
+
+    @staticmethod
+    def _hoje_payload(**ov):
+        from datetime import date
+        return _payload(data_documento=date.today().isoformat(), **ov)
+
+    def test_atestado_aparece_sem_acao_extra_do_prescritor(self, prescritor, paciente):
+        """Emitir basta. Não há "enviar ao paciente" — o atestado É do paciente.
+
+        Este teste é a prova de que a custódia na emissão já bastava: entre o
+        POST e a carteira não há nenhuma chamada intermediária.
+        """
+        proto = prescritor.post(
+            "/atestados", json=self._hoje_payload()).json()["protocolo"]
+
+        vigentes = paciente.get("/paciente/atestados").json()["vigentes"]
+
+        assert proto in [a["protocolo"] for a in vigentes]
+
+    def test_nao_ve_atestado_de_outro_cpf(self, prescritor, outro_paciente):
+        """Ownership pelo TOKEN. O molde dos outros três objetos da carteira."""
+        proto = prescritor.post("/atestados", json=_payload()).json()["protocolo"]
+
+        dados = outro_paciente.get("/paciente/atestados").json()
+        protocolos = [a["protocolo"] for a in dados["vigentes"] + dados["historico"]]
+
+        assert proto not in protocolos
+
+    def test_titulo_vem_do_backend(self, prescritor, paciente):
+        """O rótulo nasce da fonte única (conselho_profissional), não da tela.
+
+        Sem isto, o HTML teria que bifurcar entre "ATESTADO MÉDICO" e "ATESTADO
+        ODONTOLÓGICO" — dois lugares que divergiriam.
+        """
+        prescritor.post("/atestados", json=self._hoje_payload(
+            conselho="CFO", uf_registro="PE", registro_profissional="1234"))
+
+        odonto = [
+            a for a in paciente.get("/paciente/atestados").json()["vigentes"]
+            if a["conselho"] == "CFO"
+        ]
+        assert odonto, "atestado odontológico não chegou à carteira"
+        assert odonto[0]["titulo_documento"] == "ATESTADO ODONTOLÓGICO"
+        assert odonto[0]["registro_profissional"] == "CRO-PE 1234"
+
+    def test_sem_dias_de_afastamento_o_campo_vem_nulo(self, prescritor, paciente):
+        """Ausência é informação: nem todo atestado afasta (ex.: comparecimento).
+
+        O backend devolve None — não 0, que a tela leria como "afastou zero dia".
+        """
+        proto = prescritor.post("/atestados", json=self._hoje_payload(
+            finalidade="Comparecimento", dias_afastamento=None)).json()["protocolo"]
+
+        alvo = next(
+            a for a in paciente.get("/paciente/atestados").json()["vigentes"]
+            if a["protocolo"] == proto
+        )
+        assert alvo["dias_afastamento"] is None
+        assert alvo["data_validade"] is None
+
+    def test_listagem_nao_expoe_diagnostico(self, prescritor, paciente):
+        """CID e indicação clínica NÃO entram na carteira (CFM art. 3º).
+
+        O CID é opcional e só entra no documento com anuência do paciente. Numa
+        LISTA viraria exibição incidental de diagnóstico: o titular abre a
+        carteira para ver um comprovante e leva o diagnóstico na tela junto. O
+        PDF já o carrega quando declarado — abrir o PDF é escolha deliberada.
+        """
+        prescritor.post("/atestados", json=self._hoje_payload(
+            codigo_cid="J11", indicacao_clinica="Sintomas gripais"))
+
+        blob = json.dumps(paciente.get("/paciente/atestados").json()).lower()
+
+        assert "j11" not in blob
+        assert "codigo_cid" not in blob and "indicacao_clinica" not in blob
+        assert "sintomas gripais" not in blob
+
+    def test_atestado_fisico_fora_da_carteira(self, prescritor, paciente):
+        """Emissão física não entra no ciclo digital nem gera custódia (§6)."""
+        proto = prescritor.post("/atestados/fisica", json={
+            "cns_prescritor": "123456789012345", "nome_prescritor": "Dra. Atesta",
+            "finalidade": "Comparecimento", "cpf_paciente": "12345678901",
+        }).json()["protocolo"]
+
+        dados = paciente.get("/paciente/atestados").json()
+        protocolos = [a["protocolo"] for a in dados["vigentes"] + dados["historico"]]
+
+        assert proto not in protocolos
+
+    def test_vencido_por_data_cai_no_historico(self, prescritor, paciente):
+        """Atestado com validade vencida não é "vigente", mesmo sem job que o
+        carimbe como expirado — senão a tela mentiria."""
+        proto = prescritor.post("/atestados", json=_payload(
+            data_documento="2020-01-10", dias_afastamento=3)).json()["protocolo"]
+
+        dados = paciente.get("/paciente/atestados").json()
+
+        assert proto in [a["protocolo"] for a in dados["historico"]]
+        assert proto not in [a["protocolo"] for a in dados["vigentes"]]
+
+    def test_ordem_estavel(self, prescritor, paciente):
+        """ORDER BY determinístico — duas leituras seguidas dão a mesma lista."""
+        for _ in range(3):
+            prescritor.post("/atestados", json=self._hoje_payload())
+
+        primeira = [a["protocolo"] for a in paciente.get("/paciente/atestados").json()["vigentes"]]
+        segunda  = [a["protocolo"] for a in paciente.get("/paciente/atestados").json()["vigentes"]]
+
+        assert primeira == segunda
+
+    def test_exige_papel_paciente(self, prescritor, dispensador):
+        assert prescritor.get("/paciente/atestados").status_code == 403
+        assert dispensador.get("/paciente/atestados").status_code == 403
