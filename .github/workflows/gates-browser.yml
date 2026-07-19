@@ -18,10 +18,11 @@ name: gates-browser
 # roda dentro do pytest que já existe e traz o próprio Chromium (não depende de
 # Chrome no runner). Puppeteer/Cypress trariam uma toolchain Node inteira.
 #
-# NOTA — dívida #98: o job reconstrói o banco demo à mão (init_tables.py +
-# seed_demo.py), que é exatamente a receita que a dívida nos obriga a repetir.
-# Bônus: o CI passa a PROVAR que a receita funciona. Quando #98 for paga (o demo
-# entrar no alembic), o passo "Preparar banco demo" some daqui.
+# O banco demo do smoke nasce na fixture (tests/browser/conftest.py), pela mesma
+# receita que reconstrói o demo de verdade: PICSAUDE_DEMO_MODE=true + alembic
+# upgrade head + seed_demo.py. Desde que a dívida #98 foi paga, o Alembic honra
+# PICSAUDE_DEMO_MODE — não há mais contorno manual a documentar aqui, e o CI
+# continua PROVANDO que a receita funciona.
 # ─────────────────────────────────────────────────────────────────────────────
 
 on:
