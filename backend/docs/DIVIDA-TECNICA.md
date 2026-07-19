@@ -85,9 +85,9 @@
 |---|---|
 | ✅ | H8 outbox traceback (#17) |
 | 🔴 | **M7** pool de DB hardcoded (`pool_size=10`, `max_overflow=20`) — não configurável por env (database.py) |
-| 🔴 | **Banco demo fora do controle de migração** — `data/pix_saude_demo.db` **não tem tabela `alembic_version`**; `alembic/env.py` ignora `PICSAUDE_DEMO_MODE` e sempre migra `DB_PATH`. O schema do demo pode **driftar silenciosamente** das migrações — uma migração nova não chega nele, e a demo quebra **parecendo bug de código**. Origem: triagem 2026-07-16 |
+| ✅ | **Banco demo fora do controle de migração (#98)** — pago em 2026-07-19. `alembic/env.py` passou a resolver o path SQLite por `database._resolve_sqlite_db_path()`, honrando `PICSAUDE_DEMO_MODE` **e** `PIX_SAUDE_DB`. O demo nasce de `alembic upgrade head` (`alembic_version = f2b7c1d0a4e5`, 16 triggers do ledger). Ver "Como foi pago", abaixo. Origem: triagem 2026-07-16 |
 
-**Detalhe do drift do banco demo** (verificado 2026-07-16, não implementar agora):
+**Detalhe do drift do banco demo** (verificado 2026-07-16 — registro histórico do defeito):
 
 - `alembic/env.py:67-77` resolve o fallback SQLite com o path **hardcoded**
   `data/pix_saude_pe.db`, e **nunca** chama `database._resolve_sqlite_db_path()`.
@@ -103,6 +103,36 @@
   Migração com data-fix não roda no demo — e o gate não pega, porque o gate roda em PG.
 - Reparo (quando for a hora): fazer `env.py` importar `_resolve_sqlite_db_path()` em vez de
   reimplementá-la, e carimbar `alembic stamp head` no banco demo. É `ops`.
+
+**Como foi pago** (2026-07-19):
+
+- `env.py` importa `_resolve_sqlite_db_path()`. O comentário que prometia "sem duplicar
+  código" desde sempre passou a ser verdade — era duplicação **com** divergência, o pior tipo.
+- O defeito era **mais largo** do que a triagem mapeou: o `env.py` ignorava **duas**
+  variáveis, não uma. `PIX_SAUDE_DB=/tmp/x.db alembic upgrade head` também migrava o banco
+  de **dev**, em silêncio — quem rodava achando que mexia num efêmero mutava o dev real
+  (aconteceu no TICKET-LEDGER-TRIGGERS-MIGRACAO).
+- Precedência preservada, a de `database.py`: `DATABASE_URL` vence sempre. Produção a define
+  e nunca entra no ramo SQLite — a mudança é prod-safe **por construção**, não por cuidado.
+- `alembic stamp head` no demo **não foi necessário**: o demo é reconstruído do zero pela
+  migração, que é mais forte que carimbar (carimbar afirmaria um schema que ninguém aplicou).
+- Receita de reconstrução do demo, agora sem contorno manual:
+  ```bash
+  rm -f data/pix_saude_demo.db
+  cd backend
+  PICSAUDE_DEMO_MODE=true alembic upgrade head   # schema + 16 triggers do ledger
+  PICSAUDE_DEMO_MODE=true python3 seed_demo.py
+  ```
+  `init_tables.py` continua opcional no meio, como **checagem** — não cria mais nada (§9).
+- Travado por `tests/unit/test_alembic_env_resolve_db.py`: afirma o **destino** da migração
+  nos quatro casos. Um path cravado de volta no `env.py` não vira erro — vira o banco errado
+  sendo escrito, que só um teste de destino pega.
+
+**Resíduo conhecido** (não bloqueia): o comentário em
+`alembic/versions/a7b8c9d0e1f2_atestado_conformidade_cfm_cfo.py:39` ainda diz que "o banco
+demo é create_all (dívida #98)". Migração mergeada **não se edita** (CLAUDE.md §9), nem para
+corrigir comentário — o defensivo `_column_exists()` que ele justifica continua correto e
+inofensivo.
 
 ---
 
