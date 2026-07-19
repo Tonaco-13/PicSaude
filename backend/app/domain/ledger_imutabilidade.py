@@ -17,21 +17,38 @@ Este módulo é a **fonte única** do DDL. Quem o APLICA é a migração
 é ela que roda em produção. `init_tables.py` não cria mais trigger nenhum —
 apenas verifica que existem (bootstrap/checagem).
 
-Por que a migração importa código de app
-----------------------------------------
-Migração idealmente é um retrato congelado do schema, e importar app faz o
-passado mudar quando o módulo muda. Aceito conscientemente aqui porque a
-alternativa é duplicar o DDL entre migração, `init_tables.py` e a fixture de
-teste — exatamente a duplicação que criou o defeito. A lista de tabelas é
-aditiva por natureza (ledger novo = trigger novo) e a semântica é fixa: recusar
-toda mutação. `alembic/env.py` já insere `backend/` no `sys.path` e já importa
-`app.models`, então o import é seguro no contexto de migração.
+Por que a migração importa código de app — e o que ela NÃO importa
+------------------------------------------------------------------
+A migração importa daqui o **construtor de DDL** (`sql_criar`/`sql_remover`):
+o "como" se escreve um trigger de imutabilidade. Duplicar esse DDL entre
+migração, `init_tables.py` e fixture de teste é exatamente a duplicação que
+criou o defeito original. `alembic/env.py` já insere `backend/` no `sys.path` e
+já importa `app.models`, então o import é seguro no contexto de migração.
+
+O que a migração NÃO importa é a LISTA de tabelas — o "quê". `TABELAS_LEDGER` é
+uma lista VIVA: descreve quais ledgers devem estar protegidos AGORA. Se a
+migração a lesse, o efeito dela mudaria conforme a lista crescesse: um banco
+migrado hoje ficaria com 16 triggers, e um banco criado do zero depois da 9ª
+tabela ficaria com 18 — dois bancos no mesmo `alembic head` com schemas
+diferentes, que é o próprio defeito que este ticket conserta. Por isso cada
+migração carrega a TUPLA LITERAL das tabelas sobre as quais agiu.
+
+É o mesmo princípio do R4 (CLAUDE.md §2a): congela-se o grupo POR VALOR no ato
+do movimento, para que mudar a regra amanhã não altere o movimento de ontem.
+Ledger × projeção: `TABELAS_LEDGER` é o presente, a migração é o passado —
+nenhuma das duas está errada, elas só não podem ser o mesmo objeto.
 """
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Tabelas de ledger protegidas. Todo novo objeto sanitário com `*_eventos`
-# entra aqui E ganha uma migração que cria seus dois triggers.
+# Tabelas de ledger protegidas — fonte do PRESENTE.
+#
+# Quem consome esta lista: `init_tables.py` (checagem de ambiente: "todo ledger
+# desta lista tem seus dois triggers?") e os testes. Migração NÃO consome —
+# migração declara sobre o que agiu, com tupla literal própria (CLAUDE.md §9).
+#
+# Todo novo objeto sanitário com `*_eventos` entra aqui E ganha uma migração
+# NOVA que cria seus dois triggers. Nunca editar a migração anterior.
 # ---------------------------------------------------------------------------
 
 TABELAS_LEDGER: tuple[str, ...] = (
@@ -41,6 +58,7 @@ TABELAS_LEDGER: tuple[str, ...] = (
     "agendamento_eventos",
     "circulacao_diagnostica_eventos",
     "encaminhamento_eventos",
+    "contrarreferencia_eventos",
     "atestado_eventos",
 )
 
@@ -64,13 +82,24 @@ def mensagem(acao: str, tabela: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Construtores de DDL
+# ---------------------------------------------------------------------------
+# `tabelas` é OBRIGATÓRIO e SEM DEFAULT em todos eles — de propósito.
+#
+# Um default `tabelas=TABELAS_LEDGER` faria a lista viva voltar pela porta dos
+# fundos: o próximo chamador distraído omitiria o parâmetro e reintroduziria a
+# resolução-na-leitura numa migração. Quem chama tem que DIZER sobre o que está
+# agindo. Chamada sem `tabelas` é TypeError, e há teste que o exige.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # SQLite
 # ---------------------------------------------------------------------------
 
-def sql_criar_sqlite() -> list[str]:
-    """DDL idempotente (`IF NOT EXISTS`) dos 14 triggers no SQLite."""
+def sql_criar_sqlite(tabelas: tuple[str, ...]) -> list[str]:
+    """DDL idempotente (`IF NOT EXISTS`) dos 2×N triggers no SQLite."""
     comandos: list[str] = []
-    for tabela in TABELAS_LEDGER:
+    for tabela in tabelas:
         for acao in ("UPDATE", "DELETE"):
             comandos.append(
                 f"CREATE TRIGGER IF NOT EXISTS {nome_trigger(acao, tabela)}\n"
@@ -82,10 +111,10 @@ def sql_criar_sqlite() -> list[str]:
     return comandos
 
 
-def sql_remover_sqlite() -> list[str]:
+def sql_remover_sqlite(tabelas: tuple[str, ...]) -> list[str]:
     return [
         f"DROP TRIGGER IF EXISTS {nome_trigger(acao, tabela)}"
-        for tabela in TABELAS_LEDGER
+        for tabela in tabelas
         for acao in ("UPDATE", "DELETE")
     ]
 
@@ -94,12 +123,12 @@ def sql_remover_sqlite() -> list[str]:
 # PostgreSQL
 # ---------------------------------------------------------------------------
 # `RAISE(FAIL, ...)` não existe no PostgreSQL: a recusa vem de uma função
-# PL/pgSQL com RAISE EXCEPTION, compartilhada pelos 14 triggers. A mensagem é
-# montada com TG_OP/TG_TABLE_NAME para reproduzir, caractere a caractere, o
+# PL/pgSQL com RAISE EXCEPTION, compartilhada por todos os triggers. A mensagem
+# é montada com TG_OP/TG_TABLE_NAME para reproduzir, caractere a caractere, o
 # texto do SQLite.
 
-def sql_criar_postgres() -> list[str]:
-    """DDL idempotente (DROP + CREATE) da função e dos 14 triggers no PG."""
+def sql_criar_postgres(tabelas: tuple[str, ...]) -> list[str]:
+    """DDL idempotente (DROP + CREATE) da função e dos 2×N triggers no PG."""
     comandos: list[str] = [
         f"""
         CREATE OR REPLACE FUNCTION {FUNCAO_PG}()
@@ -111,7 +140,7 @@ def sql_criar_postgres() -> list[str]:
         $$
         """
     ]
-    for tabela in TABELAS_LEDGER:
+    for tabela in tabelas:
         for acao in ("UPDATE", "DELETE"):
             nome = nome_trigger(acao, tabela)
             # DROP + CREATE em vez de CREATE OR REPLACE TRIGGER: este último só
@@ -126,10 +155,10 @@ def sql_criar_postgres() -> list[str]:
     return comandos
 
 
-def sql_remover_postgres() -> list[str]:
+def sql_remover_postgres(tabelas: tuple[str, ...]) -> list[str]:
     comandos = [
         f"DROP TRIGGER IF EXISTS {nome_trigger(acao, tabela)} ON {tabela}"
-        for tabela in TABELAS_LEDGER
+        for tabela in tabelas
         for acao in ("UPDATE", "DELETE")
     ]
     comandos.append(f"DROP FUNCTION IF EXISTS {FUNCAO_PG}()")
@@ -156,16 +185,27 @@ def aplicar_triggers_sqlite(db_path: str) -> None:
 
     conn = sqlite3.connect(db_path)
     try:
-        for comando in sql_criar_sqlite():
+        # Fixture é PRESENTE, não passado: protege todo ledger que deve estar
+        # protegido agora. Por isso aqui `TABELAS_LEDGER` é a fonte correta —
+        # ao contrário da migração, que congela a sua própria lista.
+        for comando in sql_criar_sqlite(TABELAS_LEDGER):
             conn.execute(comando)
         conn.commit()
     finally:
         conn.close()
 
 
-def sql_criar(dialeto: str) -> list[str]:
-    return sql_criar_postgres() if dialeto == "postgresql" else sql_criar_sqlite()
+def sql_criar(dialeto: str, tabelas: tuple[str, ...]) -> list[str]:
+    """DDL de criação para `tabelas`, no dialeto pedido. Ver nota sobre o
+    parâmetro obrigatório em "Construtores de DDL", acima."""
+    return (
+        sql_criar_postgres(tabelas) if dialeto == "postgresql"
+        else sql_criar_sqlite(tabelas)
+    )
 
 
-def sql_remover(dialeto: str) -> list[str]:
-    return sql_remover_postgres() if dialeto == "postgresql" else sql_remover_sqlite()
+def sql_remover(dialeto: str, tabelas: tuple[str, ...]) -> list[str]:
+    return (
+        sql_remover_postgres(tabelas) if dialeto == "postgresql"
+        else sql_remover_sqlite(tabelas)
+    )

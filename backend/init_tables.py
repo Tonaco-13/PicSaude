@@ -130,7 +130,7 @@ def _sqlite_path() -> str:
 # ---------------------------------------------------------------------------
 # Triggers de imutabilidade do ledger — CRIADOS PELA MIGRAÇÃO, não aqui
 # ---------------------------------------------------------------------------
-# TICKET-LEDGER-TRIGGERS-MIGRACAO. Este script criava os 14 triggers via
+# TICKET-LEDGER-TRIGGERS-MIGRACAO. Este script criava os triggers via
 # `sqlite3.connect()` (SQLite-only) e o PostgreSQL nunca os recebeu, porque o
 # `predeploy.sh` do Render só roda `alembic upgrade head` + `seed_demo.py`.
 # A autoridade de schema é a migração `f2b7c1d0a4e5_ledger_triggers_imutabilidade`;
@@ -138,8 +138,14 @@ def _sqlite_path() -> str:
 #
 # O DDL canônico — e a lista de tabelas — vivem em
 # `app/domain/ledger_imutabilidade.py`. Importar (em vez de manter uma segunda
-# lista aqui) é o que impede a checagem de divergir silenciosamente do que a
-# migração realmente cria.
+# lista aqui) é o que impede a checagem de divergir silenciosamente.
+#
+# Esta checagem é a consumidora natural de `TABELAS_LEDGER` como lista VIVA:
+# a pergunta aqui é "todo ledger que DEVE estar protegido agora está?". Se
+# alguém acrescentar um ledger à lista sem escrever a migração correspondente,
+# este script falha (exit 1) — que é exatamente o alarme desejado. A migração,
+# ao contrário, congela a sua própria tupla: ela declara o que fez, não o que
+# deveria ser feito hoje (CLAUDE.md §9).
 
 
 # ---------------------------------------------------------------------------
