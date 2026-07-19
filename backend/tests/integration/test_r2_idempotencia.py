@@ -27,7 +27,7 @@ from datetime import datetime
 import psycopg2
 
 from app.auth.jwt import criar_access_token
-from tests.integration.conftest import DATABASE_URL
+from tests.integration.conftest import DATABASE_URL, ledger_gravavel
 
 _CNPJ = "12345678000195"
 
@@ -88,7 +88,12 @@ def _cleanup(seed):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM estornos WHERE prescricao_id = %s", (seed["presc_id"],))
             cur.execute("DELETE FROM dispensacoes WHERE prescricao_item_id = %s", (seed["item_id"],))
-            cur.execute("DELETE FROM prescricao_eventos WHERE prescricao_id = %s", (seed["presc_id"],))
+            # O ledger recusa DELETE (CLAUDE.md §2). Exceção de teardown, explícita:
+            with ledger_gravavel(cur.execute):
+                cur.execute(
+                    "DELETE FROM prescricao_eventos WHERE prescricao_id = %s",
+                    (seed["presc_id"],),
+                )
             cur.execute("DELETE FROM prescricao_custodia WHERE prescricao_id = %s", (seed["presc_id"],))
             cur.execute("DELETE FROM prescricao_itens WHERE prescricao_id = %s", (seed["presc_id"],))
             cur.execute("DELETE FROM prescricoes WHERE id = %s", (seed["presc_id"],))

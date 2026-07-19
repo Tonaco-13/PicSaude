@@ -78,6 +78,7 @@ if "test" not in DATABASE_URL.lower():
 import itertools
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -279,6 +280,33 @@ def client(outer_conn, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Limpeza de ledger em teardown — exceção explícita e local
+# ---------------------------------------------------------------------------
+
+@contextmanager
+def ledger_gravavel(executor, tabela: str = "prescricao_eventos"):
+    """Desativa temporariamente os triggers de imutabilidade de `tabela`.
+
+    APENAS para teardown de teste com commits reais (fixtures sem SAVEPOINT),
+    que precisam apagar o que criaram no banco compartilhado.
+
+    Por que é preciso ser explícito: desde TICKET-LEDGER-TRIGGERS-MIGRACAO o
+    PostgreSQL RECUSA DELETE em `*_eventos` (CLAUDE.md §2) — antes só o SQLite
+    recusava, e estes teardowns passavam despercebidos na PG. A recusa é o
+    comportamento correto; o teardown é que é a exceção. Deixá-la visível aqui
+    (em vez de afrouxar o trigger) mantém a regra intacta para o código de
+    aplicação, onde ela vale de verdade.
+
+    Nunca use isto fora de teardown de teste.
+    """
+    executor(f"ALTER TABLE {tabela} DISABLE TRIGGER prevent_delete_{tabela}")
+    try:
+        yield
+    finally:
+        executor(f"ALTER TABLE {tabela} ENABLE TRIGGER prevent_delete_{tabela}")
+
+
+# ---------------------------------------------------------------------------
 # Fixture: TestClient SEM isolamento (para test_concorrencia)
 # ---------------------------------------------------------------------------
 
@@ -297,17 +325,18 @@ def client_concorrencia():
     # CPF sentinela do seed garante que só dados de teste sejam afetados.
     conn = get_conn()
     try:
-        conn.execute(
-            """
-            DELETE FROM prescricao_eventos
-             WHERE prescricao_id IN (
-                SELECT p.id FROM prescricoes p
-                JOIN pacientes pa ON pa.id = p.paciente_id
-                WHERE pa.cpf = ?
-             )
-            """,
-            (SEED_PACIENTE_CPF,),
-        )
+        with ledger_gravavel(conn.execute):
+            conn.execute(
+                """
+                DELETE FROM prescricao_eventos
+                 WHERE prescricao_id IN (
+                    SELECT p.id FROM prescricoes p
+                    JOIN pacientes pa ON pa.id = p.paciente_id
+                    WHERE pa.cpf = ?
+                 )
+                """,
+                (SEED_PACIENTE_CPF,),
+            )
         conn.execute(
             """
             DELETE FROM prescricao_itens

@@ -20,7 +20,7 @@
 | Escopo institucional (org_id + unidade_id) — convenção e guardrail | 6b |
 | Modelo generalizável + Núcleo Sanitário (exames, laudos, internações…) | 7 |
 | Estrutura de arquivos do projeto | 8 |
-| Criar tabelas novas | 9 |
+| Migração como autoridade de schema · migração declara sobre o que agiu | 9 |
 | Taxonomia de contribuição — classificação obrigatória de mudanças | 10 |
 
 ---
@@ -515,7 +515,8 @@ backend/
     utils/helpers.py           ← normalize_cpf, normalize_cns, normalize_cnpj, normalize_nome
     config.py                  ← DB_PATH (env PIX_SAUDE_DB ou data/pix_saude_pe.db)
     database.py                ← get_conn() para raw SQL, engine/Base para ORM
-  init_tables.py               ← rodar após qualquer novo model
+  init_tables.py               ← bootstrap dev + checagem de schema (§9). NÃO cria triggers
+  alembic/versions/            ← autoridade de schema — o que roda em produção (§9)
 data/
   pix_saude_pe.db              ← banco SQLite (CNES + aplicação)
 docs/                          ← whitepaper, DDL PostgreSQL, arquitetura
@@ -535,14 +536,89 @@ dispensador.html               ← frontend dispensador
 | POST | `/prescricoes/{proto}/assinatura` | Registrar metadados de assinatura |
 | GET  | `/prescricoes/{proto}/validacao` | Validação documental em 5 camadas |
 
-## 9. Comando para criar tabelas novas
+## 9. A migração é a autoridade de schema
 
-Após criar qualquer novo `model/*.py`, adicionar o nome à lista em
-`init_tables.py` e rodar:
+**A migração Alembic é a ÚNICA autoridade sobre o schema — inclusive sobre
+invariantes de banco (triggers, constraints).** `init_tables.py` é bootstrap e
+checagem de ambiente de desenvolvimento; nada que só ele cria chega a produção.
+
+Por quê: o `predeploy.sh` do Render roda **apenas**
+
+```
+alembic upgrade head
+python3 seed_demo.py
+```
+
+e **nunca** chama `init_tables.py`. Um invariante que existe só no script de
+bootstrap não existe em produção. Foi exatamente o que aconteceu com os triggers
+de imutabilidade do ledger (§2): eram criados só pelo `init_tables.py`, em código
+SQLite-only, e o **PostgreSQL nunca os teve** — o §2 afirmava que o banco recusa
+UPDATE/DELETE enquanto apenas a convenção de código recusava
+(TICKET-LEDGER-TRIGGERS-MIGRACAO).
+
+### Ao criar um novo `model/*.py`
+
+1. Crie a **migração** — é ela que aplica a mudança em todo ambiente:
+   ```bash
+   cd backend && alembic revision -m "descricao_da_mudanca"
+   # implemente upgrade() e downgrade(); use op.get_bind().dialect.name
+   # quando o DDL divergir entre SQLite e PostgreSQL
+   cd backend && alembic upgrade head
+   ```
+2. Adicione o nome da tabela à lista `_TABELAS_APP` em `init_tables.py` — ali
+   ela serve como **checagem**, não como criação.
+3. Se a tabela for um ledger (`*_eventos`), adicione-a a `TABELAS_LEDGER` em
+   `app/domain/ledger_imutabilidade.py` **e** crie uma migração NOVA que instala
+   seus dois triggers (`prevent_update_*` / `prevent_delete_*`) nos dois
+   dialetos, declarando a sua própria tupla literal de tabelas (ver abaixo).
+
+### A migração declara sobre o que agiu
+
+> **A migração declara sobre o que agiu. Estrutura nova = migração nova — nunca
+> editar a anterior.**
+
+Migração é **registro histórico**, não código vivo. Ela pode importar o **"como"**
+(construtores de DDL — fonte única, zero duplicação), mas nunca o **"quê"**: a
+lista de objetos sobre os quais agiu vai **escrita nela mesma, por valor**.
+
+Por quê: uma migração que lê lista viva tem efeito dependente de **quando** roda.
+Um banco migrado hoje ganha N triggers; um banco criado do zero depois de a lista
+crescer ganha N+2 — dois bancos no mesmo `alembic head` com schemas diferentes.
+É o mesmo defeito que o §9 existe para prevenir, reintroduzido pela porta dos
+fundos. É o **R4 invertido** (§2a): lá congela-se o grupo por valor no ato do
+movimento para que mudar a regra amanhã não altere o movimento de ontem; aqui a
+migração *é* o movimento.
+
+Corolário — as duas listas não são a mesma coisa, e nenhuma está errada:
+
+| | Papel | Quem consome |
+|---|---|---|
+| `TABELAS_LEDGER` (lista viva) | **Presente** — "quais ledgers devem estar protegidos agora" | `init_tables.py` (checagem), testes |
+| Tupla literal na migração | **Passado** — "sobre o que eu agi" | a própria migração |
+
+Disciplina idêntica à do objeto sanitário derivado (§1): não se edita o anterior,
+cria-se o próximo.
+
+**Aperto de implementação:** construtores compartilhados de DDL recebem a lista
+como parâmetro **obrigatório, sem default**. Com default, o próximo chamador
+distraído omite o parâmetro e a lista viva volta a ser resolvida na leitura.
+Guard-rail no gate trava a tupla congelada de cada migração
+(`tests/test_ledger_imutabilidade.py`) — se alguém editar migração histórica, o
+gate acusa (lição do R2: invariante executável, não memória de revisor).
+
+### Verificação de ambiente (não substitui a migração)
 
 ```bash
 cd backend && python3 init_tables.py
 ```
+
+Confere tabelas esperadas e triggers de imutabilidade e **falha (exit 1)** se
+faltar trigger — a correção é rodar `alembic upgrade head`, nunca "deixar o
+init_tables criar".
+
+> ⚠️ **Regra derivada:** todo invariante que o CLAUDE.md afirma como garantido
+> *pelo banco* precisa de migração + teste que rode nos dois dialetos. Sem isso,
+> a afirmação vale só para o dialeto de desenvolvimento.
 
 ---
 
