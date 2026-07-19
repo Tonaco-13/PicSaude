@@ -19,9 +19,18 @@ O AMBIENTE
 Sobe a própria aplicação em DEMO_MODE contra um SQLite efêmero, pela receita que a
 dívida #98 ainda nos obriga a fazer à mão:
 
+    DATABASE_URL=sqlite:///<tmp>              alembic upgrade head
     PIX_SAUDE_DB=<tmp>  python3 init_tables.py
     PIX_SAUDE_DB=<tmp>  PICSAUDE_DEMO_MODE=true  python3 seed_demo.py
     PIX_SAUDE_DB=<tmp>  PICSAUDE_DEMO_MODE=true  uvicorn app.main:app
+
+O `alembic upgrade head` vem PRIMEIRO e não é opcional (TICKET-LEDGER-TRIGGERS-
+MIGRACAO): a migração é a autoridade de schema (CLAUDE.md §9) e é ela — não o
+`init_tables.py` — que cria os triggers de imutabilidade do ledger. Sem este
+passo o banco efêmero nasce sem a proteção do §2, e o `init_tables.py` (que agora
+CONFERE os triggers e sai com 1 se faltarem) derruba a fixture inteira. Foi
+exatamente o que aconteceu: era o mesmo defeito do ticket — um caminho de criação
+de banco que não passa pela migração — só que na fixture.
 
 Bônus documentado no ticket: o CI passa a PROVAR que essa receita funciona. Se a
 reconstrução do banco demo quebrar, estes testes ficam vermelhos antes da demo.
@@ -76,14 +85,14 @@ def _porta_livre() -> int:
         return s.getsockname()[1]
 
 
-def _rodar(script: str, env: dict[str, str]) -> None:
-    """Roda um script de bootstrap do banco, falhando alto se ele falhar.
+def _rodar_argv(rotulo: str, argv: list[str], env: dict[str, str]) -> None:
+    """Roda um passo de bootstrap do banco, falhando alto se ele falhar.
 
     Sem `check=True` um seed quebrado viraria um smoke vermelho e confuso lá na
     frente ("a fila está vazia") em vez do erro real aqui.
     """
     proc = subprocess.run(
-        [sys.executable, script],
+        argv,
         cwd=_BACKEND_DIR,
         env=env,
         capture_output=True,
@@ -91,10 +100,28 @@ def _rodar(script: str, env: dict[str, str]) -> None:
     )
     if proc.returncode != 0:
         raise RuntimeError(
-            f"Falha ao preparar o banco demo com {script!r} "
+            f"Falha ao preparar o banco demo com {rotulo} "
             f"(exit {proc.returncode}).\n"
             f"--- stdout ---\n{proc.stdout}\n--- stderr ---\n{proc.stderr}"
         )
+
+
+def _rodar(script: str, env: dict[str, str]) -> None:
+    _rodar_argv(repr(script), [sys.executable, script], env)
+
+
+def _migrar(db_path: str, env: dict[str, str]) -> None:
+    """`alembic upgrade head` contra o SQLite efêmero — schema + triggers do ledger.
+
+    `alembic/env.py` lê `DATABASE_URL` (e só ela): `PIX_SAUDE_DB`/`PICSAUDE_DEMO_MODE`
+    roteiam o app, não o Alembic. Por isso a URL vai explícita aqui, apontando para
+    o MESMO arquivo que o app vai abrir depois.
+    """
+    _rodar_argv(
+        "'alembic upgrade head'",
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        {**env, "DATABASE_URL": f"sqlite:///{db_path}"},
+    )
 
 
 @pytest.fixture(scope="session")
@@ -127,6 +154,9 @@ def app_demo(tmp_path_factory) -> str:
         "PYTHONUNBUFFERED": "1",
     }
 
+    # Ordem obrigatória: migração (autoridade de schema) → init_tables (create_all
+    # do que ainda está fora do alembic + CONFERE os triggers) → seed.
+    _migrar(str(db_path), env)
     _rodar("init_tables.py", env)
     _rodar("seed_demo.py", env)
 

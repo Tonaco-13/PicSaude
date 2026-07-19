@@ -80,6 +80,19 @@ jobs:
           -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante"
           -q
 
+      - name: Gate do ledger imutável (SQLite + PostgreSQL)
+        # TICKET-LEDGER-TRIGGERS-MIGRACAO. Prova que o banco RECUSA UPDATE/DELETE
+        # nas 8 tabelas de ledger (CLAUDE.md §2) nos DOIS dialetos, com a mesma
+        # mensagem. Passo próprio porque a suíte é parametrizada por dialeto: os
+        # casos SQLite montam um banco temporário com `alembic upgrade head`, e os
+        # casos PostgreSQL usam o service container — é o PG que prova o
+        # invariante onde a produção vai rodar. Antes deste ticket o teste era
+        # SQLite-only e ficava verde enquanto a PG não tinha trigger nenhum.
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://picsaude:picsaude@localhost:5432/picsaude_test
+        run: python -m pytest tests/test_ledger_imutabilidade.py -q
+
       - name: Predeploy smoke — o que o Render roda (migrations + seed idempotente)
         # Fecha o gap que deixou o deploy #84 quebrar: o gate rodava as migrations
         # mas NUNCA o `seed_demo.py`, que o predeploy roda contra a PG de prod (set -e).
