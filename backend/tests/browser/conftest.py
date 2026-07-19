@@ -16,21 +16,26 @@ Estes smokes respondem "a tela abre?". São perguntas diferentes.
 
 O AMBIENTE
 ----------
-Sobe a própria aplicação em DEMO_MODE contra um SQLite efêmero, pela receita que a
-dívida #98 ainda nos obriga a fazer à mão:
+Sobe a própria aplicação em DEMO_MODE contra um SQLite efêmero, pela mesma receita
+que reconstrói o banco demo (dívida #98, fechada):
 
-    DATABASE_URL=sqlite:///<tmp>              alembic upgrade head
-    PIX_SAUDE_DB=<tmp>  python3 init_tables.py
-    PIX_SAUDE_DB=<tmp>  PICSAUDE_DEMO_MODE=true  python3 seed_demo.py
-    PIX_SAUDE_DB=<tmp>  PICSAUDE_DEMO_MODE=true  uvicorn app.main:app
+    PIX_SAUDE_DEMO_DB=<tmp>  PICSAUDE_DEMO_MODE=true  alembic upgrade head
+    PIX_SAUDE_DEMO_DB=<tmp>  PICSAUDE_DEMO_MODE=true  python3 init_tables.py
+    PIX_SAUDE_DEMO_DB=<tmp>  PICSAUDE_DEMO_MODE=true  python3 seed_demo.py
+    PIX_SAUDE_DEMO_DB=<tmp>  PICSAUDE_DEMO_MODE=true  uvicorn app.main:app
+
+Os quatro passos leem o MESMO par de variáveis — é o ponto da #98. Antes,
+`alembic/env.py` ignorava `PICSAUDE_DEMO_MODE` e cravava o banco de dev, então a
+migração precisava ser empurrada à mão com um `DATABASE_URL` explícito.
 
 O `alembic upgrade head` vem PRIMEIRO e não é opcional (TICKET-LEDGER-TRIGGERS-
 MIGRACAO): a migração é a autoridade de schema (CLAUDE.md §9) e é ela — não o
 `init_tables.py` — que cria os triggers de imutabilidade do ledger. Sem este
 passo o banco efêmero nasce sem a proteção do §2, e o `init_tables.py` (que agora
-CONFERE os triggers e sai com 1 se faltarem) derruba a fixture inteira. Foi
-exatamente o que aconteceu: era o mesmo defeito do ticket — um caminho de criação
-de banco que não passa pela migração — só que na fixture.
+CONFERE os triggers e sai com 1 se faltarem) derruba a fixture inteira.
+
+`init_tables.py` fica no meio como CHECAGEM, não como criação: é ele que grita se
+o banco da fixture nascer torto.
 
 Bônus documentado no ticket: o CI passa a PROVAR que essa receita funciona. Se a
 reconstrução do banco demo quebrar, estes testes ficam vermelhos antes da demo.
@@ -110,17 +115,19 @@ def _rodar(script: str, env: dict[str, str]) -> None:
     _rodar_argv(repr(script), [sys.executable, script], env)
 
 
-def _migrar(db_path: str, env: dict[str, str]) -> None:
+def _migrar(env: dict[str, str]) -> None:
     """`alembic upgrade head` contra o SQLite efêmero — schema + triggers do ledger.
 
-    `alembic/env.py` lê `DATABASE_URL` (e só ela): `PIX_SAUDE_DB`/`PICSAUDE_DEMO_MODE`
-    roteiam o app, não o Alembic. Por isso a URL vai explícita aqui, apontando para
-    o MESMO arquivo que o app vai abrir depois.
+    Sem `DATABASE_URL` explícita: desde a #98, `alembic/env.py` resolve o path
+    SQLite pelo mesmo `_resolve_sqlite_db_path()` que o app usa, então o
+    `PICSAUDE_DEMO_MODE` + `PIX_SAUDE_DEMO_DB` já no `env` levam a migração ao
+    MESMO arquivo que o uvicorn vai abrir depois. Um par de variáveis, quatro
+    processos, um banco.
     """
     _rodar_argv(
         "'alembic upgrade head'",
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        {**env, "DATABASE_URL": f"sqlite:///{db_path}"},
+        env,
     )
 
 
@@ -156,7 +163,7 @@ def app_demo(tmp_path_factory) -> str:
 
     # Ordem obrigatória: migração (autoridade de schema) → init_tables (create_all
     # do que ainda está fora do alembic + CONFERE os triggers) → seed.
-    _migrar(str(db_path), env)
+    _migrar(env)
     _rodar("init_tables.py", env)
     _rodar("seed_demo.py", env)
 
