@@ -383,6 +383,10 @@
             <h3 class="section-title" style="margin-top: 48px;">Laudos / Resultados</h3>
             <div id="lista-laudos"></div>
 
+            <!-- ── Atestados (TICKET-ATESTADO-CARTEIRA-CIDADAO) ──────── -->
+            <h3 class="section-title" style="margin-top: 48px;">Atestados</h3>
+            <div id="lista-atestados"></div>
+
             <h3 class="section-title" style="margin-top: 48px;">Histórico de Prescrições</h3>
             <div id="lista-historico"></div>
         </div>
@@ -574,6 +578,97 @@
             }
             carregarPedidosExame();
             carregarLaudos();
+            carregarAtestados();
+        }
+
+        // ==========================================
+        // Atestados (TICKET-ATESTADO-CARTEIRA-CIDADAO)
+        // O atestado JÁ chega ao paciente na emissão — a custódia
+        // prescritor→paciente transfere no POST. Não há "enviar": o atestado É
+        // do paciente, o profissional entrega e não retém. Por isso não existe
+        // botão de ação aqui, só leitura e download.
+        // ==========================================
+        async function carregarAtestados() {
+            const container = document.getElementById('lista-atestados');
+            try {
+                const dados = await apiFetch('/paciente/atestados');
+                const lista = [...(dados.vigentes || []), ...(dados.historico || [])];
+                if (lista.length === 0) {
+                    container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum atestado disponível.</p>';
+                    return;
+                }
+                renderizarAtestados(lista);
+            } catch (err) {
+                container.innerHTML = `<p style="color:#dc2626; font-size:13px;">Erro ao carregar atestados: ${err.message}</p>`;
+            }
+        }
+
+        function renderizarAtestados(atestados) {
+            const container = document.getElementById('lista-atestados');
+            container.innerHTML = atestados.map(at => {
+                const emissao = at.data_documento
+                    ? new Date(at.data_documento + 'T12:00:00').toLocaleDateString('pt-BR')
+                    : '';
+                const ateData = at.data_validade
+                    ? new Date(at.data_validade + 'T12:00:00').toLocaleDateString('pt-BR')
+                    : '';
+
+                // AUSÊNCIA É INFORMAÇÃO: nem todo atestado afasta (ex.: o de
+                // comparecimento). Sem dias, a linha inteira some — um campo
+                // "Afastamento: —" afirmaria que houve afastamento de nada.
+                const afastamentoHtml = at.dias_afastamento
+                    ? `<p style="font-size:13px; color:#0f172a; margin-top:6px;">
+                           <strong>Afastamento:</strong> ${at.dias_afastamento} dia(s)
+                           ${ateData ? `— até ${ateData}` : ''}
+                       </p>`
+                    : '';
+
+                // Local e data: o CFM exige os dois no documento; a carteira
+                // repete o par para o cidadão conferir sem abrir o PDF.
+                const localData = [at.municipio_emissao, emissao].filter(Boolean).join(', ');
+                const profissional = [at.profissional_nome, at.registro_profissional]
+                    .filter(Boolean).join(' — ');
+
+                return `
+                    <div class="exame-card">
+                        <div class="exame-card-header">
+                            <div>
+                                <p style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:4px;">${at.protocolo}</p>
+                                <!-- Título vem do backend (conselho_profissional):
+                                     médico vs. odontológico é decisão do domínio. -->
+                                <p style="font-size:14px; font-weight:600; color:#0f172a;">${at.titulo_documento}</p>
+                                <p style="font-size:12px; color:#64748b;">${profissional || '—'}</p>
+                            </div>
+                            <span class="exame-badge-prioridade">atestado</span>
+                        </div>
+                        <p style="font-size:13px; color:#334155; margin-top:8px;"><strong>Finalidade:</strong> ${at.finalidade}</p>
+                        ${afastamentoHtml}
+                        ${localData ? `<p style="font-size:12px; color:#64748b; margin-top:6px;">${localData}</p>` : ''}
+                        <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+                            <button class="btn-outline btn-small" style="margin:0;" onclick="baixarPdfAtestado('${at.protocolo}')">📄 Baixar PDF</button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        async function baixarPdfAtestado(protocolo) {
+            try {
+                const resp = await fetch(`/atestados/${protocolo}/pdf`, {
+                    headers: { 'Authorization': `Bearer ${sessaoAtual.token}` },
+                });
+                if (!resp.ok) throw new Error('PDF indisponível.');
+                const blob = await resp.blob();
+                const url  = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `atestado-${protocolo.slice(0, 8)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (err) {
+                alert('Erro ao baixar PDF do atestado: ' + err.message);
+            }
         }
 
         // ==========================================
