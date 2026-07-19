@@ -20,7 +20,7 @@
 | Escopo institucional (org_id + unidade_id) — convenção e guardrail | 6b |
 | Modelo generalizável + Núcleo Sanitário (exames, laudos, internações…) | 7 |
 | Estrutura de arquivos do projeto | 8 |
-| Migração como autoridade de schema (criar tabelas novas) | 9 |
+| Migração como autoridade de schema · migração declara sobre o que agiu | 9 |
 | Taxonomia de contribuição — classificação obrigatória de mudanças | 10 |
 
 ---
@@ -568,8 +568,43 @@ UPDATE/DELETE enquanto apenas a convenção de código recusava
 2. Adicione o nome da tabela à lista `_TABELAS_APP` em `init_tables.py` — ali
    ela serve como **checagem**, não como criação.
 3. Se a tabela for um ledger (`*_eventos`), adicione-a a `TABELAS_LEDGER` em
-   `app/domain/ledger_imutabilidade.py` **e** crie a migração que instala seus
-   dois triggers (`prevent_update_*` / `prevent_delete_*`) nos dois dialetos.
+   `app/domain/ledger_imutabilidade.py` **e** crie uma migração NOVA que instala
+   seus dois triggers (`prevent_update_*` / `prevent_delete_*`) nos dois
+   dialetos, declarando a sua própria tupla literal de tabelas (ver abaixo).
+
+### A migração declara sobre o que agiu
+
+> **A migração declara sobre o que agiu. Estrutura nova = migração nova — nunca
+> editar a anterior.**
+
+Migração é **registro histórico**, não código vivo. Ela pode importar o **"como"**
+(construtores de DDL — fonte única, zero duplicação), mas nunca o **"quê"**: a
+lista de objetos sobre os quais agiu vai **escrita nela mesma, por valor**.
+
+Por quê: uma migração que lê lista viva tem efeito dependente de **quando** roda.
+Um banco migrado hoje ganha N triggers; um banco criado do zero depois de a lista
+crescer ganha N+2 — dois bancos no mesmo `alembic head` com schemas diferentes.
+É o mesmo defeito que o §9 existe para prevenir, reintroduzido pela porta dos
+fundos. É o **R4 invertido** (§2a): lá congela-se o grupo por valor no ato do
+movimento para que mudar a regra amanhã não altere o movimento de ontem; aqui a
+migração *é* o movimento.
+
+Corolário — as duas listas não são a mesma coisa, e nenhuma está errada:
+
+| | Papel | Quem consome |
+|---|---|---|
+| `TABELAS_LEDGER` (lista viva) | **Presente** — "quais ledgers devem estar protegidos agora" | `init_tables.py` (checagem), testes |
+| Tupla literal na migração | **Passado** — "sobre o que eu agi" | a própria migração |
+
+Disciplina idêntica à do objeto sanitário derivado (§1): não se edita o anterior,
+cria-se o próximo.
+
+**Aperto de implementação:** construtores compartilhados de DDL recebem a lista
+como parâmetro **obrigatório, sem default**. Com default, o próximo chamador
+distraído omite o parâmetro e a lista viva volta a ser resolvida na leitura.
+Guard-rail no gate trava a tupla congelada de cada migração
+(`tests/test_ledger_imutabilidade.py`) — se alguém editar migração histórica, o
+gate acusa (lição do R2: invariante executável, não memória de revisor).
 
 ### Verificação de ambiente (não substitui a migração)
 
