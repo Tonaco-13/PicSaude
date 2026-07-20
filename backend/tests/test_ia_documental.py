@@ -62,6 +62,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.auth.dependencies import get_current_user, get_current_user_or_api_key
 from app.ai_documental.ia_documental import validar_atestado
+from app.ai_documental.templates_atestado import VERSAO_TEMPLATE
 from app.ai_documental.regras_atestado import (
     verificar_campos_obrigatorios,
     verificar_texto_clinico,
@@ -158,7 +159,10 @@ class TestCasoValidoCompleto:
         """T07 — versao_template está presente na resposta."""
         result = validar_atestado(**_PAYLOAD_VALIDO)
         assert "versao_template" in result
-        assert result["versao_template"] == "atestado_cfm_v2"
+        # Comparado com a constante, não com um literal: a versão do template
+        # sobe quando o texto muda, e o teste não deve ser um segundo lugar onde
+        # ela está escrita.
+        assert result["versao_template"] == VERSAO_TEMPLATE
 
     def test_documento_base_contem_finalidade(self):
         """T07b — documento_base reflete a finalidade declarada."""

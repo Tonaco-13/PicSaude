@@ -123,6 +123,7 @@ class AtestadoIn(BaseModel):
     data_documento:        Optional[str] = None        # ISO; default hoje
     hora_inicio:           Optional[str] = None        # "HH:MM" — comparecimento
     hora_fim:              Optional[str] = None        # "HH:MM" — comparecimento
+    observacao_complementar: Optional[str] = None      # parágrafo extra; nunca substitui o corpo
     nome_profissional:     Optional[str] = None
     conselho:              Optional[str] = None        # CFM | CFO
     uf_registro:           Optional[str] = None        # UF do conselho regional
@@ -194,6 +195,7 @@ class AtestadoFisicaIn(BaseModel):
     data_documento:        Optional[str] = None
     hora_inicio:           Optional[str] = None
     hora_fim:              Optional[str] = None
+    observacao_complementar: Optional[str] = None
     nome_profissional:     Optional[str] = None
     conselho:              Optional[str] = None
     uf_registro:           Optional[str] = None
@@ -269,13 +271,20 @@ def _calcular_hash_atestado(
     conselho: Optional[str] = None, uf_registro: Optional[str] = None,
     registro_profissional: Optional[str] = None,
     hora_inicio: Optional[str] = None, hora_fim: Optional[str] = None,
+    observacao_complementar: Optional[str] = None,
 ) -> str:
     """Hash do documento canônico do atestado.
 
-    `versao_esquema` sobe para "2" ao incorporar local de emissão, conselho/UF/
-    registro e horário — tudo isso é conteúdo MATERIAL impresso no documento;
-    fora do hash, dois atestados com locais diferentes teriam a mesma impressão
-    digital. Atestados v1 guardam o hash que calcularam à época e nunca são
+    `versao_esquema` sobe a cada campo MATERIAL que passa a ser impresso no
+    documento — fora do hash, dois atestados com conteúdos diferentes teriam a
+    mesma impressão digital:
+
+      "2" — local de emissão, conselho/UF/registro e horário;
+      "3" — observação complementar (texto livre que sai impresso no documento;
+            diferente de `cid_consta_na_base`, que é metadado do nosso catálogo
+            e fica fora do hash para não quebrar a reprodutibilidade — §2a R1).
+
+    Atestados já emitidos guardam o hash que calcularam à época e nunca são
     recalculados (o hash é gravado uma vez na emissão), então o legado não muda.
     """
     doc = {
@@ -293,7 +302,8 @@ def _calcular_hash_atestado(
         "registro_profissional": registro_profissional,
         "hora_inicio":           hora_inicio,
         "hora_fim":              hora_fim,
-        "versao_esquema":        "2",
+        "observacao_complementar": observacao_complementar,
+        "versao_esquema":        "3",
     }
     return hashlib.sha256(
         json.dumps(doc, ensure_ascii=False, sort_keys=True).encode()
@@ -373,14 +383,16 @@ def criar_atestado(
                origem_atestado_id, finalidade, indicacao_clinica, codigo_cid,
                dias_afastamento, nome_profissional, registro_profissional,
                conselho, uf_registro, municipio_emissao, hora_inicio, hora_fim,
+               observacao_complementar,
                assinatura_modo, data_documento, data_emissao, data_validade, criado_em)
-            VALUES (?, ?, ?, 'emitido', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, 'emitido', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (protocolo, prescritor_id, paciente_id, payload.tipo_emissao,
              payload.origem_atestado_id, payload.finalidade, payload.indicacao_clinica,
              payload.codigo_cid, payload.dias_afastamento, payload.nome_profissional,
              payload.registro_profissional, payload.conselho, payload.uf_registro,
              payload.municipio_emissao, payload.hora_inicio, payload.hora_fim,
+             payload.observacao_complementar,
              payload.assinatura_modo,
              data_documento, data_emissao, data_validade, agora),
         )
@@ -393,6 +405,7 @@ def criar_atestado(
             uf_registro=payload.uf_registro,
             registro_profissional=payload.registro_profissional,
             hora_inicio=payload.hora_inicio, hora_fim=payload.hora_fim,
+            observacao_complementar=payload.observacao_complementar,
         )
         conn.execute(
             "UPDATE atestados SET assinatura_hash = ? WHERE id = ?",
@@ -491,14 +504,16 @@ def criar_atestado_fisico(
                finalidade, indicacao_clinica, codigo_cid, dias_afastamento,
                nome_profissional, registro_profissional,
                conselho, uf_registro, municipio_emissao, hora_inicio, hora_fim,
+               observacao_complementar,
                data_documento, data_emissao, criado_em)
-            VALUES (?, ?, ?, 'encerrada_localmente', 'fisica', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, 'encerrada_localmente', 'fisica', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (protocolo, prescritor_id, paciente_id, payload.finalidade,
              payload.indicacao_clinica, payload.codigo_cid, payload.dias_afastamento,
              payload.nome_profissional, payload.registro_profissional,
              payload.conselho, payload.uf_registro, payload.municipio_emissao,
              payload.hora_inicio, payload.hora_fim,
+             payload.observacao_complementar,
              data_documento, data_emissao, agora),
         )
         atestado_id = cursor.lastrowid
@@ -586,6 +601,7 @@ def get_atestado(
         "municipio_emissao": dados["municipio_emissao"],
         "hora_inicio": dados["hora_inicio"],
         "hora_fim": dados["hora_fim"],
+        "observacao_complementar": dados["observacao_complementar"],
         "conselho": dados["conselho"],
         "uf_registro": dados["uf_registro"],
         "registro_profissional": dados["registro_profissional"],
@@ -645,6 +661,7 @@ def _pdf_de_dados(dados: dict) -> bytes:
         conselho=dados["conselho"], uf_registro=dados["uf_registro"],
         municipio_emissao=dados["municipio_emissao"],
         hora_inicio=dados["hora_inicio"], hora_fim=dados["hora_fim"],
+        observacao_complementar=dados["observacao_complementar"],
         is_demo=PICSAUDE_DEMO_MODE,
     )
 

@@ -29,6 +29,7 @@ from typing import Optional
 
 from app.ai_documental.templates_atestado import (
     VERSAO_TEMPLATE,
+    RascunhoAtestado,
     renderizar_atestado,
 )
 from app.ai_documental.regras_atestado import (
@@ -61,6 +62,12 @@ def validar_atestado(
     data_documento:       Optional[str] = None,
     nome_profissional:    Optional[str] = None,
     registro_profissional: Optional[str] = None,
+    municipio_emissao:    Optional[str] = None,
+    conselho:             Optional[str] = None,
+    uf_registro:          Optional[str] = None,
+    hora_inicio:          Optional[str] = None,
+    hora_fim:             Optional[str] = None,
+    observacao_complementar: Optional[str] = None,
 ) -> dict:
     """
     Valida a estrutura de um atestado médico e retorna resultado explicável.
@@ -75,18 +82,33 @@ def validar_atestado(
     dias_afastamento      : Número de dias de afastamento (int > 0).
     data_documento        : Data de emissão (string — ex: '2026-03-24').
     nome_profissional     : Nome do profissional responsável.
-    registro_profissional : Registro profissional (ex: 'CRM-PE 12345').
+    registro_profissional : NÚMERO do registro (ex: '12345'). A sigla e a UF são
+                            montadas a partir de `conselho` + `uf_registro`, pela
+                            mesma função que o PDF usa (formatar_registro).
+    municipio_emissao     : Local de emissão — o "local" que o CFM exige (OPCIONAL
+                            aqui: o rascunho é conferência, não emissão).
+    conselho              : CFM | CFO — decide adjetivos do corpo e sigla do registro.
+    uf_registro           : UF do conselho regional (ex: 'PE').
+    hora_inicio/hora_fim  : Horário de comparecimento (OPCIONAIS, independentes).
+    observacao_complementar : Texto livre acrescentado como parágrafo próprio
+                            depois do corpo. ACRESCENTA, nunca substitui — os
+                            campos estruturados seguem sendo a autoridade.
 
     Retorno
     -------
-    ok               → bool  — True somente se todos os campos obrigatórios
-                               presentes e válidos (sem faltantes).
-    faltantes        → list  — campos ausentes ou inválidos (determinam ok).
-    alertas          → list  — avisos não-bloqueantes (texto vago, inconsistência CID).
-    sugestoes        → list  — sugestões determinísticas de redação.
-    documento_base   → str|None — atestado renderizado (None quando há faltantes).
-    aviso            → str  — disclaimer fixo (sempre presente).
-    versao_template  → str  — versão do template utilizado.
+    ok                  → bool  — True somente se todos os campos obrigatórios
+                                  presentes e válidos (sem faltantes).
+    faltantes           → list  — campos ausentes ou inválidos (determinam ok).
+    alertas             → list  — avisos não-bloqueantes (texto vago, CID incoerente).
+    sugestoes           → list  — sugestões determinísticas de redação.
+    documento_base      → str|None — rascunho sem marcação (None quando há faltantes).
+    documento_base_html → str|None — mesmo rascunho com `<strong>` nas ênfases,
+                                  já escapado; a tela insere direto.
+    corpo_documento     → str|None — só o corpo, sem a moldura do rascunho. É a
+                                  fatia que o PDF oficial também renderiza — a
+                                  unidade comparada no teste de espelho.
+    aviso               → str  — disclaimer fixo (sempre presente).
+    versao_template     → str  — versão do template utilizado.
     """
     dados = {
         "paciente_nome":        paciente_nome,
@@ -133,9 +155,9 @@ def validar_atestado(
     # ------------------------------------------------------------------
     # 4. Documento base — renderizado somente quando sem faltantes
     # ------------------------------------------------------------------
-    documento_base: Optional[str] = None
+    rascunho: Optional[RascunhoAtestado] = None
     if not faltantes:
-        documento_base = renderizar_atestado(
+        rascunho = renderizar_atestado(
             paciente_nome         = paciente_nome,        # type: ignore
             finalidade            = finalidade,           # type: ignore
             dias_afastamento      = dias_afastamento,     # type: ignore
@@ -144,14 +166,22 @@ def validar_atestado(
             registro_profissional = registro_profissional, # type: ignore
             indicacao_clinica     = indicacao_clinica,    # opcional
             codigo_cid            = codigo_cid,           # opcional
+            municipio_emissao     = municipio_emissao,    # opcional
+            conselho              = conselho,             # opcional (CFM padrão)
+            uf_registro           = uf_registro,          # opcional
+            hora_inicio           = hora_inicio,          # opcional
+            hora_fim              = hora_fim,             # opcional
+            observacao_complementar = observacao_complementar,  # opcional
         )
 
     return {
-        "ok":              len(faltantes) == 0,
-        "faltantes":       faltantes,
-        "alertas":         alertas,
-        "sugestoes":       sugestoes,
-        "documento_base":  documento_base,
-        "aviso":           _AVISO_FIXO,
-        "versao_template": VERSAO_TEMPLATE,
+        "ok":                  len(faltantes) == 0,
+        "faltantes":           faltantes,
+        "alertas":             alertas,
+        "sugestoes":           sugestoes,
+        "documento_base":      rascunho.texto if rascunho else None,
+        "documento_base_html": rascunho.html if rascunho else None,
+        "corpo_documento":     rascunho.corpo if rascunho else None,
+        "aviso":               _AVISO_FIXO,
+        "versao_template":     VERSAO_TEMPLATE,
     }
