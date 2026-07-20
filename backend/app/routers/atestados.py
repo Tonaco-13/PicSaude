@@ -106,6 +106,43 @@ def _validar_hora(v: Optional[str]) -> Optional[str]:
     return hora
 
 
+def _validar_coerencia_horas(hora_inicio: Optional[str], hora_fim: Optional[str]) -> None:
+    """As duas horas de comparecimento têm de formar um período coerente.
+
+    Nasce de um atestado real (0bcd68c2) que saiu ASSINADO, com hash e
+    ICP-Brasil, dizendo "no período das 12:00 às 12:00" — duração ZERO. O
+    `_validar_hora` valida cada campo ISOLADAMENTE (só o formato HH:MM); faltava
+    quem olhasse os dois juntos.
+
+    Regras:
+      - hora_fim sem hora_inicio → inválido (um fim sem começo não é período).
+      - hora_fim não posterior a hora_inicio → inválido (duração zero ou
+        negativa). É o caso 12:00–12:00 que gerou o ticket.
+      - hora_inicio sozinha é VÁLIDA — o documento a lê como "a partir das X"
+        (ver domain: período de horário). hora_fim é que exige par.
+      - ambas ausentes → válido (o horário é OPCIONAL).
+
+    Comparação por string, de propósito: `_RE_HORA` garante HH:MM zero-padded
+    (00–23:00–59), então a ordem lexicográfica é idêntica à temporal. Não há
+    tratamento de virada de meia-noite — decisão do Fabiano: comparecimento que
+    atravessa o dia não é caso real, e a regra fica simples, sem exceção.
+    """
+    ini = (hora_inicio or "").strip()
+    fim = (hora_fim or "").strip()
+    if not fim:
+        return
+    if not ini:
+        raise ValueError(
+            "hora_fim informada sem hora_inicio: informe a hora de início do "
+            "comparecimento (ou remova a hora de término)."
+        )
+    if fim <= ini:
+        raise ValueError(
+            f"hora_fim ({fim}) deve ser posterior a hora_inicio ({ini}): o "
+            "período de comparecimento não pode ter duração zero ou negativa."
+        )
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -171,6 +208,7 @@ class AtestadoIn(BaseModel):
             raise ValueError(f"tipo_emissao inválido: {self.tipo_emissao!r}")
         if self.tipo_emissao != "nova" and self.origem_atestado_id is None:
             raise ValueError("origem_atestado_id é obrigatório para correção.")
+        _validar_coerencia_horas(self.hora_inicio, self.hora_fim)
         return self
 
 
@@ -227,6 +265,18 @@ class AtestadoFisicaIn(BaseModel):
         if not (v or "").strip():
             raise ValueError("Finalidade é obrigatória.")
         return v.strip()
+
+    @model_validator(mode="after")
+    def _coerencia(self):
+        # Rejeita horas incoerentes TAMBÉM no físico — contraste deliberado com
+        # `_cid_normalizado_sem_rejeitar` logo acima, que jamais rejeita. Um CID
+        # malformado é dado ruim mas gravável e audível depois; "12:00 às 12:00"
+        # é um período logicamente impossível, não um dado de baixa qualidade. O
+        # ticket decidiu que a regra vale nos dois POSTs, e a tela dispara este
+        # fire-and-forget só depois de o próprio `_validar_hora` passar, então na
+        # prática o 422 aqui pega quem forjar o payload fora da tela.
+        _validar_coerencia_horas(self.hora_inicio, self.hora_fim)
+        return self
 
 
 # ---------------------------------------------------------------------------

@@ -405,10 +405,13 @@ class TestHoraComparecimento:
                         hora_inicio="08:00")
         assert "a partir das 08:00" in texto
 
-    def test_apenas_hora_fim(self, prescritor):
-        texto = _pdf_de(prescritor, finalidade="Comparecimento", dias_afastamento=None,
-                        hora_fim="12:00")
-        assert "12:00" in texto
+    def test_apenas_hora_fim_agora_e_422(self, prescritor):
+        # Antes deste ticket (COERENCIA-HORAS) hora_fim sozinha era aceita e o
+        # documento lia "até as 12:00". A regra nova exige par: um fim sem começo
+        # não é período. Ver TestCoerenciaHoras.
+        r = prescritor.post("/atestados", json=_payload(
+            finalidade="Comparecimento", dias_afastamento=None, hora_fim="12:00"))
+        assert r.status_code == 422, r.text
 
     def test_hora_declarada_nao_some_no_afastamento(self, prescritor):
         # Dado digitado que não aparece no documento é perda silenciosa.
@@ -424,6 +427,90 @@ class TestHoraComparecimento:
         # "Comparecimento" não torna a hora obrigatória (finalidade é texto livre).
         assert prescritor.post("/atestados", json=_payload(
             finalidade="Comparecimento", dias_afastamento=None)).status_code == 201
+
+
+# Payload físico mínimo — o /atestados/fisica não exige cpf nem município.
+_FISICO = {
+    "cns_prescritor": "123456789012345",
+    "nome_prescritor": "Dra. Atesta",
+    "finalidade": "Comparecimento",
+}
+
+
+def _fisico(**ov):
+    return {**_FISICO, **ov}
+
+
+class TestCoerenciaHoras:
+    """As duas horas têm de formar um período coerente — nos DOIS POSTs.
+
+    Nasce de um atestado real (0bcd68c2) que saiu ASSINADO com "das 12:00 às
+    12:00": duração zero, com hash e ICP-Brasil. `_validar_hora` olhava cada
+    campo isolado; faltava comparar os dois. Decisão do Fabiano: sem exceção de
+    virada de meia-noite — atravessar o dia não é caso real.
+    """
+
+    # ---- digital (POST /atestados) ----
+
+    def test_periodo_de_duracao_zero_422(self, prescritor):
+        """O caso EXATO que gerou o ticket."""
+        r = prescritor.post("/atestados", json=_payload(
+            hora_inicio="12:00", hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_hora_fim_sem_hora_inicio_422(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_hora_fim_antes_do_inicio_422(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(
+            hora_inicio="12:00", hora_fim="09:00"))
+        assert r.status_code == 422, r.text
+
+    def test_periodo_valido_201(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(
+            hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+
+    def test_apenas_hora_inicio_e_valido_201(self, prescritor):
+        # "a partir das X" — início sozinho é período aberto, não incoerência.
+        r = prescritor.post("/atestados", json=_payload(hora_inicio="08:00"))
+        assert r.status_code == 201, r.text
+
+    def test_ambas_ausentes_e_valido_201(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload())
+        assert r.status_code == 201, r.text
+
+    def test_mensagem_de_erro_e_explicavel(self, prescritor):
+        # O 422 tem de dizer POR QUE, no padrão dos outros erros do router.
+        r = prescritor.post("/atestados", json=_payload(
+            hora_inicio="12:00", hora_fim="12:00"))
+        assert "posterior" in r.text and "12:00" in r.text
+
+    # ---- físico (POST /atestados/fisica) — vale igual, apesar do fire-and-forget ----
+
+    def test_fisico_periodo_de_duracao_zero_422(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            hora_inicio="12:00", hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_fisico_hora_fim_sem_inicio_422(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json=_fisico(hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_fisico_hora_fim_antes_do_inicio_422(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            hora_inicio="12:00", hora_fim="09:00"))
+        assert r.status_code == 422, r.text
+
+    def test_fisico_periodo_valido_201(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+
+    def test_fisico_sem_horas_201(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json=_fisico())
+        assert r.status_code == 201, r.text
 
 
 class TestHashCobreConteudoNovo:
