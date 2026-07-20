@@ -3738,6 +3738,9 @@
                             🖨️ Imprimir rascunho
                         </button>
                     </div>
+                    <!-- Slot do aviso de falha na impressão. Vazio no caminho
+                         feliz; nunca escondido quando há o que dizer. -->
+                    <div id="atestado-print-aviso" role="alert" aria-live="polite"></div>
                 </div>`;
             }
 
@@ -3783,12 +3786,108 @@
          * qualquer campo de protocolo.
          */
         function imprimirRascunhoAtestado() {
+            const aviso = document.getElementById('atestado-print-aviso');
             const el = document.getElementById('atestado-preview-texto');
-            if (!el) return;
+            if (!el) {
+                _avisarFalhaDeImpressao(aviso,
+                    'Não foi possível ler o rascunho na tela. Valide o atestado novamente.');
+                return;
+            }
             const texto = el.innerText || el.textContent || '';
-            const win = window.open('', '_blank', 'width=720,height=560');
-            if (!win) return;
-            win.document.write(`<!DOCTYPE html>
+            _limparAvisoDeImpressao(aviso);
+            if (!_imprimirDocumentoAuxiliar(_htmlRascunhoAtestado(texto))) {
+                _avisarFalhaDeImpressao(aviso,
+                    'Seu navegador bloqueou a impressão. Use Ctrl+P (⌘+P) nesta página ' +
+                    'ou libere janelas/impressão para este site e tente de novo.');
+            }
+        }
+
+        /**
+         * Imprime um documento auxiliar por IFRAME OCULTO. Devolve true/false.
+         *
+         * POR QUE IFRAME E NÃO window.open
+         * --------------------------------
+         * Este código usava `window.open('', '_blank', …)`. Com bloqueador de
+         * pop-up ativo — o padrão para domínios não confiáveis, como 127.0.0.1 —
+         * o retorno é `null` e a função saía por um `return` mudo: o profissional
+         * clicava em "Imprimir rascunho" e NADA acontecia. Sem erro, sem pista.
+         * Mesma classe do seletor de conselho vazio: a guarda evitava quebrar,
+         * mas não avisava.
+         *
+         * O iframe roda no próprio documento — não é janela nova, então nenhum
+         * bloqueador de pop-up o intercepta. O HTML impresso é o mesmo; muda só
+         * o veículo.
+         *
+         * Se ainda assim falhar (iframe negado, print indisponível), devolve
+         * false para que o chamador AVISE. Silêncio nunca é resposta: a doutrina
+         * do R4 — falhar alto em vez de calar — vale também na tela.
+         */
+        function _imprimirDocumentoAuxiliar(html) {
+            let frame = null;
+            try {
+                const anterior = document.getElementById('picsaude-print-frame');
+                if (anterior) anterior.remove();
+
+                frame = document.createElement('iframe');
+                frame.id = 'picsaude-print-frame';
+                frame.setAttribute('aria-hidden', 'true');
+                frame.setAttribute('title', 'Documento para impressão');
+                // Fora da vista, mas RENDERIZADO: `display:none` faz alguns
+                // navegadores imprimirem página em branco.
+                frame.style.cssText =
+                    'position:fixed; right:0; bottom:0; width:1px; height:1px; ' +
+                    'border:0; opacity:0; pointer-events:none;';
+                document.body.appendChild(frame);
+
+                const doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+                if (!doc) { frame.remove(); return false; }
+                doc.open();
+                doc.write(html);
+                doc.close();
+
+                const janela = frame.contentWindow;
+                if (!janela || typeof janela.print !== 'function') { frame.remove(); return false; }
+
+                // O disparo espera o layout do iframe: imprimir antes de o
+                // documento assentar sai em branco. `setTimeout(0)` basta porque
+                // o HTML é inline (sem imagens nem fontes externas).
+                setTimeout(() => {
+                    try {
+                        janela.focus();
+                        janela.print();
+                    } catch (_) {
+                        _avisarFalhaDeImpressao(
+                            document.getElementById('atestado-print-aviso'),
+                            'Seu navegador recusou a impressão. Use Ctrl+P (⌘+P) nesta página.');
+                    }
+                }, 0);
+
+                // O iframe fica no DOM até a próxima impressão: removê-lo agora
+                // cancelaria o diálogo em navegadores que imprimem de forma
+                // assíncrona. Como o id é fixo, no máximo um sobrevive.
+                return true;
+            } catch (_) {
+                if (frame && frame.remove) frame.remove();
+                return false;
+            }
+        }
+
+        /** Mostra o aviso de falha de impressão. Nunca esconde o problema. */
+        function _avisarFalhaDeImpressao(el, mensagem) {
+            if (!el) { alert(mensagem); return; }   // sem slot, ainda assim fala
+            el.innerHTML =
+                '<div style="margin-top:10px; padding:10px 12px; border:1px solid #fca5a5; ' +
+                'background:#fef2f2; color:#b91c1c; border-radius:6px; font-size:12px;">' +
+                '🖨️ ' + _escDoc(mensagem) + '</div>';
+        }
+
+        function _limparAvisoDeImpressao(el) {
+            if (el) el.innerHTML = '';
+        }
+
+        /** HTML do papel de trabalho — tarja, marca d'água, sem área de assinatura. */
+        function _htmlRascunhoAtestado(texto) {
+            return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -3834,10 +3933,11 @@
     Texto conferido por validação estrutural (IA Documental v1); a responsabilidade
     clínica e legal permanece com o profissional.
   </div>
-  <script>window.onload = function() { window.print(); };<\/script>
+  <!-- Sem script de auto-print: quem dispara a impressão é a função
+       _imprimirDocumentoAuxiliar, no documento hospedeiro. Assim o disparo é
+       observável e testável, em vez de depender de um onload embutido. -->
 </body>
-</html>`);
-            win.document.close();
+</html>`;
         }
 
         /** Limpa todos os campos e o resultado da IA do formulário de atestado. */
