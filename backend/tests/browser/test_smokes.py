@@ -458,7 +458,50 @@ class TestImpressaoDoRascunho:
 
 
 # ---------------------------------------------------------------------------
-# (f) Zero erro de console em cada tela
+# (f) Ação que desiste avisa — TICKET-FALHA-SILENCIOSA-FRONTEND
+# ---------------------------------------------------------------------------
+
+class TestAcaoAvisaQuandoDesiste:
+    """As guardas estáticas dizem que a chamada de aviso ESTÁ no código.
+    Este smoke diz que o aviso APARECE na tela — perguntas diferentes.
+
+    `prescritor.html` não tem markup de toast: o elemento e o CSS nascem do
+    config.js sob demanda. Se essa criação quebrar, a chamada continua lá e a
+    guarda estática continua verde — só este teste pega.
+    """
+
+    def test_baixar_pdf_sem_emissao_mostra_aviso(self, page, app_demo, erros_de_console):
+        _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
+        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+
+        # Nenhum atestado emitido nesta sessão: a ação desiste — e tem de dizer.
+        page.evaluate("baixarPdfAtestado()")
+
+        toast = page.locator("#picsaude-toast")
+        expect(toast).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(toast).to_contain_text("Nenhum atestado emitido", timeout=_TIMEOUT_MS)
+        # Diz o que FAZER, não só que falhou.
+        expect(toast).to_contain_text("Emita o atestado")
+
+        _sem_erros(erros_de_console, "prescritor.html (aviso de ação)")
+
+    def test_promocao_do_toast_nao_quebrou_a_carteira(self, page, app_demo):
+        """cidadao.html tinha a implementação original e ~20 chamadores.
+
+        A promoção para o config.js manteve nome e assinatura; este teste prova
+        que a página segue usando o SEU elemento, sem ganhar um segundo.
+        """
+        page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        page.evaluate("showToast('promocao ok', 'success')")
+
+        toast = page.locator("#picsaude-toast")
+        expect(toast).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(toast).to_contain_text("promocao ok")
+        assert toast.count() == 1, "config.js criou um segundo toast por cima do da página"
+
+
+# ---------------------------------------------------------------------------
+# (g) Zero erro de console em cada tela
 # ---------------------------------------------------------------------------
 
 class TestConsoleLimpo:

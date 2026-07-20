@@ -1127,15 +1127,11 @@
         }
 
         // ── Toast ──────────────────────────────────────────────────────────
-        let _toastTimer = null;
-        function showToast(msg, type = 'info') {
-            const el = document.getElementById('picsaude-toast');
-            if (!el) { console.warn('[toast]', msg); return; }
-            el.textContent = msg;
-            el.className = `show ${type}`;
-            clearTimeout(_toastTimer);
-            _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
-        }
+        // `showToast` nasceu AQUI e foi promovida para o config.js
+        // (TICKET-FALHA-SILENCIOSA-FRONTEND): as outras cinco telas precisavam
+        // do mesmo aviso, e copiar a função seria criar cinco lugares para
+        // divergir. O elemento #picsaude-toast e o CSS desta página continuam
+        // valendo — o config.js só os cria quando não existem.
 
         // ── Modal: desmarcar circulação ────────────────────────────────────
         let _desmarcarCtx = { chave: null, proto: null };
