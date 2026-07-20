@@ -1314,7 +1314,10 @@
 
       // Ticket 46 — Gate leve de contexto CNES
       const podeOperar = await _confirmarContextoManual();
-      if (!podeOperar) return;
+      if (!podeOperar) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Agendamento não criado: confirme a unidade CNES antes de agendar.');
+        return;
+      }
 
       const dataHoraISO = new Date(dataHoraInput).toISOString();
 
@@ -1354,7 +1357,10 @@
     async function confirmarAgendamento(protocoloAg) {
       // Ticket 46 — Gate leve de contexto CNES
       const podeOperar = await _confirmarContextoManual();
-      if (!podeOperar) return;
+      if (!podeOperar) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Confirmação não enviada: confirme a unidade CNES antes de confirmar.');
+        return;
+      }
       try {
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/confirmar', {
           method: 'POST', headers: authHeaders(), body: '{}',
@@ -1395,7 +1401,10 @@
       if (!confirm('Marcar agendamento como realizado? Isso registrará a coleta de todos os itens agendados.')) return;
       // Ticket 46 — Gate leve de contexto CNES
       const podeOperar = await _confirmarContextoManual();
-      if (!podeOperar) return;
+      if (!podeOperar) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Não registrado: confirme a unidade CNES antes de marcar como realizado.');
+        return;
+      }
       try {
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/realizar', {
           method: 'POST', headers: authHeaders(), body: '{}',
@@ -1856,11 +1865,17 @@
     }
 
     async function realizarCirculacao() {
-        if (!_circAtual) return;
+        if (!_circAtual) {
+            _circFeedback('err', 'Nenhuma circulação selecionada. Abra o item da fila antes de marcar como realizada.');
+            return;
+        }
         if (!confirm('Marcar esta circulação como realizada? Confirma que a coleta foi executada.')) return;
 
         const podeOperar = await _confirmarContextoManual();
-        if (!podeOperar) return;
+        if (!podeOperar) {
+            _circFeedback('err', 'Não registrado: confirme a unidade CNES antes de marcar como realizada.');
+            return;
+        }
 
         try {
             const resp = await fetch(

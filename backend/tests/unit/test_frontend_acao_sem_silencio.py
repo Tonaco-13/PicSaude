@@ -70,6 +70,13 @@ _ACOES: dict[str, tuple[str, ...]] = {
     "clinica.html": (
         "async function enviarProposta",
         "async function enviarRemarcacao",
+        # Encontradas na revisão deste PR: mesmo padrão (gate CNES mudo), mesmo
+        # onclick, e agendamento/circulação também escrevem no ledger. Ficaram de
+        # fora da contagem original de 12; entram aqui por decisão do Fabiano.
+        "async function criarAgendamento",
+        "async function confirmarAgendamento",
+        "async function realizarAgendamento",
+        "async function realizarCirculacao",
     ),
 }
 
@@ -171,14 +178,16 @@ def test_acao_nunca_desiste_calada(tela: str, assinatura: str) -> None:
     )
 
 
-def test_registro_cobre_as_doze_funcoes_do_ticket() -> None:
-    """O registro não pode encolher em silêncio.
+def test_registro_nao_encolhe_em_silencio() -> None:
+    """O registro não pode encolher sem alguém perceber.
 
     Remover uma função da lista faria o gate ficar verde por omissão — o mesmo
-    silêncio, um andar acima.
+    silêncio, um andar acima. São as 12 do ticket + 4 do mesmo padrão achadas
+    na revisão deste PR (agendamento/circulação). Baixar este número é uma
+    decisão, não um efeito colateral: mude o literal de propósito ou não mude.
     """
     total = sum(len(v) for v in _ACOES.values())
-    assert total == 12, f"Registro de ações mudou de tamanho: {total} != 12"
+    assert total == 16, f"Registro de ações mudou de tamanho: {total} != 16"
 
 
 @pytest.mark.parametrize("tela", sorted(_ACOES))
