@@ -462,7 +462,13 @@ def test_round_trip_postgres(_postgres_migrado: str) -> None:
     assert esperados <= ledger.triggers()
 
     try:
-        _alembic(url, "-1", descer=True)
+        # Alvo NOMEADO, não "-1": a migração de triggers precisa ser a que desce,
+        # não "uma abaixo do head". Assim que a observacao_complementar empilhou
+        # em cima dela, "-1" passou a descer a migração ERRADA e deixava os
+        # triggers para trás. É o mesmo defeito que test_round_trip_sqlite já
+        # tinha e que _ANTES_DOS_TRIGGERS corrigiu; o gêmeo PG só corre no CI
+        # (precisa de Postgres efêmero), então escapou até aqui.
+        _alembic(url, _ANTES_DOS_TRIGGERS, descer=True)
         assert not (esperados & ledger.triggers()), "downgrade deixou trigger para trás"
     finally:
         # O banco de teste é compartilhado com as outras suítes: volta ao head
