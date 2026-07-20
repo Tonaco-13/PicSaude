@@ -3173,8 +3173,10 @@
             if (e) e.preventDefault();
 
             const statusEl = document.getElementById('pedido-exame-status-msg');
+            // Sem o fallback, a ausência do container silenciava TODO o retorno
+            // desta função — inclusive o protocolo do pedido recém-emitido.
             const _mostrar = (msg, tipo) => {
-                if (!statusEl) return;
+                if (!statusEl) { if (msg) showToast(msg, tipo === 'error' ? 'error' : 'success'); return; }
                 statusEl.textContent = msg;
                 statusEl.className = `msg-inline msg-inline-${tipo}`;
                 statusEl.classList.remove('hidden');
@@ -3289,24 +3291,41 @@
         let _exameEmitido = null;
 
         async function baixarPdfExame() {
-            if (!_exameEmitido) return;
+            // Esta função não dava feedback em NENHUM caminho: sem protocolo,
+            // com erro HTTP ou sem rede, o clique em "Baixar PDF" simplesmente
+            // não produzia arquivo nem explicação.
+            if (!_exameEmitido) {
+                avisarFalha('Nenhum pedido de exame emitido nesta sessão. Emita o pedido antes de baixar o PDF.');
+                return;
+            }
             try {
                 const r = await fetch(BACKEND + '/pedidos-exame/' + _exameEmitido + '/pdf', { headers: authHeaders() });
-                if (!r.ok) return;
+                if (!r.ok) {
+                    avisarFalha('Não foi possível gerar o PDF do pedido (HTTP ' + r.status + '). Tente novamente em instantes.');
+                    return;
+                }
                 _baixarBlobExame(await r.blob(), 'pedido-exame-' + _exameEmitido.slice(0, 8) + '.pdf');
-            } catch (_) {}
+            } catch (_) {
+                avisarFalha('Sem conexão com o servidor. Verifique a rede e tente baixar de novo.');
+            }
         }
 
         async function assinarExame() {
-            if (!_exameEmitido) return;
+            if (!_exameEmitido) {
+                avisarFalha('Nenhum pedido de exame emitido nesta sessão. Emita o pedido antes de assinar.');
+                return;
+            }
             const msgEl = document.getElementById('exame-assinar-msg');
+            // O container só existe depois de uma emissão bem-sucedida. Sem o
+            // fallback, a ausência dele silenciava a função INTEIRA — inclusive
+            // "senha inválida" e o aviso de sucesso.
             const _msg = (t, tipo) => {
-                if (!msgEl) return;
+                if (!msgEl) { if (t) showToast(t, tipo === 'error' ? 'error' : 'success'); return; }
                 msgEl.textContent = t; msgEl.style.display = t ? 'block' : 'none';
                 msgEl.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error' : tipo === 'success' ? 'msg-inline-success' : '');
             };
             const senha = window.prompt('Senha do seu certificado ICP-Brasil (.pfx):');
-            if (senha === null) return;
+            if (senha === null) return;   // cancelou o prompt: o usuário sabe que desistiu
             if (!senha) return _msg('Senha não informada.', 'error');
             _msg('Assinando…', '');
             try {
@@ -4076,10 +4095,13 @@
 
         /** Assina o PDF da prescrição com o certificado do cofre e baixa o arquivo. */
         async function assinarBaixarPdf() {
-            if (!_protocoloParaAssinar) return;
+            if (!_protocoloParaAssinar) {
+                avisarFalha('Nenhuma prescrição selecionada para assinatura. Emita ou abra a prescrição antes de assinar.');
+                return;
+            }
             const msgEl = document.getElementById('assinar-icp-msg');
             const _msg = (t, tipo) => {
-                if (!msgEl) return;
+                if (!msgEl) { if (t) showToast(t, tipo === 'error' ? 'error' : 'success'); return; }
                 msgEl.textContent = t; msgEl.style.display = t ? 'block' : 'none';
                 msgEl.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error'
                               : tipo === 'success' ? 'msg-inline-success' : '');
@@ -4183,25 +4205,39 @@
         }
 
         async function baixarPdfAtestado() {
-            if (!_atestadoEmitido) return;
+            // Como a de exame, esta função era muda nos três caminhos.
+            if (!_atestadoEmitido) {
+                avisarFalha('Nenhum atestado emitido nesta sessão. Emita o atestado antes de baixar o PDF.');
+                return;
+            }
             try {
                 const h = authHeaders();
                 const r = await fetch(BACKEND + '/atestados/' + _atestadoEmitido + '/pdf', { headers: h });
-                if (!r.ok) return;
+                if (!r.ok) {
+                    avisarFalha('Não foi possível gerar o PDF do atestado (HTTP ' + r.status + '). Tente novamente em instantes.');
+                    return;
+                }
                 _baixarBlob(await r.blob(), 'atestado-' + _atestadoEmitido.slice(0, 8) + '.pdf');
-            } catch (_) {}
+            } catch (_) {
+                avisarFalha('Sem conexão com o servidor. Verifique a rede e tente baixar de novo.');
+            }
         }
 
         async function assinarAtestado() {
-            if (!_atestadoEmitido) return;
+            if (!_atestadoEmitido) {
+                avisarFalha('Nenhum atestado emitido nesta sessão. Emita o atestado antes de assinar.');
+                return;
+            }
             const msgEl = document.getElementById('atestado-assinar-msg');
+            // Container criado junto do bloco de sucesso da emissão; sem o
+            // fallback, a função inteira emudece quando ele não está lá.
             const _msg = (t, tipo) => {
-                if (!msgEl) return;
+                if (!msgEl) { if (t) showToast(t, tipo === 'error' ? 'error' : 'success'); return; }
                 msgEl.textContent = t; msgEl.style.display = t ? 'block' : 'none';
                 msgEl.className = 'msg-inline ' + (tipo === 'error' ? 'msg-inline-error' : tipo === 'success' ? 'msg-inline-success' : '');
             };
             const senha = window.prompt('Senha do seu certificado ICP-Brasil (.pfx):');
-            if (senha === null) return;
+            if (senha === null) return;   // cancelou o prompt: o usuário sabe que desistiu
             if (!senha) return _msg('Senha não informada.', 'error');
             _msg('Assinando…', '');
             try {

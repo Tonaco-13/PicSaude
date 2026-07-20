@@ -1813,7 +1813,10 @@
     }
 
     async function enviarProposta() {
-        if (!_circAtual) return;
+        if (!_circAtual) {
+            _circFeedback('err', 'Nenhuma circulação selecionada. Abra o item da fila antes de propor.');
+            return;
+        }
         const dataHoraInput  = document.getElementById('circ-prop-data')?.value;
         const localTexto     = document.getElementById('circ-prop-local')?.value?.trim() || null;
         const instrucoes     = document.getElementById('circ-prop-instrucoes')?.value?.trim() || null;
@@ -1822,7 +1825,10 @@
 
         // Gate leve de contexto CNES (Ticket 46)
         const podeOperar = await _confirmarContextoManual();
-        if (!podeOperar) return;
+        if (!podeOperar) {
+            _circFeedback('err', 'Proposta não enviada: confirme a unidade CNES antes de propor.');
+            return;
+        }
 
         const dataHoraISO = new Date(dataHoraInput).toISOString();
 
@@ -1902,7 +1908,10 @@
     }
 
     async function enviarRemarcacao() {
-        if (!_circAtual) return;
+        if (!_circAtual) {
+            _circFeedback('err', 'Nenhuma circulação selecionada. Abra o item da fila antes de remarcar.');
+            return;
+        }
         const orgId   = document.getElementById('circ-rem-org')?.value?.trim();
         const unidade = document.getElementById('circ-rem-unidade')?.value?.trim();
         const obs     = document.getElementById('circ-rem-obs')?.value?.trim() || null;
@@ -1911,7 +1920,10 @@
         if (!unidade) { _circFeedback('err', 'Informe o Unidade ID.'); return; }
 
         const podeOperar = await _confirmarContextoManual();
-        if (!podeOperar) return;
+        if (!podeOperar) {
+            _circFeedback('err', 'Remarcação não enviada: confirme a unidade CNES antes de remarcar.');
+            return;
+        }
 
         try {
             const resp = await fetch(
