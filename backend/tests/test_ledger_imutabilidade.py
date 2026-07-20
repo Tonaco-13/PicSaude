@@ -351,6 +351,16 @@ def test_mensagem_identica_entre_dialetos() -> None:
 # É a lição do R2 (CLAUDE.md §2a — unicidade como invariante executável)
 # aplicada a schema: o gate acusa, não a memória de quem revisa.
 
+# Alvo do downgrade no round-trip: a revisão IMEDIATAMENTE ABAIXO da migração de
+# triggers, na notação relativa do Alembic. Antes era "-1" — que significa "uma
+# abaixo do HEAD" e só funcionava enquanto os triggers FOSSEM o head. A primeira
+# migração empilhada depois deles (a3c7e1f95b02) fazia o teste desmontar a
+# migração errada e acusar "downgrade deixou trigger para trás". O que este teste
+# quer é sempre a mesma revisão, dita por nome.
+_REVISAO_TRIGGERS = "f2b7c1d0a4e5"
+_ANTES_DOS_TRIGGERS = f"{_REVISAO_TRIGGERS}-1"
+
+
 def _migracao_triggers():
     """Carrega a migração f2b7c1d0a4e5 como módulo (não é importável por nome)."""
     import importlib.util
@@ -436,7 +446,7 @@ def test_round_trip_sqlite(tmp_path) -> None:
     }
     assert esperados <= ledger.triggers()
 
-    _alembic(url, "-1", descer=True)
+    _alembic(url, _ANTES_DOS_TRIGGERS, descer=True)
     assert not (esperados & ledger.triggers()), "downgrade deixou trigger para trás"
 
     _alembic(url, "head")

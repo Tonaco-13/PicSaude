@@ -11,6 +11,11 @@ Título, adjetivo do corpo e sigla do registro NÃO são hardcodados aqui: vêm 
 `domain/conselho_profissional.py`, a fonte única (um atestado do CFO é
 "ATESTADO ODONTOLÓGICO" e fala em "cuidados odontológicos"). Atestado legado, sem
 conselho declarado, cai no `CONSELHO_PADRAO` e renderiza como sempre renderizou.
+
+O TEXTO do corpo também não nasce aqui: vem de `domain/texto_atestado.py`, que é
+a fonte única compartilhada com o rascunho da IA Documental. Este módulo só
+escolhe o markup (`<b>`) e a diagramação — ver o cabeçalho daquele arquivo para
+o porquê (o rascunho era um falso espelho do PDF).
 """
 from __future__ import annotations
 
@@ -26,6 +31,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import HRFlowable, Paragraph, SimpleDocTemplate, Spacer
 
 from app.domain.conselho_profissional import conselho_ou_padrao, formatar_registro
+from app.domain.texto_atestado import corpo_atestado, formatar_data_br
 
 NAVY    = colors.HexColor("#1a2e44")
 GREEN   = colors.HexColor("#2e7d32")
@@ -41,74 +47,10 @@ def _fmt_cpf(cpf: str) -> str:
     return f"{c[:3]}.***.***.{c[9:]}"
 
 
-def _fmt_data_br(iso: Optional[str]) -> str:
-    if not iso:
-        return "—"
-    try:
-        return datetime.fromisoformat(str(iso)[:10]).strftime("%d/%m/%Y")
-    except (ValueError, TypeError):
-        return str(iso)
-
-
 def _truncar_hash(h: Optional[str]) -> str:
     if not h:
         return "não gerado"
     return f"{h[:16]}...{h[-8:]}" if len(h) > 28 else h
-
-
-def _periodo_horario(hora_inicio: Optional[str], hora_fim: Optional[str]) -> str:
-    """Trecho do horário de comparecimento — vazio quando nada foi declarado.
-
-    As duas horas são independentes e sempre opcionais: um atendimento pode ter
-    hora de chegada sem alta prevista. Cada combinação tem sua redação; nenhuma
-    inventa a hora que falta.
-    """
-    ini = (hora_inicio or "").strip()
-    fim = (hora_fim or "").strip()
-    if ini and fim:
-        return f", no período das {ini} às {fim}"
-    if ini:
-        return f", a partir das {ini}"
-    if fim:
-        return f", até as {fim}"
-    return ""
-
-
-def _corpo_atestado(
-    nome_paciente: str, finalidade: str, dias: Optional[int],
-    data_documento: str, indicacao: Optional[str], cid: Optional[str],
-    adjetivo_cuidados: str = "médicos", adjetivo_atendimento: str = "médico",
-    hora_inicio: Optional[str] = None, hora_fim: Optional[str] = None,
-) -> str:
-    """Frase do atestado, adaptada a afastamento vs. comparecimento.
-
-    `adjetivo_cuidados` vem do conselho emissor ("médicos" | "odontológicos") —
-    ver domain/conselho_profissional.py. O horário entra nos DOIS ramos: declarado
-    e não impresso seria perda silenciosa de um dado que o profissional digitou.
-    """
-    # Cláusula clínica opcional (privacidade: só aparece se declarada).
-    clausula = ""
-    if indicacao and cid:
-        clausula = f", em razão de quadro clínico compatível com {indicacao} (CID {cid})"
-    elif indicacao:
-        clausula = f", em razão de quadro clínico compatível com {indicacao}"
-    elif cid:
-        clausula = f" (CID {cid})"
-
-    data_fmt = _fmt_data_br(data_documento)
-    periodo = _periodo_horario(hora_inicio, hora_fim)
-    if dias and dias > 0:
-        return (
-            f"Atesto, para os devidos fins de <b>{finalidade}</b>, que "
-            f"<b>{nome_paciente}</b> esteve sob cuidados {adjetivo_cuidados} na data de "
-            f"{data_fmt}{periodo}{clausula}, devendo permanecer afastado(a) de suas "
-            f"atividades habituais por <b>{dias} dia(s)</b> a partir desta data."
-        )
-    return (
-        f"Atesto, para os devidos fins de <b>{finalidade}</b>, que "
-        f"<b>{nome_paciente}</b> compareceu a atendimento {adjetivo_atendimento} na data de "
-        f"{data_fmt}{periodo}{clausula}."
-    )
 
 
 def gerar_pdf_atestado(
@@ -134,6 +76,7 @@ def gerar_pdf_atestado(
     municipio_emissao: Optional[str] = None,
     hora_inicio: Optional[str] = None,
     hora_fim: Optional[str] = None,
+    observacao_complementar: Optional[str] = None,
     is_demo: bool = False,
 ) -> bytes:
     buf = io.BytesIO()
@@ -181,14 +124,21 @@ def gerar_pdf_atestado(
     # Corpo
     story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=0.5, color=GREY_BG))
-    story.append(Paragraph(_corpo_atestado(
-        nome_paciente, finalidade, dias_afastamento, data_documento,
-        indicacao_clinica, codigo_cid,
+    # Um parágrafo por elemento do corpo: a frase e — quando declarada — a
+    # observação complementar. A ordem e o conteúdo vêm do domínio; aqui só se
+    # escolhe o markup (`<b>`) e o estilo.
+    for paragrafo in corpo_atestado(
+        nome_paciente=nome_paciente, finalidade=finalidade,
+        dias_afastamento=dias_afastamento, data_documento=data_documento,
+        indicacao_clinica=indicacao_clinica, codigo_cid=codigo_cid,
         adjetivo_cuidados=cons.adjetivo_cuidados,
         adjetivo_atendimento=cons.adjetivo_atendimento,
-        hora_inicio=hora_inicio, hora_fim=hora_fim), st_corpo))
+        hora_inicio=hora_inicio, hora_fim=hora_fim,
+        observacao_complementar=observacao_complementar,
+    ):
+        story.append(Paragraph(paragrafo.para_reportlab(), st_corpo))
     if data_validade:
-        story.append(Paragraph(f"Período de afastamento até <b>{_fmt_data_br(data_validade)}</b>.", st_txt))
+        story.append(Paragraph(f"Período de afastamento até <b>{formatar_data_br(data_validade)}</b>.", st_txt))
     story.append(HRFlowable(width="100%", thickness=0.5, color=GREY_BG))
 
     # Fecho "local, data" — o CFM exige LOCAL e DATA no atestado. A data já vinha
@@ -199,7 +149,7 @@ def gerar_pdf_atestado(
     if municipio_emissao and municipio_emissao.strip():
         story.append(Spacer(1, 22))
         story.append(Paragraph(
-            f'<para align="center">{municipio_emissao.strip()}, {_fmt_data_br(data_documento)}.</para>',
+            f'<para align="center">{municipio_emissao.strip()}, {formatar_data_br(data_documento)}.</para>',
             st_txt))
 
     # Assinatura
@@ -216,7 +166,7 @@ def gerar_pdf_atestado(
     story.append(Spacer(1, 18))
     story.append(HRFlowable(width="100%", thickness=0.5, color=GREY_BG))
     story.append(Paragraph(
-        f"Protocolo: {protocolo} · Emitido em {_fmt_data_br(data_documento)} · "
+        f"Protocolo: {protocolo} · Emitido em {formatar_data_br(data_documento)} · "
         f"Status: {status} · Hash SHA-256: {_truncar_hash(assinatura_hash)}", st_meta))
     story.append(Paragraph(
         "PicSaúde — Plataforma de Custódia Sanitária Digital. Verifique a autenticidade "
