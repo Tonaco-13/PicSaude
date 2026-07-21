@@ -351,6 +351,16 @@ def test_mensagem_identica_entre_dialetos() -> None:
 # É a lição do R2 (CLAUDE.md §2a — unicidade como invariante executável)
 # aplicada a schema: o gate acusa, não a memória de quem revisa.
 
+# Alvo do downgrade no round-trip: a revisão IMEDIATAMENTE ABAIXO da migração de
+# triggers, na notação relativa do Alembic. Antes era "-1" — que significa "uma
+# abaixo do HEAD" e só funcionava enquanto os triggers FOSSEM o head. A primeira
+# migração empilhada depois deles (a3c7e1f95b02) fazia o teste desmontar a
+# migração errada e acusar "downgrade deixou trigger para trás". O que este teste
+# quer é sempre a mesma revisão, dita por nome.
+_REVISAO_TRIGGERS = "f2b7c1d0a4e5"
+_ANTES_DOS_TRIGGERS = f"{_REVISAO_TRIGGERS}-1"
+
+
 def _migracao_triggers():
     """Carrega a migração f2b7c1d0a4e5 como módulo (não é importável por nome)."""
     import importlib.util
@@ -436,7 +446,7 @@ def test_round_trip_sqlite(tmp_path) -> None:
     }
     assert esperados <= ledger.triggers()
 
-    _alembic(url, "-1", descer=True)
+    _alembic(url, _ANTES_DOS_TRIGGERS, descer=True)
     assert not (esperados & ledger.triggers()), "downgrade deixou trigger para trás"
 
     _alembic(url, "head")
@@ -452,7 +462,13 @@ def test_round_trip_postgres(_postgres_migrado: str) -> None:
     assert esperados <= ledger.triggers()
 
     try:
-        _alembic(url, "-1", descer=True)
+        # Alvo NOMEADO, não "-1": a migração de triggers precisa ser a que desce,
+        # não "uma abaixo do head". Assim que a observacao_complementar empilhou
+        # em cima dela, "-1" passou a descer a migração ERRADA e deixava os
+        # triggers para trás. É o mesmo defeito que test_round_trip_sqlite já
+        # tinha e que _ANTES_DOS_TRIGGERS corrigiu; o gêmeo PG só corre no CI
+        # (precisa de Postgres efêmero), então escapou até aqui.
+        _alembic(url, _ANTES_DOS_TRIGGERS, descer=True)
         assert not (esperados & ledger.triggers()), "downgrade deixou trigger para trás"
     finally:
         # O banco de teste é compartilhado com as outras suítes: volta ao head
