@@ -405,15 +405,13 @@ class TestHoraComparecimento:
                         hora_inicio="08:00")
         assert "a partir das 08:00" in texto
 
-    def test_apenas_hora_fim(self, prescritor):
-        texto = _pdf_de(prescritor, finalidade="Comparecimento", dias_afastamento=None,
-                        hora_fim="12:00")
-        assert "12:00" in texto
-
-    def test_hora_declarada_nao_some_no_afastamento(self, prescritor):
-        # Dado digitado que não aparece no documento é perda silenciosa.
-        texto = _pdf_de(prescritor, dias_afastamento=3, hora_inicio="08:00", hora_fim="09:30")
-        assert "08:00" in texto and "09:30" in texto
+    def test_apenas_hora_fim_agora_e_422(self, prescritor):
+        # Antes deste ticket (COERENCIA-HORAS) hora_fim sozinha era aceita e o
+        # documento lia "até as 12:00". A regra nova exige par: um fim sem começo
+        # não é período. Ver TestCoerenciaHoras.
+        r = prescritor.post("/atestados", json=_payload(
+            finalidade="Comparecimento", dias_afastamento=None, hora_fim="12:00"))
+        assert r.status_code == 422, r.text
 
     def test_hora_invalida_422(self, prescritor):
         for ruim in ("8:00", "25:00", "08:60", "0800"):
@@ -424,6 +422,195 @@ class TestHoraComparecimento:
         # "Comparecimento" não torna a hora obrigatória (finalidade é texto livre).
         assert prescritor.post("/atestados", json=_payload(
             finalidade="Comparecimento", dias_afastamento=None)).status_code == 201
+
+
+# Payload físico mínimo — o /atestados/fisica não exige cpf nem município.
+_FISICO = {
+    "cns_prescritor": "123456789012345",
+    "nome_prescritor": "Dra. Atesta",
+    "finalidade": "Comparecimento",
+}
+
+
+def _fisico(**ov):
+    return {**_FISICO, **ov}
+
+
+def _horas_persistidas(db_path, protocolo):
+    """(hora_inicio, hora_fim) gravadas — para provar que o físico absorveu."""
+    with _conn(db_path) as c:
+        r = c.execute(
+            "SELECT hora_inicio, hora_fim FROM atestados WHERE protocolo = ?",
+            (protocolo,),
+        ).fetchone()
+    return (r["hora_inicio"], r["hora_fim"])
+
+
+class TestCoerenciaHoras:
+    """As duas horas têm de formar um período coerente — nos DOIS POSTs.
+
+    Nasce de um atestado real (0bcd68c2) que saiu ASSINADO com "das 12:00 às
+    12:00": duração zero, com hash e ICP-Brasil. `_validar_hora` olhava cada
+    campo isolado; faltava comparar os dois. Decisão do Fabiano: sem exceção de
+    virada de meia-noite — atravessar o dia não é caso real.
+
+    Digital REJEITA (422, há tela esperando). Físico ABSORVE (201, descarta o
+    campo conflitante) — fire-and-forget, o papel já saiu na impressora.
+    """
+
+    # ---- digital: incoerência interna das horas → 422 ----
+
+    def test_periodo_de_duracao_zero_422(self, prescritor):
+        """O caso EXATO que gerou o ticket (isolado do NAND: sem afastamento)."""
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_inicio="12:00", hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_hora_fim_sem_hora_inicio_422(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_hora_fim_antes_do_inicio_422(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_inicio="12:00", hora_fim="09:00"))
+        assert r.status_code == 422, r.text
+
+    def test_periodo_valido_sem_afastamento_201(self, prescritor):
+        # Comparecimento com período — horas coerentes, sem dias.
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+
+    def test_apenas_hora_inicio_e_valido_201(self, prescritor):
+        # "a partir das X" — início sozinho é período aberto, não incoerência.
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_inicio="08:00"))
+        assert r.status_code == 201, r.text
+
+    def test_ambas_ausentes_e_valido_201(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload())
+        assert r.status_code == 201, r.text
+
+    def test_mensagem_de_erro_e_explicavel(self, prescritor):
+        # O 422 tem de dizer POR QUE, no padrão dos outros erros do router.
+        # dias=None isola a regra de duração (senão o NAND preempta a mensagem).
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_inicio="12:00", hora_fim="12:00"))
+        assert "posterior" in r.text and "12:00" in r.text
+
+    # ---- digital: NAND afastamento × horário ----
+
+    def test_afastamento_com_horario_422(self, prescritor):
+        """O HÍBRIDO: dias > 0 E horas presentes → 422.
+
+        É esta a guarda que a mutação (aceitar o híbrido) tem de derrubar.
+        """
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=3, hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 422, r.text
+
+    def test_afastamento_com_apenas_uma_hora_422(self, prescritor):
+        # "horas presentes" = qualquer uma das duas; início sozinho já conflita.
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=3, hora_inicio="08:00"))
+        assert r.status_code == 422, r.text
+
+    def test_afastamento_sem_horas_201(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(dias_afastamento=3))
+        assert r.status_code == 201, r.text
+
+    def test_comparecimento_com_horario_sem_dias_201(self, prescritor):
+        # NÃO é XOR: horário sem afastamento é legítimo.
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None, hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+
+    def test_ambos_ausentes_com_dias_zero_201(self, prescritor):
+        # Prova de que não é XOR: sem afastamento E sem horário é válido
+        # (comparecimento simples). dias=0 equivale a "sem afastamento".
+        assert prescritor.post("/atestados", json=_payload(
+            dias_afastamento=0)).status_code == 201
+        assert prescritor.post("/atestados", json=_payload(
+            dias_afastamento=None)).status_code == 201
+
+    def test_mensagem_do_nand_e_explicavel(self, prescritor):
+        r = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=3, hora_inicio="08:00", hora_fim="12:00"))
+        assert "não coexistem" in r.text or "afasta por dias" in r.text
+
+    # ---- físico: absorve, nunca 422 ----
+
+    def test_fisico_periodo_de_duracao_zero_201_ignora(self, prescritor, db_path):
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            hora_inicio="12:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+        assert _horas_persistidas(db_path, r.json()["protocolo"]) == (None, None)
+
+    def test_fisico_hora_fim_sem_inicio_201_ignora(self, prescritor, db_path):
+        r = prescritor.post("/atestados/fisica", json=_fisico(hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+        assert _horas_persistidas(db_path, r.json()["protocolo"]) == (None, None)
+
+    def test_fisico_hora_fim_antes_do_inicio_201_ignora(self, prescritor, db_path):
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            hora_inicio="12:00", hora_fim="09:00"))
+        assert r.status_code == 201, r.text
+        assert _horas_persistidas(db_path, r.json()["protocolo"]) == (None, None)
+
+    def test_fisico_afastamento_com_horario_201_ignora_horas(self, prescritor, db_path):
+        # NAND no físico: absorve descartando o HORÁRIO, preserva o afastamento.
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            dias_afastamento=3, hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+        proto = r.json()["protocolo"]
+        assert _horas_persistidas(db_path, proto) == (None, None)
+        # o afastamento sobrevive — não é o horário que fica
+        d = prescritor.get(f"/atestados/{proto}").json()
+        assert d["dias_afastamento"] == 3
+
+    def test_fisico_periodo_valido_mantem_horas_201(self, prescritor, db_path):
+        r = prescritor.post("/atestados/fisica", json=_fisico(
+            hora_inicio="08:00", hora_fim="12:00"))
+        assert r.status_code == 201, r.text
+        assert _horas_persistidas(db_path, r.json()["protocolo"]) == ("08:00", "12:00")
+
+    def test_fisico_sem_horas_201(self, prescritor):
+        r = prescritor.post("/atestados/fisica", json=_fisico())
+        assert r.status_code == 201, r.text
+
+
+class TestRenderLegadoNaoVaza:
+    """A trava NAND vive SÓ na ENTRADA — o RENDER continua servindo dado velho.
+
+    O 0bcd68c2 tem dias E horas no banco: combinação que a emissão nova agora
+    recusa. Mas o PDF é remontado dos campos a cada GET (sem coluna de bytes), e
+    o mesmo ramo de render serve os atestados antigos. "Limpar" esse ramo faria
+    o documento assinado sair diferente do que foi assinado — viola R1 (movimento
+    fechado reproduz byte-idêntico) e §1 (imutável).
+
+    Injeta a coexistência dias+horas direto no banco (UPDATE cru), porque o POST
+    — de propósito — não a deixa mais nascer, e confirma que o horário ainda
+    aparece no PDF. É a prova de que a guarda de ENTRADA não vazou para a SAÍDA.
+    """
+
+    def test_pdf_de_atestado_legado_ainda_mostra_horario(self, prescritor, db_path):
+        proto = prescritor.post("/atestados", json=_payload(
+            dias_afastamento=3)).json()["protocolo"]
+        # Simula o dado persistido do 0bcd68c2: afastamento COM horário.
+        with _conn(db_path) as c:
+            c.execute(
+                "UPDATE atestados SET hora_inicio = '08:00', hora_fim = '09:30' "
+                "WHERE protocolo = ?",
+                (proto,),
+            )
+        r = prescritor.get(f"/atestados/{proto}/pdf")
+        assert r.status_code == 200, r.text
+        texto = _texto_pdf(r.content)
+        assert "08:00" in texto and "09:30" in texto, (
+            "O render deixou de imprimir o horário do dado legado — a trava de "
+            "entrada vazou para a saída e o atestado assinado saiu diferente."
+        )
 
 
 class TestHashCobreConteudoNovo:
