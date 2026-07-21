@@ -2610,7 +2610,7 @@
             const cnpjEl  = document.getElementById('login-cnpj');
             const senhaEl = document.getElementById('login-senha');
             if (cnpjEl && senhaEl) {
-                cnpjEl.value  = '99999999000191';   // CNPJ da Farmácia Demo Central (seed_demo.py)
+                cnpjEl.value  = DEMO.farmacia.cnpj;   // CNPJ da Farmácia Demo Central (fonte única: config.js DEMO)
                 senhaEl.value = 'Demo@2024';
                 setTimeout(() => fazerLogin({ preventDefault: () => {} }), 120);
             }

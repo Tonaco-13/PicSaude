@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guia de circulação — PicSaúde</title>
+  <meta name="description" content="Como circula uma receita e um atestado no PicSaúde: protocolo único, custódia explícita, ledger imutável.">
+  <style>
+  /* reset mínimo — página standalone (fora do embrulho de artifact) */
+  html, body { height: 100%; }
+  body { margin: 0; }
+
+  :root {
+    /* neutrals biased toward the health-teal accent, not pure grey */
+    --paper: #f4f7f5;
+    --card: #ffffff;
+    --ink: #16211e;
+    --muted: #566a63;
+    --hairline: #d5ddd8;
+    /* two objects, two identities — receita green, atestado bronze */
+    --receita: #0f6e5c;
+    --receita-soft: #e3f0ec;
+    --atestado: #9a6a2b;
+    --atestado-soft: #f2e9db;
+    --role-presc: #0f6e5c;
+    --role-pac: #3a6ea5;
+    --role-disp: #9a6a2b;
+    --shadow: 0 1px 2px rgba(22, 33, 30, .05), 0 8px 24px -12px rgba(22, 33, 30, .12);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --serif: "Palatino Linotype", "Book Antiqua", Palatino, "Iowan Old Style", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101715;
+      --card: #16201d;
+      --ink: #e8eee9;
+      --muted: #93a49c;
+      --hairline: #263230;
+      --receita: #52bda5;
+      --receita-soft: #16302a;
+      --atestado: #d0a061;
+      --atestado-soft: #2e2517;
+      --role-presc: #52bda5;
+      --role-pac: #7ea9d8;
+      --role-disp: #d0a061;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f4f7f5; --card: #ffffff; --ink: #16211e; --muted: #566a63;
+    --hairline: #d5ddd8; --receita: #0f6e5c; --receita-soft: #e3f0ec;
+    --atestado: #9a6a2b; --atestado-soft: #f2e9db; --role-presc: #0f6e5c;
+    --role-pac: #3a6ea5; --role-disp: #9a6a2b;
+    --shadow: 0 1px 2px rgba(22,33,30,.05), 0 8px 24px -12px rgba(22,33,30,.12);
+  }
+  :root[data-theme="dark"] {
+    --paper: #101715; --card: #16201d; --ink: #e8eee9; --muted: #93a49c;
+    --hairline: #263230; --receita: #52bda5; --receita-soft: #16302a;
+    --atestado: #d0a061; --atestado-soft: #2e2517; --role-presc: #52bda5;
+    --role-pac: #7ea9d8; --role-disp: #d0a061;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+
+  .page {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 4vw, 2rem);
+    min-height: 100%;
+  }
+  .sheet { max-width: 62rem; margin: 0 auto; }
+
+  /* ---------- theme toggle ---------- */
+  .theme-toggle {
+    position: fixed; top: 1rem; right: 1rem; z-index: 10;
+    font-family: var(--sans); font-size: .78rem; font-weight: 600;
+    color: var(--muted); background: var(--card);
+    border: 1px solid var(--hairline); border-radius: 999px;
+    padding: .35rem .8rem; cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+  .theme-toggle:hover { color: var(--ink); }
+
+  /* ---------- header ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--receita);
+    margin: 0 0 .9rem;
+    display: flex; align-items: center; gap: .6rem;
+  }
+  .eyebrow::before {
+    content: ""; width: 1.6rem; height: 2px; background: var(--receita); border-radius: 2px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.9rem, 4.6vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+  .lead {
+    font-size: clamp(1.02rem, 1.6vw, 1.18rem);
+    color: var(--muted);
+    max-width: 46rem;
+    margin: 0;
+  }
+  .lead strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- principles strip ---------- */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 2.4rem 0 3rem;
+  }
+  .principle { background: var(--card); padding: 1.1rem 1.25rem; }
+  .principle h3 {
+    font-family: var(--sans);
+    font-size: .95rem; font-weight: 650;
+    margin: 0 0 .3rem; letter-spacing: -.005em;
+  }
+  .principle p { font-size: .85rem; color: var(--muted); margin: 0; }
+
+  /* ---------- tracks ---------- */
+  .tracks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1.25rem, 3vw, 2.25rem);
+  }
+  .track { min-width: 0; }
+  .track-head {
+    display: flex; align-items: baseline; gap: .7rem;
+    padding-bottom: .8rem; margin-bottom: 1.4rem;
+    border-bottom: 2px solid var(--accent);
+  }
+  .track-head .kicker {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent); margin-left: auto;
+  }
+  .track-head h2 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: 1.5rem; margin: 0; color: var(--ink);
+  }
+  .track-head .dot {
+    width: .7rem; height: .7rem; border-radius: 50%;
+    background: var(--accent); flex: none; transform: translateY(-.12em);
+  }
+  .track.receita { --accent: var(--receita); --accent-soft: var(--receita-soft); }
+  .track.atestado { --accent: var(--atestado); --accent-soft: var(--atestado-soft); }
+
+  /* stages as a spine */
+  .stage { position: relative; padding: 0 0 1.5rem 2.4rem; }
+  .stage::before { /* the spine line */
+    content: ""; position: absolute; left: .78rem; top: .2rem; bottom: -.2rem;
+    width: 2px; background: var(--hairline);
+  }
+  .stage:last-of-type::before { display: none; }
+  .stage .num {
+    position: absolute; left: 0; top: -.1rem;
+    width: 1.65rem; height: 1.65rem; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1.5px solid var(--accent);
+    font-family: var(--mono); font-size: .8rem; font-weight: 600;
+    display: grid; place-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .stage h4 {
+    font-size: 1rem; font-weight: 650; margin: 0 0 .35rem;
+    letter-spacing: -.005em;
+  }
+  .stage p { font-size: .86rem; color: var(--muted); margin: 0 0 .6rem; }
+
+  /* custody chain chips */
+  .custody { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; margin-bottom: .5rem; }
+  .chip {
+    font-family: var(--sans); font-size: .72rem; font-weight: 600;
+    padding: .12rem .5rem; border-radius: 999px;
+    border: 1px solid currentColor; white-space: nowrap;
+  }
+  .chip.presc { color: var(--role-presc); }
+  .chip.pac { color: var(--role-pac); }
+  .chip.disp { color: var(--role-disp); }
+  .custody .arrow { color: var(--muted); font-size: .8rem; }
+
+  .event {
+    display: inline-block;
+    font-family: var(--mono); font-size: .74rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: .18rem .5rem; border-radius: 6px;
+    word-break: break-word;
+  }
+  .event.rule { color: var(--muted); background: transparent; border: 1px dashed var(--hairline); }
+
+  .aside {
+    margin-top: .4rem;
+    border-left: 2px solid var(--accent);
+    background: var(--accent-soft);
+    padding: .6rem .8rem; border-radius: 0 8px 8px 0;
+    font-size: .8rem; color: var(--ink);
+  }
+  .aside b { color: var(--accent); }
+
+  /* ---------- footer ---------- */
+  .footer {
+    margin-top: 3rem; padding-top: 1.6rem;
+    border-top: 1px solid var(--hairline);
+    display: flex; flex-wrap: wrap; gap: 1.5rem 2rem;
+    align-items: flex-end; justify-content: space-between;
+  }
+  .demo-hooks { font-size: .82rem; color: var(--muted); }
+  .demo-hooks .label {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; display: block; margin-bottom: .4rem;
+  }
+  .demo-hooks code {
+    font-family: var(--mono); font-size: .8rem; color: var(--ink);
+    background: var(--card); border: 1px solid var(--hairline);
+    padding: .1rem .4rem; border-radius: 5px; margin-right: .3rem;
+  }
+  .contact { text-align: right; }
+  .contact .name { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+  .contact .org, .contact a { font-size: .84rem; color: var(--muted); display: block; text-decoration: none; }
+  .contact a { color: var(--receita); }
+  .contact a:hover { text-decoration: underline; }
+
+  a:focus-visible, .chip:focus-visible, .theme-toggle:focus-visible { outline: 2px solid var(--receita); outline-offset: 2px; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 720px) {
+    .principles { grid-template-columns: 1fr; }
+    .tracks { grid-template-columns: 1fr; }
+    .footer { flex-direction: column; align-items: flex-start; }
+    .contact { text-align: left; }
+  }
+
+  /* ---------- print: one clean sheet, ink-friendly ---------- */
+  @media print {
+    .page { background: #fff; color: #16211e; padding: 0; }
+    .principle, .card, .event, .contact .name { background: #fff !important; }
+    .tracks { gap: 1.2rem; }
+    .stage { padding-bottom: 1rem; }
+    .footer { margin-top: 1.6rem; }
+    h1 { font-size: 2rem; }
+    a { color: #0f6e5c; }
+    .theme-toggle { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro">◐ Tema</button>
+
+  <div class="page">
+    <div class="sheet">
+
+      <header>
+        <p class="eyebrow">PicSaúde · Infraestrutura de objetos sanitários rastreáveis</p>
+        <h1>Como circula uma receita e um atestado</h1>
+        <p class="lead">
+          No PicSaúde, cada documento clínico é um <strong>objeto rastreável</strong>: um protocolo
+          único que nunca muda, uma cadeia de custódia que registra quem o detém a cada momento, e um
+          livro-razão imutável que guarda cada passo. <strong>O objeto é global e neutro — a operação é
+          que é contextual.</strong>
+        </p>
+      </header>
+
+      <section class="principles" aria-label="Princípios comuns">
+        <div class="principle">
+          <h3>Protocolo único</h3>
+          <p>Identidade sanitária global, imutável, independente da instituição que emitiu.</p>
+        </div>
+        <div class="principle">
+          <h3>Custódia explícita</h3>
+          <p>A cada momento há um detentor. Toda transferência de mão fica registrada.</p>
+        </div>
+        <div class="principle">
+          <h3>Ledger imutável</h3>
+          <p>Cada evento é um registro que nunca se apaga nem se altera — só se acrescenta.</p>
+        </div>
+      </section>
+
+      <div class="tracks">
+
+        <!-- ================= RECEITA ================= -->
+        <section class="track receita" aria-label="Circulação da receita">
+          <div class="track-head">
+            <span class="dot" aria-hidden="true"></span>
+            <h2>Receita</h2>
+            <span class="kicker">prescrição · dispensação</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">1</span>
+            <h4>Emissão</h4>
+            <p>O prescritor emite a receita. Nasce o protocolo único e a custódia passa do prescritor ao cidadão.</p>
+            <div class="custody">
+              <span class="chip presc">Prescritor</span>
+              <span class="arrow" aria-hidden="true">→</span>
+              <span class="chip pac">Paciente</span>
+            </div>
+            <span class="event">prescricao_emitida</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">2</span>
+            <h4>Na carteira do cidadão</h4>
+            <p>A receita fica sob custódia do paciente, na carteira digital, pronta para uso em qualquer farmácia.</p>
+            <div class="custody">
+              <span class="chip pac">Paciente</span>
+            </div>
+            <span class="event">status: transferida_paciente</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">3</span>
+            <h4>Apresentação no balcão</h4>
+            <p>O paciente apresenta a receita; o dispensador a retém para atender.</p>
+            <div class="custody">
+              <span class="chip pac">Paciente</span>
+              <span class="arrow" aria-hidden="true">→</span>
+              <span class="chip disp">Dispensador</span>
+            </div>
+            <span class="event">custodia_transferida · em_custodia</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">4</span>
+            <h4>Dispensação</h4>
+            <p>O item é entregue. Pode ser total ou parcial — o que não foi pago volta a ficar pendente e é dispensável em outra farmácia, sem cancelar a receita.</p>
+            <span class="event">dispensacao_registrada · dispensacao_parcial</span>
+            <div style="height:.4rem"></div>
+            <span class="event rule">Σ dispensado ≤ prescrito</span>
+            <div class="aside">
+              <b>Via física.</b> O prescritor pode imprimir sem iniciar cadeia digital: a receita
+              <i>encerra localmente</i>. O papel circula, e o registro central permanece.
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= ATESTADO ================= -->
+        <section class="track atestado" aria-label="Circulação do atestado">
+          <div class="track-head">
+            <span class="dot" aria-hidden="true"></span>
+            <h2>Atestado</h2>
+            <span class="kicker">documento · assinatura</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">1</span>
+            <h4>Emissão</h4>
+            <p>O profissional — médico ou dentista — emite o atestado. Protocolo único; um documento inteiro, sem itens.</p>
+            <div class="custody">
+              <span class="chip presc">Prescritor</span>
+            </div>
+            <span class="event">atestado_emitido</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">2</span>
+            <h4>Assinatura ICP-Brasil</h4>
+            <p>O atestado é assinado digitalmente (PAdES, cofre server-side). Assinar é o marco de estado: emitido → assinado.</p>
+            <div class="custody">
+              <span class="chip presc">Prescritor</span>
+            </div>
+            <span class="event">atestado_assinado · pdf_assinado_pades</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">3</span>
+            <h4>Na carteira do cidadão</h4>
+            <p>A custódia vai ao paciente; o atestado chega à carteira digital, como a receita.</p>
+            <div class="custody">
+              <span class="chip presc">Prescritor</span>
+              <span class="arrow" aria-hidden="true">→</span>
+              <span class="chip pac">Paciente</span>
+            </div>
+            <span class="event">custodia_transferida</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">4</span>
+            <h4>Validação pública</h4>
+            <p>Qualquer pessoa confere existência, assinatura e vigência pelo protocolo — sem ver CID, finalidade ou identidade do paciente.</p>
+            <span class="event">GET /public/atestados/{protocolo}</span>
+            <div class="aside">
+              <b>Comparecimento ou afastamento — nunca os dois.</b> Ou registra o horário em que o
+              cidadão esteve em atendimento, ou os dias de afastamento. Um documento, uma asserção.
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <footer class="footer">
+        <div class="demo-hooks">
+          <span class="label">Veja na demonstração</span>
+          <code>DEMO-FILA-0001</code> receita na fila &nbsp;·&nbsp;
+          <code>DEMO-ATESTADO-0001</code> atestado assinado
+        </div>
+        <div class="contact">
+          <span class="name">Prof. Dr. Fabiano Tonaco Borges</span>
+          <span class="org">Universidade Federal de Pernambuco</span>
+          <a href="mailto:fabiano.borges@ufpe.br">fabiano.borges@ufpe.br</a>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+
+  <script>
+    // Toggle claro/escuro. Sem toggle, a página segue o prefers-color-scheme do
+    // sistema (os dois temas continuam funcionando). O botão só dá controle
+    // manual e alterna entre os dois modos explícitos.
+    (function () {
+      const root = document.documentElement;
+      const btn = document.getElementById('theme-toggle');
+      function temaAtual() {
+        if (root.dataset.theme) return root.dataset.theme;
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      btn.addEventListener('click', function () {
+        root.dataset.theme = temaAtual() === 'dark' ? 'light' : 'dark';
+      });
+    })();
+  </script>
+</body>
+</html>

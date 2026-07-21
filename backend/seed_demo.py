@@ -79,6 +79,17 @@ PACIENTE = dict(
     nome="João Demo da Silva",
 )
 
+# CLINICA — referência do lado servidor para a identidade da clínica/laboratório
+# da demo (TICKET-DEMO-IDENTIDADES-FONTE-UNICA). Espelha `DEMO.clinica` em
+# config.js: um estabelecimento por PAPEL (farmácia ≠ clínica). O guard-rail de
+# concordância (backend/tests/unit/test_guardrail_identidades_demo.py) exige que
+# este CNPJ e o de config.js sejam idênticos. Ainda não gera prestador semeado —
+# é a fonte de verdade do valor, alinhada à tela.
+CLINICA = dict(
+    cnpj="11222333000181",
+    nome="Clínica Demo",
+)
+
 
 def _agora() -> str:
     return datetime.now(timezone.utc).isoformat()
