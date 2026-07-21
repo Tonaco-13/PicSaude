@@ -2173,7 +2173,7 @@
       const cnpjEl  = document.getElementById('login-cnpj');
       const senhaEl = document.getElementById('login-senha');
       if (cnpjEl && senhaEl) {
-        cnpjEl.value  = '98765432000100';   // CNPJ da clínica de teste
+        cnpjEl.value  = DEMO.clinica.cnpj;   // CNPJ da Clínica Demo (fonte única: config.js DEMO)
         senhaEl.value = 'Teste@2024';
         setTimeout(() => fazerLogin({ preventDefault: () => {} }), 120);
       }

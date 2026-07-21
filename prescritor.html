@@ -1288,7 +1288,7 @@
             const senha = document.getElementById('acesso-senha').value;
 
             // Atalho DEV_MODE: sem backend para testes rápidos de UI
-            if (DEV_MODE && identificador === '11111111111' && senha === '123') {
+            if (DEV_MODE && identificador === DEV_LOGIN_CPF && senha === '123') {
                 jwtAccessToken = 'DEV_TOKEN';
                 medicoLogado = {
                     nome: 'Dr. Fabiano Tonaco Borges',
@@ -4297,7 +4297,7 @@
       if (!dev && !demo) return;
       const b = document.createElement('div');
       b.style.cssText = 'background:#ecfeff;border-bottom:2px solid #06b6d4;color:#155e75;font-size:13px;line-height:1.4;padding:9px 16px;text-align:center;';
-      b.innerHTML = '🧭 <strong>Trilha da demo · você é o MÉDICO</strong> — prescreva para o <strong>CPF 12345678909</strong> e marque <strong>“Enviar ao paciente”</strong> para o objeto ir à carteira do cidadão.';
+      b.innerHTML = `🧭 <strong>Trilha da demo · você é o MÉDICO</strong> — prescreva para o <strong>CPF ${DEMO.cidadao.cpf}</strong> e marque <strong>“Enviar ao paciente”</strong> para o objeto ir à carteira do cidadão.`;
       document.body.insertBefore(b, document.body.firstChild);
     })();
     </script>
