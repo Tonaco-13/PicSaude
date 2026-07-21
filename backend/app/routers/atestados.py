@@ -106,41 +106,87 @@ def _validar_hora(v: Optional[str]) -> Optional[str]:
     return hora
 
 
-def _validar_coerencia_horas(hora_inicio: Optional[str], hora_fim: Optional[str]) -> None:
-    """As duas horas de comparecimento têm de formar um período coerente.
+def _tem_horario(hora_inicio: Optional[str], hora_fim: Optional[str]) -> bool:
+    """True se ao menos uma das horas de comparecimento foi declarada."""
+    return bool((hora_inicio or "").strip() or (hora_fim or "").strip())
+
+
+def _incoerencia_horas(hora_inicio: Optional[str], hora_fim: Optional[str]) -> Optional[str]:
+    """Mensagem se as duas horas não formam um período válido; None se OK.
 
     Nasce de um atestado real (0bcd68c2) que saiu ASSINADO, com hash e
-    ICP-Brasil, dizendo "no período das 12:00 às 12:00" — duração ZERO. O
-    `_validar_hora` valida cada campo ISOLADAMENTE (só o formato HH:MM); faltava
-    quem olhasse os dois juntos.
+    ICP-Brasil, dizendo "das 12:00 às 12:00" — duração ZERO. O `_validar_hora`
+    valida cada campo ISOLADAMENTE (só o formato HH:MM); faltava quem olhasse os
+    dois juntos.
 
-    Regras:
-      - hora_fim sem hora_inicio → inválido (um fim sem começo não é período).
-      - hora_fim não posterior a hora_inicio → inválido (duração zero ou
-        negativa). É o caso 12:00–12:00 que gerou o ticket.
-      - hora_inicio sozinha é VÁLIDA — o documento a lê como "a partir das X"
-        (ver domain: período de horário). hora_fim é que exige par.
-      - ambas ausentes → válido (o horário é OPCIONAL).
+      - hora_fim sem hora_inicio → um fim sem começo não é período.
+      - hora_fim não posterior a hora_inicio → duração zero/negativa (o caso
+        12:00–12:00 que gerou o ticket).
+      - hora_inicio sozinha é VÁLIDA — o documento a lê como "a partir das X".
+      - ambas ausentes → OK (horário é OPCIONAL).
 
-    Comparação por string, de propósito: `_RE_HORA` garante HH:MM zero-padded
-    (00–23:00–59), então a ordem lexicográfica é idêntica à temporal. Não há
-    tratamento de virada de meia-noite — decisão do Fabiano: comparecimento que
-    atravessa o dia não é caso real, e a regra fica simples, sem exceção.
+    Comparação por string: `_RE_HORA` garante HH:MM zero-padded, então a ordem
+    lexicográfica é idêntica à temporal. Sem virada de meia-noite — decisão do
+    Fabiano: atravessar o dia não é caso real, regra fica sem exceção.
     """
     ini = (hora_inicio or "").strip()
     fim = (hora_fim or "").strip()
     if not fim:
-        return
+        return None
     if not ini:
-        raise ValueError(
+        return (
             "hora_fim informada sem hora_inicio: informe a hora de início do "
             "comparecimento (ou remova a hora de término)."
         )
     if fim <= ini:
-        raise ValueError(
+        return (
             f"hora_fim ({fim}) deve ser posterior a hora_inicio ({ini}): o "
             "período de comparecimento não pode ter duração zero ou negativa."
         )
+    return None
+
+
+def _incoerencia_afastamento_horario(
+    dias_afastamento: Optional[int],
+    hora_inicio: Optional[str],
+    hora_fim: Optional[str],
+) -> Optional[str]:
+    """NAND afastamento×horário — mensagem se coexistem; None se OK.
+
+    Um atestado ou AFASTA por dias, ou registra COMPARECIMENTO com horário — não
+    os dois. É NAND ("não ambos"), NÃO XOR ("exatamente um"): ambos ausentes é
+    válido — o comparecimento simples ("compareceu a atendimento nesta data",
+    sem horário). Só a COEXISTÊNCIA de dias_afastamento > 0 com hora declarada é
+    recusada.
+
+    O `> 0` (e não `is not None`) é deliberado: `dias_afastamento = 0` equivale a
+    "sem afastamento" (ver `_validade_de`), então não conflita com horário.
+    """
+    if (dias_afastamento or 0) > 0 and _tem_horario(hora_inicio, hora_fim):
+        return (
+            "afastamento e horário de comparecimento não coexistem no mesmo "
+            "atestado: com dias_afastamento > 0, remova hora_inicio/hora_fim. Um "
+            "atestado ou afasta por dias, ou registra comparecimento com hora."
+        )
+    return None
+
+
+def _incoerencia_atestado(
+    dias_afastamento: Optional[int],
+    hora_inicio: Optional[str],
+    hora_fim: Optional[str],
+) -> Optional[str]:
+    """Primeira incoerência encontrada entre horas e afastamento; None se OK.
+
+    O NAND vem antes: quando há afastamento E horário, o híbrido é o defeito
+    principal e a mensagem mais útil, mesmo que as horas fossem coerentes entre
+    si. É a régua compartilhada pelo digital (que levanta) e pelo físico (que
+    absorve).
+    """
+    return (
+        _incoerencia_afastamento_horario(dias_afastamento, hora_inicio, hora_fim)
+        or _incoerencia_horas(hora_inicio, hora_fim)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +254,11 @@ class AtestadoIn(BaseModel):
             raise ValueError(f"tipo_emissao inválido: {self.tipo_emissao!r}")
         if self.tipo_emissao != "nova" and self.origem_atestado_id is None:
             raise ValueError("origem_atestado_id é obrigatório para correção.")
-        _validar_coerencia_horas(self.hora_inicio, self.hora_fim)
+        # Digital REJEITA a incoerência (422): há tela e usuário esperando a
+        # resposta, então o erro é corrigível antes de emitir.
+        msg = _incoerencia_atestado(self.dias_afastamento, self.hora_inicio, self.hora_fim)
+        if msg:
+            raise ValueError(msg)
         return self
 
 
@@ -268,14 +318,20 @@ class AtestadoFisicaIn(BaseModel):
 
     @model_validator(mode="after")
     def _coerencia(self):
-        # Rejeita horas incoerentes TAMBÉM no físico — contraste deliberado com
-        # `_cid_normalizado_sem_rejeitar` logo acima, que jamais rejeita. Um CID
-        # malformado é dado ruim mas gravável e audível depois; "12:00 às 12:00"
-        # é um período logicamente impossível, não um dado de baixa qualidade. O
-        # ticket decidiu que a regra vale nos dois POSTs, e a tela dispara este
-        # fire-and-forget só depois de o próprio `_validar_hora` passar, então na
-        # prática o 422 aqui pega quem forjar o payload fora da tela.
-        _validar_coerencia_horas(self.hora_inicio, self.hora_fim)
+        # Físico ABSORVE, nunca 422 (martelo A) — mesma régua do CID logo acima
+        # (`_cid_normalizado_sem_rejeitar`). Este POST é fire-and-forget: o papel
+        # já saiu na impressora quando o backend valida. Um 422 aqui não desimprime
+        # nada — só descartaria o registro central, trocando um dado ruim por um
+        # buraco de auditoria.
+        #
+        # "Absorver" = registrar o atestado SEM o campo conflitante. O horário é o
+        # que sobra: se for internamente incoerente (12:00–12:00, fim sem início)
+        # OU conflitar com o afastamento (NAND), descartamos as duas horas e
+        # gravamos o resto. Quando dias > 0, a forma coerente é "sem horário" — daí
+        # sobrar o afastamento, não o horário.
+        if _incoerencia_atestado(self.dias_afastamento, self.hora_inicio, self.hora_fim):
+            self.hora_inicio = None
+            self.hora_fim = None
         return self
 
 
