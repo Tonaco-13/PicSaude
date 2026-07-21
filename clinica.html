@@ -1314,7 +1314,10 @@
 
       // Ticket 46 — Gate leve de contexto CNES
       const podeOperar = await _confirmarContextoManual();
-      if (!podeOperar) return;
+      if (!podeOperar) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Agendamento não criado: confirme a unidade CNES antes de agendar.');
+        return;
+      }
 
       const dataHoraISO = new Date(dataHoraInput).toISOString();
 
@@ -1354,7 +1357,10 @@
     async function confirmarAgendamento(protocoloAg) {
       // Ticket 46 — Gate leve de contexto CNES
       const podeOperar = await _confirmarContextoManual();
-      if (!podeOperar) return;
+      if (!podeOperar) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Confirmação não enviada: confirme a unidade CNES antes de confirmar.');
+        return;
+      }
       try {
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/confirmar', {
           method: 'POST', headers: authHeaders(), body: '{}',
@@ -1395,7 +1401,10 @@
       if (!confirm('Marcar agendamento como realizado? Isso registrará a coleta de todos os itens agendados.')) return;
       // Ticket 46 — Gate leve de contexto CNES
       const podeOperar = await _confirmarContextoManual();
-      if (!podeOperar) return;
+      if (!podeOperar) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Não registrado: confirme a unidade CNES antes de marcar como realizado.');
+        return;
+      }
       try {
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/realizar', {
           method: 'POST', headers: authHeaders(), body: '{}',
@@ -1813,7 +1822,10 @@
     }
 
     async function enviarProposta() {
-        if (!_circAtual) return;
+        if (!_circAtual) {
+            _circFeedback('err', 'Nenhuma circulação selecionada. Abra o item da fila antes de propor.');
+            return;
+        }
         const dataHoraInput  = document.getElementById('circ-prop-data')?.value;
         const localTexto     = document.getElementById('circ-prop-local')?.value?.trim() || null;
         const instrucoes     = document.getElementById('circ-prop-instrucoes')?.value?.trim() || null;
@@ -1822,7 +1834,10 @@
 
         // Gate leve de contexto CNES (Ticket 46)
         const podeOperar = await _confirmarContextoManual();
-        if (!podeOperar) return;
+        if (!podeOperar) {
+            _circFeedback('err', 'Proposta não enviada: confirme a unidade CNES antes de propor.');
+            return;
+        }
 
         const dataHoraISO = new Date(dataHoraInput).toISOString();
 
@@ -1850,11 +1865,17 @@
     }
 
     async function realizarCirculacao() {
-        if (!_circAtual) return;
+        if (!_circAtual) {
+            _circFeedback('err', 'Nenhuma circulação selecionada. Abra o item da fila antes de marcar como realizada.');
+            return;
+        }
         if (!confirm('Marcar esta circulação como realizada? Confirma que a coleta foi executada.')) return;
 
         const podeOperar = await _confirmarContextoManual();
-        if (!podeOperar) return;
+        if (!podeOperar) {
+            _circFeedback('err', 'Não registrado: confirme a unidade CNES antes de marcar como realizada.');
+            return;
+        }
 
         try {
             const resp = await fetch(
@@ -1902,7 +1923,10 @@
     }
 
     async function enviarRemarcacao() {
-        if (!_circAtual) return;
+        if (!_circAtual) {
+            _circFeedback('err', 'Nenhuma circulação selecionada. Abra o item da fila antes de remarcar.');
+            return;
+        }
         const orgId   = document.getElementById('circ-rem-org')?.value?.trim();
         const unidade = document.getElementById('circ-rem-unidade')?.value?.trim();
         const obs     = document.getElementById('circ-rem-obs')?.value?.trim() || null;
@@ -1911,7 +1935,10 @@
         if (!unidade) { _circFeedback('err', 'Informe o Unidade ID.'); return; }
 
         const podeOperar = await _confirmarContextoManual();
-        if (!podeOperar) return;
+        if (!podeOperar) {
+            _circFeedback('err', 'Remarcação não enviada: confirme a unidade CNES antes de remarcar.');
+            return;
+        }
 
         try {
             const resp = await fetch(

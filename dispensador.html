@@ -1486,7 +1486,15 @@
             const chaves = Object.keys(_MOTIVOS_ESTORNO);
             const opts = chaves.map((k, i) => `${i + 1}) ${_MOTIVOS_ESTORNO[k]}`).join('\n');
             const escolha = prompt(`Estornar a dispensação #${dispensacaoId} — motivo:\n${opts}\n\nDigite o número (1-4):`);
-            if (!escolha) return;
+            // `null` = cancelou o prompt (o usuário sabe que desistiu).
+            // `''` = confirmou SEM digitar nada: aí ele espera ter estornado, e
+            // o estorno é objeto sanitário derivado — silêncio aqui deixa a
+            // dúvida "estornei ou não?" sobre um registro de ledger.
+            if (escolha === null) return;
+            if (!escolha.trim()) {
+                _filaMsg('error', 'Estorno não realizado: informe o número do motivo (1-4).');
+                return;
+            }
             const motivo = chaves[parseInt(escolha, 10) - 1];
             if (!motivo) { alert('Motivo inválido.'); return; }
             try {
@@ -1768,7 +1776,10 @@
                     : `<p>Nenhum movimento no período.</p>`);
         }
         async function baixarComprovantePdf() {
-            if (!_comprovanteId) return;
+            if (!_comprovanteId) {
+                avisarFalha('Nenhum comprovante aberto. Registre ou abra uma dispensação antes de baixar o PDF.');
+                return;
+            }
             try {
                 const resp = await fetch(`${BACKEND}/dispensacoes/${_comprovanteId}/comprovante?formato=pdf`, { headers: authHeaders() });
                 if (!resp.ok) { alert('Não foi possível gerar o PDF.'); return; }
@@ -1976,7 +1987,16 @@
 
             // Ticket 46 — Gate leve de contexto CNES
             const podeOperar = await _confirmarContextoManual();
-            if (!podeOperar) return;
+            if (!podeOperar) {
+                // Dispensação é ATO SANITÁRIO com registro no ledger. Um clique
+                // que morre aqui em silêncio faz o balconista clicar de novo —
+                // e passa a depender só da idempotência do backend (R2) para
+                // não virar dispensação duplicada. A UI não deve terceirizar
+                // isso: diz que não dispensou e por quê.
+                mostrarMsgItem(itemId, 'error',
+                    'Dispensação não realizada: confirme a unidade CNES antes de dispensar.');
+                return;
+            }
 
             // ── Ramificação: ambulatorial vs hospitalar ────────────────
             if (_modoHospitalar()) {
