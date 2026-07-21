@@ -23,6 +23,40 @@ const BACKEND_URL = _isFileProtocol
     : window.location.origin;
 
 // ─────────────────────────────────────────────────────────────────────────
+// PicSaúde — Identidades canônicas da demo (FONTE ÚNICA)
+// TICKET-DEMO-IDENTIDADES-FONTE-UNICA
+//
+// A circulação da vitrine tem de fechar num só cidadão: uma receita emitida
+// no prescritor.html cai na carteira DESTE mesmo CPF no cidadao.html. Antes,
+// cada tela chumbava o seu literal e os objetos não se encontravam — o valor
+// certo existia, mas não era a ÚNICA verdade.
+//
+// A REGRA: nenhuma tela chumba CPF/CNPJ literal. Toda identidade de demo
+// referencia `DEMO.*` daqui. Um guard-rail estático varre os HTMLs e falha se
+// um literal de 11 (CPF) ou 14 (CNPJ) dígitos reaparecer solto — exceto o
+// sentinela `00000000000` (§6a). Ver
+// backend/tests/unit/test_guardrail_identidades_demo.py.
+//
+// Concordância provada: os mesmos valores vivem em `seed_demo.py` (lado
+// servidor). Frontend em JS e seed em Python não compartilham arquivo, então a
+// régua não é "importam do mesmo módulo" — é "os dois batem", travado no gate.
+//
+// Um cidadão; um estabelecimento por PAPEL (farmácia ≠ clínica: um CNPJ não
+// pode ser as duas coisas). CPF/CNPJs verificados nos dígitos (módulo 11).
+// ─────────────────────────────────────────────────────────────────────────
+
+const DEMO = {
+    cidadao:  { cpf:  '12345678909',    nome: 'João Demo da Silva' },
+    farmacia: { cnpj: '99999999000191', nome: 'Farmácia Demo Central' },
+    clinica:  { cnpj: '11222333000181', nome: 'Clínica Demo' },
+};
+
+// Atalho de login em DEV_MODE (prescritor.html) — credencial de teste local,
+// NÃO é identidade de circulação. Vive aqui só para não deixar um literal de 11
+// dígitos solto na tela (o antigo '11111111111', CPF matematicamente inválido).
+const DEV_LOGIN_CPF = '11111111111';
+
+// ─────────────────────────────────────────────────────────────────────────
 // PicSaúde — Utilitários de formatação
 // Padronização: CPF SEMPRE exibido como 000.000.000-00; banco/API armazena
 // e trafega 11 dígitos puros (sem máscara). Para enviar à API, strip via
@@ -33,6 +67,13 @@ const BACKEND_URL = _isFileProtocol
 function formatarCPF(valor) {
     const d = String(valor || '').replace(/\D/g, '').slice(0, 11);
     if (d.length === 11) return `${d.slice(0,3)}.${d.slice(3,6)}.${d.slice(6,9)}-${d.slice(9)}`;
+    return d;  // se inválido, retorna só os dígitos sem máscara
+}
+
+/** Formata 14 dígitos como 00.000.000/0000-00. Aceita string com ou sem máscara. */
+function formatarCNPJ(valor) {
+    const d = String(valor || '').replace(/\D/g, '').slice(0, 14);
+    if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
     return d;  // se inválido, retorna só os dígitos sem máscara
 }
 

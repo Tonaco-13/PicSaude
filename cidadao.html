@@ -1316,12 +1316,12 @@
                         <p style="font-weight:600; margin-bottom:12px; font-size:13px; color:#1e3a8a; text-transform:uppercase;">Autorizar Dispensação na Farmácia</p>
                         <div style="display:flex; gap:12px;">
                             <input type="text" id="cnpj-farmacia-${r.protocolo}" class="form-input"
-                                   value="99999999000191"
+                                   value="${DEMO.farmacia.cnpj}"
                                    placeholder="CNPJ da farmácia (14 dígitos)" maxlength="18" style="flex:2;">
                             <button onclick="transferirParaFarmacia('${r.protocolo}')" class="btn btn-action" style="flex:1;">Transferir Custódia</button>
                         </div>
                         <p style="font-size:11px; color:#64748b; margin-top:8px;">
-                            🏥 Demo: <strong>Farmácia Demo Central</strong> (99.999.999/0001-91) já preenchida —
+                            🏥 Demo: <strong>${DEMO.farmacia.nome}</strong> (${formatarCNPJ(DEMO.farmacia.cnpj)}) já preenchida —
                             só clicar em <strong>Transferir Custódia</strong> e a receita cai na fila do balcão.
                         </p>
                     </div>
@@ -1849,7 +1849,7 @@
       if (!dev && !demo) return;
       const b = document.createElement('div');
       b.style.cssText = 'background:#ecfeff;border-bottom:2px solid #06b6d4;color:#155e75;font-size:13px;line-height:1.4;padding:9px 16px;text-align:center;';
-      b.innerHTML = '🧭 <strong>Trilha da demo · você é o CIDADÃO</strong> — entre com <strong>CPF 12345678909</strong>; o código de acesso aparece no <strong>terminal do servidor</strong>. A carteira mostra os objetos que <em>chegaram</em> a você.';
+      b.innerHTML = `🧭 <strong>Trilha da demo · você é o CIDADÃO</strong> — entre com <strong>CPF ${DEMO.cidadao.cpf}</strong>; o código de acesso aparece no <strong>terminal do servidor</strong>. A carteira mostra os objetos que <em>chegaram</em> a você.`;
       document.body.insertBefore(b, document.body.firstChild);
     })();
     </script>
