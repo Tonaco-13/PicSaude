@@ -337,7 +337,128 @@ class TestAtestadoNaCarteira:
 
 
 # ---------------------------------------------------------------------------
-# (e) Zero erro de console em cada tela
+# (e) Imprimir rascunho funciona com bloqueador de pop-up
+# ---------------------------------------------------------------------------
+
+# Simula o AMBIENTE do Fabiano e instrumenta o resultado. Roda antes de qualquer
+# script da página (add_init_script):
+#
+#   1. `window.open` devolve null — é o que um bloqueador de pop-up faz em
+#      domínio não confiável (127.0.0.1). Era exatamente aqui que o clique
+#      morria calado.
+#   2. `print` de todo iframe passa a contar em vez de abrir diálogo. Sem isto o
+#      headless poderia travar num diálogo de impressão, e não teríamos como
+#      afirmar que a impressão foi REALMENTE disparada — só que o iframe existe.
+_SIMULAR_BLOQUEADOR_DE_POPUP = """
+(() => {
+  window.open = () => null;
+  window.__impressoes = 0;
+  const getter = Object.getOwnPropertyDescriptor(
+    HTMLIFrameElement.prototype, 'contentWindow').get;
+  Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', {
+    get() {
+      const w = getter.call(this);
+      if (w && !w.__printPatched) {
+        w.__printPatched = true;
+        w.print = () => { window.__impressoes += 1; };
+      }
+      return w;
+    }
+  });
+})();
+"""
+
+# Mutação: o veículo novo falha. Prova que a SEGUNDA camada (aviso visível)
+# existe de verdade — uma guarda que nunca é exercitada é decoração.
+_SABOTAR_IFRAME = """
+(() => {
+  const original = document.createElement.bind(document);
+  document.createElement = (tag, ...resto) => {
+    if (String(tag).toLowerCase() === 'iframe') {
+      throw new Error('iframe negado (mutação de teste)');
+    }
+    return original(tag, ...resto);
+  };
+})();
+"""
+
+
+class TestImpressaoDoRascunho:
+    """O defeito que Fabiano encontrou: "Imprimir rascunho não funcionou".
+
+    `window.open('', '_blank', …)` devolve null sob bloqueador de pop-up, e o
+    código saía por um `return` mudo. Funcionava em picsaude.com.br (domínio
+    confiável) e não em 127.0.0.1 — não era regressão, era ambiente. Mesma
+    doutrina do R4 aplicada à tela: falhar alto, nunca calar.
+
+    Os dois testes cobrem as duas camadas da correção:
+      - o iframe, que nenhum bloqueador intercepta (caminho feliz);
+      - o aviso visível, para o que ainda assim escapar (mutação).
+    """
+
+    def _abrir_rascunho(self, page, app_demo):
+        """Preenche o mínimo para a IA Documental devolver ok=True."""
+        _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
+        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+        page.locator("#btn-submod-atestado").click()
+
+        page.locator("#atestado-paciente").fill("João Demo da Silva")
+        page.locator("#atestado-finalidade").select_option("trabalhistas")
+        page.locator("#atestado-dias").fill("3")
+        page.locator("#atestado-data").fill("2026-07-20")
+        page.locator("#atestado-municipio").fill("Recife")
+        page.locator("#atestado-profissional").fill("Dra. Demo Maria Souza")
+        page.locator("#atestado-registro").fill("12345")
+
+        page.get_by_role("button", name=re.compile("Validar atestado")).click()
+
+        preview = page.locator("#atestado-preview-texto")
+        expect(preview).to_be_visible(timeout=_TIMEOUT_MS)
+        return preview
+
+    def test_imprime_mesmo_com_popup_bloqueado(self, page, app_demo, erros_de_console):
+        """O cenário do Fabiano: pop-up bloqueado, e a impressão ACONTECE."""
+        page.add_init_script(_SIMULAR_BLOQUEADOR_DE_POPUP)
+        self._abrir_rascunho(page, app_demo)
+
+        page.get_by_role("button", name=re.compile("Imprimir rascunho")).click()
+
+        # 1. A impressão foi disparada — não basta o iframe existir.
+        expect(page.locator("#picsaude-print-frame")).to_have_count(1, timeout=_TIMEOUT_MS)
+        page.wait_for_function("() => window.__impressoes > 0", timeout=_TIMEOUT_MS)
+
+        # 2. E o que foi para a impressora é o PAPEL DE TRABALHO, não um
+        #    documento com cara de atestado pronto.
+        conteudo = page.frame_locator("#picsaude-print-frame").locator("body")
+        expect(conteudo).to_contain_text("RASCUNHO — SEM VALIDADE LEGAL", timeout=_TIMEOUT_MS)
+        expect(conteudo).not_to_contain_text("Protocolo")
+
+        # 3. Caminho feliz não mostra aviso de falha.
+        assert page.locator("#atestado-print-aviso").inner_text().strip() == ""
+
+        _sem_erros(erros_de_console, "prescritor.html (imprimir rascunho)")
+
+    def test_falha_do_iframe_vira_aviso_visivel_nunca_silencio(self, page, app_demo):
+        """MUTAÇÃO: iframe negado → o usuário PRECISA saber.
+
+        Sem esta camada, qualquer falha futura do veículo reproduz o defeito
+        original — clique sem efeito e sem explicação.
+        """
+        page.add_init_script(_SIMULAR_BLOQUEADOR_DE_POPUP)
+        page.add_init_script(_SABOTAR_IFRAME)
+        self._abrir_rascunho(page, app_demo)
+
+        page.get_by_role("button", name=re.compile("Imprimir rascunho")).click()
+
+        aviso = page.locator("#atestado-print-aviso")
+        expect(aviso).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(aviso).to_contain_text("bloqueou a impressão", timeout=_TIMEOUT_MS)
+        # Diz o que fazer, não só que falhou.
+        expect(aviso).to_contain_text("Ctrl+P")
+
+
+# ---------------------------------------------------------------------------
+# (f) Zero erro de console em cada tela
 # ---------------------------------------------------------------------------
 
 class TestConsoleLimpo:

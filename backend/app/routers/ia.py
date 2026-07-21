@@ -49,8 +49,9 @@ _CONTEXTOS_FARMA  = {"prescricao", "dispensacao"}
 _CONTEXTOS_EXAMES = {"pedido_exame", "laudo"}
 _CONTEXTOS_CID    = {"pedido_exame", "prescricao", "laudo", "geral"}
 
-# Versão das regras do módulo documental (usada em GET /ia/documentos/status)
-_VERSAO_REGRAS_DOCUMENTAL = "atestado_cfm_v2"
+# Versão das regras do módulo documental (usada em GET /ia/documentos/status).
+# Vem do template — repetir o literal aqui já fez as duas versões divergirem.
+_VERSAO_REGRAS_DOCUMENTAL = _VERSAO_TEMPLATE_ATESTADO
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +422,16 @@ class ValidarAtestadoIn(BaseModel):
     dias_afastamento:     Optional[int] = None
     data_documento:       Optional[str] = None
     nome_profissional:    Optional[str] = None
-    registro_profissional: Optional[str] = None
+    registro_profissional: Optional[str] = None  # NÚMERO; a sigla vem do conselho
+    # Campos que o rascunho passou a espelhar do documento oficial: sem eles, a
+    # tela mostrava data ISO, registro nu e adjetivo sempre "médico" — divergindo
+    # do PDF que o profissional assinaria em seguida.
+    municipio_emissao:    Optional[str] = None   # "local" do CFM
+    conselho:             Optional[str] = None   # CFM | CFO
+    uf_registro:          Optional[str] = None
+    hora_inicio:          Optional[str] = None   # "HH:MM" — comparecimento
+    hora_fim:             Optional[str] = None   # "HH:MM" — comparecimento
+    observacao_complementar: Optional[str] = None  # acrescenta ao corpo; nunca o substitui
 
 
 # ---------------------------------------------------------------------------
@@ -462,7 +472,9 @@ def validar_atestado_endpoint(
     - `faltantes`: lista de campos ausentes/inválidos
     - `alertas`: avisos não-bloqueantes (texto vago, inconsistência CID)
     - `sugestoes`: sugestões de redação (para o profissional)
-    - `documento_base`: atestado renderizado (None quando há faltantes)
+    - `documento_base`: rascunho renderizado sem marcação (None quando há faltantes)
+    - `documento_base_html`: mesmo rascunho com `<strong>` nas ênfases, já escapado
+    - `corpo_documento`: só o corpo — a fatia idêntica à do PDF oficial
     - `aviso`: disclaimer fixo obrigatório
     - `versao_template`: versão do template utilizado
     """
@@ -475,6 +487,12 @@ def validar_atestado_endpoint(
         data_documento        = payload.data_documento,
         nome_profissional     = payload.nome_profissional,
         registro_profissional = payload.registro_profissional,
+        municipio_emissao     = payload.municipio_emissao,
+        conselho              = payload.conselho,
+        uf_registro           = payload.uf_registro,
+        hora_inicio           = payload.hora_inicio,
+        hora_fim              = payload.hora_fim,
+        observacao_complementar = payload.observacao_complementar,
     )
 
 

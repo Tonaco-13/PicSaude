@@ -812,6 +812,24 @@
                         <p id="atestado-conselho-hint"
                            style="font-size:11px; color:#64748b; margin:6px 0 0;"></p>
                     </div>
+
+                    <!-- Observação complementar: ACRESCENTA um parágrafo ao corpo,
+                         nunca o substitui. O corpo continua saindo dos campos
+                         estruturados — texto livre no lugar dele permitiria escrever
+                         "5 dias" com 3 dias gravados no banco, e aí o documento e a
+                         carteira do cidadão divergiriam. -->
+                    <div class="form-group" style="margin: 16px 0 0;">
+                        <label class="form-label">Observação Complementar
+                            <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — vira um parágrafo a mais no atestado)</span>
+                        </label>
+                        <textarea id="atestado-observacao" class="form-input" rows="3"
+                                  placeholder="ex.: Reavaliação agendada. Orientado a retornar em caso de febre."
+                                  style="resize: vertical; font-family: inherit;"></textarea>
+                        <p style="font-size:11px; color:#64748b; margin:6px 0 0;">
+                            Acrescenta ao texto do atestado — não substitui os campos acima,
+                            que continuam definindo finalidade, datas e dias de afastamento.
+                        </p>
+                    </div>
                 </div>
 
                 <div class="ia-doc-acoes">
@@ -3502,15 +3520,11 @@
                 : '';
         }
 
-        /** Registro em forma de exibição ("CRO-PE 1234") — para a IA Documental. */
-        function _registroAtestadoDisplay() {
-            const sel = document.getElementById('atestado-conselho');
-            const uf  = (document.getElementById('atestado-uf-registro').value || '').trim();
-            const num = (document.getElementById('atestado-registro').value || '').trim();
-            if (!num) return '';
-            const c = _catalogoConselhos.find(x => x.id_conselho === sel.value);
-            return (c && uf) ? `${c.sigla_registro}-${uf} ${num}` : num;
-        }
+        // `_registroAtestadoDisplay()` vivia aqui e montava "CRO-PE 1234" no
+        // navegador, só para o rascunho. Foi removida: montar o registro em dois
+        // lugares é como montar a frase em dois lugares — mais cedo ou mais tarde
+        // eles divergem. Hoje conselho, UF e número vão separados ao backend, que
+        // formata com a MESMA função do PDF (domain/conselho_profissional.py).
 
         // Bootstrap do seletor de conselho. Fica AQUI, depois das declarações
         // acima, e não junto dos outros wire-ups (~2940): `_catalogoConselhos` é
@@ -3564,7 +3578,16 @@
             const diasRaw   = (document.getElementById('atestado-dias').value        || '').trim();
             const dataDoc   = (document.getElementById('atestado-data').value        || '').trim();
             const prof      = (document.getElementById('atestado-profissional').value || '').trim();
-            const registro  = _registroAtestadoDisplay();
+            // Conselho, UF e NÚMERO vão separados — quem formata "CRM-PE 12345" é o
+            // backend, com a mesma função que o PDF usa. O rascunho mostrava o
+            // registro nu e ignorava o conselho; era assim que ele divergia do PDF.
+            const municipio = (document.getElementById('atestado-municipio').value    || '').trim();
+            const conselho  = (document.getElementById('atestado-conselho').value     || '').trim();
+            const ufReg     = (document.getElementById('atestado-uf-registro').value  || '').trim();
+            const registro  = (document.getElementById('atestado-registro').value     || '').trim();
+            const horaIni   = (document.getElementById('atestado-hora-inicio').value  || '').trim();
+            const horaFim   = (document.getElementById('atestado-hora-fim').value     || '').trim();
+            const obs       = (document.getElementById('atestado-observacao').value   || '').trim();
 
             const dias = diasRaw ? parseInt(diasRaw, 10) : null;
 
@@ -3575,7 +3598,7 @@
             if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') {
                 container.innerHTML = _renderizarResultadoAtestado({
                     ok: false, faltantes: [], alertas: [], sugestoes: [],
-                    documento_base: null,
+                    documento_base: null, documento_base_html: null,
                     aviso: 'IA Documental requer autenticação. Faça login para usar a validação completa.',
                 });
                 return;
@@ -3594,6 +3617,12 @@
                         data_documento:        dataDoc    || null,
                         nome_profissional:     prof       || null,
                         registro_profissional: registro   || null,
+                        municipio_emissao:     municipio  || null,
+                        conselho:              conselho   || null,
+                        uf_registro:           ufReg      || null,
+                        hora_inicio:           horaIni    || null,
+                        hora_fim:              horaFim    || null,
+                        observacao_complementar: obs      || null,
                     }),
                 });
 
@@ -3610,6 +3639,22 @@
             } catch (_) {
                 container.innerHTML = '<p style="font-size:12px;color:#dc2626;padding:8px 0;">Falha de rede ao consultar a IA Documental. Verifique se o backend está rodando.</p>';
             }
+        }
+
+        /**
+         * Corpo do rascunho pronto para inserir na tela.
+         *
+         * `documento_base_html` vem do backend com as ênfases em <strong> e JÁ
+         * escapado no domínio (domain/texto_atestado.py) — escapar de novo aqui
+         * faria as tags aparecerem literais. O negrito é o mesmo que o PDF
+         * imprime: um texto, dois markups.
+         *
+         * `documento_base` (sem marcação) é o fallback: se um backend antigo não
+         * mandar a versão HTML, o rascunho ainda aparece — sem negrito, mas com
+         * o mesmo texto.
+         */
+        function _previewAtestado(data) {
+            return data.documento_base_html || _escDoc(data.documento_base);
         }
 
         /**
@@ -3676,7 +3721,7 @@
                         Rascunho para conferência
                         <span class="ia-doc-selo-rascunho">sem validade legal</span>
                     </div>
-                    <div class="ia-doc-preview" id="atestado-preview-texto">${_escDoc(data.documento_base)}</div>
+                    <div class="ia-doc-preview" id="atestado-preview-texto">${_previewAtestado(data)}</div>
                     <p class="ia-doc-rascunho-nota">
                         Este texto não é o atestado: o documento válido é emitido pelo
                         PicSaúde, com protocolo, hash e assinatura ICP-Brasil.
@@ -3693,6 +3738,9 @@
                             🖨️ Imprimir rascunho
                         </button>
                     </div>
+                    <!-- Slot do aviso de falha na impressão. Vazio no caminho
+                         feliz; nunca escondido quando há o que dizer. -->
+                    <div id="atestado-print-aviso" role="alert" aria-live="polite"></div>
                 </div>`;
             }
 
@@ -3738,12 +3786,108 @@
          * qualquer campo de protocolo.
          */
         function imprimirRascunhoAtestado() {
+            const aviso = document.getElementById('atestado-print-aviso');
             const el = document.getElementById('atestado-preview-texto');
-            if (!el) return;
+            if (!el) {
+                _avisarFalhaDeImpressao(aviso,
+                    'Não foi possível ler o rascunho na tela. Valide o atestado novamente.');
+                return;
+            }
             const texto = el.innerText || el.textContent || '';
-            const win = window.open('', '_blank', 'width=720,height=560');
-            if (!win) return;
-            win.document.write(`<!DOCTYPE html>
+            _limparAvisoDeImpressao(aviso);
+            if (!_imprimirDocumentoAuxiliar(_htmlRascunhoAtestado(texto))) {
+                _avisarFalhaDeImpressao(aviso,
+                    'Seu navegador bloqueou a impressão. Use Ctrl+P (⌘+P) nesta página ' +
+                    'ou libere janelas/impressão para este site e tente de novo.');
+            }
+        }
+
+        /**
+         * Imprime um documento auxiliar por IFRAME OCULTO. Devolve true/false.
+         *
+         * POR QUE IFRAME E NÃO window.open
+         * --------------------------------
+         * Este código usava `window.open('', '_blank', …)`. Com bloqueador de
+         * pop-up ativo — o padrão para domínios não confiáveis, como 127.0.0.1 —
+         * o retorno é `null` e a função saía por um `return` mudo: o profissional
+         * clicava em "Imprimir rascunho" e NADA acontecia. Sem erro, sem pista.
+         * Mesma classe do seletor de conselho vazio: a guarda evitava quebrar,
+         * mas não avisava.
+         *
+         * O iframe roda no próprio documento — não é janela nova, então nenhum
+         * bloqueador de pop-up o intercepta. O HTML impresso é o mesmo; muda só
+         * o veículo.
+         *
+         * Se ainda assim falhar (iframe negado, print indisponível), devolve
+         * false para que o chamador AVISE. Silêncio nunca é resposta: a doutrina
+         * do R4 — falhar alto em vez de calar — vale também na tela.
+         */
+        function _imprimirDocumentoAuxiliar(html) {
+            let frame = null;
+            try {
+                const anterior = document.getElementById('picsaude-print-frame');
+                if (anterior) anterior.remove();
+
+                frame = document.createElement('iframe');
+                frame.id = 'picsaude-print-frame';
+                frame.setAttribute('aria-hidden', 'true');
+                frame.setAttribute('title', 'Documento para impressão');
+                // Fora da vista, mas RENDERIZADO: `display:none` faz alguns
+                // navegadores imprimirem página em branco.
+                frame.style.cssText =
+                    'position:fixed; right:0; bottom:0; width:1px; height:1px; ' +
+                    'border:0; opacity:0; pointer-events:none;';
+                document.body.appendChild(frame);
+
+                const doc = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+                if (!doc) { frame.remove(); return false; }
+                doc.open();
+                doc.write(html);
+                doc.close();
+
+                const janela = frame.contentWindow;
+                if (!janela || typeof janela.print !== 'function') { frame.remove(); return false; }
+
+                // O disparo espera o layout do iframe: imprimir antes de o
+                // documento assentar sai em branco. `setTimeout(0)` basta porque
+                // o HTML é inline (sem imagens nem fontes externas).
+                setTimeout(() => {
+                    try {
+                        janela.focus();
+                        janela.print();
+                    } catch (_) {
+                        _avisarFalhaDeImpressao(
+                            document.getElementById('atestado-print-aviso'),
+                            'Seu navegador recusou a impressão. Use Ctrl+P (⌘+P) nesta página.');
+                    }
+                }, 0);
+
+                // O iframe fica no DOM até a próxima impressão: removê-lo agora
+                // cancelaria o diálogo em navegadores que imprimem de forma
+                // assíncrona. Como o id é fixo, no máximo um sobrevive.
+                return true;
+            } catch (_) {
+                if (frame && frame.remove) frame.remove();
+                return false;
+            }
+        }
+
+        /** Mostra o aviso de falha de impressão. Nunca esconde o problema. */
+        function _avisarFalhaDeImpressao(el, mensagem) {
+            if (!el) { alert(mensagem); return; }   // sem slot, ainda assim fala
+            el.innerHTML =
+                '<div style="margin-top:10px; padding:10px 12px; border:1px solid #fca5a5; ' +
+                'background:#fef2f2; color:#b91c1c; border-radius:6px; font-size:12px;">' +
+                '🖨️ ' + _escDoc(mensagem) + '</div>';
+        }
+
+        function _limparAvisoDeImpressao(el) {
+            if (el) el.innerHTML = '';
+        }
+
+        /** HTML do papel de trabalho — tarja, marca d'água, sem área de assinatura. */
+        function _htmlRascunhoAtestado(texto) {
+            return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -3789,10 +3933,11 @@
     Texto conferido por validação estrutural (IA Documental v1); a responsabilidade
     clínica e legal permanece com o profissional.
   </div>
-  <script>window.onload = function() { window.print(); };<\/script>
+  <!-- Sem script de auto-print: quem dispara a impressão é a função
+       _imprimirDocumentoAuxiliar, no documento hospedeiro. Assim o disparo é
+       observável e testável, em vez de depender de um onload embutido. -->
 </body>
-</html>`);
-            win.document.close();
+</html>`;
         }
 
         /** Limpa todos os campos e o resultado da IA do formulário de atestado. */
@@ -3800,7 +3945,7 @@
             ['atestado-paciente','atestado-cpf','atestado-finalidade','atestado-finalidade-outro',
              'atestado-indicacao','atestado-cid','atestado-cid-busca',
              'atestado-dias','atestado-data','atestado-municipio',
-             'atestado-hora-inicio','atestado-hora-fim',
+             'atestado-hora-inicio','atestado-hora-fim','atestado-observacao',
              'atestado-profissional','atestado-conselho','atestado-uf-registro','atestado-registro']
             .forEach(id => {
                 const el = document.getElementById(id);
@@ -4006,6 +4151,8 @@
                 data_documento:        (document.getElementById('atestado-data').value || '').trim() || null,
                 hora_inicio:           (document.getElementById('atestado-hora-inicio').value || '').trim() || null,
                 hora_fim:              (document.getElementById('atestado-hora-fim').value || '').trim() || null,
+                // ACRESCENTA um parágrafo ao corpo gerado; nunca o substitui.
+                observacao_complementar: (document.getElementById('atestado-observacao').value || '').trim() || null,
                 nome_profissional:     (document.getElementById('atestado-profissional').value || '').trim() || null,
                 // conselho/UF/número separados: é o conselho que decide o título do
                 // documento no PDF. Vazio = não declarado (backend trata como legado).

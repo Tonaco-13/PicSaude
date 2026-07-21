@@ -37,6 +37,9 @@ class Atestado(Base):
     municipio_emissao     = Column(String(120), nullable=True)    # "local" do CFM; obrigatório no payload, NULL no legado
     hora_inicio           = Column(String(5), nullable=True)      # "HH:MM" — comparecimento; sempre opcional
     hora_fim              = Column(String(5), nullable=True)      # "HH:MM" — comparecimento; sempre opcional
+    # ACRESCENTA um parágrafo ao corpo; nunca o substitui. Corpo editável deixaria
+    # o texto contradizer os campos (ver domain/texto_atestado.py). Entra no hash.
+    observacao_complementar = Column(Text, nullable=True)
     assinatura_modo       = Column(String(40), nullable=True)     # icp_brasil_local | gov_br_nuvem | NULL
     assinatura_hash       = Column(String(64), nullable=True)     # SHA-256 do documento canônico
     data_documento        = Column(String(10), nullable=False)    # ISO 8601 date
