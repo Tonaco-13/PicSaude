@@ -516,3 +516,131 @@ class TestConsoleLimpo:
         page.goto(f"{app_demo}/{href}", wait_until="networkidle")
         expect(page.locator("body")).not_to_be_empty(timeout=_TIMEOUT_MS)
         _sem_erros(erros_de_console, href or "index.html")
+
+
+# ---------------------------------------------------------------------------
+# (h) Circulação num só cidadão — TICKET-DEMO-IDENTIDADES-FONTE-UNICA
+# ---------------------------------------------------------------------------
+
+# Marcador do medicamento emitido no smoke — distintivo para achá-lo na carteira
+# sem colidir com o que o seed já cria (a posse do paciente começa vazia; só o
+# atestado chega pronto).
+_MED_CIRCULACAO = "Amoxicilina 500mg"
+
+
+class TestCirculacaoUmCidadao:
+    """O aceite que fecha a classe: uma receita emitida NO prescritor.html cai na
+    carteira do MESMO cidadão no cidadao.html.
+
+    A prova é de FONTE ÚNICA, não só de fluxo: a emissão usa `DEMO.cidadao.cpf`
+    lido do próprio prescritor.html (via config.js), e o login da carteira é o do
+    paciente-demo do seed. Se o CPF de config.js e o do seed divergissem, a
+    receita seria emitida para um cidadão e a carteira mostraria a de outro — o
+    'nenhum objeto se encontra' que o ticket existe para impedir. As duas telas
+    também declaram o MESMO `DEMO.cidadao.cpf`, conferido abaixo.
+    """
+
+    def test_receita_emitida_no_prescritor_chega_a_carteira_do_cidadao(
+        self, page, app_demo, erros_de_console
+    ):
+        # 1) Prescritor: emite pela própria tela (fetch do prescritor.html, com o
+        #    token da sessão demo e o CPF canônico de config.js — DEMO.cidadao).
+        _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
+        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+
+        cpf_prescritor_view = page.evaluate("DEMO.cidadao.cpf")
+
+        resultado = page.evaluate(
+            """async (med) => {
+                const token = sessionStorage.getItem('picsaude_demo_token');
+                const cns   = sessionStorage.getItem('picsaude_demo_sub');
+                const pnome = sessionStorage.getItem('picsaude_demo_nome');
+                const payload = {
+                    cns_prescritor: cns,
+                    nome_prescritor: pnome,
+                    cpf_paciente: DEMO.cidadao.cpf,
+                    nome_paciente: DEMO.cidadao.nome,
+                    assinatura_modo: 'icp_brasil_local',
+                    enviar_ao_paciente: true,
+                    itens: [{
+                        nome_medicamento: med,
+                        quantidade: 10,
+                        unidade_quantidade: 'comprimido',
+                        posologia: '1 comprimido de 8/8h por 7 dias'
+                    }]
+                };
+                const r = await fetch('/prescricoes', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                return { status: r.status, body: await r.text() };
+            }""",
+            _MED_CIRCULACAO,
+        )
+        assert resultado["status"] == 201, (
+            f"Emissão falhou no prescritor.html (HTTP {resultado['status']}): "
+            f"{resultado['body']}"
+        )
+
+        # 2) Cidadão: mesma sessão, agora como paciente-demo. O sub do /demo/login
+        #    determina de QUEM é a carteira — e é o CPF que o seed nomeia paciente.
+        _autenticar(page, app_demo, "paciente", "12345678909", "João Demo da Silva")
+        page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+
+        # As duas telas apontam para o MESMO cidadão (fonte única, não coincidência).
+        cpf_cidadao_view = page.evaluate("DEMO.cidadao.cpf")
+        assert cpf_prescritor_view == cpf_cidadao_view == "12345678909", (
+            "prescritor.html e cidadao.html divergem no cidadão canônico: "
+            f"{cpf_prescritor_view!r} vs {cpf_cidadao_view!r}"
+        )
+
+        # 3) A receita recém-emitida aparece na posse da carteira — a circulação
+        #    fechou ponta a ponta, num só cidadão.
+        lista = page.locator("#lista-receitas")
+        expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(lista).not_to_contain_text(
+            "Nenhuma prescrição sob sua custódia", timeout=_TIMEOUT_MS
+        )
+        # O backend normaliza o nome do medicamento para caixa alta — asserir no
+        # que a carteira REALMENTE mostra, não no que enviamos.
+        expect(lista).to_contain_text(_MED_CIRCULACAO.upper(), timeout=_TIMEOUT_MS)
+
+        _sem_erros(erros_de_console, "circulação prescritor→cidadão")
+
+
+# ---------------------------------------------------------------------------
+# (i) O guia de circulação vive na vitrine — TICKET-GUIA-NA-VITRINE
+# ---------------------------------------------------------------------------
+
+class TestGuiaNaVitrine:
+    """`guia.html` é servido pela mesma casa (StaticFiles) e a landing leva a ele.
+
+    O guia era um artifact fora da vitrine; agora é página do repositório em
+    `/guia.html`, e a frase do Fluxo na landing ganha o convite que abre o guia.
+    """
+
+    def test_guia_responde_e_renderiza(self, page, app_demo, erros_de_console):
+        page.goto(f"{app_demo}/guia.html", wait_until="networkidle")
+        # O conteúdo montou (título do guia), não só um 200 vazio.
+        expect(page.locator("h1")).to_contain_text(
+            "Como circula uma receita e um atestado", timeout=_TIMEOUT_MS
+        )
+        # O contato do Fabiano no rodapé — exigência do aceite.
+        expect(page.locator(".contact")).to_contain_text("Fabiano Tonaco Borges")
+        _sem_erros(erros_de_console, "guia.html")
+
+    def test_link_da_landing_abre_o_guia(self, page, app_demo, erros_de_console):
+        page.goto(app_demo, wait_until="networkidle")
+
+        link = page.locator('a[href="guia.html"]')
+        expect(link).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(link).to_contain_text("guia completo")
+
+        link.click()
+        page.wait_for_url(re.compile(r"/guia\.html$"), timeout=_TIMEOUT_MS)
+        expect(page.locator("h1")).to_contain_text(
+            "Como circula uma receita e um atestado", timeout=_TIMEOUT_MS
+        )
+
+        _sem_erros(erros_de_console, "landing → guia.html")
