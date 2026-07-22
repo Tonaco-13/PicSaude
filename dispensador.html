@@ -477,7 +477,14 @@
                     <h3 id="ml-titulo" class="fila-modal-titulo">Dispensar</h3>
                     <p class="fila-modal-sub">Baixa de fármaco — escrituração (Portaria SVS/MS nº 344/1998)</p>
                     <label class="fila-modal-label">Quantidade a dispensar</label>
-                    <input id="ml-qtd" type="number" min="1" class="form-input">
+                    <!-- Eureka 2 — a unidade é FIEL À RECEITA (nunca muda, só a quantidade,
+                         sempre ≤). O número nunca aparece sem a unidade: "1 do quê?". A
+                         unidade vem do item (unidade_quantidade); não há campo para trocá-la. -->
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input id="ml-qtd" type="number" min="1" class="form-input" style="flex:1;"
+                               oninput="_atualizarUnidadeQtd()">
+                        <span id="ml-qtd-unidade" style="font-size:13px; font-weight:700; color:#475569; white-space:nowrap;">—</span>
+                    </div>
                     <label class="fila-modal-label">Lote *</label>
                     <input id="ml-lote" class="form-input" placeholder="Nº do lote">
                     <div style="display:flex; gap:12px;">
@@ -1346,21 +1353,32 @@
         }
 
         // ── Dispensação com lote (modal SNGPC / Portaria 344/98) ─────────
-        let _loteFilaCtx = { proto: null, item: null };
+        let _loteFilaCtx = { proto: null, item: null, unidade: null };
 
         function _acharItemFila(proto, itemId) {
             const p = _filaAtual.find(x => x.protocolo === proto);
             return p ? (p.itens || []).find(i => i.item_id === itemId) : null;
         }
 
+        // Eureka 2 — mostra a unidade FIEL À RECEITA ao lado da quantidade, pluralizada
+        // conforme o valor atual. `_unidadeDisplay` devolve "não informada" quando falta,
+        // sem inventar unidade. Chamada no abrir e a cada digitação (oninput).
+        function _atualizarUnidadeQtd() {
+            const el = document.getElementById('ml-qtd-unidade');
+            if (!el) return;
+            const q = document.getElementById('ml-qtd');
+            el.textContent = _unidadeDisplay(_loteFilaCtx.unidade, q ? q.value : null);
+        }
+
         function _abrirLoteFila(proto, itemId) {
             const it = _acharItemFila(proto, itemId);
             if (!it) return;
-            _loteFilaCtx = { proto, item: itemId };
+            _loteFilaCtx = { proto, item: itemId, unidade: it.unidade_quantidade || null };
             document.getElementById('ml-titulo').textContent =
                 'Dispensar — ' + it.nome_medicamento + (it.concentracao ? ' ' + it.concentracao : '');
             const q = document.getElementById('ml-qtd');
             q.value = it.saldo; q.max = it.saldo; q.min = 1;
+            _atualizarUnidadeQtd();
             document.getElementById('ml-lote').value = '';
             document.getElementById('ml-fab').value = '';
             document.getElementById('ml-val').value = '';
