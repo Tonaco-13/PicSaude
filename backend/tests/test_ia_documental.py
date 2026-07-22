@@ -15,15 +15,15 @@ Cobre:
 
   Campos obrigatórios faltantes
     8.  ausência de codigo_cid → faltantes
-    9.  ausência de dias_afastamento → faltantes
+    9.  ausência de dias_afastamento → COMPARECIMENTO válido (não faltante)
    10.  ausência de paciente_nome → faltantes
    11.  ausência de indicacao_clinica → faltantes
    12.  ausência de data_documento → faltantes
    13.  ausência de nome_profissional → faltantes
    14.  ausência de registro_profissional → faltantes
    15.  todos os campos ausentes → ok=False, múltiplos faltantes
-   16.  dias_afastamento = 0 → faltante
-   17.  dias_afastamento negativo → faltante
+   16.  dias_afastamento = 0 → comparecimento válido (não faltante)
+   17.  dias_afastamento negativo → comparecimento (dias>0 falso), não faltante
    18.  documento_base = None quando há faltantes
 
   Alertas de texto clínico vago
@@ -188,11 +188,16 @@ class TestCamposObrigatorios:
         assert result["ok"] is True
         assert "codigo_cid" not in result["faltantes"]
 
-    def test_ausencia_dias_afastamento(self):
-        """T09 — dias_afastamento ausente aparece em faltantes."""
+    def test_ausencia_dias_e_comparecimento_valido(self):
+        """T09 — dias_afastamento ausente = COMPARECIMENTO, válido (não afasta).
+
+        Bug da vitrine (2026-07-22): dias estava nos obrigatórios e a IA rejeitava
+        TODO comparecimento com "Dias de afastamento" faltante. dias é opcional; a
+        ausência não bloqueia. A obrigatoriedade em afastamento é imposta na TELA.
+        """
         result = validar_atestado(**_omit("dias_afastamento"))
-        assert result["ok"] is False
-        assert "dias_afastamento" in result["faltantes"]
+        assert "dias_afastamento" not in result["faltantes"]
+        assert result["ok"] is True
 
     def test_ausencia_paciente_nome(self):
         """T10 — paciente_nome ausente aparece em faltantes."""
@@ -236,21 +241,28 @@ class TestCamposObrigatorios:
         """T15 — sem nenhum campo → ok=False com todos os obrigatórios faltantes."""
         result = validar_atestado()
         assert result["ok"] is False
-        # 6 obrigatórios: paciente_nome, finalidade, dias_afastamento,
-        # data_documento, nome_profissional, registro_profissional
-        assert len(result["faltantes"]) == 6
+        # 5 obrigatórios: paciente_nome, finalidade, data_documento,
+        # nome_profissional, registro_profissional (dias saiu — é opcional)
+        assert len(result["faltantes"]) == 5
 
-    def test_dias_zero_e_faltante(self):
-        """T16 — dias_afastamento=0 é tratado como inválido (faltante)."""
+    def test_dias_zero_e_comparecimento_valido(self):
+        """T16 — dias_afastamento=0 = COMPARECIMENTO, não é faltante.
+
+        O corpo usa `if dias and dias > 0`, então dias=0 rende comparecimento.
+        Exigir dias>0 aqui rejeitaria o comparecimento (bug da vitrine).
+        """
         result = validar_atestado(**_payload(dias_afastamento=0))
-        assert result["ok"] is False
-        assert "dias_afastamento" in result["faltantes"]
+        assert "dias_afastamento" not in result["faltantes"]
+        assert result["ok"] is True
 
-    def test_dias_negativo_e_faltante(self):
-        """T17 — dias_afastamento negativo é tratado como inválido."""
+    def test_dias_negativo_nao_e_faltante(self):
+        """T17 — dias negativo cai no ramo comparecimento (dias>0 é falso), não é
+        faltante. A UI impede negativo (min=1); só chegaria por API crua, e o
+        corpo o trata como comparecimento — a IA não diverge do corpo.
+        """
         result = validar_atestado(**_payload(dias_afastamento=-5))
-        assert result["ok"] is False
-        assert "dias_afastamento" in result["faltantes"]
+        assert "dias_afastamento" not in result["faltantes"]
+        assert result["ok"] is True
 
     def test_documento_base_none_quando_faltantes(self):
         """T18 — documento_base é None quando há campos faltantes."""
