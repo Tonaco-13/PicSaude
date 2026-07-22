@@ -459,6 +459,26 @@ class TestImpressaoDoRascunho:
         # Diz o que fazer, não só que falhou.
         expect(aviso).to_contain_text("Ctrl+P")
 
+    def test_imprimir_fisico_emite_pelo_servidor(self, page, app_demo):
+        """Item 3 (A) — 'Imprimir físico' emite via POST /atestados/fisica e o
+        documento vem do PDF do SERVIDOR (o único renderizador; o cliente não
+        recria o atestado). Assere a EMISSÃO e o feedback visível, não o veículo de
+        impressão (abrir aba × baixar varia por navegador). Ver LEARNINGS 2026-07-22.
+        """
+        self._abrir_rascunho(page, app_demo)   # preenche o formulário (afastamento 3 dias)
+
+        with page.expect_response(re.compile(r"/atestados/fisica")) as resp_info:
+            page.get_by_role("button", name=re.compile("Imprimir físico")).click()
+        assert resp_info.value.status == 201, (
+            f"POST /atestados/fisica devolveu {resp_info.value.status}, esperado 201."
+        )
+
+        # A ação termina em feedback visível com o protocolo — nunca silêncio, nunca
+        # PDF em branco. A mensagem aparece tanto no caminho 'abriu aba' quanto no
+        # 'baixou o PDF' (pop-up bloqueado).
+        container = page.locator("#ia-atestado-container")
+        expect(container).to_contain_text("Atestado físico emitido", timeout=_TIMEOUT_MS)
+
 
 # ---------------------------------------------------------------------------
 # (f) Ação que desiste avisa — TICKET-FALHA-SILENCIOSA-FRONTEND
