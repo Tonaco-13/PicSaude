@@ -854,6 +854,11 @@
                             style="padding: 10px 24px; font-size: 14px;">
                         🔏 Emitir atestado digital
                     </button>
+                    <button type="button" id="btn-imprimir-atestado-fisico" class="btn btn-outline"
+                            onclick="imprimirAtestadoFisico()"
+                            style="padding: 10px 20px; font-size: 14px; background: white; border-color: #94a3b8; color: #475569;">
+                        🖨️ Imprimir físico (sem envio digital)
+                    </button>
                     <button type="button" class="btn btn-outline" onclick="limparAtestado()"
                             style="padding: 10px 20px; font-size: 14px;">
                         Limpar
@@ -4256,6 +4261,82 @@
             } catch (e) {
                 container.innerHTML = erro('Falha de rede ao emitir. Verifique se o backend está rodando em ' + BACKEND + '.');
             }
+        }
+
+        /**
+         * Emissão FÍSICA do atestado (caminho A). O documento oficial do atestado
+         * tem UM renderizador — o PDF do servidor (ver imprimirRascunhoAtestado). Ao
+         * contrário da receita física (offline, texto client-computável), o texto E o
+         * layout do atestado moram no servidor. Então "imprimir físico" é:
+         *   POST /atestados/fisica (sentinela, SEM exigir CPF) → protocolo →
+         *   GET /atestados/{proto}/pdf → abre o PDF do servidor para impressão.
+         * Síncrono POR NATUREZA, não por escolha: o documento É o retorno da persistência.
+         * Recriar o documento no cliente seria o falso-espelho no nível do DOCUMENTO.
+         * Backend offline → falha LEGÍVEL, nunca PDF em branco. Ver LEARNINGS 2026-07-22.
+         */
+        async function imprimirAtestadoFisico() {
+            const container = document.getElementById('ia-atestado-container');
+            container.classList.remove('hidden');
+            const erro = (t) => '<p style="font-size:12px;color:#dc2626;padding:8px 0;">' + _escDoc(t) + '</p>';
+            const finalidade = _lerFinalidadeAtestado();
+            if (!finalidade) { container.innerHTML = erro('Selecione a finalidade do atestado.'); return; }
+            const municipio = (document.getElementById('atestado-municipio').value || '').trim();
+            if (!municipio) { container.innerHTML = erro('Informe o município de emissão (o CFM exige local e data no atestado).'); return; }
+            // Dias obrigatório só em Afastamento — mesma régua do digital. O físico
+            // NÃO exige CPF (usa o sentinela); nome do paciente é opcional.
+            const diasRaw = (document.getElementById('atestado-dias').value || '').trim();
+            const ehAfastamento = (document.getElementById('atestado-tipo').value || 'comparecimento') === 'afastamento';
+            if (ehAfastamento && !(parseInt(diasRaw, 10) > 0)) {
+                container.innerHTML = erro('Informe os dias de afastamento (mínimo 1) para o atestado de afastamento.'); return;
+            }
+            const payload = {
+                cns_prescritor:        medicoLogado.cns,
+                nome_prescritor:       medicoLogado.nome,
+                nome_paciente:         (document.getElementById('atestado-paciente').value || '').trim() || null,
+                finalidade:            finalidade,
+                municipio_emissao:     municipio,
+                indicacao_clinica:     (document.getElementById('atestado-indicacao').value || '').trim() || null,
+                codigo_cid:            (document.getElementById('atestado-cid').value || '').split('|').filter(Boolean)[0] || null,
+                dias_afastamento:      diasRaw ? parseInt(diasRaw, 10) : null,
+                data_documento:        (document.getElementById('atestado-data').value || '').trim() || null,
+                hora_inicio:           (document.getElementById('atestado-hora-inicio').value || '').trim() || null,
+                hora_fim:              (document.getElementById('atestado-hora-fim').value || '').trim() || null,
+                observacao_complementar: (document.getElementById('atestado-observacao').value || '').trim() || null,
+                nome_profissional:     (document.getElementById('atestado-profissional').value || '').trim() || null,
+                conselho:              (document.getElementById('atestado-conselho').value || '').trim() || null,
+                uf_registro:           (document.getElementById('atestado-uf-registro').value || '').trim() || null,
+                registro_profissional: (document.getElementById('atestado-registro').value || '').trim() || null,
+            };
+            // 1. Emitir físico — síncrono: sem o servidor, não há documento a imprimir.
+            container.innerHTML = '<p style="font-size:12px;color:#64748b;padding:8px 0;">Emitindo atestado físico…</p>';
+            let protocolo;
+            try {
+                const r = await fetch(BACKEND + '/atestados/fisica', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { container.innerHTML = erro('Não foi possível emitir o atestado físico (HTTP ' + r.status + '): ' + _extrairMsgErro(d, 'tente novamente.')); return; }
+                protocolo = d.protocolo;
+            } catch (e) {
+                container.innerHTML = erro('Sem conexão com o servidor — não é possível emitir o atestado físico agora. O documento é gerado pelo servidor; tente de novo quando ele estiver acessível.');
+                return;
+            }
+            // 2. Buscar o PDF — o ÚNICO renderizador do documento oficial.
+            let blob;
+            try {
+                const rp = await fetch(BACKEND + '/atestados/' + protocolo + '/pdf', { headers: authHeaders() });
+                if (!rp.ok) { container.innerHTML = erro('Atestado físico registrado (protocolo ' + _escDoc(protocolo.slice(0, 8)) + '), mas o PDF não pôde ser gerado (HTTP ' + rp.status + '). Tente de novo em instantes.'); return; }
+                blob = await rp.blob();
+            } catch (e) {
+                container.innerHTML = erro('Atestado físico registrado, mas sem conexão para buscar o PDF do servidor. Tente de novo em instantes.');
+                return;
+            }
+            // 3. BAIXAR o PDF do servidor para impressão. NÃO usar window.open: com
+            //    bloqueador de pop-up ele devolve null e o clique fica mudo — foi o bug
+            //    do imprimirRascunho, e há guard-rail (test_frontend_atestado) que o
+            //    proíbe. O download é o MESMO veículo confiável do PDF digital
+            //    (baixarPdfAtestado); o blob está COMPLETO, nunca em branco.
+            const okBox = (t) => '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;font-size:13px;color:#166534;">' + t + '</div>';
+            _baixarBlob(blob, 'atestado-fisico-' + protocolo.slice(0, 8) + '.pdf');
+            container.innerHTML = okBox('✓ <b>Atestado físico emitido</b> (protocolo ' + _escDoc(protocolo) + '). <b>Baixamos o PDF</b> — abra, imprima e assine de próprio punho. Emissão exclusivamente física: sem envio digital, sem custódia.');
         }
 
         async function baixarPdfAtestado() {
