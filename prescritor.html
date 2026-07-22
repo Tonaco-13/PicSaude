@@ -4329,18 +4329,14 @@
                 container.innerHTML = erro('Atestado físico registrado, mas sem conexão para buscar o PDF do servidor. Tente de novo em instantes.');
                 return;
             }
-            // 3. Abrir o PDF para impressão — blob COMPLETO antes de abrir, nunca em branco.
+            // 3. BAIXAR o PDF do servidor para impressão. NÃO usar window.open: com
+            //    bloqueador de pop-up ele devolve null e o clique fica mudo — foi o bug
+            //    do imprimirRascunho, e há guard-rail (test_frontend_atestado) que o
+            //    proíbe. O download é o MESMO veículo confiável do PDF digital
+            //    (baixarPdfAtestado); o blob está COMPLETO, nunca em branco.
             const okBox = (t) => '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;font-size:13px;color:#166534;">' + t + '</div>';
-            const url = URL.createObjectURL(blob);
-            const win = window.open(url, '_blank');
-            if (!win) {
-                // Pop-up bloqueado → baixa o PDF COMPLETO + avisa. Nunca silêncio, nunca em branco.
-                _baixarBlob(blob, 'atestado-fisico-' + protocolo.slice(0, 8) + '.pdf');
-                container.innerHTML = okBox('✓ <b>Atestado físico emitido</b> (protocolo ' + _escDoc(protocolo) + '). Seu navegador bloqueou a aba de impressão — <b>baixamos o PDF</b>: abra, imprima e assine de próprio punho.');
-                return;
-            }
-            setTimeout(() => URL.revokeObjectURL(url), 60000);
-            container.innerHTML = okBox('✓ <b>Atestado físico emitido</b> (protocolo ' + _escDoc(protocolo) + '). O <b>PDF abriu em nova aba</b> — imprima e assine de próprio punho. Emissão exclusivamente física: sem envio digital, sem custódia.');
+            _baixarBlob(blob, 'atestado-fisico-' + protocolo.slice(0, 8) + '.pdf');
+            container.innerHTML = okBox('✓ <b>Atestado físico emitido</b> (protocolo ' + _escDoc(protocolo) + '). <b>Baixamos o PDF</b> — abra, imprima e assine de próprio punho. Emissão exclusivamente física: sem envio digital, sem custódia.');
         }
 
         async function baixarPdfAtestado() {
