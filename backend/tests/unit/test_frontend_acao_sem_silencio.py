@@ -61,6 +61,10 @@ _ACOES: dict[str, tuple[str, ...]] = {
         "async function baixarPdfAtestado",
         "async function assinarAtestado",
         "function imprimirRascunhoAtestado",
+        # Item 3 (2026-07-22): emissão física do atestado (caminho A — POST → PDF do
+        # servidor). Ação de clique com 6 caminhos de falha; cada um termina em
+        # feedback visível (container inline), nenhum `return` mudo.
+        "async function imprimirAtestadoFisico",
     ),
     "dispensador.html": (
         "async function dispensarItem",
@@ -183,11 +187,12 @@ def test_registro_nao_encolhe_em_silencio() -> None:
 
     Remover uma função da lista faria o gate ficar verde por omissão — o mesmo
     silêncio, um andar acima. São as 12 do ticket + 4 do mesmo padrão achadas
-    na revisão deste PR (agendamento/circulação). Baixar este número é uma
-    decisão, não um efeito colateral: mude o literal de propósito ou não mude.
+    na revisão daquele PR (agendamento/circulação) + 1 do item 3 de 2026-07-22
+    (imprimirAtestadoFisico). Baixar este número é uma decisão, não um efeito
+    colateral: mude o literal de propósito ou não mude.
     """
     total = sum(len(v) for v in _ACOES.values())
-    assert total == 16, f"Registro de ações mudou de tamanho: {total} != 16"
+    assert total == 17, f"Registro de ações mudou de tamanho: {total} != 17"
 
 
 @pytest.mark.parametrize("tela", sorted(_ACOES))
