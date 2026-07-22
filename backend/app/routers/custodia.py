@@ -203,20 +203,29 @@ def _recalcular_status_prescricao(conn, prescricao_id: int, agora: str) -> str:
     ).fetchall()
 
     total = len(rows)
-    dispensados       = sum(1 for r in rows if r["status_item"] == "dispensado")
+    dispensados         = sum(1 for r in rows if r["status_item"] == "dispensado")
+    retidos_farmacia    = sum(1 for r in rows if r["status_item"] == "em_custodia")
+    devolvidos_paciente = sum(1 for r in rows if r["status_item"] == "devolvido_paciente")
     # Itens encerrados definitivamente: sem possibilidade de dispensação
     #   cancelado         → revogação clínica
     #   estornado         → dispensação revertida após registro
     #   devolvido_prescritor → erro identificado, aguarda correção
     #   encerrado_fisico  → emitido apenas em papel, sem cadeia digital
-    encerrados        = sum(1 for r in rows if r["status_item"] in
-                            {"cancelado", "estornado", "devolvido_prescritor", "encerrado_fisico"})
+    encerrados          = sum(1 for r in rows if r["status_item"] in
+                              {"cancelado", "estornado", "devolvido_prescritor", "encerrado_fisico"})
     # Itens operacionais: tudo exceto encerrados definitivamente
-    ativos            = total - encerrados
+    ativos              = total - encerrados
 
     if ativos == 0:
         # Todos os itens foram encerrados sem dispensação
         novo_status = "cancelada"
+    elif retidos_farmacia == 0 and devolvidos_paciente > 0:
+        # Posse voltou integralmente ao paciente (abandono no balcão): nenhum item
+        # retido na farmácia + ao menos um devolvido. em_custodia→transferida_paciente
+        # já previsto (states.py TRANSICOES_PRESCRICAO / EVENTOS_PRESCRICAO). Dispensação
+        # parcial prévia fica no ledger/saldo, não no status
+        # (Fabiano 2026-07-22, Opção A — TICKET-COERENCIA-DEVOLUCOES.md).
+        novo_status = "transferida_paciente"
     elif dispensados == 0:
         novo_status = "em_custodia"
     elif dispensados >= ativos:
@@ -944,12 +953,18 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
       Evento ledger: 'item_devolvido_paciente'. Item pode ser apresentado em outra farmácia.
 
     Custódia ativa do item é encerrada em ambos os casos. Quando o destino é
-    "paciente", uma nova custódia é aberta em seu nome na mesma transação
+    "paciente", uma nova custódia de ITEM é aberta em seu nome na mesma transação
     (T1/PLANO_DEMO_CIRCULACAO.md) — sem isso o item fica sem detentor entre a
     devolução e a próxima apresentação, violando CLAUDE.md §3. O caso
     "prescritor" não reabre custódia aqui: item chega a estado terminal e
     aguarda nova prescrição derivada (ver TICKET-COERENCIA-DEVOLUCOES.md).
     O ator (dispensador ou prescritor) é capturado via Depends(require_role).
+
+    Coerência da posse (TICKET-COERENCIA-DEVOLUCOES): quando a devolução ao
+    paciente devolve a POSSE INTEGRAL (recalc → 'transferida_paciente'), a custódia
+    de PRESCRIÇÃO INTEIRA (item_id IS NULL) obsoleta do dispensador é fechada e
+    reaberta no paciente na mesma transação — sem isso o status mente contra a
+    custódia ativa e a receita fica presa na fila do dispensador.
     """
     agora = datetime.utcnow().isoformat()
 
@@ -1012,15 +1027,40 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
 
         novo_status_prescricao = _recalcular_status_prescricao(conn, presc["id"], agora)
 
+        # Ator real do JWT (acesso estrito — falha cedo se contrato do JWT mudar).
+        ator_tipo = usuario["role"]
+        ator_id = usuario["sub"]
+
+        # Coerência da cadeia (TICKET-COERENCIA-DEVOLUCOES): quando a devolução
+        # devolve a POSSE INTEGRAL (recalc → transferida_paciente), o registro de
+        # custódia de PRESCRIÇÃO INTEIRA (item_id IS NULL) aberto na apresentação
+        # segue ativo e obsoleto no nome do dispensador. É ele que (a) faz o status
+        # transferida_paciente mentir contra GET /{proto}/custodia.custodia_ativa e
+        # (b) mantém a receita na fila do dispensador (dispensadores.py:112-127,
+        # SELECT por custódia ativa do dispensador). Fechar + reabrir no paciente
+        # resolve os dois, na mesma transação. `motivo` distinto
+        # ('devolucao_integral_paciente') para o auditor separar do custodia_transferida
+        # de auto-retenção (T1.5) e de reabertura de item (T1).
+        if payload.para == "paciente" and novo_status_prescricao == "transferida_paciente":
+            _fechar_custodia_ativa(conn, presc["id"], None, agora)  # nível prescrição (item_id=None)
+            _abrir_custodia(
+                conn, presc["id"], None, "paciente",
+                normalize_cpf(paciente_row["cpf"]),
+                "devolucao_integral_paciente", agora,
+            )
+            _gravar_evento(
+                conn, presc["id"], "custodia_transferida", ator_tipo, ator_id,
+                {"de": "dispensador", "para": "paciente", "nivel": "prescricao",
+                 "motivo": "devolucao_integral_paciente"}, agora,
+                instance_id=instance_id,
+            )
+
         # Vocabulário canônico (CLAUDE.md §2): eventos separados por destino.
         tipo_evento = (
             "item_devolvido_prescritor"
             if payload.para == "prescritor"
             else "item_devolvido_paciente"
         )
-        # Ator real do JWT (acesso estrito — falha cedo se contrato do JWT mudar).
-        ator_tipo = usuario["role"]
-        ator_id = usuario["sub"]
 
         _gravar_evento(conn, presc["id"], tipo_evento, ator_tipo, ator_id,
                        {"item_id": item_id,

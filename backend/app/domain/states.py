@@ -181,19 +181,25 @@ def eh_terminal_item(status: str) -> bool:
 # (a transição é coberta por outro evento já emitido, ex. emissão digital).
 #
 # NOTA SOBRE INCONSISTÊNCIA DOCUMENTADA:
+#   RESOLVIDO — ramo paciente (TICKET-COERENCIA-DEVOLUCOES, 2026-07-22, Opção A):
+#   a devolução dispensador→paciente (custodia.py::devolver_item) transiciona o item
+#   para "devolvido_paciente" e, quando a posse volta integralmente ao paciente, a
+#   prescrição para "transferida_paciente" via _recalcular_status_prescricao —
+#   transição já prevista em TRANSICOES_PRESCRICAO["em_custodia"] e EVENTOS_PRESCRICAO
+#   (("em_custodia","transferida_paciente") → "custodia_transferida"). A custódia de
+#   prescrição inteira (item_id IS NULL) obsoleta do dispensador é reconciliada na
+#   mesma transação. Reusa estado existente: sem estado novo, sem DDL.
+#
+#   PENDENTE — ramo prescritor (fora do escopo do ticket acima, §8):
 #   Em custodia.py, devolução dispensador→prescritor transiciona a prescrição
 #   para "pendente" (não previsto em TRANSICOES_PRESCRICAO["em_custodia"]).
-#   E devolução dispensador→paciente transiciona itens para "pendente" em vez
-#   de "devolvido_paciente" → "em_custodia" (conforme o state machine do item).
 #   Em auth.py:devolver_prescritor (paciente → prescritor), itens transicionam
 #   de "pendente" diretamente para "devolvido_prescritor" (terminal), pulando
 #   "em_custodia" exigido por TRANSICOES_ITEM. Apontado pelo CODEX em 2026-05-21
-#   (4E.2). Tratamento previsto: ticket pós-Etapa 5 para auditoria completa das
-#   máquinas de estado de devolução. Ver docs/revisoes/CODEX-4E-2-relatorio-2026-05-21.md §3.3.
+#   (4E.2). Ver docs/revisoes/CODEX-4E-2-relatorio-2026-05-21.md §3.3.
 #   Essas transições FUNCIONAM mas desviam do modelo formal.
 #   Correção sugerida: introduzir "transferida_prescritor" como estado para
-#   devolução ao prescritor, e usar "devolvido_paciente" explicitamente no
-#   abandono de balcão. Não corrigido agora para não quebrar o comportamento.
+#   devolução ao prescritor. Não corrigido agora para não quebrar o comportamento.
 # ---------------------------------------------------------------------------
 
 EVENTOS_PRESCRICAO: dict[tuple[str, str], str] = {
