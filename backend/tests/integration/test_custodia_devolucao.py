@@ -907,3 +907,293 @@ def test_comprovante_alcancavel_com_dispensacao_id_do_dispensar(client, outer_co
     assert pdf.status_code == 200, pdf.text
     assert pdf.headers["content-type"].startswith("application/pdf")
     assert pdf.content[:4] == b"%PDF"
+
+
+# ---------------------------------------------------------------------------
+# COER — TICKET-COERENCIA-DEVOLUCOES: devolução ao paciente devolve a POSSE
+# (status + custódia de prescrição inteira + fila do dispensador).
+#
+# Antes deste ticket, devolver(para=paciente) reabria só a custódia de ITEM
+# (T1), mas `_recalcular_status_prescricao` contava `devolvido_paciente` como
+# item ativo sem dispensação → a prescrição voltava a "em_custodia" (histórico
+# do paciente; gates de devolver-prescritor / re-apresentação em 409). E a
+# custódia de PRESCRIÇÃO INTEIRA (item_id IS NULL) do dispensador seguia ativa
+# e obsoleta, prendendo a receita na fila do dispensador. Opção A (Fabiano,
+# 2026-07-22): reusar o estado "transferida_paciente".
+# ---------------------------------------------------------------------------
+
+
+def _jwt_paciente() -> str:
+    return criar_access_token(
+        sub=SEED_PACIENTE_CPF, role="paciente", nome=SEED_PACIENTE_NOME,
+    )
+
+
+def _status_prescricao(outer_conn, prescricao_id: int) -> str:
+    with outer_conn.cursor() as cur:
+        cur.execute("SELECT status FROM prescricoes WHERE id = %s", (prescricao_id,))
+        return cur.fetchone()[0]
+
+
+def _custodia_ativa_prescricao(outer_conn, prescricao_id: int):
+    """Custódia ATIVA de PRESCRIÇÃO INTEIRA (item_id IS NULL), ou None."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT detentor_tipo, detentor_id
+              FROM prescricao_custodia
+             WHERE prescricao_id = %s AND item_id IS NULL AND encerrada_em IS NULL
+            """,
+            (prescricao_id,),
+        )
+        row = cur.fetchone()
+    return None if row is None else {"detentor_tipo": row[0], "detentor_id": row[1]}
+
+
+def _count_custodia_ativa_dispensador(outer_conn, prescricao_id: int, cnpj: str) -> int:
+    """Quantas custódias ativas (qualquer nível) o dispensador ainda detém."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM prescricao_custodia
+             WHERE prescricao_id = %s AND detentor_tipo = 'dispensador'
+               AND detentor_id = %s AND encerrada_em IS NULL
+            """,
+            (prescricao_id, cnpj),
+        )
+        return cur.fetchone()[0]
+
+
+def _eventos_custodia_transferida(outer_conn, prescricao_id: int) -> list:
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT ator_tipo, ator_id, payload_json
+              FROM prescricao_eventos
+             WHERE prescricao_id = %s AND tipo_evento = 'custodia_transferida'
+             ORDER BY id
+            """,
+            (prescricao_id,),
+        )
+        rows = cur.fetchall()
+    return [
+        {"ator_tipo": r[0], "ator_id": r[1], "payload": json.loads(r[2]) if r[2] else {}}
+        for r in rows
+    ]
+
+
+def _saldo_efetivo_item(outer_conn, item_id: int) -> dict:
+    """prescrito, Σ dispensado, Σ estornado e saldo efetivo (= prescrito − (disp − est))."""
+    with outer_conn.cursor() as cur:
+        cur.execute("SELECT quantidade FROM prescricao_itens WHERE id = %s", (item_id,))
+        prescrito = cur.fetchone()[0]
+        cur.execute(
+            "SELECT COALESCE(SUM(quantidade_dispensada), 0) FROM dispensacoes "
+            "WHERE prescricao_item_id = %s",
+            (item_id,),
+        )
+        dispensado = cur.fetchone()[0]
+        cur.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada), 0) FROM estornos "
+            "WHERE prescricao_item_id = %s",
+            (item_id,),
+        )
+        estornado = cur.fetchone()[0]
+    return {
+        "prescrito": prescrito,
+        "dispensado": dispensado,
+        "estornado": estornado,
+        "saldo_efetivo": prescrito - (dispensado - estornado),
+    }
+
+
+def _devolver_ao_paciente(client, proto, item_id, motivo="abandono no balcão"):
+    return client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/devolver",
+        json={"para": "paciente", "motivo": motivo},
+        headers=_headers(_jwt_dispensador()),
+    )
+
+
+# COER-1 — status volta à posse ------------------------------------------------
+
+def test_coer1_devolucao_ao_paciente_volta_status_a_posse(client, outer_conn):
+    """Itens ativos voltam todos ao paciente → status 'transferida_paciente'
+    (era 'em_custodia')."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    r = _devolver_ao_paciente(client, proto, item_id)
+    assert r.status_code == 200, r.text
+    assert r.json()["status_prescricao"] == "transferida_paciente"
+    assert _status_prescricao(outer_conn, prescricao_id) == "transferida_paciente"
+
+
+# COER-2 — custódia de prescrição inteira reconciliada + coexistência -----------
+
+def test_coer2_custodia_prescricao_inteira_reconciliada(client, outer_conn):
+    """A custódia ativa de PRESCRIÇÃO INTEIRA passa ao paciente; a do dispensador
+    fica encerrada; o dispensador não detém mais NENHUMA custódia ativa; e a
+    custódia de ITEM reaberta pelo T1 coexiste (difere no item_id)."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    r = _devolver_ao_paciente(client, proto, item_id)
+    assert r.status_code == 200, r.text
+
+    # Custódia ativa de prescrição inteira vira do paciente.
+    assert _custodia_ativa_prescricao(outer_conn, prescricao_id) == {
+        "detentor_tipo": "paciente", "detentor_id": SEED_PACIENTE_CPF,
+    }
+    # Dispensador não detém mais NENHUMA custódia ativa (prescrição nem item)
+    # — é o que esvazia a fila (COER-8).
+    assert _count_custodia_ativa_dispensador(outer_conn, prescricao_id, _DISPENSADOR_CNPJ) == 0
+    # Coexistência esperada: custódia de ITEM reaberta pelo T1 segue ativa no
+    # paciente — não conflita (item_id diferente) e não afeta a fila (paciente).
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) == {
+        "detentor_tipo": "paciente", "detentor_id": SEED_PACIENTE_CPF,
+    }
+
+    # Ledger (§8 Opção A / nota Z AI 4): o custodia_transferida da reconciliação
+    # existe UMA vez, nível prescrição, com motivo DISTINTO — o auditor separa
+    # devolução integral de auto-retenção (T1.5) e reabertura de item (T1).
+    devol = [
+        e for e in _eventos_custodia_transferida(outer_conn, prescricao_id)
+        if e["payload"].get("motivo") == "devolucao_integral_paciente"
+    ]
+    assert len(devol) == 1, "custodia_transferida da devolução integral ausente ou duplicado"
+    assert devol[0]["payload"]["de"] == "dispensador"
+    assert devol[0]["payload"]["para"] == "paciente"
+    assert devol[0]["payload"]["nivel"] == "prescricao"
+    assert devol[0]["ator_tipo"] == "dispensador"
+    assert devol[0]["ator_id"] == _DISPENSADOR_CNPJ
+
+
+# COER-3 — volta ao prescritor (trava do 409) ----------------------------------
+
+def test_coer3_devolucao_ao_paciente_habilita_devolver_prescritor(client, outer_conn):
+    """Depois de devolver ao paciente, o paciente consegue devolver ao prescritor
+    (era 409 quando o status ficava preso em 'em_custodia')."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    assert _devolver_ao_paciente(client, proto, item_id).status_code == 200
+
+    r = client.post(
+        f"/paciente/prescricoes/{proto}/devolver-prescritor",
+        json={"motivo": "prefiro devolver ao médico"},
+        headers=_headers(_jwt_paciente()),
+    )
+    assert r.status_code == 201, r.text
+
+
+# COER-4 — re-apresentação em outra farmácia -----------------------------------
+
+def test_coer4_devolucao_ao_paciente_habilita_reapresentacao(client, outer_conn):
+    """`transferir-farmacia` aceita 'transferida_paciente' → re-apresentação 201."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    assert _devolver_ao_paciente(client, proto, item_id).status_code == 200
+
+    r = client.post(
+        f"/paciente/prescricoes/{proto}/transferir-farmacia",
+        json={"cnpj_farmacia": _DISPENSADOR_CNPJ_NORTE},
+        headers=_headers(_jwt_paciente()),
+    )
+    assert r.status_code == 201, r.text
+
+
+# COER-5 — bucket 'posse' no app do paciente -----------------------------------
+
+def test_coer5_prescricao_aparece_em_posse_nao_historico(client, outer_conn):
+    """GET /paciente/prescricoes lista a prescrição devolvida em 'posse'
+    (não 'historico') — a UI só renderiza ações na posse."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    assert _devolver_ao_paciente(client, proto, item_id).status_code == 200
+
+    body = client.get("/paciente/prescricoes", headers=_headers(_jwt_paciente())).json()
+    protos_posse = {p["protocolo"] for p in body["posse"]}
+    protos_hist = {p["protocolo"] for p in body["historico"]}
+    assert proto in protos_posse, "prescrição devolvida não apareceu na posse do paciente"
+    assert proto not in protos_hist
+
+
+# COER-6 — não-regressão do dispensar (parcial/total) --------------------------
+
+def test_coer6_nao_regressao_dispensar_parcial_e_total(client, outer_conn):
+    """O ramo novo do recalc só dispara com `devolvido_paciente`; dispensação
+    sem devolução mantém comportamento idêntico: parcial → em_custodia,
+    total → dispensada."""
+    # Parcial (4/10) → em_custodia.
+    _, proto_p, [item_p] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+    rp = client.post(
+        f"/prescricoes/{proto_p}/itens/{item_p}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 4},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert rp.status_code == 201, rp.text
+    assert rp.json()["status_item"] == "em_custodia"
+    assert rp.json()["status_prescricao"] == "em_custodia"
+
+    # Total (10/10) → dispensada.
+    _, proto_t, [item_t] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+    rt = client.post(
+        f"/prescricoes/{proto_t}/itens/{item_t}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 10},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert rt.status_code == 201, rt.text
+    assert rt.json()["status_item"] == "dispensado"
+    assert rt.json()["status_prescricao"] == "dispensada"
+
+
+# COER-7 — parcial + abandono: posse ≠ saldo -----------------------------------
+
+def test_coer7_parcial_mais_abandono_posse_diferente_de_saldo(client, outer_conn):
+    """Dispensa 4/10 e o paciente abandona o restante. A posse volta
+    (transferida_paciente), mas o SALDO não é reposto: Σ dispensado==4 (ledger
+    imutável) e saldo efetivo==6. Devolução devolve a POSSE, não o SALDO."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    # Farmácia A dispensa 4 de 10.
+    r1 = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 4},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert r1.status_code == 201, r1.text
+    assert r1.json()["saldo_restante"] == 6
+
+    # Paciente abandona o restante → posse volta ao paciente (parcial NÃO trava).
+    r2 = _devolver_ao_paciente(client, proto, item_id, motivo="vai tentar em outra farmácia")
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["status_prescricao"] == "transferida_paciente"
+    assert _status_prescricao(outer_conn, prescricao_id) == "transferida_paciente"
+
+    # A parcial fica no ledger/saldo, não no status.
+    saldo = _saldo_efetivo_item(outer_conn, item_id)
+    assert saldo["prescrito"] == 10          # prescrito NÃO é "reposto"
+    assert saldo["dispensado"] == 4          # ledger imutável — não zerou
+    assert saldo["estornado"] == 0
+    assert saldo["saldo_efetivo"] == 6       # re-dispensar aceita até 6
+
+
+# COER-8 — 🎯 fila do dispensador limpa (padrão ANTES/DEPOIS) -------------------
+
+def test_coer8_fila_do_dispensador_limpa_apos_devolucao(client, outer_conn):
+    """Sintoma reportado ('↻ Atualizar não funciona'), provado no backend: a
+    receita sai da fila do dispensador após a devolução ao paciente."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    def _proto_na_fila() -> bool:
+        r = client.get("/dispensadores/fila", headers=_headers(_jwt_dispensador()))
+        assert r.status_code == 200, r.text
+        return proto in {f["protocolo"] for f in r.json()["fila"]}
+
+    # COER-8a (pré-condição): a receita ESTÁ na fila antes de devolver — sem isto
+    # o teste passaria mesmo se a fila voltasse sempre vazia (falso-positivo).
+    assert _proto_na_fila() is True, "pré-condição falhou: receita não estava na fila do dispensador"
+
+    # Devolve ao paciente.
+    assert _devolver_ao_paciente(client, proto, item_id).status_code == 200
+
+    # COER-8b: a receita saiu da fila (Manifestação B do ticket).
+    assert _proto_na_fila() is False, "receita continuou na fila do dispensador após devolução"
