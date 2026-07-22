@@ -725,21 +725,32 @@
                             <input type="text" id="atestado-finalidade-outro" class="form-input"
                                    style="display:none; margin-top:8px;"
                                    placeholder="ex.: militares, esportivos, periciais">
+                            <!-- Tipo ao lado do CPF (estado de UI só; NÃO entra no payload —
+                                 o backend deriva comparecimento×afastamento de dias_afastamento,
+                                 §10, sem coluna `tipo`). -->
+                            <label class="form-label" style="margin-top:10px;">Tipo de Atestado *</label>
+                            <select id="atestado-tipo" class="form-input" onchange="_aoMudarTipoAtestado()">
+                                <option value="comparecimento">1. Comparecimento</option>
+                                <option value="afastamento">2. Afastamento</option>
+                            </select>
                         </div>
                     </div>
 
                     <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Indicação Clínica
+                            <label class="form-label">História Clínica
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional)</span>
                             </label>
                             <input type="text" id="atestado-indicacao" class="form-input"
                                    placeholder="Hipótese diagnóstica ou quadro clínico">
                         </div>
+                        <!-- Dias ao lado da História Clínica, SEMPRE visível. Comparecimento:
+                             0 e travado (não aparece no atestado — o corpo omite dias=0).
+                             Afastamento: abre, editável e obrigatório. -->
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Dias de Afastamento *</label>
+                            <label class="form-label" id="atestado-dias-label">Dias de Afastamento</label>
                             <input type="number" id="atestado-dias" class="form-input"
-                                   min="1" placeholder="ex: 3">
+                                   min="0" value="0" disabled>
                         </div>
                     </div>
 
@@ -768,9 +779,10 @@
                         </div>
                     </div>
 
-                    <!-- Horário de comparecimento — SEMPRE opcional, nunca condicionado
-                         à finalidade (que é praticamente texto livre). -->
-                    <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
+                    <!-- Horário de comparecimento — opcional; visível só no tipo
+                         Comparecimento (o seletor oculta em Afastamento, onde o NAND
+                         do backend proíbe horas com dias>0). -->
+                    <div class="grid-2" id="atestado-horas-wrap" style="margin-bottom: 16px; gap: 16px;">
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label">Hora de Início
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(opcional — atestado de comparecimento)</span>
@@ -3569,6 +3581,39 @@
         }
 
         /**
+         * Split Comparecimento (default) / Afastamento — estado de UI só, não entra
+         * no payload: o backend deriva o tipo de `dias_afastamento` (§10 — sem coluna
+         * `tipo`; o corpo usa `if dias and dias > 0`, então dias=0 ⇒ comparecimento).
+         *   • Comparecimento → dias=0 e travado (não aparece no atestado), horas visíveis.
+         *   • Afastamento    → dias abre, editável e obrigatório; horas ocultas (payload:
+         *     horas=null, pois o NAND do backend #112 proíbe horas com dias>0).
+         * Só as HORAS entram/saem de cena; o Dias fica sempre visível ao lado da História
+         * Clínica (decisão de layout do Fabiano, 2026-07-22).
+         */
+        function _aoMudarTipoAtestado() {
+            const sel       = document.getElementById('atestado-tipo');
+            const dias      = document.getElementById('atestado-dias');
+            const diasLabel = document.getElementById('atestado-dias-label');
+            const horasWrap = document.getElementById('atestado-horas-wrap');
+            if (!sel || !dias || !horasWrap) return;
+            const ehAfastamento = sel.value === 'afastamento';
+            horasWrap.style.display = ehAfastamento ? 'none' : 'grid';
+            if (ehAfastamento) {
+                document.getElementById('atestado-hora-inicio').value = '';
+                document.getElementById('atestado-hora-fim').value = '';
+                dias.disabled = false;
+                dias.min = '1';
+                if (dias.value === '0') dias.value = '';
+                if (diasLabel) diasLabel.textContent = 'Dias de Afastamento *';
+            } else {
+                dias.value = '0';
+                dias.disabled = true;
+                dias.min = '0';
+                if (diasLabel) diasLabel.textContent = 'Dias de Afastamento';
+            }
+        }
+
+        /**
          * Lê a finalidade do atestado: o valor do select, ou o texto livre
          * quando "Outro (especificar)" estiver selecionado.
          */
@@ -3971,6 +4016,9 @@
                 if (el) el.value = '';
             });
             _aoMudarFinalidade();          // re-oculta o campo "Outro"
+            const tipoSel = document.getElementById('atestado-tipo');
+            if (tipoSel) tipoSel.value = 'comparecimento';
+            _aoMudarTipoAtestado();        // volta ao default: dias=0 travado, horas visíveis
             _aoMudarConselhoAtestado();    // limpa a dica do tipo de documento
             // limpa também as sugestões e as etiquetas de CID selecionadas
             ['ia-cid-atestado','ia-cid-atestado-chips'].forEach(id => {
@@ -4160,6 +4208,12 @@
             const municipio = (document.getElementById('atestado-municipio').value || '').trim();
             if (!municipio) { container.innerHTML = erro('Informe o município de emissão (o CFM exige local e data no atestado).'); return; }
             const diasRaw = (document.getElementById('atestado-dias').value || '').trim();
+            // Dias é obrigatório só em Afastamento (o seletor é estado de UI; o backend
+            // deriva o tipo de dias_afastamento). Comparecimento não exige dias.
+            const ehAfastamento = (document.getElementById('atestado-tipo').value || 'comparecimento') === 'afastamento';
+            if (ehAfastamento && !(parseInt(diasRaw, 10) > 0)) {
+                container.innerHTML = erro('Informe os dias de afastamento (mínimo 1) para o atestado de afastamento.'); return;
+            }
             const payload = {
                 cns_prescritor:        medicoLogado.cns,
                 nome_prescritor:       medicoLogado.nome,

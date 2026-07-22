@@ -404,6 +404,9 @@ class TestImpressaoDoRascunho:
 
         page.locator("#atestado-paciente").fill("João Demo da Silva")
         page.locator("#atestado-finalidade").select_option("trabalhistas")
+        # Layout 2026-07-22: o campo Dias nasce travado (Comparecimento, dias=0). Ele
+        # só abre e fica editável em Afastamento — selecionar o tipo antes de preencher.
+        page.locator("#atestado-tipo").select_option("afastamento")
         page.locator("#atestado-dias").fill("3")
         page.locator("#atestado-data").fill("2026-07-20")
         page.locator("#atestado-municipio").fill("Recife")
