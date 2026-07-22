@@ -43,10 +43,16 @@ def _norm(texto: str) -> str:
 # Finalidade é obrigatória (não se emite atestado sem finalidade declarada).
 # indicacao_clinica e codigo_cid são OPCIONAIS — o diagnóstico só entra com
 # anuência do paciente (privacidade); o CFM admite atestado sem CID.
+#
+# dias_afastamento é OPCIONAL: nem todo atestado afasta. dias=0/ausente é um
+# atestado de COMPARECIMENTO — o corpo usa `if dias and dias > 0` (domain/
+# texto_atestado.py), então exigir dias aqui rejeitaria TODO comparecimento
+# (foi o bug relatado na vitrine em 2026-07-22). O tipo é derivado de dias (§10);
+# a obrigatoriedade em AFASTAMENTO é imposta na TELA — que conhece o modo pelo
+# seletor —, não nesta validação, que é type-blind (só vê dias, não o tipo).
 CAMPOS_OBRIGATORIOS = [
     "paciente_nome",
     "finalidade",
-    "dias_afastamento",
     "data_documento",
     "nome_profissional",
     "registro_profissional",
@@ -60,8 +66,9 @@ def verificar_campos_obrigatorios(dados: dict) -> List[str]:
     Critérios de "faltante":
       - None
       - string vazia ou só espaços
-      - dias_afastamento <= 0 (campo presente mas inválido)
-      - dias_afastamento não conversível para int
+
+    dias_afastamento NÃO entra: é opcional (comparecimento não afasta). Ver a
+    nota em CAMPOS_OBRIGATORIOS.
     """
     faltantes = []
     for campo in CAMPOS_OBRIGATORIOS:
@@ -69,13 +76,7 @@ def verificar_campos_obrigatorios(dados: dict) -> List[str]:
         if valor is None:
             faltantes.append(campo)
             continue
-        if campo == "dias_afastamento":
-            try:
-                if int(valor) <= 0:
-                    faltantes.append(campo)
-            except (TypeError, ValueError):
-                faltantes.append(campo)
-        elif isinstance(valor, str) and not valor.strip():
+        if isinstance(valor, str) and not valor.strip():
             faltantes.append(campo)
     return faltantes
 
