@@ -1416,3 +1416,109 @@ def test_coer11_motivos_canonicos_distintos_por_caminho(client, outer_conn):
     assert devol[0]["payload"]["para"] == "prescritor"
     # O texto livre não sobrescreve o motivo canônico — vai em detalhe.
     assert devol[0]["payload"].get("motivo_detalhe") == "texto livre do cidadão"
+
+
+# --- COER-12/13: caminho COMPOSTO (item devolvido_paciente → prescritor) -------
+# TICKET-COER2-POS-MERGE-FIX. O COER-10 cobre o caminho FRESH (item `pendente` →
+# devolver). Aqui o caminho que faltava: o item JÁ voltou ao paciente (rescaldo de
+# estorno + devolução ao paciente, COER-9) e ENTÃO o cidadão devolve ao médico.
+# Antes do fix: `devolver_prescritor` só virava itens `pendente` → o item ficava
+# em `devolvido_paciente` (contraditório com a prescrição em `transferida_prescritor`)
+# e a custódia de item no nome do paciente ficava ÓRFÃ. Estes testes DEVEM falhar
+# na main pré-fix e passar com o fix (provado por git stash).
+
+
+def _status_item(outer_conn, item_id: int) -> str:
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT status_item FROM prescricao_itens WHERE id = %s", (item_id,)
+        )
+        return cur.fetchone()[0]
+
+
+def _seed_item_devolvido_paciente(client, outer_conn):
+    """Reproduz o fim do Cenário 1 (COER-9): dispensar total → estornar → devolver
+    ao paciente. Devolve (prescricao_id, proto, item_id) com o item em
+    `devolvido_paciente` e a prescrição em `transferida_paciente`."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+    rd = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 10},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert rd.status_code == 201, rd.text
+    re = client.post(
+        f"/dispensacoes/{rd.json()['dispensacao_id']}/estornar",
+        json={"motivo": "desistencia_paciente"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert re.status_code == 201, re.text
+    rv = _devolver_ao_paciente(client, proto, item_id, motivo="desistiu")
+    assert rv.status_code == 200, rv.text
+    assert _status_item(outer_conn, item_id) == "devolvido_paciente"
+    # Precondição do bug: o item carrega custódia de item ATIVA no nome do paciente.
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) == {
+        "detentor_tipo": "paciente", "detentor_id": SEED_PACIENTE_CPF,
+    }
+    return prescricao_id, proto, item_id
+
+
+def test_coer12_devolver_prescritor_de_item_devolvido_paciente_vira_devolvido_prescritor(client, outer_conn):
+    """🎯 Item `devolvido_paciente` → devolver ao médico → item vira
+    `devolvido_prescritor`, prescrição `transferida_prescritor`, sai da posse do
+    cidadão e o motivo chega ao painel. Na main pré-fix o item continuava
+    `devolvido_paciente` (contradição de estado) e não aparecia nas correções."""
+    prescricao_id, proto, item_id = _seed_item_devolvido_paciente(client, outer_conn)
+
+    motivo = "Erro composto pos-estorno - trocar dose"
+    r = client.post(
+        f"/paciente/prescricoes/{proto}/devolver-prescritor",
+        json={"motivo": motivo},
+        headers=_headers(_jwt_paciente()),
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["status"] == "transferida_prescritor"
+
+    # 🎯 o item virou devolvido_prescritor (na main pré-fix: devolvido_paciente).
+    assert _status_item(outer_conn, item_id) == "devolvido_prescritor"
+    # Coerência: nenhum item devolvido_paciente enquanto a prescrição está em
+    # transferida_prescritor (a incoerência que o guarda de estado veta).
+    assert _status_prescricao(outer_conn, prescricao_id) == "transferida_prescritor"
+
+    # Sai da POSSE do cidadão (vai para o histórico).
+    wallet = client.get("/paciente/prescricoes", headers=_headers(_jwt_paciente())).json()
+    assert proto not in {p["protocolo"] for p in wallet["posse"]}
+    assert proto in {p["protocolo"] for p in wallet["historico"]}
+
+    # §9.2: o motivo chega ao painel de correções do prescritor.
+    painel = client.get("/prescritor/prescricoes", headers=_headers(_jwt_prescritor())).json()
+    correcao = next((p for p in painel["correcoes"] if p["protocolo"] == proto), None)
+    assert correcao is not None, "receita não-fresh devolvida não apareceu nas correções"
+    motivos = [
+        it.get("motivo_devolucao") for it in correcao["itens"]
+        if it["status_item"] == "devolvido_prescritor"
+    ]
+    assert motivo in motivos, f"motivo do cidadão não chegou ao médico: {motivos}"
+
+
+def test_coer13_devolver_prescritor_de_item_devolvido_paciente_nao_deixa_custodia_orfa(client, outer_conn):
+    """🎯 Site EXTRA do fix (Ajuste A): ao virar terminal `devolvido_prescritor`, a
+    custódia de ITEM no nome do paciente é FECHADA. Sem isso ela ficaria órfã
+    (item terminal + custódia ativa = a dupla posse que o COER-2 mata). A posse
+    ativa passa a ser a de prescrição inteira no prescritor; nenhuma de item."""
+    prescricao_id, proto, item_id = _seed_item_devolvido_paciente(client, outer_conn)
+
+    r = client.post(
+        f"/paciente/prescricoes/{proto}/devolver-prescritor",
+        json={"motivo": "erro clínico"},
+        headers=_headers(_jwt_paciente()),
+    )
+    assert r.status_code == 201, r.text
+
+    # 🎯 custódia de item NÃO fica órfã (na main pré-fix: paciente ativo).
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) is None, \
+        "custódia de item órfã: item terminal com custódia ativa (dupla posse)"
+    # A posse ativa é a de prescrição inteira, no prescritor.
+    assert _custodia_ativa_prescricao(outer_conn, prescricao_id) == {
+        "detentor_tipo": "prescritor", "detentor_id": SEED_PRESCRITOR_CNS,
+    }
