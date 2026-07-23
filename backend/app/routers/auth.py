@@ -16,7 +16,7 @@ from app.database_tx import get_tx
 from app.domain.conselho_profissional import conselho_ou_padrao, formatar_registro
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
-from app.routers.custodia import transferir_posse  # choke-point de posse (COER-2)
+from app.routers.custodia import transferir_posse, _fechar_custodia_ativa  # choke-point de posse (COER-2) + fecha custódia de item terminal
 from app.domain.states_exame import ESTADOS_TERMINAIS_PEDIDO_EXAME
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf
@@ -284,7 +284,13 @@ def devolver_prescritor(proto: str, body: dict, usuario=Depends(require_role("pa
 
         instance_id = get_instance_id_conn(conn)
 
-        # Itens pendentes voltam ao prescritor. §9.2 (COER-2): cada item emite
+        # Itens RETORNÁVEIS voltam ao prescritor. COER2-POS-MERGE-FIX: os dois
+        # estados retornáveis são `pendente` (nunca dispensado) E `devolvido_paciente`
+        # (rescaldo de estorno/devolução ao paciente — o composto do Cenário 2). Antes,
+        # o WHERE só pegava `pendente`: um item `devolvido_paciente` NÃO virava
+        # `devolvido_prescritor`, então a prescrição ia p/ `transferida_prescritor`
+        # mas o item ficava contraditório e invisível no painel (que lê item-level
+        # `devolvido_prescritor`). §9.2 (COER-2): cada item emite
         # `item_devolvido_prescritor` com `item_id` + `motivo` (texto livre do
         # cidadão) — é ESSE evento que o painel de correções do prescritor lê
         # (prescritor.py::_montar_correcoes). Antes, este caminho só emitia o
@@ -294,7 +300,8 @@ def devolver_prescritor(proto: str, body: dict, usuario=Depends(require_role("pa
             """
             SELECT id, nome_medicamento
               FROM prescricao_itens
-             WHERE prescricao_id = ? AND status_item = 'pendente'
+             WHERE prescricao_id = ?
+               AND status_item IN ('pendente', 'devolvido_paciente')
             """,
             (pid,),
         ).fetchall()
@@ -303,6 +310,15 @@ def devolver_prescritor(proto: str, body: dict, usuario=Depends(require_role("pa
                 "UPDATE prescricao_itens SET status_item = 'devolvido_prescritor', updated_at = ? WHERE id = ?",
                 (agora, it["id"]),
             )
+            # COER2-POS-MERGE-FIX: item `devolvido_paciente` carrega uma custódia
+            # de ITEM ATIVA no nome do paciente (aberta em custodia.py::devolver_item
+            # para=paciente). Ao virar terminal `devolvido_prescritor`, essa custódia
+            # de item precisa ser FECHADA — senão fica órfã (item terminal + custódia
+            # ativa = a mesma "dupla posse" que o COER-2 mata). Espelha
+            # custodia.py::devolver_item (para=prescritor NÃO reabre custódia: item
+            # terminal aguarda prescrição derivada). No caminho fresh (item `pendente`)
+            # não há custódia de item ativa → no-op seguro (0 linhas).
+            _fechar_custodia_ativa(conn, pid, it["id"], agora)
             registrar_evento_ledger(
                 conn,
                 objeto_tipo="prescricao",
