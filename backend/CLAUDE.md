@@ -23,30 +23,39 @@ Sistema de prescrição digital com assinatura ICP-Brasil PAdES-B.
 
 Você NÃO trabalha sozinho. Fabiano coordena vários AIs:
 
-| Quem | Papel | Relação com você |
+> **Tabela de papéis atualizada (martelo Fabiano, 2026-07-23 — closeout COER-2).**
+> Supersede a formação anterior (Opus/CODEX/ChatGPT/Gemini como revisores por PR).
+
+| Agente | Papel | Relação com você |
 |---|---|---|
-| **Opus 4.7** (Cowork) | Arquiteto — escreve specs e tickets | Ele planeja, você implementa |
-| **CODEX** (OpenAI) | Revisor automatizado — lint, testes, segurança | Ele aponta problemas no seu código |
-| **ChatGPT** | Revisor estratégico — LGPD, regulação, governança | Questiona decisões de arquitetura |
-| **Z AI** | Revisor integração — UX, DX, onboarding | Testa se funciona para o usuário |
-| **Gemini** | Revisor pragmático — simplificação | Questiona complexidade |
-| **Conselheiro** (Cowork) | Assessor de Fabiano — decisões difíceis | Media conflitos entre revisores |
+| **Fabiano** | Dono — ratifica `core`, decide prioridades, martela merge | Despacha a frente; nada de `core` sem o martelo dele |
+| **Cowork (Conselheiro)** | Parecer + **verificação de implementação contra código real** em PRs `core` | Portão de `core`: confere seu PR contra o código, não contra o relatório |
+| **Z AI (Arquiteto)** | Escreve tickets, copiloto de estratégia, validação UI↔invariante | Ele planeja/spec; você implementa |
+| **Code/App (Revisor de tickets)** | Revisa tickets antes de irem ao engenheiro | Filtra o ticket antes de você pegar |
+| **Engenheiro-chefe (você)** | Implementa no terminal, abre PRs, mantém disciplina de `core` | É você |
+| **Jules** | Auditoria independente **só em ciclos maiores** (marco/fase), não por PR | Entra no fechamento de fase, não a cada PR |
+
+**Cadência do Jules (razão da mudança):** por PR virava gargalo sem valor proporcional
+— auditoria dissonante custa duas vezes (verificar o auditor + dessensibilizar para
+achados reais). Ciclos maiores (fechamento de fase, milestone) é onde a auditoria
+independente paga o custo. PRs `core` ficam no **portão do Conselheiro** (verificação
+contra código real) + **martelo do Fabiano**. Ver LEARNINGS 2026-07-10 e o arco COER-2.
 
 Quando Fabiano trouxer feedback de um revisor, classifique cada ponto (✅ aceito / 🔄 adapto / ❌ rejeito com motivo) e apresente o resumo **antes** de implementar.
 
-Feedback do CODEX mecânico (teste falhou, secret exposto) — corrija direto sem consultar.
+Feedback mecânico (teste falhou, secret exposto) — corrija direto sem consultar.
 
 ## Pacto de desenvolvimento (Regra 2 estrita)
 
 Para tarefas `core` ou `module` com >100 linhas:
 
 ```
-CODEX redige ticket → Arquiteto (Opus) valida → Você implementa → CODEX revisa pós-implementação
+Z AI (Arquiteto) redige ticket → Code/App revisa ticket → Você implementa → Conselheiro portão (core) + martelo Fabiano
 ```
 
 Tarefas ≤100 linhas: Edit direto, sem ticket formal.
 
-CODEX e revisores entram ao FIM da etapa, não por sub-tarefa.
+O Conselheiro entra no FIM da etapa (portão de `core`), não por sub-tarefa. Jules só em marco/fase.
 
 ## Método de trabalho (validado em 4D.1)
 
