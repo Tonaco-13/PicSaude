@@ -237,7 +237,7 @@ encerrada_localmente     ← emissão exclusivamente física (terminal)
 pendente              ← estado inicial do ciclo digital
 em_custodia           ← dispensador reteve para dispensação
 dispensado            ← entregue ao paciente (terminal)
-devolvido_paciente    ← abandono de compra; disponível para nova tentativa
+devolvido_paciente    ← abandono de compra; nova tentativa OU volta ao médico (**)
 devolvido_prescritor  ← erro identificado; aguarda correção (terminal*)
 cancelado             ← revogação clínica (terminal)
 estornado             ← dispensação revertida após registro (terminal)
@@ -245,6 +245,14 @@ encerrado_fisico      ← emissão física; sem ciclo digital (terminal)
 ```
 
 `(*)` devolvido_prescritor aguarda nova prescrição derivada com `origem_prescricao_id`.
+
+`(**)` **COER2-POS-MERGE-FIX**: `devolvido_paciente → devolvido_prescritor` é transição
+válida — quando o cidadão devolve ao médico um item que **já voltara a ele** (rescaldo de
+estorno/devolução ao paciente). Antes só `pendente → devolvido_prescritor` era coberto
+(`auth.py::devolver_prescritor`), deixando o item contraditório com a prescrição
+(`transferida_prescritor`) e invisível no painel de correções — eco de "dupla posse" no
+nível de estado. Ao virar terminal, a custódia de ITEM no nome do paciente é FECHADA (sem
+órfã). Ver `TICKET-COER2-POS-MERGE-FIX` e a nota em `states.py::TRANSICOES_ITEM`.
 
 > ⚠️ **Governança:** Estados de prescrição e de item são parte do modelo de domínio.
 > Não criar novos estados sem atualizar esta seção, o DDL em `docs/picsaude_ddl_postgres_v1.sql`
@@ -284,6 +292,11 @@ Item:        dispensado · devolvido_prescritor · cancelado · estornado · enc
 - Prescrições físicas não entram em custódia digital
 - Itens `encerrado_fisico` não voltam ao fluxo digital
 - `cancelada/cancelado` = revogação clínica; nunca usar para fluxo físico
+- **Item devolvido ao prescritor segue a prescrição** (COER2-POS-MERGE-FIX): os dois
+  estados retornáveis — `pendente` **e** `devolvido_paciente` — transicionam para
+  `devolvido_prescritor`. Nenhum item fica em `devolvido_paciente` enquanto a prescrição
+  está em `transferida_prescritor` (seria incoerência de estado). Guarda executável:
+  `tests/browser/test_coer2_fix.py::test_fix_guarda_incoerencia_estado`
 - Transições válidas estão declaradas em `backend/app/domain/states.py`
 
 ---
