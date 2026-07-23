@@ -418,7 +418,10 @@ def test_auth_devolver_prescritor_persiste_evento(
     payload = json.loads(payload_json)
     assert payload["de"] == "paciente"
     assert payload["para"] == "prescritor"
-    assert payload["motivo"] == "erro de prescrição"
+    # COER-2 (§6.2): custodia_transferida usa motivo CANÔNICO por caminho (o T6
+    # separa os caminhos); o texto livre do cidadão vai em `motivo_detalhe`.
+    assert payload["motivo"] == "devolucao_ao_prescritor"
+    assert payload["motivo_detalhe"] == "erro de prescrição"
 
 
 # ===========================================================================

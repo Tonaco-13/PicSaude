@@ -192,6 +192,64 @@ def _gravar_evento(conn, prescricao_id: int, tipo_evento: str,
     )
 
 
+def transferir_posse(
+    conn, prescricao_id: int, item_id: Optional[int],
+    de_tipo: str, de_id: Optional[str],
+    para_tipo: str, para_id: str,
+    motivo: str, agora: str,
+    *, ator_tipo: str, ator_id: str, instance_id: str,
+    extra_payload: Optional[dict] = None,
+) -> None:
+    """
+    Choke-point de transição de posse (TICKET-COERENCIA-DEVOLUCOES-2).
+
+    Ponto de passagem ÚNICO e obrigatório para toda mudança de detentor de
+    custódia em `prescricao_custodia`. Faz, na MESMA transação e nesta ordem:
+
+      1. Fecha a custódia ativa anterior desta granularidade (qualquer detentor).
+      2. Abre a nova custódia no nome de `para`.
+      3. Emite `custodia_transferida` no ledger (motivo distinto por caminho — §6.2
+         do ticket — para o T6/histórico separar os caminhos).
+
+    Por que existe: antes, cada caminho de produto (devolução, estorno, dispensação,
+    transferência) fazia `_fechar_custodia_ativa` + `_abrir_custodia` à mão — e um
+    esquecia de fechar a anterior, gerando DUPLA POSSE (o R2 na camada de custódia:
+    um objeto em dois lugares ao mesmo tempo). Roteando tudo por aqui, "fechou a
+    anterior" deixa de ser fé e vira invariante. A constraint de unicidade
+    (`uq_custodia_ativa_*`) prova que cada caminho fechou.
+
+    `motivo` é o rótulo CANÔNICO do caminho (grava na coluna `prescricao_custodia.motivo`
+    e no payload). Detalhes livres (texto do usuário) vão em `extra_payload`, nunca
+    sobrescrevendo o `motivo` canônico.
+
+    Granularidade: opera SÓ no nível de `item_id` recebido (item específico ou, com
+    `item_id=None`, a prescrição inteira). A reconciliação CROSS-granularidade
+    (fechar nível-prescrição obsoleto quando a posse de item volta integralmente) é
+    responsabilidade do caminho — ver `devolver_item` (bloco de reconciliação).
+    """
+    _fechar_custodia_ativa(conn, prescricao_id, item_id, agora)
+    _abrir_custodia(conn, prescricao_id, item_id, para_tipo, para_id, motivo, agora)
+
+    payload: dict = {
+        "de": de_tipo, "de_id": de_id,
+        "para": para_tipo, "para_id": para_id,
+        "nivel": "item" if item_id is not None else "prescricao",
+        "motivo": motivo,
+    }
+    if item_id is not None:
+        payload["item_id"] = item_id
+    if extra_payload:
+        # extra_payload nunca sobrescreve o motivo canônico (T6 depende dele).
+        for k, v in extra_payload.items():
+            if k != "motivo":
+                payload[k] = v
+
+    _gravar_evento(
+        conn, prescricao_id, "custodia_transferida", ator_tipo, ator_id,
+        payload, agora, instance_id=instance_id,
+    )
+
+
 def _recalcular_status_prescricao(conn, prescricao_id: int, agora: str) -> str:
     """
     Recalcula o status da prescrição com base no status_item de todos os itens.
@@ -206,18 +264,28 @@ def _recalcular_status_prescricao(conn, prescricao_id: int, agora: str) -> str:
     dispensados         = sum(1 for r in rows if r["status_item"] == "dispensado")
     retidos_farmacia    = sum(1 for r in rows if r["status_item"] == "em_custodia")
     devolvidos_paciente = sum(1 for r in rows if r["status_item"] == "devolvido_paciente")
-    # Itens encerrados definitivamente: sem possibilidade de dispensação
+    # Itens que voltaram ao PRESCRITOR para correção. NÃO são "encerrados
+    # definitivos": são posse-com-o-prescritor (espelho de devolvido_paciente),
+    # aguardando prescrição DERIVADA (COER-2, Opção B). Contam para o ramo
+    # 'transferida_prescritor' abaixo, não para 'cancelada'.
+    devolvidos_prescritor = sum(1 for r in rows if r["status_item"] == "devolvido_prescritor")
+    # Itens encerrados DEFINITIVAMENTE: sem posse e sem retorno ao ciclo
     #   cancelado         → revogação clínica
     #   estornado         → dispensação revertida após registro
-    #   devolvido_prescritor → erro identificado, aguarda correção
     #   encerrado_fisico  → emitido apenas em papel, sem cadeia digital
     encerrados          = sum(1 for r in rows if r["status_item"] in
-                              {"cancelado", "estornado", "devolvido_prescritor", "encerrado_fisico"})
-    # Itens operacionais: tudo exceto encerrados definitivamente
-    ativos              = total - encerrados
+                              {"cancelado", "estornado", "encerrado_fisico"})
+    # Itens operacionais: tudo exceto encerrados definitivos E os devolvidos ao prescritor
+    ativos              = total - encerrados - devolvidos_prescritor
 
-    if ativos == 0:
-        # Todos os itens foram encerrados sem dispensação
+    if ativos == 0 and devolvidos_prescritor > 0:
+        # Posse voltou INTEGRALMENTE ao prescritor p/ correção — espelho exato do
+        # ramo 'transferida_paciente' abaixo. Antes caía em 'cancelada' (desvio
+        # apontado no states.py:EVENTOS_PRESCRICAO). A correção gera prescrição
+        # derivada (§1); este original fica honesto contra a custódia (prescritor).
+        novo_status = "transferida_prescritor"
+    elif ativos == 0:
+        # Todos os itens foram encerrados definitivamente sem dispensação
         novo_status = "cancelada"
     elif retidos_farmacia == 0 and devolvidos_paciente > 0:
         # Posse voltou integralmente ao paciente (abandono no balcão): nenhum item
@@ -551,9 +619,6 @@ def transferir_custodia(
                 detail=f"Prescrição está com status '{presc['status']}' e não pode ser transferida.",
             )
 
-        _fechar_custodia_ativa(conn, presc["id"], None, agora)
-        _abrir_custodia(conn, presc["id"], None, payload.para, para_id, payload.motivo, agora)
-
         # Atualizar status da prescrição conforme destino
         novo_status = presc["status"]
         if payload.para == "paciente" and presc["status"] == "pendente":
@@ -561,7 +626,9 @@ def transferir_custodia(
         elif payload.para == "dispensador":
             novo_status = "em_custodia"
         elif payload.para == "prescritor":
-            novo_status = "pendente"   # volta ao prescritor para correção
+            # COER-2 (Opção B): posse volta ao prescritor p/ correção — estado
+            # próprio, honesto contra a custódia (antes reusava "pendente" ambíguo).
+            novo_status = "transferida_prescritor"
 
         conn.execute(
             "UPDATE prescricoes SET status = ?, updated_at = ? WHERE id = ?",
@@ -585,11 +652,21 @@ def transferir_custodia(
                 (agora, presc["id"]),
             )
 
-        _gravar_evento(conn, presc["id"], "custodia_transferida", payload.de, de_id,
-                       {"de": payload.de, "de_id": de_id,
-                        "para": payload.para, "para_id": para_id,
-                        "motivo": payload.motivo}, agora,
-                       instance_id=instance_id)
+        # Choke-point (COER-2): fecha a custódia anterior (nível prescrição) + abre a
+        # nova + emite custodia_transferida — atômico, nunca à mão. `motivo` canônico
+        # por caminho (T6 separa os caminhos); o texto livre do usuário vai em detalhe.
+        _motivo_canonico = {
+            ("dispensador", "paciente"):   "abandono_balcao",
+            ("dispensador", "prescritor"): "devolucao_ao_prescritor",
+            ("prescritor",  "paciente"):   "entrega_ao_paciente",
+        }.get((payload.de, payload.para), "transferencia_custodia")
+        transferir_posse(
+            conn, presc["id"], None,
+            payload.de, de_id, payload.para, para_id,
+            _motivo_canonico, agora,
+            ator_tipo=payload.de, ator_id=de_id, instance_id=instance_id,
+            extra_payload={"motivo_detalhe": payload.motivo} if payload.motivo else None,
+        )
 
         return {
             "protocolo": protocolo,
@@ -668,22 +745,17 @@ def dispensar_item(
         # auto-retém para manter o fluxo fluido sem burlar a cadeia de custódia.
         if not _dispensador_detem_custodia(conn, presc["id"], item_id, cnpj):
             if PICSAUDE_DEMO_MODE:
-                # Transferência atômica de posse (§3 — UM detentor a cada momento):
-                # fecha a custódia anterior (ex.: do paciente) ANTES de abrir a do
-                # dispensador. Sem o fechar, ficariam duas custódias ativas e a
-                # correção dependeria da lógica a jusante + ordenação do fetchone —
-                # "posse brota". Aqui a retenção é transferência, não brota.
-                _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
-                _abrir_custodia(conn, presc["id"], item_id, "dispensador", cnpj,
-                                "auto_retencao_demo", agora)
-                # Ledger completo (CLAUDE.md §2): a retenção é evento de negócio.
-                # Sem isto, a auto-retenção abriria custódia sem rastro no ledger
-                # (buraco apontado no portão — afeta a reconstrução do T6).
-                _gravar_evento(
-                    conn, presc["id"], "custodia_transferida", "dispensador", cnpj,
-                    {"item_id": item_id, "de": "paciente", "para": "dispensador",
-                     "motivo": "auto_retencao_demo"}, agora,
-                    instance_id=instance_id,
+                # Transferência atômica de posse (§3 — UM detentor a cada momento)
+                # via choke-point (COER-2): fecha a custódia anterior (ex.: do
+                # paciente) ANTES de abrir a do dispensador + emite custodia_transferida
+                # (ledger completo, CLAUDE.md §2 — a retenção é evento de negócio).
+                # Sem o fechar, ficariam duas custódias ativas ("posse brota"). Aqui
+                # a retenção é transferência, não brota.
+                transferir_posse(
+                    conn, presc["id"], item_id,
+                    "paciente", None, "dispensador", cnpj,
+                    "auto_retencao_demo", agora,
+                    ator_tipo="dispensador", ator_id=cnpj, instance_id=instance_id,
                 )
             else:
                 raise HTTPException(
@@ -871,8 +943,18 @@ def dispensar_item(
                 (presc["id"], item_id),
             ).fetchone()
             if not ativa or ativa["detentor_tipo"] != "dispensador" or ativa["detentor_id"] != cnpj:
-                _fechar_custodia_ativa(conn, presc["id"], item_id, agora)
-                _abrir_custodia(conn, presc["id"], item_id, "dispensador", cnpj, "dispensacao_parcial", agora)
+                # Choke-point (COER-2): reconcilia a posse do item para ESTE
+                # dispensador — fecha a anterior (ex.: paciente) + emite o evento
+                # que a retenção exige (CLAUDE.md §2). Antes fazia fecha+abre à mão
+                # e SEM ledger — a retenção brotava sem rastro no T6.
+                transferir_posse(
+                    conn, presc["id"], item_id,
+                    (ativa["detentor_tipo"] if ativa else "paciente"),
+                    (ativa["detentor_id"] if ativa else None),
+                    "dispensador", cnpj,
+                    "dispensacao", agora,
+                    ator_tipo="dispensador", ator_id=cnpj, instance_id=instance_id,
+                )
 
         novo_status_prescricao = _recalcular_status_prescricao(conn, presc["id"], agora)
 
@@ -998,10 +1080,30 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
                 )
         # admin → bypass
 
-        if item["status_item"] == "dispensado":
-            raise HTTPException(status_code=409, detail="Item já dispensado não pode ser devolvido.")
-        if item["status_item"] in {"cancelado", "encerrado_fisico"}:
+        # Terminais que não retornam ao ciclo (revogado / físico / já com o prescritor).
+        if item["status_item"] in {"cancelado", "encerrado_fisico", "devolvido_prescritor"}:
             raise HTTPException(status_code=409, detail=f"Item com status '{item['status_item']}' não pode ser devolvido.")
+
+        # COER-2 (Cenário 1): devolvibilidade deriva do SALDO EFETIVO (ledger), não do
+        # rótulo 'dispensado' — mesma lição do TICKET-B0/§2a R1. Um item rotulado
+        # 'dispensado' mas com saldo REPOSTO por um estorno TEM posse a devolver; o
+        # guard antigo (`status_item == 'dispensado' → 409`) o prendia na farmácia e
+        # a receita ficava na fila mesmo após estorno+devolução (dupla posse). Bloqueia
+        # apenas quando não há de fato saldo a devolver (item genuinamente esgotado).
+        _disp = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_dispensada),0) AS t FROM dispensacoes WHERE prescricao_item_id = ?",
+            (item_id,),
+        ).fetchone()["t"]
+        _est = conn.execute(
+            "SELECT COALESCE(SUM(quantidade_estornada),0) AS t FROM estornos WHERE prescricao_item_id = ?",
+            (item_id,),
+        ).fetchone()["t"]
+        _saldo_efetivo = (item["quantidade"] or 0) - (_disp - _est)
+        if _saldo_efetivo <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Item sem saldo a devolver (dispensação efetiva completa).",
+            )
 
         novo_status_item = "devolvido_prescritor" if payload.para == "prescritor" else "devolvido_paciente"
 
@@ -1031,28 +1133,37 @@ def devolver_item(protocolo: str, item_id: int, payload: DevolverItemIn, usuario
         ator_tipo = usuario["role"]
         ator_id = usuario["sub"]
 
-        # Coerência da cadeia (TICKET-COERENCIA-DEVOLUCOES): quando a devolução
-        # devolve a POSSE INTEGRAL (recalc → transferida_paciente), o registro de
-        # custódia de PRESCRIÇÃO INTEIRA (item_id IS NULL) aberto na apresentação
-        # segue ativo e obsoleto no nome do dispensador. É ele que (a) faz o status
-        # transferida_paciente mentir contra GET /{proto}/custodia.custodia_ativa e
-        # (b) mantém a receita na fila do dispensador (dispensadores.py:112-127,
-        # SELECT por custódia ativa do dispensador). Fechar + reabrir no paciente
-        # resolve os dois, na mesma transação. `motivo` distinto
-        # ('devolucao_integral_paciente') para o auditor separar do custodia_transferida
-        # de auto-retenção (T1.5) e de reabertura de item (T1).
+        # Coerência da cadeia (COER-1/COER-2): quando a devolução devolve a POSSE
+        # INTEGRAL, o registro de custódia de PRESCRIÇÃO INTEIRA (item_id IS NULL)
+        # aberto na apresentação segue ativo e obsoleto no nome do detentor anterior.
+        # É ele que (a) faz o status mentir contra GET /{proto}/custodia.custodia_ativa
+        # e (b) mantém a receita na fila do dispensador (dispensadores.py, SELECT por
+        # custódia ativa). O choke-point reconcilia (fecha a anterior + abre a nova +
+        # emite custodia_transferida) na mesma transação. `motivo` CANÔNICO por caminho
+        # separa a reconciliação das demais custodia_transferida (auto-retenção etc).
+        #
+        # A custódia de ITEM e o evento item_devolvido_* já foram tratados acima — a
+        # reconciliação aqui é EXCLUSIVA do nível-prescrição (a granularidade que
+        # vazava, cross-granularidade que a constraint de unicidade não pega sozinha).
         if payload.para == "paciente" and novo_status_prescricao == "transferida_paciente":
-            _fechar_custodia_ativa(conn, presc["id"], None, agora)  # nível prescrição (item_id=None)
-            _abrir_custodia(
-                conn, presc["id"], None, "paciente",
-                normalize_cpf(paciente_row["cpf"]),
+            transferir_posse(
+                conn, presc["id"], None,
+                "dispensador", None, "paciente", normalize_cpf(paciente_row["cpf"]),
                 "devolucao_integral_paciente", agora,
+                ator_tipo=ator_tipo, ator_id=ator_id, instance_id=instance_id,
             )
-            _gravar_evento(
-                conn, presc["id"], "custodia_transferida", ator_tipo, ator_id,
-                {"de": "dispensador", "para": "paciente", "nivel": "prescricao",
-                 "motivo": "devolucao_integral_paciente"}, agora,
-                instance_id=instance_id,
+        elif payload.para == "prescritor" and novo_status_prescricao == "transferida_prescritor":
+            # Espelho do ramo paciente (COER-2, Opção B): posse integral volta ao
+            # prescritor p/ correção. Reconcilia a custódia de prescrição inteira.
+            _cns_presc = conn.execute(
+                "SELECT cns FROM prescritores WHERE id = ?", (presc["prescritor_id"],),
+            ).fetchone()
+            transferir_posse(
+                conn, presc["id"], None,
+                "dispensador", None, "prescritor",
+                normalize_cns(_cns_presc["cns"]) if _cns_presc else "",
+                "devolucao_ao_prescritor", agora,
+                ator_tipo=ator_tipo, ator_id=ator_id, instance_id=instance_id,
             )
 
         # Vocabulário canônico (CLAUDE.md §2): eventos separados por destino.
