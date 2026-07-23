@@ -126,11 +126,24 @@ BLOQUEADOS_HARD_DISPENSA: frozenset[str] = ESTADOS_TERMINAIS_ITEM - frozenset({"
 # ---------------------------------------------------------------------------
 # Transições válidas de Item
 # ---------------------------------------------------------------------------
+# RESOLVIDO — COER2-POS-MERGE-FIX (2026-07-23): item em `devolvido_paciente`
+# (rescaldo de estorno/devolução ao paciente) pode transicionar para
+# `devolvido_prescritor` quando o cidadão devolve ao médico. Antes deste fix,
+# apenas itens `pendente` podiam ir ao prescritor (auth.py::devolver_prescritor,
+# WHERE status_item='pendente'), deixando o item `devolvido_paciente` em estado
+# CONTRADITÓRIO com a prescrição (`transferida_prescritor`) e invisível no painel
+# de correções (prescritor.py lê item-level `devolvido_prescritor`) — eco de
+# "dupla posse" no nível de estado. Agora AMBOS os estados retornáveis (`pendente`
+# e `devolvido_paciente`) podem ir ao prescritor, alinhado à filosofia do COER-2
+# (toda transição de posse passa pelo choke-point, sem exceção de caminho).
+# Diagnóstico: TICKET-COER2-POS-MERGE. O ramo dispensador→prescritor
+# (custodia.py::devolver_item) já aceitava `devolvido_paciente` via block-guard.
+# ---------------------------------------------------------------------------
 
 TRANSICOES_ITEM: dict[str, frozenset[str]] = {
     "pendente":              frozenset({"em_custodia", "cancelado"}),
     "em_custodia":           frozenset({"dispensado", "devolvido_paciente", "devolvido_prescritor", "cancelado"}),
-    "devolvido_paciente":    frozenset({"em_custodia", "cancelado"}),   # retry permitido
+    "devolvido_paciente":    frozenset({"em_custodia", "cancelado", "devolvido_prescritor"}),   # retry ou volta ao médico (COER2-POS-MERGE-FIX)
     "dispensado":            frozenset({"estornado"}),
     "devolvido_prescritor":  frozenset(),   # terminal — aguarda nova prescrição
     "cancelado":             frozenset(),   # terminal
@@ -242,6 +255,7 @@ EVENTOS_ITEM: dict[tuple[str, str], str] = {
     ("em_custodia",        "cancelado"):          "item_cancelado",
     ("devolvido_paciente", "em_custodia"):        "custodia_transferida",
     ("devolvido_paciente", "cancelado"):          "item_cancelado",
+    ("devolvido_paciente", "devolvido_prescritor"): "item_devolvido_prescritor",  # COER2-POS-MERGE-FIX
     ("dispensado",         "estornado"):          "item_estornado",
 }
 
