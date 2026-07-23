@@ -36,7 +36,9 @@ ficava em `devolvido_paciente` — **contraditório e invisível** no painel de 
 3. **`routers/auth.py::devolver_prescritor` (site EXTRA, ver Ajuste A)** — `_fechar_custodia_ativa`
    por item ao virar terminal, para não deixar custódia de item órfã.
 4. **`CLAUDE.md` §5a/§5b** — transição documentada + invariante de coerência executável.
-5. **Testes** — `tests/browser/test_coer2_fix.py` (novo, 6 testes); `tests/test_states.py` (+2 params).
+5. **Testes** — `tests/browser/test_coer2_fix.py` (**1** teste de DOM: painel renderiza o não-fresh);
+   `tests/integration/test_custodia_devolucao.py` (**COER-12/13** contra PG: coerência de estado +
+   custódia sem órfã); `tests/test_states.py` (+2 params). Ver nota sobre a divisão dos gates abaixo.
 
 ---
 
@@ -64,14 +66,27 @@ ledger — **§2 preservado** (zero `UPDATE/DELETE` em `prescricao_eventos`).
 
 ## Evidência de aceite (vermelho-antes-de-verde)
 
-- **`tests/browser/test_coer2_fix.py`** (6 testes, SQLite efêmero): **6/6 verdes** com o fix.
-  **Prova anti-vácuo:** com `git stash` do fix, os **4 testes não-fresh FALHAM** — inclusive o guarda,
-  que captura literalmente `prescrição … em transferida_prescritor com item devolvido_paciente`. Com o
-  fix, passam. Régua vermelho→verde satisfeita.
-- **COER-1..12 contra PostgreSQL efêmero:** **26 passed** (inclui `test_coer10_devolver_prescritor…`
-  e o guarda da constraint de unicidade). Zero regressão.
+- **`tests/integration/test_custodia_devolucao.py::test_coer12/13`** (PG): coerência de estado
+  (item → `devolvido_prescritor`, prescrição `transferida_prescritor`, sai da posse, motivo no painel) +
+  **custódia sem órfã**. **Prova anti-vácuo:** com os arquivos revertidos para a `main`, **ambos FALHAM**
+  (item fica `devolvido_paciente`; custódia de item ativa no paciente = órfã). Com o fix, passam.
+  Régua vermelho→verde satisfeita **contra PG** — o gate certo para asserção de estado.
+- **`tests/browser/test_coer2_fix.py`** (1 teste, SQLite efêmero): o painel do prescritor **renderiza**
+  o não-fresh em `#lista-devolvidas` — a única asserção que exige NAVEGADOR.
+- **Suíte COER contra PostgreSQL efêmero:** **28 passed** (26 baseline + COER-12/13; inclui
+  `test_coer10_devolver_prescritor…` e o guarda da constraint de unicidade). Zero regressão.
 - **Regressão unit:** 227 passed; a única falha (`test_demo_info_disponivel_com_flag`) é **pré-existente**
-  (falha idêntica com o fix stashado; persona `dispensador` duplicada, sem relação com o fix).
+  (falha idêntica com os arquivos na `main`; persona `dispensador` duplicada, sem relação com o fix).
+
+### Nota — divisão de gates (lição do #122)
+
+A 1ª rodada de CI deste PR pôs **6 testes** de coreografia pesada em `tests/browser/`. O gate de
+navegador roda **um único processo `app_demo`** com timeout fixo de 30s no `page.goto`; a sessão
+inflada estourou o timeout em smokes de página **não relacionados** (`cidadao/clinica/validar/index.html`)
+num runner lento — 2 rodadas vermelhas, embora nenhum teste meu falhasse. Correção: **cada asserção no
+gate certo** — estado de backend vai para a suíte PG (COER-12/13, mais forte que SQLite efêmero); o gate
+de navegador fica com **1 teste**, só o que precisa de tela. Um PR de estado não deve inflar a sessão do
+gate de navegador. Ver LEARNINGS 2026-07-23.
 
 ---
 
