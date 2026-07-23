@@ -164,6 +164,32 @@ inofensivo.
 
 ---
 
+## 8-A. Falhas de integração PRÉ-EXISTENTES (ambiente/seed — não são regressão)
+
+Registradas no COER-2 (2026-07-23): ao rodar `tests/integration/` contra PG efêmero, **9 testes
+falham independentemente das mudanças** (provado com `git stash` — falham idênticos na `main`
+`005ae9b`). Não são bug de código; dependem de **seed de catálogo regulatório / numeração SNCR /
+estado de laudo** que o PG efêmero não popula. Documentado aqui para o gate não confundir com
+regressão nem re-descobrir a cada PR.
+
+| Teste | Causa provável |
+|---|---|
+| `test_catalogo_regulatorio.py::test_endpoint_catalogo_autocomplete_semaglutida` | catálogo regulatório não seedado (semaglutida/amoxicilina ausentes) |
+| `test_catalogo_regulatorio.py::test_endpoint_catalogo_autocomplete_amoxicilina` | idem |
+| `test_catalogo_regulatorio.py::test_gerar_inclui_alerta_critical_quando_antimicrobiano_sem_classificacao` | idem (alertas dependem do catálogo) |
+| `test_catalogo_regulatorio.py::test_gerar_alerta_warning_para_classe_344_ausente` | idem |
+| `test_catalogo_regulatorio.py::test_catalogo_nao_bloqueia_emissao` | idem |
+| `test_catalogo_regulatorio.py::test_atomizacao_bloqueada_por_catalogo` | idem |
+| `test_catalogo_regulatorio.py::test_atomizacao_glp1_bloqueada_por_catalogo` | idem |
+| `test_regras_receituario.py::test_validar_emissao_receituario_ok` | numeração SNCR / regra de receituário |
+| `test_4d2_instance_id_ledger.py::test_laudo_ciencia_paciente_dois_eventos_mesmo_instance_id` | fluxo de laudo/ciência (seed) |
+
+> Colateral: `tests/integration/test_concorrencia.py` tem **erro de coleta** pré-existente
+> (`ImportError: DATABASE_URL_TEST`) — importa símbolo que não existe no `conftest`. Também na `main`.
+> Ação futura (fora do COER-2): corrigir o import ou remover o teste órfão.
+
+---
+
 ## 9. Verificados FALSOS na ultra-review 2026-06-14 (NÃO são dívida — não reabrir)
 `C1` (deploy é Alembic) · `C4` (hash v1/v2 — premissa errada) · `H2` (XSS — valores não-controláveis) ·
 `H3` (tokens commit-then-raise — só auditoria) · `H4` (`prescricoes` não tem `org_id`) ·
