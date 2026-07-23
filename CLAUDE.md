@@ -295,8 +295,9 @@ Item:        dispensado · devolvido_prescritor · cancelado · estornado · enc
 - **Item devolvido ao prescritor segue a prescrição** (COER2-POS-MERGE-FIX): os dois
   estados retornáveis — `pendente` **e** `devolvido_paciente` — transicionam para
   `devolvido_prescritor`. Nenhum item fica em `devolvido_paciente` enquanto a prescrição
-  está em `transferida_prescritor` (seria incoerência de estado). Guarda executável:
-  `tests/browser/test_coer2_fix.py::test_fix_guarda_incoerencia_estado`
+  está em `transferida_prescritor` (seria incoerência de estado). Guarda executável (PG):
+  `tests/integration/test_custodia_devolucao.py::test_coer12_devolver_prescritor_de_item_devolvido_paciente_vira_devolvido_prescritor`
+  (custódia sem órfã em `::test_coer13_...`; render do painel em `tests/browser/test_coer2_fix.py`)
 - Transições válidas estão declaradas em `backend/app/domain/states.py`
 
 ---
