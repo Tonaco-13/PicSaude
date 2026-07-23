@@ -67,6 +67,7 @@ Vocabulário de eventos conhecido:
 | `decisao_clinica_avaliada` | **Camada 3** — trilha de auditoria do semáforo: sinal + versão da regra por item, gravado na emissão (não-bloqueante; só com a flag `PICSAUDE_DECISAO_CLINICA` ativa e `codigo_cid` presente). Ver `docs/EXPLICABILIDADE_DECISAO_CLINICA.md` §11 |
 | `pdf_assinado_pades` | Geração de PDF com assinatura ICP-Brasil PAdES-B (cofre server-side). Emitido pela prescrição comum (`POST /prescricoes/{proto}/pdf-assinado`) e pelo receituário. Payload: hash do PDF + serial do certificado |
 | `estorno_registrado` | **T2** — reversão de uma dispensação registrada. O estorno é um **objeto sanitário derivado e imutável** (`estornos`, padrão `origem_dispensacao_id`), **não** uma transição de estado do item (a `dispensacoes` original permanece intocada). Efeito contábil: saldo efetivo do item = Σ dispensado − Σ estornado. Emitido por `POST /dispensacoes/{id}/estornar`. Payload: `estorno_id` + `estorno_protocolo` + `origem_dispensacao_id` + `item_id` + `quantidade_estornada` + `motivo` (enum `MOTIVOS_ESTORNO`). Ver `docs/tickets/TICKET-ESTORNO-OBJETO-DERIVADO.md` |
+| `custodia_reconciliada_data_fix` | **COER-2** — data-fix de reconciliação: encerra custódia ATIVA excedente quando um objeto tinha dupla posse (violação de unicidade). Emitido **pela migração** (`c0e2f1a3b4d5`), nunca no caminho clínico. Régua de corte: mantém a mais recente por `(created_at DESC, id DESC)`. Payload: `custodia_id_encerrada` + `custodia_id_mantida` + `detentor_tipo/_id` + `nivel` + `item_id`. Ver `docs/tickets/TICKET-COERENCIA-DEVOLUCOES-2.md` |
 
 **Fluxo físico emite DOIS eventos em sequência:**
 1. `prescricao_impressa` — ato de impressão (quem, quando, quantos itens)
@@ -146,6 +147,27 @@ paciente    → prescritor     (devolução voluntária)
 Granularidade: a custódia pode ser por **prescrição inteira** (`item_id = NULL`)
 ou por **item individual** (`item_id = X`).
 
+### Choke-point de posse + unicidade (COER-2)
+
+**Invariante de banco:** no máximo UMA custódia ATIVA (`encerrada_em IS NULL`) por
+`(prescricao_id, item_id)`. Dupla posse ativa = o **R2 na camada de custódia** (um
+objeto em dois lugares ao mesmo tempo) — alarme, não erro cosmético. Garantido por
+índice único parcial nos dois dialetos (migração `c0e2f1a3b4d5`): PG usa
+`NULLS NOT DISTINCT`; SQLite usa `COALESCE(item_id, -1)`.
+
+**Choke-point:** toda transição de posse passa por `custodia.py::transferir_posse`,
+que **obrigatoriamente** fecha a custódia anterior + abre a nova + emite
+`custodia_transferida` — atômico. Nenhum caminho de produto faz `_fechar` + `_abrir`
+à mão. O `motivo` da custódia é **canônico por caminho** (o T6/histórico separa os
+caminhos): `transferencia_farmacia` · `abandono_balcao` · `devolucao_integral_paciente`
+· `devolucao_ao_prescritor` · `estorno_reposicao_saldo` · `auto_retencao_demo` ·
+`dispensacao`. Texto livre do usuário vai em `motivo_detalhe` (nunca sobrescreve o canônico).
+
+> A constraint pega dupla posse de **mesma granularidade**. A dupla posse
+> **cross-granularidade** (nível-prescrição obsoleto + nível-item ativo — raiz do
+> Cenário 1) é fechada pela **reconciliação** do caminho (`devolver_item`), não pela
+> constraint. As duas guardam coisas diferentes.
+
 ---
 
 ## 4. Dispensação parcial é suportada e não invalida a prescrição
@@ -201,6 +223,7 @@ cancelado         =  revogação clínica dentro do fluxo digital          (stat
 ```
 pendente                 ← emitida digitalmente, aguarda transferência
 transferida_paciente     ← em custódia do cidadão
+transferida_prescritor   ← devolvida ao prescritor p/ correção (espelho de transferida_paciente; COER-2)
 em_custodia              ← dispensador reteve a prescrição
 parcialmente_dispensada  ← ao menos um item dispensado
 dispensada               ← todos os itens ativos dispensados
@@ -237,7 +260,7 @@ encerrado_fisico      ← emissão física; sem ciclo digital (terminal)
 
 ```
 Fluxo digital — prescrição:
-  pendente | transferida_paciente | em_custodia
+  pendente | transferida_paciente | transferida_prescritor | em_custodia
   parcialmente_dispensada | dispensada | cancelada
 
 Fluxo físico — prescrição:
