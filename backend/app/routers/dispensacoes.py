@@ -31,7 +31,7 @@ from app.domain.medicamento import formatar_quantidade, normalizar_unidade
 from app.domain.motor_regulatorio import grupo_por_id
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
-from app.routers.custodia import _abrir_custodia
+from app.routers.custodia import transferir_posse
 from app.utils.helpers import normalize_cnpj, normalize_cns
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
@@ -626,24 +626,18 @@ def estornar_dispensacao(
                 (disp["prescricao_id"], disp["item_id"]),
             ).fetchone()
             if not custodia_ativa:
-                _abrir_custodia(conn, disp["prescricao_id"], disp["item_id"],
-                                "dispensador", disp["cnpj_estabelecimento"],
-                                "reabertura_pos_estorno", agora)
-                registrar_evento_ledger(
-                    conn,
-                    objeto_tipo="prescricao",
-                    objeto_id=disp["prescricao_id"],
-                    tipo_evento="custodia_transferida",
-                    instance_id=instance_id,
-                    payload={
-                        "item_id": disp["item_id"],
-                        "de": "paciente",
-                        "para": "dispensador",
-                        "motivo": "reabertura_pos_estorno",
-                        "origem_estorno_protocolo": protocolo,
-                    },
-                    ator_tipo="dispensador",
-                    ator_id=usuario["sub"],
+                # Choke-point (COER-2): estorno repôs saldo e o item ficou SEM
+                # custódia (a dispensação total fechou a do item) → re-retém p/ o
+                # estabelecimento (re-dispensação). O _fechar interno é no-op aqui
+                # (guardado por `if not custodia_ativa`); o helper garante o evento
+                # custodia_transferida que a retenção exige (§2). `motivo` canônico
+                # do caminho ('estorno_reposicao_saldo', §6.2) p/ o T6 separar.
+                transferir_posse(
+                    conn, disp["prescricao_id"], disp["item_id"],
+                    "paciente", None, "dispensador", disp["cnpj_estabelecimento"],
+                    "estorno_reposicao_saldo", agora,
+                    ator_tipo="dispensador", ator_id=usuario["sub"], instance_id=instance_id,
+                    extra_payload={"origem_estorno_protocolo": protocolo},
                 )
                 custodia_reaberta = True
 

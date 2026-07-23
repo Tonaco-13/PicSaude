@@ -40,6 +40,7 @@ CREATE DOMAIN cnpj_t AS VARCHAR(14)
 CREATE TYPE prescricao_status AS ENUM (
     'pendente',               -- emitida, aguardando transferência
     'transferida_paciente',   -- enviada à custódia do paciente
+    'transferida_prescritor', -- devolvida ao prescritor p/ correção (COER-2; espelho de transferida_paciente)
     'em_custodia',            -- retida em estabelecimento (ex: controlados)
     'parcialmente_dispensada',-- ao menos um item dispensado
     'dispensada',             -- todos os itens dispensados

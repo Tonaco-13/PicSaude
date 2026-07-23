@@ -23,6 +23,7 @@ from typing import Literal
 EstadoPrescricao = Literal[
     "pendente",
     "transferida_paciente",
+    "transferida_prescritor",
     "em_custodia",
     "parcialmente_dispensada",
     "dispensada",
@@ -50,6 +51,7 @@ ESTADOS_PRESCRICAO: frozenset[str] = frozenset({
     # Fluxo digital
     "pendente",                 # emitida, aguarda transferência ao paciente
     "transferida_paciente",     # em custódia do cidadão
+    "transferida_prescritor",   # devolvida ao prescritor p/ correção (espelho de transferida_paciente)
     "em_custodia",              # retida pelo dispensador
     "parcialmente_dispensada",  # ao menos um item dispensado
     "dispensada",               # todos os itens ativos dispensados  [terminal]
@@ -71,9 +73,13 @@ ESTADOS_TERMINAIS_PRESCRICAO: frozenset[str] = frozenset({
 # ---------------------------------------------------------------------------
 
 TRANSICOES_PRESCRICAO: dict[str, frozenset[str]] = {
-    "pendente":                frozenset({"transferida_paciente", "cancelada", "expirada"}),
-    "transferida_paciente":    frozenset({"em_custodia", "cancelada", "expirada"}),
-    "em_custodia":             frozenset({"parcialmente_dispensada", "dispensada", "cancelada", "transferida_paciente"}),
+    "pendente":                frozenset({"transferida_paciente", "transferida_prescritor", "cancelada", "expirada"}),
+    "transferida_paciente":    frozenset({"em_custodia", "transferida_prescritor", "cancelada", "expirada"}),
+    # Espelho de transferida_paciente: posse com o prescritor aguardando correção.
+    # Não volta ao ciclo digital in-place — a correção gera prescrição DERIVADA
+    # (origem_prescricao_id, §1). O original só sai para terminal (revogado/expira).
+    "transferida_prescritor":  frozenset({"cancelada", "expirada"}),
+    "em_custodia":             frozenset({"parcialmente_dispensada", "dispensada", "cancelada", "transferida_paciente", "transferida_prescritor"}),
     "parcialmente_dispensada": frozenset({"dispensada", "cancelada", "expirada"}),
     "dispensada":              frozenset(),   # terminal
     "cancelada":               frozenset(),   # terminal
@@ -190,30 +196,37 @@ def eh_terminal_item(status: str) -> bool:
 #   prescrição inteira (item_id IS NULL) obsoleta do dispensador é reconciliada na
 #   mesma transação. Reusa estado existente: sem estado novo, sem DDL.
 #
-#   PENDENTE — ramo prescritor (fora do escopo do ticket acima, §8):
-#   Em custodia.py, devolução dispensador→prescritor transiciona a prescrição
-#   para "pendente" (não previsto em TRANSICOES_PRESCRICAO["em_custodia"]).
-#   Em auth.py:devolver_prescritor (paciente → prescritor), itens transicionam
-#   de "pendente" diretamente para "devolvido_prescritor" (terminal), pulando
-#   "em_custodia" exigido por TRANSICOES_ITEM. Apontado pelo CODEX em 2026-05-21
-#   (4E.2). Ver docs/revisoes/CODEX-4E-2-relatorio-2026-05-21.md §3.3.
-#   Essas transições FUNCIONAM mas desviam do modelo formal.
-#   Correção sugerida: introduzir "transferida_prescritor" como estado para
-#   devolução ao prescritor. Não corrigido agora para não quebrar o comportamento.
+#   RESOLVIDO — ramo prescritor (TICKET-COERENCIA-DEVOLUCOES-2, 2026-07-23, Opção B
+#   ratificada por Fabiano): introduzido o estado `transferida_prescritor` como
+#   ESPELHO de `transferida_paciente` — posse com o prescritor aguardando correção.
+#   Ambos os caminhos convergem para ele via o choke-point `transferir_posse`:
+#     • dispensador→prescritor (custodia.py::devolver_item para=prescritor): quando
+#       a posse volta INTEGRALMENTE ao prescritor, _recalcular_status_prescricao
+#       retorna "transferida_prescritor" (antes retornava "cancelada" — desvio).
+#     • paciente→prescritor (auth.py::devolver_prescritor): status passa a
+#       "transferida_prescritor" (antes "pendente" — ambíguo, raiz do Cenário 2:
+#       a carteira do cidadão não distinguia "aguardando 1º envio" de "devolvida").
+#   Itens seguem em "devolvido_prescritor" (terminal, aguardam prescrição derivada);
+#   a transição de posse da PRESCRIÇÃO ganha estado próprio, honesto contra a custódia.
 # ---------------------------------------------------------------------------
 
 EVENTOS_PRESCRICAO: dict[tuple[str, str], str] = {
     # estado_atual          , novo_estado              : tipo_evento
     ("pendente",                "transferida_paciente"): "custodia_transferida",
+    ("pendente",                "transferida_prescritor"): "custodia_transferida",
     ("pendente",                "cancelada"):            "prescricao_cancelada",
     ("pendente",                "expirada"):             "prescricao_expirada",
     ("transferida_paciente",    "em_custodia"):          "custodia_transferida",
+    ("transferida_paciente",    "transferida_prescritor"): "custodia_transferida",
     ("transferida_paciente",    "cancelada"):            "prescricao_cancelada",
     ("transferida_paciente",    "expirada"):             "prescricao_expirada",
+    ("transferida_prescritor",  "cancelada"):            "prescricao_cancelada",
+    ("transferida_prescritor",  "expirada"):             "prescricao_expirada",
     ("em_custodia",             "parcialmente_dispensada"): "dispensacao_parcial",
     ("em_custodia",             "dispensada"):           "dispensacao_registrada",
     ("em_custodia",             "cancelada"):            "prescricao_cancelada",
     ("em_custodia",             "transferida_paciente"): "custodia_transferida",
+    ("em_custodia",             "transferida_prescritor"): "custodia_transferida",
     ("parcialmente_dispensada", "dispensada"):           "dispensacao_registrada",
     ("parcialmente_dispensada", "cancelada"):            "prescricao_cancelada",
     ("parcialmente_dispensada", "expirada"):             "prescricao_expirada",
