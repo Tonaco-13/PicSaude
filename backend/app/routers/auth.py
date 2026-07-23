@@ -16,6 +16,7 @@ from app.database_tx import get_tx
 from app.domain.conselho_profissional import conselho_ou_padrao, formatar_registro
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
+from app.routers.custodia import transferir_posse  # choke-point de posse (COER-2)
 from app.domain.states_exame import ESTADOS_TERMINAIS_PEDIDO_EXAME
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf
@@ -181,8 +182,11 @@ def listar_prescricoes(usuario=Depends(require_role("paciente"))):
             })
 
     _EM_POSSE   = {"transferida_paciente", "pendente"}
+    # COER-2: transferida_prescritor = devolvida ao médico p/ correção. Sai da POSSE
+    # do cidadão (não é mais dele) e entra no HISTÓRICO — nunca "Documento Ativo"
+    # (raiz do Cenário 2, quando reusava "pendente" e a carteira a mostrava ativa).
     _HISTORICO  = {"em_custodia", "parcialmente_dispensada", "dispensada",
-                   "cancelada", "expirada"}
+                   "cancelada", "expirada", "transferida_prescritor"}
 
     return {
         "posse":    [p for p in prescricoes if p["status"] in _EM_POSSE],
@@ -225,50 +229,21 @@ def transferir_farmacia(proto: str, body: dict, usuario=Depends(require_role("pa
 
         pid = row["id"]
 
-        # Encerra custódia ativa (nível prescrição)
-        conn.execute(
-            """
-            UPDATE prescricao_custodia
-               SET encerrada_em = ?
-             WHERE prescricao_id = ? AND item_id IS NULL AND encerrada_em IS NULL
-            """,
-            (agora, pid),
-        )
-        # Abre custódia do dispensador
-        # Ticket 4D.1 (P1.2): fix de schema — coluna real é
-        # `transferida_em` (não `iniciada_em`); `created_at` é NOT NULL
-        # sem server_default. Bug latente que falhava transacionalmente
-        # antes desta correção.
-        conn.execute(
-            """
-            INSERT INTO prescricao_custodia
-                   (prescricao_id, item_id, detentor_tipo, detentor_id,
-                    transferida_em, encerrada_em, motivo, created_at)
-            VALUES (?, NULL, 'dispensador', ?,
-                    ?, NULL, 'Transferência pelo cidadão via app', ?)
-            """,
-            (pid, cnpj, agora, agora),
-        )
+        instance_id = get_instance_id_conn(conn)
         conn.execute(
             "UPDATE prescricoes SET status = 'em_custodia', updated_at = ? WHERE id = ?",
             (agora, pid),
         )
-        # Ticket 4D.1: substituído INSERT manual divergente
-        # (`dados_json`/`criado_em` violavam ator_tipo NOT NULL).
-        instance_id = get_instance_id_conn(conn)
-        registrar_evento_ledger(
-            conn,
-            objeto_tipo="prescricao",
-            objeto_id=pid,
-            tipo_evento="custodia_transferida",
-            instance_id=instance_id,
-            payload={
-                "de": "paciente",     "de_id":  cpf,
-                "para": "dispensador", "para_id": cnpj,
-                "origem": "cidadao_app",
-            },
-            ator_tipo="paciente",
-            ator_id=cpf,
+        # COER-2: transição de posse pelo choke-point — fecha a custódia do
+        # paciente + abre a do dispensador + emite custodia_transferida, atômico.
+        # `motivo` canônico ('transferencia_farmacia') p/ o T6 separar este caminho
+        # dos demais custodia_transferida (§6.2 do ticket).
+        transferir_posse(
+            conn, pid, None,
+            "paciente", cpf, "dispensador", cnpj,
+            "transferencia_farmacia", agora,
+            ator_tipo="paciente", ator_id=cpf, instance_id=instance_id,
+            extra_payload={"origem": "cidadao_app"},
         )
 
     return {"ok": True, "protocolo": proto, "status": "em_custodia"}
@@ -307,61 +282,63 @@ def devolver_prescritor(proto: str, body: dict, usuario=Depends(require_role("pa
         pid  = row["id"]
         cns  = row["prescritor_cns"]
 
-        # Encerra custódia ativa
-        conn.execute(
+        instance_id = get_instance_id_conn(conn)
+
+        # Itens pendentes voltam ao prescritor. §9.2 (COER-2): cada item emite
+        # `item_devolvido_prescritor` com `item_id` + `motivo` (texto livre do
+        # cidadão) — é ESSE evento que o painel de correções do prescritor lê
+        # (prescritor.py::_montar_correcoes). Antes, este caminho só emitia o
+        # custodia_transferida de NÍVEL-PRESCRIÇÃO (sem item_id), então o motivo
+        # não chegava ao médico ("Motivo não informado."). Agora chega.
+        itens = conn.execute(
             """
-            UPDATE prescricao_custodia
-               SET encerrada_em = ?
-             WHERE prescricao_id = ? AND item_id IS NULL AND encerrada_em IS NULL
-            """,
-            (agora, pid),
-        )
-        # Abre custódia do prescritor
-        # Ticket 4D.1 (P1.2): fix de schema (mesmo bug do site
-        # transferir-farmacia — `iniciada_em` → `transferida_em` +
-        # `created_at`).
-        conn.execute(
-            """
-            INSERT INTO prescricao_custodia
-                   (prescricao_id, item_id, detentor_tipo, detentor_id,
-                    transferida_em, encerrada_em, motivo, created_at)
-            VALUES (?, NULL, 'prescritor', ?,
-                    ?, NULL, ?, ?)
-            """,
-            (pid, cns, agora, motivo, agora),
-        )
-        # Itens pendentes voltam ao prescritor
-        conn.execute(
-            """
-            UPDATE prescricao_itens
-               SET status_item = 'devolvido_prescritor', updated_at = ?
+            SELECT id, nome_medicamento
+              FROM prescricao_itens
              WHERE prescricao_id = ? AND status_item = 'pendente'
             """,
-            (agora, pid),
-        )
+            (pid,),
+        ).fetchall()
+        for it in itens:
+            conn.execute(
+                "UPDATE prescricao_itens SET status_item = 'devolvido_prescritor', updated_at = ? WHERE id = ?",
+                (agora, it["id"]),
+            )
+            registrar_evento_ledger(
+                conn,
+                objeto_tipo="prescricao",
+                objeto_id=pid,
+                tipo_evento="item_devolvido_prescritor",
+                instance_id=instance_id,
+                payload={
+                    "item_id": it["id"],
+                    "nome_medicamento": it["nome_medicamento"],
+                    "devolvido_para": "prescritor",
+                    "motivo": motivo,
+                    "novo_status_item": "devolvido_prescritor",
+                },
+                ator_tipo="paciente",
+                ator_id=cpf,
+            )
+
+        # COER-2 (Opção B): posse volta ao prescritor p/ correção — estado próprio,
+        # honesto contra a custódia. Antes reusava "pendente" (ambíguo: colidia com
+        # "aguardando 1º envio ao paciente" → a carteira do cidadão mostrava a
+        # receita devolvida como "Documento Ativo"). Raiz do Cenário 2.
         conn.execute(
-            "UPDATE prescricoes SET status = 'pendente', updated_at = ? WHERE id = ?",
+            "UPDATE prescricoes SET status = 'transferida_prescritor', updated_at = ? WHERE id = ?",
             (agora, pid),
         )
-        # Ticket 4D.1: substituído INSERT manual divergente.
-        instance_id = get_instance_id_conn(conn)
-        registrar_evento_ledger(
-            conn,
-            objeto_tipo="prescricao",
-            objeto_id=pid,
-            tipo_evento="custodia_transferida",
-            instance_id=instance_id,
-            payload={
-                "de": "paciente",      "de_id":  cpf,
-                "para": "prescritor",  "para_id": cns,
-                "motivo": motivo,
-                "origem": "cidadao_app",
-            },
-            ator_tipo="paciente",
-            ator_id=cpf,
+        # Transição de posse pelo choke-point (nível prescrição). `motivo` canônico
+        # 'devolucao_ao_prescritor' (T6); o texto livre do cidadão vai em motivo_detalhe.
+        transferir_posse(
+            conn, pid, None,
+            "paciente", cpf, "prescritor", cns,
+            "devolucao_ao_prescritor", agora,
+            ator_tipo="paciente", ator_id=cpf, instance_id=instance_id,
+            extra_payload={"origem": "cidadao_app", "motivo_detalhe": motivo},
         )
 
-    return {"ok": True, "protocolo": proto, "status": "pendente"}
+    return {"ok": True, "protocolo": proto, "status": "transferida_prescritor"}
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,8 @@ import json
 import uuid
 from datetime import datetime
 
+import psycopg2
+
 from app.auth.jwt import criar_access_token
 
 from tests.integration.conftest import (
@@ -1197,3 +1199,220 @@ def test_coer8_fila_do_dispensador_limpa_apos_devolucao(client, outer_conn):
 
     # COER-8b: a receita saiu da fila (Manifestação B do ticket).
     assert _proto_na_fila() is False, "receita continuou na fila do dispensador após devolução"
+
+
+# ===========================================================================
+# COER-2 (TICKET-COERENCIA-DEVOLUCOES-2): choke-point de posse + guarda de
+# unicidade de banco + ramo prescritor (transferida_prescritor, Opção B).
+# ===========================================================================
+
+
+def _seed_prescricao_transferida_paciente(outer_conn, num_itens: int = 1):
+    """Prescrição em 'transferida_paciente', custódia de PRESCRIÇÃO INTEIRA do
+    paciente, itens 'pendente'. Estado de partida do Cenário 2 (o cidadão detém
+    a receita e vai devolvê-la ao médico)."""
+    now = datetime.utcnow().isoformat()
+    proto = f"PROTO-TP-{uuid.uuid4().hex[:10]}"
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO prescritores (cns, nome, ativo, created_at, updated_at) "
+            "VALUES (%s, %s, true, %s, %s) "
+            "ON CONFLICT (cns) DO UPDATE SET nome = EXCLUDED.nome RETURNING id",
+            (SEED_PRESCRITOR_CNS, SEED_PRESCRITOR_NOME, now, now),
+        )
+        pres_id = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO pacientes (cpf, nome, ativo, created_at, updated_at) "
+            "VALUES (%s, %s, true, %s, %s) "
+            "ON CONFLICT (cpf) DO UPDATE SET nome = EXCLUDED.nome RETURNING id",
+            (SEED_PACIENTE_CPF, SEED_PACIENTE_NOME, now, now),
+        )
+        pac_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO prescricoes
+              (protocolo, prescritor_id, paciente_id, status, tipo_emissao,
+               data_emissao, created_at, updated_at)
+            VALUES (%s, %s, %s, 'transferida_paciente', 'nova', %s, %s, %s)
+            RETURNING id
+            """,
+            (proto, pres_id, pac_id, now, now, now),
+        )
+        prescricao_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO prescricao_custodia
+              (prescricao_id, item_id, detentor_tipo, detentor_id,
+               transferida_em, encerrada_em, motivo, created_at)
+            VALUES (%s, NULL, 'paciente', %s, %s, NULL, 'seed_test', %s)
+            """,
+            (prescricao_id, SEED_PACIENTE_CPF, now, now),
+        )
+        item_ids: list[int] = []
+        for i in range(num_itens):
+            cur.execute(
+                """
+                INSERT INTO prescricao_itens
+                  (prescricao_id, nome_medicamento, concentracao, quantidade,
+                   posologia, status_item, created_at, updated_at)
+                VALUES (%s, %s, '500mg', 10, '1cp 8/8h', 'pendente', %s, %s)
+                RETURNING id
+                """,
+                (prescricao_id, f"MEDICAMENTO_TP_{i + 1}", now, now),
+            )
+            item_ids.append(cur.fetchone()[0])
+    return prescricao_id, proto, item_ids
+
+
+# --- Passo 1a: a GUARDA de unicidade (o banco recusa a dupla posse) -----------
+
+def test_guarda_unicidade_custodia_ativa_rejeita_dupla_posse(outer_conn):
+    """COER-2 Passo 1a — o BANCO recusa uma segunda custódia ATIVA na mesma
+    granularidade (prescricao_id, item_id). Dupla posse ativa = o R2 na camada de
+    custódia (um objeto em dois lugares ao mesmo tempo). Sem a constraint, este
+    INSERT passaria; com ela, o banco levanta UniqueViolation — o 5º caminho não
+    embarca, dá erro."""
+    prescricao_id, _proto, [_item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+    now = datetime.utcnow().isoformat()
+
+    # Já existe uma custódia ATIVA de prescrição inteira (dispensador, do seed).
+    # Tentar abrir uma SEGUNDA (item_id NULL) sem fechar a primeira deve falhar.
+    raised = False
+    with outer_conn.cursor() as cur:
+        cur.execute("SAVEPOINT guarda")
+        try:
+            cur.execute(
+                """
+                INSERT INTO prescricao_custodia
+                  (prescricao_id, item_id, detentor_tipo, detentor_id,
+                   transferida_em, encerrada_em, motivo, created_at)
+                VALUES (%s, NULL, 'paciente', %s, %s, NULL, 'dupla_ilegal', %s)
+                """,
+                (prescricao_id, SEED_PACIENTE_CPF, now, now),
+            )
+        except psycopg2.errors.UniqueViolation:
+            raised = True
+        cur.execute("ROLLBACK TO SAVEPOINT guarda")
+
+    assert raised, (
+        "o banco aceitou uma segunda custódia ativa de prescrição inteira — "
+        "constraint uq_custodia_ativa ausente ou ineficaz (NULLS NOT DISTINCT?)"
+    )
+
+
+# --- COER-9: Cenário 1 (estorno + devolução ao paciente) ----------------------
+
+def test_coer9_estorno_mais_devolucao_paciente_limpa_fila(client, outer_conn):
+    """Cenário 1 reproduzido: dispensar total → estornar (repõe saldo) → devolver
+    ao paciente. ANTES: o item ficava rotulado 'dispensado' e o guard barrava a
+    devolução (409) enquanto a custódia obsoleta do dispensador prendia a receita
+    na fila (dupla posse). DEPOIS: devolução deriva do SALDO (reposto) → posse
+    volta ao paciente, fila limpa, dispensador sem custódia ativa."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
+
+    # Dispensa total (10/10) — item 'dispensado', saldo 0.
+    rd = client.post(
+        f"/prescricoes/{proto}/itens/{item_id}/dispensar",
+        json={"cnpj_estabelecimento": _DISPENSADOR_CNPJ, "quantidade_dispensada": 10},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert rd.status_code == 201, rd.text
+    dispensacao_id = rd.json()["dispensacao_id"]
+
+    # Estorna tudo — saldo efetivo volta a 10 (item segue rotulado 'dispensado').
+    re = client.post(
+        f"/dispensacoes/{dispensacao_id}/estornar",
+        json={"motivo": "desistencia_paciente"},
+        headers=_headers(_jwt_dispensador()),
+    )
+    assert re.status_code == 201, re.text
+    assert _saldo_efetivo_item(outer_conn, item_id)["saldo_efetivo"] == 10
+
+    # Devolve ao paciente — o guard NÃO barra mais (saldo reposto > 0).
+    rv = _devolver_ao_paciente(client, proto, item_id, motivo="desistiu da compra")
+    assert rv.status_code == 200, rv.text
+    assert rv.json()["status_prescricao"] == "transferida_paciente"
+
+    # Fila do dispensador limpa + dispensador sem NENHUMA custódia ativa.
+    fila = client.get("/dispensadores/fila", headers=_headers(_jwt_dispensador())).json()
+    assert proto not in {f["protocolo"] for f in fila["fila"]}, \
+        "receita continuou na fila do dispensador após estorno+devolução (dupla posse)"
+    assert _count_custodia_ativa_dispensador(outer_conn, prescricao_id, _DISPENSADOR_CNPJ) == 0
+
+    # Custódia de prescrição inteira coerente com o status (paciente).
+    assert _custodia_ativa_prescricao(outer_conn, prescricao_id) == {
+        "detentor_tipo": "paciente", "detentor_id": SEED_PACIENTE_CPF,
+    }
+
+    # Carteira do cidadão: aparece como DOCUMENTO ATIVO (posse), não 'Finalizada'.
+    wallet = client.get("/paciente/prescricoes", headers=_headers(_jwt_paciente())).json()
+    assert proto in {p["protocolo"] for p in wallet["posse"]}
+    assert proto not in {p["protocolo"] for p in wallet["historico"]}
+
+
+# --- COER-10: Cenário 2 (devolução ao prescritor) -----------------------------
+
+def test_coer10_devolver_prescritor_sai_da_carteira_e_motivo_chega(client, outer_conn):
+    """Cenário 2 reproduzido: o cidadão devolve ao prescritor. ANTES: status ia a
+    'pendente' (ambíguo) e a carteira mostrava a receita como 'Documento Ativo';
+    o motivo não chegava ao médico ('Motivo não informado.'). DEPOIS: status
+    'transferida_prescritor' (posse com o médico), sai da POSSE do cidadão, e o
+    motivo chega ao painel de correções do prescritor (§9.2)."""
+    prescricao_id, proto, [item_id] = _seed_prescricao_transferida_paciente(outer_conn)
+
+    motivo = "Remédio ou Apresentação Errada - trocar dose"
+    r = client.post(
+        f"/paciente/prescricoes/{proto}/devolver-prescritor",
+        json={"motivo": motivo},
+        headers=_headers(_jwt_paciente()),
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["status"] == "transferida_prescritor"
+    assert _status_prescricao(outer_conn, prescricao_id) == "transferida_prescritor"
+
+    # Custódia de prescrição inteira coerente com o status (prescritor).
+    assert _custodia_ativa_prescricao(outer_conn, prescricao_id) == {
+        "detentor_tipo": "prescritor", "detentor_id": SEED_PRESCRITOR_CNS,
+    }
+    # O paciente não detém mais a custódia (dupla posse do Cenário 2 fechada).
+    assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) is None or \
+        _custodia_ativa_prescricao(outer_conn, prescricao_id)["detentor_tipo"] == "prescritor"
+
+    # Carteira do cidadão: NÃO aparece na posse (não é mais 'Documento Ativo').
+    wallet = client.get("/paciente/prescricoes", headers=_headers(_jwt_paciente())).json()
+    assert proto not in {p["protocolo"] for p in wallet["posse"]}, \
+        "receita devolvida ao médico ainda aparece como ativa na carteira do cidadão"
+    assert proto in {p["protocolo"] for p in wallet["historico"]}
+
+    # §9.2: o motivo chega ao painel de correções do prescritor.
+    painel = client.get("/prescritor/prescricoes", headers=_headers(_jwt_prescritor())).json()
+    correcao = next((p for p in painel["correcoes"] if p["protocolo"] == proto), None)
+    assert correcao is not None, "receita devolvida não apareceu nas correções do prescritor"
+    motivos = [
+        it.get("motivo_devolucao") for it in correcao["itens"]
+        if it["status_item"] == "devolvido_prescritor"
+    ]
+    assert motivo in motivos, f"motivo do cidadão não chegou ao médico: {motivos}"
+
+
+# --- COER-11: motivo CANÔNICO distinto por caminho (T6) -----------------------
+
+def test_coer11_motivos_canonicos_distintos_por_caminho(client, outer_conn):
+    """§6.2: cada caminho de posse emite custodia_transferida com motivo CANÔNICO
+    próprio — sem isso o T6 mostra N eventos indistinguíveis. Aqui: devolução ao
+    prescritor grava 'devolucao_ao_prescritor' (não o texto livre do cidadão)."""
+    prescricao_id, proto, [_item_id] = _seed_prescricao_transferida_paciente(outer_conn)
+
+    r = client.post(
+        f"/paciente/prescricoes/{proto}/devolver-prescritor",
+        json={"motivo": "texto livre do cidadão"},
+        headers=_headers(_jwt_paciente()),
+    )
+    assert r.status_code == 201, r.text
+
+    eventos = _eventos_custodia_transferida(outer_conn, prescricao_id)
+    devol = [e for e in eventos if e["payload"].get("motivo") == "devolucao_ao_prescritor"]
+    assert len(devol) == 1, f"custodia_transferida canônico ausente/duplicado: {eventos}"
+    assert devol[0]["payload"]["para"] == "prescritor"
+    # O texto livre não sobrescreve o motivo canônico — vai em detalhe.
+    assert devol[0]["payload"].get("motivo_detalhe") == "texto livre do cidadão"
