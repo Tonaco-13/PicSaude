@@ -192,6 +192,7 @@ class TestTransicoesItem:
         ("em_custodia",        "cancelado"),
         ("devolvido_paciente", "em_custodia"),
         ("devolvido_paciente", "cancelado"),
+        ("devolvido_paciente", "devolvido_prescritor"),  # COER2-POS-MERGE-FIX
         ("dispensado",         "estornado"),
     ])
     def test_transicao_valida(self, de, para):
@@ -265,6 +266,7 @@ class TestEventos:
         ("em_custodia",        "cancelado",            "item_cancelado"),
         ("devolvido_paciente", "em_custodia",          "custodia_transferida"),
         ("devolvido_paciente", "cancelado",            "item_cancelado"),
+        ("devolvido_paciente", "devolvido_prescritor", "item_devolvido_prescritor"),  # COER2-POS-MERGE-FIX
         ("dispensado",         "estornado",            "item_estornado"),
     ])
     def test_evento_item(self, de, para, evento_esperado):
