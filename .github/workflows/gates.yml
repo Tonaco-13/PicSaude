@@ -93,6 +93,22 @@ jobs:
           DATABASE_URL: postgresql://picsaude:picsaude@localhost:5432/picsaude_test
         run: python -m pytest tests/test_ledger_imutabilidade.py -q
 
+      - name: Gate do reset demo (PostgreSQL) — TICKET-DEMO-RESET-PG
+        # Prova executável dos ACs 4/5/6/9 contra PG real (o gate que faltava):
+        #   AC4 — rebuild limpo deixa alembic head + 17 triggers + personas.
+        #   AC5 — vermelho-antes-de-verde: artefato de sessão injetado SOME.
+        #   AC6 — idempotente (rodar 2× = mesmo estado).
+        #   AC9 — job cego (sem --sim-eu-quero, stdin fechado) aborta ANTES de
+        #         qualquer DROP, mesmo com PICSAUDE_ENV=stg + DEMO_MODE=true.
+        # A suíte cria um banco DESCARTÁVEL (picsaude_test_resetself) na mesma
+        # cluster e o dropa no teardown — o DROP SCHEMA acontece dentro dele,
+        # nunca no picsaude_test compartilhado. Mesmo padrão do "Gate do ledger
+        # imutável" acima: passo dedicado com DATABASE_URL de PG.
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://picsaude:picsaude@localhost:5432/picsaude_test
+        run: python -m pytest tests/integration/test_reset_demo_db_pg.py -q
+
       - name: Predeploy smoke — o que o Render roda (migrations + seed idempotente)
         # Fecha o gap que deixou o deploy #84 quebrar: o gate rodava as migrations
         # mas NUNCA o `seed_demo.py`, que o predeploy roda contra a PG de prod (set -e).
