@@ -249,13 +249,29 @@ Para prescrições com `assinatura_modo` em `MODOS_COM_VALIDADE_CFM`
 Prescrições `operacionais` (sem `assinatura_modo`) não têm essa validação —
 úteis para integrações de sistemas hospitalares que não emitem certificado.
 
-### Nota sobre hash de assinatura (MVP)
+### Nota sobre assinatura — duas camadas
 
-O campo `assinatura_hash` não existe ainda no banco SQLite.
-Em `cfm_pendente`, o sistema aceita a declaração do modo de assinatura
-sem armazenar a prova criptográfica. A integração real com token A1/A3
-(assinatura local via PKCS#11) e com a API gov.br está planejada para
-versão pós-MVP. O DDL PostgreSQL já prevê a coluna `assinatura_hash TEXT`.
+A assinatura no PicSaúde tem **duas camadas distintas** (registradas em
+`backend/app/domain/pdf_assinatura.py:22-30`):
+
+1. **Metadados declarados do payload canônico** (`assinatura_registrada`,
+   endpoint `POST /prescricoes/{proto}/assinatura`) — camada **stub MVP**. O
+   sistema aceita os metadados declarados pelo cliente sem validação
+   criptográfica; o status é sempre `assinatura_pendente`.
+
+2. **PAdES-B no PDF** (`pdf_assinado_pades`) — **implementada desde o Ticket 21**
+   (`pyhanko==0.34.1`, `cryptography==44.0.0`). Assinatura criptográfica real
+   embutida no PDF, validável offline (Adobe Reader / `pyhanko.sign.validation`).
+   O certificado ICP-Brasil do profissional (`.pfx`) é guardado **cifrado
+   (AES-256-GCM)** na tabela `prescritor_certificados` e decifrado só em memória
+   no ato da assinatura. Aplica-se a: prescrição comum, receituário (controle
+   especial), atestado e pedido de exame — todas via `POST /{proto}/pdf-assinado`.
+
+A frase acima, na versão original deste documento, afirmava que a integração
+ICP-Brasil real estava "planejada para versão pós-MVP". Isso descrevia o estado
+**anterior** ao Ticket 21 e foi corrigido em 2026-07-24. O `assinatura_hash` da
+camada declarativa segue como dívida (ver `assinatura.py:26-27`); o hash
+criptográfico do PAdES vive dentro do PDF assinado.
 
 ### Fonte de verdade
 

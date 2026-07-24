@@ -318,8 +318,18 @@
 
           <div class="stage">
             <span class="num">2</span>
+            <h4>Assinatura ICP-Brasil</h4>
+            <p>O certificado ICP-Brasil do profissional (.pfx), guardado cifrado no servidor, assina a receita em PDF (PAdES-B). Assinar é o marco: prescrição válida para circular digitalmente.</p>
+            <div class="custody">
+              <span class="chip presc">Prescritor</span>
+            </div>
+            <span class="event">pdf_assinado_pades</span>
+          </div>
+
+          <div class="stage">
+            <span class="num">3</span>
             <h4>Na carteira do cidadão</h4>
-            <p>A receita fica sob custódia do paciente, na carteira digital, pronta para uso em qualquer farmácia.</p>
+            <p>A receita assinada fica sob custódia do paciente, na carteira digital, pronta para uso em qualquer farmácia.</p>
             <div class="custody">
               <span class="chip pac">Paciente</span>
             </div>
@@ -327,7 +337,7 @@
           </div>
 
           <div class="stage">
-            <span class="num">3</span>
+            <span class="num">4</span>
             <h4>Apresentação no balcão</h4>
             <p>O paciente apresenta a receita; o dispensador a retém para atender.</p>
             <div class="custody">
@@ -339,9 +349,9 @@
           </div>
 
           <div class="stage">
-            <span class="num">4</span>
+            <span class="num">5</span>
             <h4>Dispensação</h4>
-            <p>O item é entregue. Pode ser total ou parcial — o que não foi pago volta a ficar pendente e é dispensável em outra farmácia, sem cancelar a receita.</p>
+            <p>O item é entregue. Pode ser total ou parcial — o que não foi dispensado volta a ficar pendente e é dispensável em outra farmácia, sem cancelar a receita.</p>
             <span class="event">dispensacao_registrada · dispensacao_parcial</span>
             <div style="height:.4rem"></div>
             <span class="event rule">Σ dispensado ≤ prescrito</span>
@@ -373,7 +383,7 @@
           <div class="stage">
             <span class="num">2</span>
             <h4>Assinatura ICP-Brasil</h4>
-            <p>O atestado é assinado digitalmente (PAdES, cofre server-side). Assinar é o marco de estado: emitido → assinado.</p>
+            <p>O atestado é assinado em PDF pelo certificado ICP-Brasil do profissional (.pfx), guardado cifrado no servidor (PAdES-B). Assinar é o marco de estado: emitido → assinado.</p>
             <div class="custody">
               <span class="chip presc">Prescritor</span>
             </div>
