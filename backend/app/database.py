@@ -27,6 +27,16 @@ def _resolve_sqlite_db_path() -> str:
     return PIX_SAUDE_DEMO_DB if PICSAUDE_DEMO_MODE else DB_PATH
 
 
+def mask_url_credentials(url: str) -> str:
+    """Mascara `user:senha` numa URL de conexão, preservando host/porta/dbname.
+
+    Fonte única do padrão de máscara (antes só inline no log de boot abaixo).
+    Reusado por `scripts/reset_demo_db.py` na confirmação de alvo (§3.3 do
+    TICKET-DEMO-RESET-PG): a credencial nunca aparece; host e banco, sim.
+    """
+    return re.sub(r"://[^:@]+:[^@]+@", "://<credenciais>@", url)
+
+
 # ---------------------------------------------------------------------------
 # Configuração — DATABASE_URL (PostgreSQL) com fallback SQLite para dev
 # ---------------------------------------------------------------------------
@@ -52,9 +62,8 @@ if _USE_SQLITE:
         _resolved_db_path,
     )
 else:
-    # Loga URL sem credenciais
-    _safe_url = re.sub(r"://[^:@]+:[^@]+@", "://<credenciais>@", DATABASE_URL)
-    logger.info("PostgreSQL configurado: %s", _safe_url)
+    # Loga URL sem credenciais (fonte única do padrão: mask_url_credentials)
+    logger.info("PostgreSQL configurado: %s", mask_url_credentials(DATABASE_URL))
 
 # ---------------------------------------------------------------------------
 # SQLAlchemy engine — ORM + pool de conexões
