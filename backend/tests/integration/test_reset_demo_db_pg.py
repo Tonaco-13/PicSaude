@@ -227,11 +227,19 @@ def test_ac9_alvo_protegido_sem_flag(banco_descartavel):
     assert proc.returncode != 0, "deveria abortar sem confirmação do alvo"
     assert "ABORTANDO" in proc.stdout, proc.stdout
 
-    # AC8/AC10 — o alvo foi ecoado (host+dbname mascarado, schema efetivo lido do
-    # search_path) ANTES de abortar; a credencial nunca aparece.
+    # AC8/AC10 — o alvo foi ecoado (host+dbname, schema efetivo lido do
+    # search_path) ANTES de abortar.
     assert _THROWAWAY_DB in proc.stdout, "dbname não foi ecoado no alvo"
     assert "Schema : public" in proc.stdout, "schema efetivo não foi ecoado"
-    assert (_URL.password or "") == "" or _URL.password not in proc.stdout
+
+    # A credencial nunca aparece como par `user:senha@` (mascarada). Checa o
+    # PADRÃO de credencial, não o VALOR da senha — que pode colidir com o dbname
+    # como substring (em CI a senha 'picsaude' ⊂ 'picsaude_test_resetself', o que
+    # dava um falso-positivo). Só há o que mascarar quando a URL traz senha.
+    if _URL.password:
+        raw_userinfo = f"{_URL.username}:{_URL.password}@"
+        assert raw_userinfo not in proc.stdout, "credencial vazou no eco do alvo"
+        assert "<credenciais>@" in proc.stdout, "máscara de credencial não aplicada"
 
     # Nenhum DROP emitido: schema e marcador intactos.
     assert _query_one("SELECT version_num FROM alembic_version") == _alembic_head()
