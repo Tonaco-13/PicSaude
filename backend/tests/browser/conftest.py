@@ -167,6 +167,34 @@ def app_demo(tmp_path_factory) -> str:
     _rodar("init_tables.py", env)
     _rodar("seed_demo.py", env)
 
+    # A saída do servidor vai para ARQUIVO, nunca para subprocess.PIPE.
+    #
+    # POR QUE (TICKET-GATE-SMOKES-NETWORKIDLE — a causa raiz do gate vermelho)
+    # -----------------------------------------------------------------------
+    # Com `stdout=PIPE` ninguém lê o pipe enquanto a sessão roda: o antigo
+    # `servidor.stdout.read()` só acontece no boot que falha e no `finally`. O
+    # buffer de pipe do SO tem ~64KB; quando o uvicorn o enche, a próxima escrita
+    # BLOQUEIA — e o servidor congela de vez, no meio da suíte. Nada o acorda.
+    #
+    # É o deadlock clássico de subprocess, e era ele o defeito por trás do gate:
+    # não havia página lenta nem request patológico. O `/health` parava de
+    # responder a partir de um ponto da sessão e NUNCA se recuperava, sempre
+    # depois de acumular saída suficiente — por isso os testes quebrados eram
+    # sempre os ÚLTIMOS, e por isso o CI (mais verboso que o laptop) tripava
+    # antes. Rodar uma classe isolada passava por não encher 64KB.
+    #
+    # Arquivo não tem esse limite: o SO escreve e segue. A saída continua
+    # disponível para o diagnóstico de falha — melhor que antes, porque agora
+    # sobrevive ao processo.
+    log_servidor = db_path.parent / "uvicorn.log"
+    log_handle = log_servidor.open("w")
+
+    def _saida_do_servidor() -> str:
+        try:
+            return log_servidor.read_text()
+        except OSError:  # pragma: no cover — só se o tmp sumir
+            return "(log do servidor indisponível)"
+
     servidor = subprocess.Popen(
         [
             sys.executable, "-m", "uvicorn", "app.main:app",
@@ -175,7 +203,7 @@ def app_demo(tmp_path_factory) -> str:
         ],
         cwd=_BACKEND_DIR,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=log_handle,
         stderr=subprocess.STDOUT,
         text=True,
     )
@@ -186,7 +214,7 @@ def app_demo(tmp_path_factory) -> str:
             if servidor.poll() is not None:
                 raise RuntimeError(
                     "O servidor de demo morreu durante o boot.\n"
-                    f"--- saída ---\n{servidor.stdout.read() if servidor.stdout else ''}"
+                    f"--- saída ---\n{_saida_do_servidor()}"
                 )
             try:
                 if httpx.get(f"{base_url}/health", timeout=2.0).status_code == 200:
@@ -196,7 +224,8 @@ def app_demo(tmp_path_factory) -> str:
             if time.monotonic() > limite:
                 servidor.kill()
                 raise RuntimeError(
-                    f"O servidor de demo não respondeu em {_BOOT_TIMEOUT_S:.0f}s."
+                    f"O servidor de demo não respondeu em {_BOOT_TIMEOUT_S:.0f}s.\n"
+                    f"--- saída ---\n{_saida_do_servidor()}"
                 )
             time.sleep(_BOOT_POLL_S)
 
@@ -207,6 +236,7 @@ def app_demo(tmp_path_factory) -> str:
             servidor.wait(timeout=10)
         except subprocess.TimeoutExpired:
             servidor.kill()
+        log_handle.close()
 
 
 # Recusa de autenticação é o app FUNCIONANDO, não defeito. `clinica.html` não tem
