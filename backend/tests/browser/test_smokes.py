@@ -649,9 +649,27 @@ class TestGuiaNaVitrine:
         expect(page.locator("h1")).to_contain_text(
             "Como circula uma receita e um atestado", timeout=_TIMEOUT_MS
         )
-        # O contato do Fabiano no rodapé — exigência do aceite.
-        expect(page.locator(".contact")).to_contain_text("Fabiano Tonaco Borges")
+        # O rodapé do guia NÃO carrega contato pessoal — TICKET-RODAPE-CONTATO.
+        # A página explica o produto; localizar uma pessoa não é sua finalidade.
+        # (A asserção anterior exigia o nome aqui; a decisão de produto inverteu.)
+        corpo = page.locator("body")
+        expect(corpo).not_to_contain_text("fabiano.borges@ufpe.br")
+        expect(corpo).not_to_contain_text("Fabiano")
+        # O que permanece no rodapé é a orientação de demo, não o contato.
+        expect(page.locator(".demo-hooks")).to_contain_text("DEMO-FILA-0001")
         _sem_erros(erros_de_console, "guia.html")
+
+    def test_index_tem_contato_institucional(self, page, app_demo, erros_de_console):
+        """O canal de contato é institucional e mora na vitrine, não no guia."""
+        page.goto(app_demo, wait_until="networkidle")
+        rodape = page.locator("footer")
+        expect(rodape).to_contain_text("contato@picsaude.com.br", timeout=_TIMEOUT_MS)
+        # O responsável técnico permanece nomeado na vitrine (decisão do Fabiano).
+        expect(rodape).to_contain_text("Dr. Fabiano Tonaco Borges")
+        expect(
+            page.locator('footer a[href="mailto:contato@picsaude.com.br"]')
+        ).to_be_visible(timeout=_TIMEOUT_MS)
+        _sem_erros(erros_de_console, "index.html rodapé")
 
     def test_link_da_landing_abre_o_guia(self, page, app_demo, erros_de_console):
         page.goto(app_demo, wait_until="networkidle")
