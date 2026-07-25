@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 
 import pytest
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
 
 # Personas do seed de demo (backend/seed_demo.py).
@@ -29,13 +30,30 @@ _PRESCRITOR = {"sub": "980001112223334", "nome": "Dra. Demo Maria Souza"}
 # Cards do portal → módulo de destino. Espelha index.html; o smoke (a) percorre
 # todos. `clinica.html` e `validar.html` não passam pelo /demo/login (não têm
 # papel), mas precisam abrir.
+#
+# A terceira coluna é a MARCA DE MONTAGEM: o seletor que prova que a tela montou.
+# É o que substitui `networkidle` (ver _abrir, abaixo).
+#
+# A marca tem de ser o estado ESTÁVEL da tela em DEMO_MODE, nunca um transitório.
+# `dispensador.html` ensinou a regra: seu `#tela-login` nasce visível e o
+# auto-login demo (Fase 4, dispensador.html:2598) o esconde ao entrar no
+# dashboard. Usá-lo como marca é uma CORRIDA — passa se a asserção chegar antes
+# do fetch, falha se chegar depois. Por isso a marca dele é o destino
+# (`#tela-dashboard`), não a origem.
+#
+# As outras quatro param no container de entrada e ficam: `prescritor` e
+# `cidadao` não têm auto-login; `clinica` só o tem sob DEV_PRESET_CONTEXT (falso
+# na demo), então permanece no login; `validar` não tem sessão nenhuma.
 _CARDS = [
-    ("prescritor.html", "Prescritor"),
-    ("dispensador.html", "Dispensador"),
-    ("cidadao.html", "Cidadão"),
-    ("clinica.html", "Clínica / Laboratório"),
-    ("validar.html", "Verificar Prescrição"),
+    ("prescritor.html", "Prescritor", "#tela-acesso"),
+    ("dispensador.html", "Dispensador", "#tela-dashboard"),
+    ("cidadao.html", "Cidadão", "#tela-acesso"),
+    ("clinica.html", "Clínica / Laboratório", "#tela-login"),
+    ("validar.html", "Verificar Prescrição", "#card-busca"),
 ]
+
+# O portal não é card de si mesmo; sua marca é a própria grade de cards.
+_MARCA_PORTAL = "a.card"
 
 _TIMEOUT_MS = 15_000
 
@@ -68,23 +86,50 @@ def _sem_erros(erros: list[str], tela: str) -> None:
     assert not erros, f"Erros de console/JS em {tela}:\n" + "\n".join(f"  - {e}" for e in erros)
 
 
+def _abrir(page, url: str, marca: str) -> None:
+    """Navega e espera a MARCA DE MONTAGEM da tela. NUNCA `networkidle`.
+
+    POR QUE NÃO `networkidle` (TICKET-GATE-SMOKES-NETWORKIDLE)
+    ---------------------------------------------------------
+    `networkidle` só resolve após 500ms SEM tráfego de rede. É uma condição sobre
+    o AMBIENTE, não sobre o produto: num runner carregado esse silêncio pode não
+    chegar dentro do timeout, e o `goto` estoura sem que nada esteja errado com a
+    tela. Foi o que manteve o gate vermelho na main de 23/07 a 25/07 — sempre nos
+    ÚLTIMOS testes da sessão (clinica → validar → index), a assinatura clássica de
+    degradação progressiva do runner. Medido localmente: `domcontentloaded` chega
+    em 0,03–0,12s e `networkidle` em ~0,6s, com ZERO requisição pendurada. Não há
+    request patológico; a primitiva é que é frágil.
+
+    Aumentar o timeout seria band-aid: manteria uma espera cujo fim depende de o
+    runner ficar quieto. A correção é esperar o que o teste PRECISA — o elemento
+    que prova que a tela montou.
+
+    `domcontentloaded` já garante o HTML parseado e os scripts SÍNCRONOS
+    executados, então handlers inline estão ligados; a marca cobre o resto.
+    """
+    page.goto(url, wait_until="domcontentloaded")
+    expect(page.locator(marca).first).to_be_visible(timeout=_TIMEOUT_MS)
+
+
 # ---------------------------------------------------------------------------
 # (a) Portal
 # ---------------------------------------------------------------------------
 
 class TestPortal:
     def test_portal_abre_e_lista_os_cards(self, page, app_demo, erros_de_console):
-        page.goto(app_demo, wait_until="networkidle")
+        _abrir(page, app_demo, _MARCA_PORTAL)
 
-        for href, rotulo in _CARDS:
+        for href, rotulo, _marca in _CARDS:
             card = page.locator(f'a.card[href="{href}"]')
             expect(card).to_be_visible(timeout=_TIMEOUT_MS)
             expect(card).to_contain_text(rotulo)
 
         _sem_erros(erros_de_console, "portal (index.html)")
 
-    @pytest.mark.parametrize("href,rotulo", _CARDS, ids=[c[0] for c in _CARDS])
-    def test_cada_card_entra_no_modulo(self, page, app_demo, erros_de_console, href, rotulo):
+    @pytest.mark.parametrize("href,rotulo,marca", _CARDS, ids=[c[0] for c in _CARDS])
+    def test_cada_card_entra_no_modulo(
+        self, page, app_demo, erros_de_console, href, rotulo, marca
+    ):
         """Navega direto para o destino de cada card e confirma que a tela monta.
 
         Navegação direta em vez de clique: em DEMO_MODE o portal intercepta o
@@ -92,11 +137,14 @@ class TestPortal:
         interceptados — clicar em `clinica.html` e `validar.html` seguiria o link
         cru de qualquer forma. Navegar direto testa o que importa (a tela abre)
         de modo uniforme para os cinco.
-        """
-        page.goto(f"{app_demo}/{href}", wait_until="networkidle")
 
-        # O <body> montou e tem conteúdo — o mínimo de "não quebrou".
-        expect(page.locator("body")).not_to_be_empty(timeout=_TIMEOUT_MS)
+        A prova de "montou" é a MARCA da tela, não `body` não-vazio: um `<body>`
+        com um erro de JS e nada renderizado também é "não vazio". Quem sustentava
+        este teste era o `networkidle` do goto — e ele auditava a rede, não a tela.
+        Trocando a primitiva, a asserção fraca ficaria sozinha; por isso ela sobe
+        junto (TICKET-GATE-SMOKES-NETWORKIDLE).
+        """
+        _abrir(page, f"{app_demo}/{href}", marca)
         _sem_erros(erros_de_console, href)
 
 
@@ -119,7 +167,7 @@ class TestFilaDispensador:
         # dispensador.html se auto-autentica em DEMO_MODE, mas semeamos a sessão
         # explicitamente para não depender desse atalho.
         _autenticar(page, app_demo, "dispensador", "99999999000191", "Farmácia Demo Central")
-        page.goto(f"{app_demo}/dispensador.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/dispensador.html", wait_until="domcontentloaded")
 
         lista = page.locator("#fila-lista")
         expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
@@ -173,7 +221,7 @@ class TestSeletorDeConselho:
 
     def test_seletor_de_conselho_populado(self, page, app_demo, erros_de_console):
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
-        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/prescritor.html", wait_until="domcontentloaded")
 
         page.locator("#btn-submod-atestado").click()
 
@@ -214,7 +262,7 @@ class TestSeletorDeConselho:
         Sem isto, um seletor populado mas desconectado do handler passaria.
         """
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
-        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/prescritor.html", wait_until="domcontentloaded")
         page.locator("#btn-submod-atestado").click()
 
         seletor = page.locator("#atestado-conselho")
@@ -242,7 +290,7 @@ class TestAtestadoNaCarteira:
 
     def _abrir_carteira(self, page, app_demo):
         _autenticar(page, app_demo, "paciente", "12345678909", "João Demo da Silva")
-        page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/cidadao.html", wait_until="domcontentloaded")
         lista = page.locator("#lista-atestados")
         expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
         return lista
@@ -399,7 +447,7 @@ class TestImpressaoDoRascunho:
     def _abrir_rascunho(self, page, app_demo):
         """Preenche o mínimo para a IA Documental devolver ok=True."""
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
-        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/prescritor.html", wait_until="domcontentloaded")
         page.locator("#btn-submod-atestado").click()
 
         page.locator("#atestado-paciente").fill("João Demo da Silva")
@@ -495,7 +543,7 @@ class TestAcaoAvisaQuandoDesiste:
 
     def test_baixar_pdf_sem_emissao_mostra_aviso(self, page, app_demo, erros_de_console):
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
-        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/prescritor.html", wait_until="domcontentloaded")
 
         # Nenhum atestado emitido nesta sessão: a ação desiste — e tem de dizer.
         page.evaluate("baixarPdfAtestado()")
@@ -514,7 +562,7 @@ class TestAcaoAvisaQuandoDesiste:
         A promoção para o config.js manteve nome e assinatura; este teste prova
         que a página segue usando o SEU elemento, sem ganhar um segundo.
         """
-        page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/cidadao.html", wait_until="domcontentloaded")
         page.evaluate("showToast('promocao ok', 'success')")
 
         toast = page.locator("#picsaude-toast")
@@ -534,10 +582,34 @@ class TestConsoleLimpo:
     para qualquer asserção de conteúdo que não olhasse justamente o seletor.
     """
 
-    @pytest.mark.parametrize("href", [c[0] for c in _CARDS] + [""], ids=lambda h: h or "index.html")
-    def test_tela_sem_erro_de_console(self, page, app_demo, erros_de_console, href):
-        page.goto(f"{app_demo}/{href}", wait_until="networkidle")
-        expect(page.locator("body")).not_to_be_empty(timeout=_TIMEOUT_MS)
+    @pytest.mark.parametrize(
+        "href,marca",
+        [(c[0], c[2]) for c in _CARDS] + [("", _MARCA_PORTAL)],
+        ids=[c[0] for c in _CARDS] + ["index.html"],
+    )
+    def test_tela_sem_erro_de_console(self, page, app_demo, erros_de_console, href, marca):
+        """Rede fina: a tela monta E não sujou o console.
+
+        Este é o único smoke que PRECISA de um tempo de assentamento: o erro que
+        ele caça pode nascer de um bootstrap assíncrono (um fetch que rejeita
+        depois do DOMContentLoaded), e não só da execução síncrona. Era isso que o
+        `networkidle` do goto dava de graça.
+
+        Repomos o assentamento SEM devolver a fragilidade: `networkidle` vira
+        espera de MELHOR ESFORÇO, com timeout curto e falha tolerada. Se a rede
+        silenciar, ganhamos a janela assíncrona; se não silenciar (runner lento —
+        exatamente o caso que derrubava o gate), seguimos e asserimos assim mesmo.
+        A diferença é de papel: `networkidle` deixa de ser PORTÃO e vira cortesia.
+        Nunca mais reprova por causa do ambiente — que é o defeito que este ticket
+        fecha (TICKET-GATE-SMOKES-NETWORKIDLE).
+        """
+        _abrir(page, f"{app_demo}/{href}", marca)
+
+        try:
+            page.wait_for_load_state("networkidle", timeout=3_000)
+        except PlaywrightTimeoutError:
+            pass  # rede não assentou; não é o que este teste audita.
+
         _sem_erros(erros_de_console, href or "index.html")
 
 
@@ -569,7 +641,7 @@ class TestCirculacaoUmCidadao:
         # 1) Prescritor: emite pela própria tela (fetch do prescritor.html, com o
         #    token da sessão demo e o CPF canônico de config.js — DEMO.cidadao).
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
-        page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/prescritor.html", wait_until="domcontentloaded")
 
         cpf_prescritor_view = page.evaluate("DEMO.cidadao.cpf")
 
@@ -609,7 +681,7 @@ class TestCirculacaoUmCidadao:
         # 2) Cidadão: mesma sessão, agora como paciente-demo. O sub do /demo/login
         #    determina de QUEM é a carteira — e é o CPF que o seed nomeia paciente.
         _autenticar(page, app_demo, "paciente", "12345678909", "João Demo da Silva")
-        page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/cidadao.html", wait_until="domcontentloaded")
 
         # As duas telas apontam para o MESMO cidadão (fonte única, não coincidência).
         cpf_cidadao_view = page.evaluate("DEMO.cidadao.cpf")
@@ -644,7 +716,7 @@ class TestGuiaNaVitrine:
     """
 
     def test_guia_responde_e_renderiza(self, page, app_demo, erros_de_console):
-        page.goto(f"{app_demo}/guia.html", wait_until="networkidle")
+        page.goto(f"{app_demo}/guia.html", wait_until="domcontentloaded")
         # O conteúdo montou (título do guia), não só um 200 vazio.
         expect(page.locator("h1")).to_contain_text(
             "Como circula uma receita e um atestado", timeout=_TIMEOUT_MS
@@ -654,7 +726,7 @@ class TestGuiaNaVitrine:
         _sem_erros(erros_de_console, "guia.html")
 
     def test_link_da_landing_abre_o_guia(self, page, app_demo, erros_de_console):
-        page.goto(app_demo, wait_until="networkidle")
+        page.goto(app_demo, wait_until="domcontentloaded")
 
         link = page.locator('a[href="guia.html"]')
         expect(link).to_be_visible(timeout=_TIMEOUT_MS)
