@@ -70,8 +70,19 @@ def test_demo_info_disponivel_com_flag():
     assert r.status_code == 200
     body = r.json()
     personas = body["personas"]
-    roles = sorted(p["role"] for p in personas)
-    assert roles == ["dispensador", "paciente", "prescritor"]
+    # Identifica persona por `sub`, não por `role`: desde o T0.6 (2ª farmácia) e
+    # o ADENDO-SEED-EXAMES-PERSONA-CLINICA há TRÊS personas sob a role
+    # `dispensador` — a separação é por estabelecimento (CNPJ), então `role`
+    # deixou de distinguir persona. Asserção por role dava falso-vermelho.
+    subs = sorted(p["sub"] for p in personas)
+    assert subs == [
+        "11222333000181",   # Clínica Demo (laboratório)
+        "12345678909",      # João Demo da Silva (paciente)
+        "980001112223334",  # Dra. Demo Maria Souza (prescritora)
+        "99999999000191",   # Farmácia Demo Central
+        "99999999000272",   # Farmácia Demo Norte
+    ]
+    assert sorted({p["role"] for p in personas}) == ["dispensador", "paciente", "prescritor"]
 
 
 def test_demo_info_404_sem_flag():
@@ -179,7 +190,13 @@ def test_config_public_com_demo_mode_true():
     body = r.json()
     assert body["demo_mode"] is True
     assert body["demo_admin"] is False
-    assert sorted(body["demo_roles"]) == ["dispensador", "paciente", "prescritor"]
+    # /config/public serve a MESMA lista do /demo/login (fonte única em demo.py).
+    # O portal usa `demo_roles.includes(role)` para auto-logar (index.html:375):
+    # se as duas listas divergirem, a persona existe e mesmo assim não abre.
+    assert sorted(body["demo_roles"]) == [
+        "clinica", "dispensador", "dispensador_norte", "paciente", "prescritor",
+    ]
+    assert sorted(body["demo_roles"]) == sorted(_demo_mod._papeis_demo_disponiveis())
     assert body["proximo_reset"] is not None
     assert body["instance_id"] is None   # nunca expor
 
