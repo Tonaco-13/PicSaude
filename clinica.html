@@ -452,8 +452,15 @@
         const banner = document.createElement('div');
         banner.className = 'demo-banner';
         banner.id = 'demo-banner';
-        banner.innerHTML = '<strong>MODO DEMO</strong> — esta tela não tem persona demo. '
-          + '<a href="/">Ir para o seletor</a>';
+        if ((cfg.demo_roles || []).includes('clinica')) {
+          banner.innerHTML = '<strong>MODO DEMO</strong> — dados fictícios, nenhuma prescrição é real. '
+            + '<a href="/">Trocar persona</a>';
+        } else {
+          // Backend sem persona demo da clínica (pré-ADENDO-SEED-EXAMES):
+          // degrada para aviso + atalho ao seletor.
+          banner.innerHTML = '<strong>MODO DEMO</strong> — esta tela não tem persona demo. '
+            + '<a href="/">Ir para o seletor</a>';
+        }
         document.body.insertBefore(banner, document.body.firstChild);
       } catch (e) { console.warn('demo boot: ' + e.message); }
     })();
@@ -2166,6 +2173,69 @@
       });
     }
 
+    // ── ADENDO-SEED-EXAMES §3.2 — sessão demo sem senha ─────────────────────
+    // Hidrata o JWT gravado pelo seletor do portal (index.html). O JWT da
+    // persona 'clinica' tem role 'dispensador' (Q1=(a) do adendo) — o gate
+    // de perfil existente em fazerLogin já aceita, sem alteração.
+    // __demoLoginPending suprime o DEV_PRESET_CONTEXT enquanto a sessão demo
+    // resolve (evita 403 demo_mode_ativo do login real aos 120ms).
+    window.__demoLoginPending = true;
+    (function _hidratarSessaoDemo() {
+      try {
+        const token = sessionStorage.getItem('picsaude_demo_token');
+        const role  = sessionStorage.getItem('picsaude_demo_role');
+        if (!token || !role) return;
+        if (role !== 'dispensador') {
+          sessionStorage.clear();
+          window.location.replace('/');
+          return;
+        }
+        jwtAccessToken = token;
+        clinicaLogada  = {
+          nome: sessionStorage.getItem('picsaude_demo_nome') || 'Clínica Demo',
+          cnpj: sessionStorage.getItem('picsaude_demo_sub')  || '',
+          org_id: null, unidades: [],
+        };
+        document.getElementById('header-nome-clinica').textContent = clinicaLogada.nome;
+        document.getElementById('header-sessao').classList.remove('hidden');
+        document.getElementById('tela-login').classList.add('hidden');
+        _iniciarSessao(token);
+      } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
+    })();
+
+    // ── Auto-login demo por URL direta ───────────────────────────────────────
+    // Sem sessão gravada, a página entra JÁ LOGADA como Clínica Demo quando o
+    // backend oferece a persona. Backend pré-adendo (sem 'clinica' em
+    // demo_roles) → retorno silencioso: mantém tela de login + banner de
+    // degradação "sem persona demo".
+    (async function _autoLoginDemo() {
+      try {
+        if (clinicaLogada) return;   // _hidratarSessaoDemo já entrou
+        const cfg = await fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+                            .then(r => r.json()).catch(() => ({}));
+        if (!cfg.demo_mode) return;  // fora de demo → mantém tela de login
+        if (!(cfg.demo_roles || []).includes('clinica')) return;  // pré-adendo
+        const resp = await fetch(`${BACKEND}/demo/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'clinica' }),
+        });
+        if (!resp.ok) return;   // persona indisponível → silencioso
+        const data = await resp.json();
+        sessionStorage.setItem('picsaude_demo_token', data.access_token);
+        sessionStorage.setItem('picsaude_demo_role',  data.role);
+        sessionStorage.setItem('picsaude_demo_sub',   data.sub);
+        sessionStorage.setItem('picsaude_demo_nome',  data.nome);
+        jwtAccessToken = data.access_token;
+        clinicaLogada  = { nome: data.nome, cnpj: data.sub, org_id: null, unidades: [] };
+        document.getElementById('header-nome-clinica').textContent = clinicaLogada.nome;
+        document.getElementById('header-sessao').classList.remove('hidden');
+        document.getElementById('tela-login').classList.add('hidden');
+        _iniciarSessao(data.access_token);
+      } catch (_e) { /* fallback: mantém a tela de login */ }
+      finally { window.__demoLoginPending = false; }
+    })();
+
     // ── DEV_PRESET_CONTEXT — login automático com clínica de teste ──────────
     // Só ativa se DEV_PRESET_CONTEXT=true e nenhuma clínica já logada.
     // Não afeta produção desde que DEV_PRESET_CONTEXT seja false.
@@ -2175,7 +2245,13 @@
       if (cnpjEl && senhaEl) {
         cnpjEl.value  = DEMO.clinica.cnpj;   // CNPJ da Clínica Demo (fonte única: config.js DEMO)
         senhaEl.value = 'Teste@2024';
-        setTimeout(() => fazerLogin({ preventDefault: () => {} }), 120);
+        setTimeout(() => {
+          // Re-checa na hora do disparo: em demo, _autoLoginDemo pode estar
+          // em voo — não dispara login real (403 demo_mode_ativo) por engano.
+          if (!clinicaLogada && !window.__demoLoginPending) {
+            fazerLogin({ preventDefault: () => {} });
+          }
+        }, 120);
       }
     }
 
