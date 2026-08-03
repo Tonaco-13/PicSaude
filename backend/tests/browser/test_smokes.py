@@ -317,7 +317,9 @@ class TestAtestadoNaCarteira:
         lista = self._abrir_carteira(page, app_demo)
         expect(lista).to_contain_text("Comparecimento a consulta", timeout=_TIMEOUT_MS)
 
-        card = lista.locator(".exame-card").filter(
+        # F5-C3: atestado ganhou classe própria `.atestado-card` (verde),
+        # distinta de `.exame-card` (que laudos e pedidos de exame continuam usando).
+        card = lista.locator(".atestado-card").filter(
             has_text="Comparecimento a consulta"
         )
         assert "Afastamento" not in card.inner_text(), (
