@@ -284,3 +284,54 @@ def erros_de_console(page):
     page.on("response", _response)
 
     return capturados
+
+
+# ---------------------------------------------------------------------------
+# Alvo externo (demo pública em picsaude.com.br) — TICKET-F5-B4
+# ---------------------------------------------------------------------------
+#
+# Até aqui, todos os smokes apontam para o `app_demo` (subprocesso efêmero contra
+# SQLite). Estes dois fixtures estabelecem o padrão "URL externa": um teste
+# marcado `@pytest.mark.external` recebe `base_url` apontando para a demo
+# pública e pula automaticamente se ela não responder.
+#
+# Por que fixtures paralelas (e não refatorar `app_demo`): o `app_demo` nasce de
+# uma receita de 4 processos (migração + init_tables + seed + uvicorn) contra um
+# SQLite efêmero num tmp_path. Refatorá-lo para ler `base_url` do env exporia os
+# smokes existentes a uma rede que eles não precisam. A fixture nova é isolada:
+# quem pede `base_url` é o teste externo; quem pede `app_demo` continua no
+# subprocesso. Dois modos, zero acoplamento.
+_DEFAULT_DEMO_URL = "https://picsaude.com.br"
+
+
+@pytest.fixture(scope="session")
+def base_url() -> str:
+    """URL da demo. Default é picsaude.com.br; env `PICSAUDE_DEMO_URL` sobrescreve.
+
+    Fixture separada de `app_demo` de propósito (ver nota acima). Testes externos
+    pedem `base_url`; testes locais continuam pedindo `app_demo`.
+    """
+    return os.environ.get("PICSAUDE_DEMO_URL", _DEFAULT_DEMO_URL)
+
+
+@pytest.fixture
+def demo_externa_viva(request, base_url):
+    """Pula o teste se a demo pública não responder.
+
+    Function-scoped de propósito: `request.node` aqui é o teste individual, então
+    dá pra ler seus markers com segurança. Só testa vivacidade quando o teste é
+    marcado `external`; os smokes locais (que dependem de `app_demo`) não pedem
+    esta fixture e nunca a executam — a rede deles é o próprio subprocesso.
+
+    Quem marca `external` e pede `base_url` deve também pedir `demo_externa_viva`
+    (ou vir antes dele na ordem de fixtures) — ver uso em
+    `test_f5_externo_picsaude.py`.
+    """
+    import httpx as _httpx
+    try:
+        r = _httpx.get(f"{base_url}/health", timeout=10.0)
+        if r.status_code != 200:
+            pytest.skip(f"demo em {base_url} respondeu HTTP {r.status_code}")
+    except _httpx.HTTPError as e:
+        pytest.skip(f"demo em {base_url} indisponível: {e}")
+
