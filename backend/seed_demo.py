@@ -452,9 +452,15 @@ def _garantir_laudo_demo(conn) -> None:
     'liberado'). Estratégia Q2-M: laudo mockado no seed, sem exigir UI de
     emissão na clínica (Gap 1 é fase seguinte).
 
-    Cadeia representada — SNAPSHOT, não replay da máquina de estados:
-      pedido: emitido → agendado → coletado → resultado_disponivel
-      laudo:  em_producao → assinado → liberado  (custódia prestador → paciente)
+    Cadeia representada — SNAPSHOT dos ESTADOS, cadeia COMPLETA de custódia:
+      pedido:   emitido → agendado → coletado → resultado_disponivel
+      laudo:    em_producao → assinado → liberado
+      custódia: prescritor → paciente → laboratório  (pedido)
+                laboratório → paciente              (laudo)
+
+    Os estados intermediários são pulados (é snapshot); os ELOS de custódia,
+    não — custódia é proveniência, e objeto sem elo de origem é órfão
+    (CLAUDE.md §2/§3; parecer Fable 5 §4.2 / DESPACHO-ENG-004 §2.2).
 
     A custódia do pedido fica no laboratório de propósito: registrar resultado
     NÃO devolve posse ao paciente em produção (pedidos_exame.py:974 não grava
@@ -505,6 +511,19 @@ def _garantir_laudo_demo(conn) -> None:
          "98 mg/dL (referência: 70-99 mg/dL)", now, now),
     )
 
+    # Elo de origem: prescritor → paciente (na emissão do pedido).
+    # DEMO-EXAME-0001 semeia este par; o 0002 precisa também — a cadeia de
+    # custódia é proveniência desde a emissão, não snapshot intermediário
+    # (parecer Fable 5 §4.2, ratificado). Objeto sem elo de origem é órfão.
+    # "Snapshot" justifica pular ESTADOS da máquina, nunca ELOS de custódia.
+    conn.execute(
+        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
+        "VALUES (?, NULL, 'prescritor', 'paciente', ?, ?)",
+        (pid, now, json.dumps(
+            {"de_id": PRESCRITOR["cns"], "para_id": PACIENTE["cpf"], "motivo": "emissao"},
+            ensure_ascii=False)),
+    )
+
     # Custódia paciente → laboratório (posse no agendamento/coleta). Mesma forma
     # do caminho clínico: `para` recebe o CNPJ do prestador (pedidos_exame.py:766).
     conn.execute(
@@ -550,9 +569,12 @@ def _garantir_laudo_demo(conn) -> None:
             ensure_ascii=False)),
     )
 
-    # Ledger do pedido (EVENTOS_PEDIDO_EXAME)
+    # Ledger do pedido (EVENTOS_PEDIDO_EXAME). O `custodia_transferida` de
+    # origem (prescritor→paciente) vem ANTES do paciente→laboratório: a ordem
+    # dos eventos é a própria cadeia de proveniência.
     for tipo, payload in (
         ("pedido_emitido", {"prescritor": PRESCRITOR["cns"]}),
+        ("custodia_transferida", {"de": "prescritor", "para": "paciente"}),
         ("custodia_transferida", {"de": "paciente", "para": CLINICA["cnpj"]}),
         ("resultado_registrado", {"item": "Glicemia de jejum", "conclusao": "alterado"}),
     ):
@@ -713,8 +735,9 @@ def main() -> None:
 
         # Clínica/laboratório — instituição + login (prereq dos exames abaixo).
         # Q1=(a): role `dispensador` com CNPJ próprio; a separação de auditoria
-        # na demo é por estabelecimento. `clinica.html` autentica por CNPJ+senha
-        # no /auth/login (não há persona de clínica em /demo/login).
+        # na demo é por estabelecimento. Persona demo em /demo/login
+        # (_PERSONAS["clinica"] em demo.py, ADENDO-SEED-EXAMES-PERSONA-CLINICA);
+        # fora da demo, `clinica.html` autentica por CNPJ+senha no /auth/login.
         try:
             _garantir_usuario(conn, CLINICA["cnpj"], CLINICA["nome"], CLINICA["role"])
             _garantir_prestador(
