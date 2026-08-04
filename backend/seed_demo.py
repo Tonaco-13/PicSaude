@@ -31,7 +31,7 @@ import json
 import os
 import sys
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -83,11 +83,23 @@ PACIENTE = dict(
 # da demo (TICKET-DEMO-IDENTIDADES-FONTE-UNICA). Espelha `DEMO.clinica` em
 # config.js: um estabelecimento por PAPEL (farmácia ≠ clínica). O guard-rail de
 # concordância (backend/tests/unit/test_guardrail_identidades_demo.py) exige que
-# este CNPJ e o de config.js sejam idênticos. Ainda não gera prestador semeado —
-# é a fonte de verdade do valor, alinhada à tela.
+# este CNPJ e o de config.js sejam idênticos.
+#
+# TICKET-SEED-EXAMES-DEMO — passa a gerar prestador semeado (`tipo='laboratorio'`)
+# + usuário de login. Q1=(a) ratificada: a clínica loga sob a role `dispensador`
+# (compartilhada), com CNPJ/nome próprios — mesma mecânica do `dispensador_norte`.
+# A separação de auditoria na demo é por ESTABELECIMENTO, não por role. A role
+# `prestador_exame` é ticket `core` agendado (TICKET-CORE-ROLE-PRESTADOR-EXAME);
+# quando entrar, é esta linha de `_garantir_usuario` que migra.
 CLINICA = dict(
     cnpj="11222333000181",
     nome="Clínica Demo",
+    role="dispensador",
+    org_id="clinica-demo",
+    tipo_prestador="laboratorio",
+    unidade_id="DEMO-LAB",
+    unidade_nome="Laboratório Demo",
+    unidade_tipo="laboratorio",
 )
 
 
@@ -348,6 +360,246 @@ def _garantir_atestado_demo(conn) -> None:
     print(f"  ✅ atestado-demo: '{proto}' — CFM/CRM-PE 12345, Recife, 3 dias")
 
 
+def _garantir_pedido_exame_ativo(conn) -> None:
+    """
+    TICKET-SEED-EXAMES-DEMO — DEMO-EXAME-0001: pedido ativo (`emitido`),
+    aguardando agendamento pelo cidadão.
+
+    Mostra no cidadão: "Pedidos de Exame Ativos" com um card agendável
+    (`GET /paciente/pedidos-exame` → bucket `posse`, que é {emitido, agendado}).
+    Mostra na clínica: pedido buscável por protocolo para agendar/coletar.
+
+    Emite o objeto COMPLETO: linha em `pedidos_exame` + item + custódia
+    prescritor→paciente + os dois eventos do ledger — mesmo contrato do
+    atestado-demo acima. Objeto sanitário sem cadeia é órfão (CLAUDE.md §2/§3).
+
+    Idempotente (protocolo sentinela). Best-effort: o caller isola em
+    try/except — esta função NUNCA pode quebrar o seed/predeploy.
+    """
+    proto = "DEMO-EXAME-0001"
+    now = _agora()
+    hoje = date.today().isoformat()
+    validade = (date.today() + timedelta(days=30)).isoformat()
+
+    if conn.execute("SELECT id FROM pedidos_exame WHERE protocolo = ?", (proto,)).fetchone():
+        print(f"  ·  exame-demo (ativo): '{proto}' já existe")
+        return
+
+    presc = conn.execute(
+        "SELECT id FROM prescritores WHERE cns = ?", (PRESCRITOR["cns"],)
+    ).fetchone()
+    pac = conn.execute(
+        "SELECT id FROM pacientes WHERE cpf = ?", (PACIENTE["cpf"],)
+    ).fetchone()
+    if not presc or not pac:
+        print("  ⚠️  exame-demo (ativo): prescritor/paciente ausente — pulado")
+        return
+
+    # tipo_emissao='novo' (NÃO 'nova'): o vocabulário do módulo de exames é
+    # {novo, correcao} — ver _TIPOS_EMISSAO_VALIDOS em routers/pedidos_exame.py.
+    # Prescrição e atestado usam 'nova'; exame e laudo, 'novo'. O filtro do
+    # cidadão é `tipo_emissao != 'fisico'` (auth.py), então o valor precisa ser
+    # o canônico do módulo para o card não sumir da carteira.
+    conn.execute(
+        "INSERT INTO pedidos_exame (protocolo, prescritor_id, paciente_id, status, "
+        "tipo_emissao, prioridade, indicacao_clinica, data_emissao, data_validade, criado_em) "
+        "VALUES (?, ?, ?, 'emitido', 'novo', 'rotina', ?, ?, ?, ?)",
+        (proto, presc["id"], pac["id"],
+         "Investigação de anemia ferropriva", hoje, validade, now),
+    )
+    pid = conn.execute(
+        "SELECT id FROM pedidos_exame WHERE protocolo = ?", (proto,)
+    ).fetchone()["id"]
+
+    # Item: hemograma completo (pendente — aguardando agendamento/coleta)
+    conn.execute(
+        "INSERT INTO pedido_exame_itens (pedido_id, nome_exame, codigo_tuss, "
+        "status_item, quantidade, criado_em) VALUES (?, ?, ?, 'pendente', 1, ?)",
+        (pid, "Hemograma completo", "40301107", now),
+    )
+
+    # Custódia prescritor → paciente: mesma forma que a emissão digital grava
+    # (pedidos_exame.py:385, enviar_ao_paciente=True). O pedido permanece em
+    # 'emitido' — não há estado 'transferida_paciente' no módulo de exames.
+    conn.execute(
+        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
+        "VALUES (?, NULL, 'prescritor', 'paciente', ?, ?)",
+        (pid, now, json.dumps(
+            {"de_id": PRESCRITOR["cns"], "para_id": PACIENTE["cpf"], "motivo": "emissao"},
+            ensure_ascii=False)),
+    )
+
+    # Ledger: emissão + transferência de custódia (EVENTOS_PEDIDO_EXAME).
+    for tipo, payload in (
+        ("pedido_emitido", {"prescritor": PRESCRITOR["cns"], "prioridade": "rotina"}),
+        ("custodia_transferida", {"de": "prescritor", "para": "paciente"}),
+    ):
+        conn.execute(
+            "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
+            "VALUES (?, ?, ?, ?)",
+            (pid, tipo, json.dumps(payload, ensure_ascii=False), now),
+        )
+    print(f"  ✅ exame-demo (ativo): '{proto}' — Hemograma, emitido, em custódia do paciente")
+
+
+def _garantir_laudo_demo(conn) -> None:
+    """
+    TICKET-SEED-EXAMES-DEMO — DEMO-EXAME-0002 + DEMO-LAUDO-0001: pedido com
+    resultado + laudo liberado, aguardando ciência do cidadão.
+
+    Mostra no cidadão: "Laudos / Resultados" com um laudo pronto para dar
+    ciência (`GET /paciente/laudos` → bucket `disponiveis`, que inclui
+    'liberado'). Estratégia Q2-M: laudo mockado no seed, sem exigir UI de
+    emissão na clínica (Gap 1 é fase seguinte).
+
+    Cadeia representada — SNAPSHOT dos ESTADOS, cadeia COMPLETA de custódia:
+      pedido:   emitido → agendado → coletado → resultado_disponivel
+      laudo:    em_producao → assinado → liberado
+      custódia: prescritor → paciente → laboratório  (pedido)
+                laboratório → paciente              (laudo)
+
+    Os estados intermediários são pulados (é snapshot); os ELOS de custódia,
+    não — custódia é proveniência, e objeto sem elo de origem é órfão
+    (CLAUDE.md §2/§3; parecer Fable 5 §4.2 / DESPACHO-ENG-004 §2.2).
+
+    A custódia do pedido fica no laboratório de propósito: registrar resultado
+    NÃO devolve posse ao paciente em produção (pedidos_exame.py:974 não grava
+    custódia) — quem volta ao cidadão é o LAUDO. Semear a volta aqui inventaria
+    uma transição que o caminho clínico não faz.
+
+    Idempotente (protocolos sentinela). Best-effort: o caller isola em
+    try/except — esta função NUNCA pode quebrar o seed/predeploy.
+    """
+    proto_ped = "DEMO-EXAME-0002"
+    proto_lau = "DEMO-LAUDO-0001"
+    now = _agora()
+    hoje = date.today().isoformat()
+    validade = (date.today() + timedelta(days=30)).isoformat()
+
+    if conn.execute("SELECT id FROM laudos WHERE protocolo = ?", (proto_lau,)).fetchone():
+        print(f"  ·  laudo-demo: '{proto_lau}' já existe")
+        return
+
+    presc = conn.execute(
+        "SELECT id FROM prescritores WHERE cns = ?", (PRESCRITOR["cns"],)
+    ).fetchone()
+    pac = conn.execute(
+        "SELECT id FROM pacientes WHERE cpf = ?", (PACIENTE["cpf"],)
+    ).fetchone()
+    if not presc or not pac:
+        print("  ⚠️  laudo-demo: prescritor/paciente ausente — pulado")
+        return
+
+    # --- Pedido (snapshot: resultado_disponivel) ---
+    conn.execute(
+        "INSERT INTO pedidos_exame (protocolo, prescritor_id, paciente_id, status, "
+        "tipo_emissao, prioridade, indicacao_clinica, data_emissao, data_validade, criado_em) "
+        "VALUES (?, ?, ?, 'resultado_disponivel', 'novo', 'rotina', ?, ?, ?, ?)",
+        (proto_ped, presc["id"], pac["id"],
+         "Acompanhamento de glicemia", hoje, validade, now),
+    )
+    pid = conn.execute(
+        "SELECT id FROM pedidos_exame WHERE protocolo = ?", (proto_ped,)
+    ).fetchone()["id"]
+
+    # Item: glicemia de jejum (resultado_disponivel, com resultado preenchido)
+    conn.execute(
+        "INSERT INTO pedido_exame_itens (pedido_id, nome_exame, codigo_tuss, "
+        "status_item, quantidade, resultado_resumo, resultado_em, criado_em) "
+        "VALUES (?, ?, ?, 'resultado_disponivel', 1, ?, ?, ?)",
+        (pid, "Glicemia de jejum", "40302055",
+         "98 mg/dL (referência: 70-99 mg/dL)", now, now),
+    )
+
+    # Elo de origem: prescritor → paciente (na emissão do pedido).
+    # DEMO-EXAME-0001 semeia este par; o 0002 precisa também — a cadeia de
+    # custódia é proveniência desde a emissão, não snapshot intermediário
+    # (parecer Fable 5 §4.2, ratificado). Objeto sem elo de origem é órfão.
+    # "Snapshot" justifica pular ESTADOS da máquina, nunca ELOS de custódia.
+    conn.execute(
+        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
+        "VALUES (?, NULL, 'prescritor', 'paciente', ?, ?)",
+        (pid, now, json.dumps(
+            {"de_id": PRESCRITOR["cns"], "para_id": PACIENTE["cpf"], "motivo": "emissao"},
+            ensure_ascii=False)),
+    )
+
+    # Custódia paciente → laboratório (posse no agendamento/coleta). Mesma forma
+    # do caminho clínico: `para` recebe o CNPJ do prestador (pedidos_exame.py:766).
+    conn.execute(
+        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
+        "VALUES (?, NULL, 'paciente', ?, ?, ?)",
+        (pid, CLINICA["cnpj"], now, json.dumps(
+            {"nome_prestador": CLINICA["nome"], "motivo": "agendamento_coleta"},
+            ensure_ascii=False)),
+    )
+
+    # --- Laudo (snapshot: liberado) ---
+    # autor_id é NOT NULL na prática do listador: `GET /paciente/laudos` faz
+    # JOIN prescritores ON pr.id = l.autor_id (auth.py:533) — laudo sem autor
+    # sumiria da tela do cidadão. A prescritora da demo assina como responsável
+    # técnica (o modelo usa `prescritores` como registro genérico de
+    # profissional de saúde — ver docstring de models/laudo.py).
+    conn.execute(
+        "INSERT INTO laudos (protocolo, autor_id, paciente_id, pedido_id, status, "
+        "tipo_emissao, data_emissao, data_validade, criado_em) "
+        "VALUES (?, ?, ?, ?, 'liberado', 'novo', ?, ?, ?)",
+        (proto_lau, presc["id"], pac["id"], pid, hoje, validade, now),
+    )
+    lid = conn.execute(
+        "SELECT id FROM laudos WHERE protocolo = ?", (proto_lau,)
+    ).fetchone()["id"]
+
+    # Item do laudo — conclusao='alterado' (∈ _CONCLUSOES_VALIDAS, laudos.py:73)
+    conn.execute(
+        "INSERT INTO laudo_itens (laudo_id, nome_exame, codigo_tuss, resultado_resumo, "
+        "conclusao, valor_referencia, status_item, criado_em) "
+        "VALUES (?, ?, ?, ?, 'alterado', ?, 'concluido', ?)",
+        (lid, "Glicemia de jejum", "40302055",
+         "98 mg/dL", "70-99 mg/dL", now),
+    )
+
+    # Custódia do laudo: prestador → paciente (efeito da liberação, laudos.py:684).
+    # A custódia do LAUDO começa no prestador — diferente de prescrição e exame.
+    conn.execute(
+        "INSERT INTO laudo_custodia (laudo_id, item_id, de, para, transferido_em, dados_json) "
+        "VALUES (?, NULL, ?, 'paciente', ?, ?)",
+        (lid, CLINICA["cnpj"], now, json.dumps(
+            {"de_id": CLINICA["cnpj"], "para_id": PACIENTE["cpf"], "motivo": "liberacao"},
+            ensure_ascii=False)),
+    )
+
+    # Ledger do pedido (EVENTOS_PEDIDO_EXAME). O `custodia_transferida` de
+    # origem (prescritor→paciente) vem ANTES do paciente→laboratório: a ordem
+    # dos eventos é a própria cadeia de proveniência.
+    for tipo, payload in (
+        ("pedido_emitido", {"prescritor": PRESCRITOR["cns"]}),
+        ("custodia_transferida", {"de": "prescritor", "para": "paciente"}),
+        ("custodia_transferida", {"de": "paciente", "para": CLINICA["cnpj"]}),
+        ("resultado_registrado", {"item": "Glicemia de jejum", "conclusao": "alterado"}),
+    ):
+        conn.execute(
+            "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
+            "VALUES (?, ?, ?, ?)",
+            (pid, tipo, json.dumps(payload, ensure_ascii=False), now),
+        )
+
+    # Ledger do laudo (EVENTOS_LAUDO)
+    for tipo, payload in (
+        ("laudo_criado", {"autor": PRESCRITOR["cns"]}),
+        ("laudo_assinado", {}),
+        ("laudo_liberado", {"prestador": CLINICA["cnpj"]}),
+        ("custodia_transferida", {"de": CLINICA["cnpj"], "para": "paciente"}),
+    ):
+        conn.execute(
+            "INSERT INTO laudo_eventos (laudo_id, tipo_evento, dados_json, criado_em) "
+            "VALUES (?, ?, ?, ?)",
+            (lid, tipo, json.dumps(payload, ensure_ascii=False), now),
+        )
+
+    print(f"  ✅ laudo-demo: '{proto_lau}' — Glicemia (alterado), liberado, ciência pendente")
+
+
 def main() -> None:
     if os.getenv("PICSAUDE_ENV") == "prod":
         print("❌ ABORTANDO: seed_demo não pode rodar em PICSAUDE_ENV=prod.")
@@ -480,6 +732,44 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001 — best-effort intencional
             conn.rollback()
             print(f"  ⚠️  atestado-demo: pulado por erro não-fatal ({e})")
+
+        # Clínica/laboratório — instituição + login (prereq dos exames abaixo).
+        # Q1=(a): role `dispensador` com CNPJ próprio; a separação de auditoria
+        # na demo é por estabelecimento. Persona demo em /demo/login
+        # (_PERSONAS["clinica"] em demo.py, ADENDO-SEED-EXAMES-PERSONA-CLINICA);
+        # fora da demo, `clinica.html` autentica por CNPJ+senha no /auth/login.
+        try:
+            _garantir_usuario(conn, CLINICA["cnpj"], CLINICA["nome"], CLINICA["role"])
+            _garantir_prestador(
+                conn,
+                org_id=CLINICA["org_id"],
+                nome=CLINICA["nome"],
+                tipo=CLINICA["tipo_prestador"],
+                cnpj=CLINICA["cnpj"],
+                unidade_id=CLINICA["unidade_id"],
+                unidade_nome=CLINICA["unidade_nome"],
+                unidade_tipo=CLINICA["unidade_tipo"],
+            )
+            conn.commit()
+        except Exception as e:  # noqa: BLE001 — best-effort intencional
+            conn.rollback()
+            print(f"  ⚠️  prestador-clinica: pulado por erro não-fatal ({e})")
+
+        # Exame-demo ativo (emitido, aguardando agendamento pelo cidadão).
+        try:
+            _garantir_pedido_exame_ativo(conn)
+            conn.commit()
+        except Exception as e:  # noqa: BLE001 — best-effort intencional
+            conn.rollback()
+            print(f"  ⚠️  exame-demo (ativo): pulado por erro não-fatal ({e})")
+
+        # Laudo-demo (resultado disponível + laudo liberado, ciência pendente).
+        try:
+            _garantir_laudo_demo(conn)
+            conn.commit()
+        except Exception as e:  # noqa: BLE001 — best-effort intencional
+            conn.rollback()
+            print(f"  ⚠️  laudo-demo: pulado por erro não-fatal ({e})")
     finally:
         conn.close()
 

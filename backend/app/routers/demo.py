@@ -57,6 +57,23 @@ _PERSONAS: dict[str, dict] = {
         "nome":  "Farmácia Demo Norte",
         "identificador_visivel": "CNPJ 99.999.999/0002-72",
     },
+    # ADENDO-SEED-EXAMES-PERSONA-CLINICA — clínica/laboratório da demo.
+    # Q1=(a) ratificada: mesma role `dispensador` (compartilhada), com CNPJ
+    # próprio — a separação de auditoria na demo é por ESTABELECIMENTO, não por
+    # role. Mesmo padrão do `dispensador_norte` acima: a CHAVE do dict é o que
+    # vem no `payload.role` do POST /demo/login (`"clinica"`), mas o `role` do
+    # JWT é `"dispensador"` — que é a role exigida pelos endpoints do lado do
+    # laboratório na circulação diagnóstica (circulacao_diagnostica.py:556,728).
+    # `sub` é o CNPJ da constante CLINICA em seed_demo.py, que é o mesmo que o
+    # `_garantir_usuario` grava em `usuarios`. A role `prestador_exame` é ticket
+    # `core` agendado (TICKET-CORE-ROLE-PRESTADOR-EXAME); quando entrar, é esta
+    # persona que migra.
+    "clinica": {
+        "role":  "dispensador",
+        "sub":   "11222333000181",
+        "nome":  "Clínica Demo",
+        "identificador_visivel": "CNPJ 11.222.333/0001-81",
+    },
     "paciente": {
         "role":  "paciente",   # §3.3 — usa "paciente" (não "cidadao") por
                                 #         compatibilidade com routers reais
@@ -74,7 +91,15 @@ _PERSONAS: dict[str, dict] = {
 
 
 def _papeis_demo_disponiveis() -> list[str]:
-    base = ["prescritor", "dispensador", "dispensador_norte", "paciente"]
+    """Papéis aceitos pelo POST /demo/login conforme as flags atuais.
+
+    FONTE ÚNICA: `config_publico.py` importa esta função para servir
+    `demo_roles` em /config/public. O portal (index.html:375) faz
+    `demo_roles.includes(role)` antes de auto-logar — persona que não aparecer
+    aqui é persona que o seletor de 1 clique não abre, mesmo existindo em
+    `_PERSONAS`.
+    """
+    base = ["prescritor", "dispensador", "dispensador_norte", "clinica", "paciente"]
     if PICSAUDE_DEMO_ADMIN:
         base.append("admin")
     return base

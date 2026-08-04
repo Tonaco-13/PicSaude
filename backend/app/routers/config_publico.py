@@ -21,15 +21,18 @@ from app.config import (
 )
 from app.domain.conselho_profissional import catalogo_publico
 
+# ADENDO-SEED-EXAMES-PERSONA-CLINICA — `demo_roles` passa a ser SERVIDO pela
+# fonte única (demo.py), em vez de reescrito aqui. A cópia local havia derivado:
+# ficou em ["prescritor", "dispensador", "paciente"] enquanto o /demo/login já
+# aceitava "dispensador_norte" (T0.6) — a docstring prometia "papéis aceitos
+# pelo /demo/login" e entregava outra lista. Como o portal decide o auto-login
+# por `demo_roles.includes(role)` (index.html:375), a deriva silenciava persona
+# existente: quem não estivesse NAS DUAS listas não abria pelo seletor.
+# `demo` já é importado incondicionalmente em main.py:17 (só o registro do
+# router é que passa pelo gate), então isto não muda o que carrega em produção.
+from app.routers.demo import _papeis_demo_disponiveis
+
 router = APIRouter(prefix="/config", tags=["config"])
-
-
-def _papeis_demo_disponiveis() -> list[str]:
-    """Lista de papéis aceitos pelo /demo/login conforme flags atuais."""
-    base = ["prescritor", "dispensador", "paciente"]
-    if PICSAUDE_DEMO_ADMIN:
-        base.append("admin")
-    return base
 
 
 def _proximo_reset_horario() -> str:
