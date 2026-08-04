@@ -11,6 +11,9 @@
         .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
         .brand-container { display: flex; align-items: center; gap: 14px; }
         .header-logo { height: 64px; width: auto; flex-shrink: 0; }
+        .header-logo-link { cursor: pointer; }
+        .header-logo-link .header-logo { transition: opacity 0.15s ease; }
+        .header-logo-link:hover .header-logo { opacity: 0.8; }
         .brand-container h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: #ffffff; display: flex; align-items: center; gap: 8px;}
         .brand-container p { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255, 255, 255, 0.85); font-weight: 500; }
         
@@ -292,7 +295,7 @@
 
     <header class="header">
         <div class="brand-container">
-            <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
+            <a href="index.html" class="header-logo-link" aria-label="Voltar ao portal PicSaúde"><img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'"></a>
         </div>
         <div class="header-actions">
             <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
@@ -1939,6 +1942,35 @@
                 sessaoAtual.nome  = sessionStorage.getItem('picsaude_demo_nome') || 'Demo';
                 entrarNaCarteira();
             } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
+        })();
+
+        // ── KIMI3-002 §1 — auto-login demo: acesso DIRETO por URL sem tela de senha ──
+        // Mesmo padrão do dispensador (_autoLoginDemo): se demo_mode e ninguém foi
+        // hidratado acima, chama POST /demo/login e abre a carteira direto, pulando
+        // a tela de CPF/OTP. ATENÇÃO: a persona do cidadão é role 'paciente'
+        // (demo.py — compatibilidade com os routers reais), NUNCA 'cidadao'.
+        (async function _autoLoginDemo() {
+            if (sessaoAtual.token) return;   // _hidratarSessaoDemo já entrou
+            try {
+                const cfg = await fetch(`${API}/config/public`, { cache: 'no-store' })
+                                    .then(r => r.json()).catch(() => ({}));
+                if (!cfg.demo_mode) return;  // fora de demo → mantém tela de CPF/OTP
+                const resp = await fetch(`${API}/demo/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'paciente' }),
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                sessionStorage.setItem('picsaude_demo_token', data.access_token);
+                sessionStorage.setItem('picsaude_demo_role',  data.role);
+                sessionStorage.setItem('picsaude_demo_sub',   data.sub);
+                sessionStorage.setItem('picsaude_demo_nome',  data.nome);
+                sessaoAtual.token = data.access_token;
+                sessaoAtual.cpf   = data.sub;
+                sessaoAtual.nome  = data.nome;
+                entrarNaCarteira();
+            } catch (_e) { /* fallback: mantém a tela de acesso */ }
         })();
     </script>
 
