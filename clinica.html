@@ -26,6 +26,9 @@
     .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
     .header-left { display: flex; align-items: center; gap: 14px; }
     .header-logo { height: 64px; width: auto; }
+    .header-logo-link { cursor: pointer; }
+    .header-logo-link .header-logo { transition: opacity 0.15s ease; }
+    .header-logo-link:hover .header-logo { opacity: 0.8; }
     .header-title h1  { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
     .header-title h1 .pic   { color: #fff; }
     .header-title h1 .saude { color: #fff; }
@@ -290,6 +293,15 @@
       border: 1px solid #a5f3fc;
     }
 
+    /* KIMI3-004 (TICKET-UI-MOCK-SINALIZADO-CLINICA) — mock sinalizado:
+       a emissão de laudo pela UI é PRÓXIMA FASE (Q2=M ratificada). O aviso
+       evita que o placeholder de laudo seja relatado como bug pelo testador. */
+    .mock-tag {
+      display: inline-block; margin-left: 6px; padding: 2px 6px;
+      background: #fef3c7; color: #92400e; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+
     /* ============================================================ */
     /* Mensagens de feedback                                        */
     /* ============================================================ */
@@ -471,8 +483,8 @@
   <!-- ============================================================ -->
   <header class="header">
     <div class="header-left">
-      <img src="logo-picsaude.png" alt="PicSaúde" class="header-logo"
-           onerror="this.style.display='none'">
+      <a href="index.html" class="header-logo-link" aria-label="Voltar ao portal PicSaúde"><img src="logo-picsaude.png" alt="PicSaúde" class="header-logo"
+           onerror="this.style.display='none'"></a>
       
     </div>
     <div class="header-right-nav">
@@ -1453,9 +1465,9 @@
             Registrar coleta
           </button>`;
         } else if (item.status_item === 'coletado') {
-          acoesHtml = `<span class="laudo-aguardo">Aguardando laudo</span>`;
+          acoesHtml = `<span class="laudo-aguardo mock-aviso">Aguardando laudo <small class="mock-tag">⚠ Emissão de laudo pela UI: próxima fase</small></span>`;
         } else if (['em_analise','resultado_disponivel'].includes(item.status_item)) {
-          acoesHtml = `<span class="laudo-aguardo">Laudo em andamento</span>`;
+          acoesHtml = `<span class="laudo-aguardo mock-aviso">Laudo em andamento <small class="mock-tag">⚠ Emissão de laudo pela UI: próxima fase</small></span>`;
         }
 
         return `
@@ -1522,7 +1534,7 @@
       const acoesEl = itemEl.querySelector('.item-acoes');
       if (acoesEl) {
         if (novoStatus === 'coletado') {
-          acoesEl.innerHTML = `<span class="laudo-aguardo">Aguardando laudo</span>`;
+          acoesEl.innerHTML = `<span class="laudo-aguardo mock-aviso">Aguardando laudo <small class="mock-tag">⚠ Emissão de laudo pela UI: próxima fase</small></span>`;
         } else {
           acoesEl.innerHTML = '';
         }

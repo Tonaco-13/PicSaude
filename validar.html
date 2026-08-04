@@ -12,6 +12,9 @@
     .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
     .brand { display: flex; align-items: center; gap: 14px; }
     .header-logo { height: 64px; width: auto; flex-shrink: 0; }
+    .header-logo-link { cursor: pointer; }
+    .header-logo-link .header-logo { transition: opacity 0.15s ease; }
+    .header-logo-link:hover .header-logo { opacity: 0.8; }
     .brand h1  { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
     .brand p   { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
                  color: #bbf7d0; font-weight: 600; margin-top: 3px; }
@@ -157,7 +160,7 @@
 
 <header class="header">
   <div class="brand">
-    <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
+    <a href="index.html" class="header-logo-link" aria-label="Voltar ao portal PicSaúde"><img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'"></a>
   </div>
   <div style="display:flex; align-items:center; gap:16px;">
     <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>

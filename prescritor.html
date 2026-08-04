@@ -11,6 +11,9 @@
         .header { background: #ffffff; color: #1e293b; padding: 14px 32px; display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #16a34a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
         .brand-container { display: flex; flex-direction: row; align-items: center; gap: 22px; }
         .header-logo { height: 64px; width: auto; flex-shrink: 0; }
+        .header-logo-link { cursor: pointer; }
+        .header-logo-link .header-logo { transition: opacity 0.15s ease; }
+        .header-logo-link:hover .header-logo { opacity: 0.8; }
         .brand-container h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; color: #1e3a8a; display: flex; align-items: center; gap: 8px;}
         .brand-container p { font-size: 14px; text-transform: uppercase; letter-spacing: 1.2px; color: #1e3a8a; font-weight: 700; }
         
@@ -29,6 +32,12 @@
         .form-select, .form-select option { list-style-type: none !important; margin: 0; padding: 0; }
         .form-input:focus, .form-select:focus { outline: none; border-color: #3b82f6; background-color: #ffffff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
         .form-input:disabled, .form-select:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+
+        /* Acessibilidade de campos obrigatórios (KIMI3-001 §10.B) */
+        .obrigatorio { color: #dc2626; font-weight: 700; }
+        .form-input.input-erro, .form-select.input-erro { border-color: #dc2626; background-color: #fef2f2; }
+        .form-input.input-erro:focus, .form-select.input-erro:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+        .msg-erro-campo { display: block; color: #dc2626; font-size: 12px; margin-top: 4px; font-weight: 500; }
         
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
         .grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
@@ -319,10 +328,44 @@
         } catch (e) { console.warn('demo banner: ' + e.message); }
       })();
     </script>
+    <script>
+      // Acessibilidade de campos obrigatórios (KIMI3-001 §10.B):
+      // feedback visual persistente de erro, SEM substituir a validação nativa
+      // (o balão do browser continua ativo — aqui só marcamos o campo e
+      // exibimos mensagem inline até o campo ficar válido).
+      document.addEventListener('invalid', function (e) {
+        const campo = e.target;
+        if (!(campo instanceof HTMLElement)) return;
+        if (!campo.classList.contains('form-input') && !campo.classList.contains('form-select')) return;
+        campo.classList.add('input-erro');
+        if (!campo.id) return;
+        let msg = campo.parentElement && campo.parentElement.querySelector('.msg-erro-campo[data-para="' + campo.id + '"]');
+        if (!msg) {
+          msg = document.createElement('span');
+          msg.className = 'msg-erro-campo';
+          msg.dataset.para = campo.id;
+          campo.insertAdjacentElement('afterend', msg);
+        }
+        msg.textContent = campo.validationMessage || 'Campo obrigatório';
+      }, true);
+      ['input', 'change'].forEach(function (evt) {
+        document.addEventListener(evt, function (e) {
+          const campo = e.target;
+          if (!(campo instanceof HTMLElement) || !campo.classList.contains('input-erro')) return;
+          if (campo.checkValidity && campo.checkValidity()) {
+            campo.classList.remove('input-erro');
+            if (campo.id && campo.parentElement) {
+              const msg = campo.parentElement.querySelector('.msg-erro-campo[data-para="' + campo.id + '"]');
+              if (msg) msg.remove();
+            }
+          }
+        }, true);
+      });
+    </script>
 
     <header class="header no-print">
         <div class="brand-container">
-            <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
+            <a href="index.html" class="header-logo-link" aria-label="Voltar ao portal PicSaúde"><img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'"></a>
         </div>
         <div class="header-actions">
             <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
@@ -349,11 +392,11 @@
             <form onsubmit="fazerLoginDireto(event)">
                 <div class="form-group">
                     <label class="form-label">CNS ou E-mail</label>
-                    <input type="text" id="acesso-identificador" class="form-input" placeholder="CNS (15 dígitos) ou e-mail" maxlength="100" required autocomplete="username">
+                    <input type="text" id="acesso-identificador" class="form-input" placeholder="CNS (15 dígitos) ou e-mail" maxlength="100" required aria-required="true" autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Senha</label>
-                    <input type="password" id="acesso-senha" class="form-input" placeholder="Sua senha" required>
+                    <input type="password" id="acesso-senha" class="form-input" placeholder="Sua senha" required aria-required="true">
                 </div>
                 <button type="submit" class="btn btn-primary">Entrar</button>
                 <div id="msg-login-erro" class="msg-inline msg-inline-error hidden" style="margin-top: 12px;"></div>
@@ -369,7 +412,7 @@
                 <div class="form-group">
                     <label class="form-label">Nome Completo do Profissional</label>
                     <div style="display: flex; gap: 12px;">
-                        <input type="text" id="busca-input" class="form-input" placeholder="Mínimo de 3 caracteres" required minlength="3">
+                        <input type="text" id="busca-input" class="form-input" placeholder="Mínimo de 3 caracteres" required aria-required="true" minlength="3">
                         <button type="submit" class="btn btn-primary" style="width: auto;">Pesquisar</button>
                     </div>
                 </div>
@@ -387,13 +430,13 @@
             <form onsubmit="solicitarCodigoVinculo(event)">
                 <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 16px; text-transform: uppercase;">1. Dados de Contato</h3>
                 <div class="form-group">
-                    <label class="form-label">Telefone Celular (Chave de Acesso) *</label>
-                    <input type="text" id="vinc-telefone" class="form-input" placeholder="DDD + Número" required>
+                    <label class="form-label">Telefone Celular (Chave de Acesso) <span class="obrigatorio" aria-hidden="true">*</span></label>
+                    <input type="text" id="vinc-telefone" class="form-input" placeholder="DDD + Número" required aria-required="true">
                 </div>
                 <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 16px; margin-top: 32px; text-transform: uppercase;">2. Registros Profissionais</h3>
                 <div class="form-group" style="background: #f1f5f9; padding: 20px; border-radius: 6px; border: 1px solid #e2e8f0;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <label class="form-label" style="margin: 0;">Conselhos Ativos *</label>
+                        <label class="form-label" style="margin: 0;">Conselhos Ativos <span class="obrigatorio" aria-hidden="true">*</span></label>
                         <button type="button" onclick="adicionarConselhoEdicao('vinc')" class="btn-text">Adicionar Registro</button>
                     </div>
                     <div id="vinc-conselhos-container"></div>
@@ -401,18 +444,18 @@
                 <h3 style="font-size: 14px; color: #0f172a; margin-bottom: 16px; margin-top: 32px; text-transform: uppercase;">3. Endereço Profissional e Contato</h3>
                 
                 <div class="grid-address-1">
-                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro *</label><input type="text" id="vinc-endereco" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="vinc-endereco" class="form-input" required aria-required="true"></div>
                     <div class="form-group"><label class="form-label">Complemento</label><input type="text" id="vinc-complemento" class="form-input" placeholder="Sala, Andar, Bloco"></div>
                 </div>
                 <div class="grid-address-2">
-                    <div class="form-group"><label class="form-label">Cidade *</label><input type="text" id="vinc-cidade" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Cidade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="vinc-cidade" class="form-input" required aria-required="true"></div>
                     <div class="form-group">
-                        <label class="form-label">Estado (UF) *</label>
-                        <select id="vinc-uf" class="form-select" required>
+                        <label class="form-label">Estado (UF) <span class="obrigatorio" aria-hidden="true">*</span></label>
+                        <select id="vinc-uf" class="form-select" required aria-required="true">
                             <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">CEP *</label><input type="text" id="vinc-cep" class="form-input" placeholder="00000-000" required></div>
+                    <div class="form-group"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="vinc-cep" class="form-input" placeholder="00000-000" required aria-required="true"></div>
                 </div>
                 
                 <div class="grid-2">
@@ -431,7 +474,7 @@
             <h2 class="section-title" style="text-align: center; border: none;">Verificação de Duas Etapas</h2>
             <form onsubmit="validarCodigo(event)">
                 <div id="dev-otp-display" class="msg-inline msg-inline-warn hidden" style="margin-bottom: 16px; text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: bold;"></div>
-                <div class="form-group"><input type="text" id="otp-codigo" class="form-input" placeholder="000000" required maxlength="6" style="font-size: 32px; letter-spacing: 8px; text-align: center; font-weight: bold; color: #1e3a8a;"></div>
+                <div class="form-group"><input type="text" id="otp-codigo" class="form-input" placeholder="000000" required aria-required="true" maxlength="6" style="font-size: 32px; letter-spacing: 8px; text-align: center; font-weight: bold; color: #1e3a8a;"></div>
                 <button type="submit" class="btn btn-primary" style="margin-bottom: 12px;">Confirmar Identidade</button>
                 <div id="msg-otp-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 12px;"></div>
                 <div style="text-align: center;">
@@ -455,18 +498,18 @@
                     <div id="perfil-conselhos-container"></div>
                 </div>
                 <div class="grid-address-1">
-                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro *</label><input type="text" id="perfil-endereco" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Logradouro, Número, Bairro <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="perfil-endereco" class="form-input" required aria-required="true"></div>
                     <div class="form-group"><label class="form-label">Complemento</label><input type="text" id="perfil-complemento" class="form-input"></div>
                 </div>
                 <div class="grid-address-2">
-                    <div class="form-group"><label class="form-label">Cidade *</label><input type="text" id="perfil-cidade" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">Cidade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="perfil-cidade" class="form-input" required aria-required="true"></div>
                     <div class="form-group">
-                        <label class="form-label">Estado (UF) *</label>
-                        <select id="perfil-uf" class="form-select" required>
+                        <label class="form-label">Estado (UF) <span class="obrigatorio" aria-hidden="true">*</span></label>
+                        <select id="perfil-uf" class="form-select" required aria-required="true">
                             <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">CEP *</label><input type="text" id="perfil-cep" class="form-input" required></div>
+                    <div class="form-group"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="perfil-cep" class="form-input" required aria-required="true"></div>
                 </div>
                 
                 <div class="grid-2">
@@ -515,23 +558,23 @@
                     <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
                         <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Dados Clínicos do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
-                            <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="pac-nome" class="form-input" required></div>
-                            <div class="form-group" style="margin: 0;"><label class="form-label">Idade *</label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-nome" class="form-input" required aria-required="true"></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Telefone</label><input type="text" id="pac-telefone" class="form-input" placeholder="DDD + Número"></div>
                         </div>
                         <div class="grid-address-1" style="margin-bottom: 16px;">
-                            <div class="form-group" style="margin: 0;"><label class="form-label">Logradouro, Número e Bairro *</label><input type="text" id="pac-endereco" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Logradouro, Número e Bairro <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-endereco" class="form-input" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Complemento</label><input type="text" id="pac-complemento" class="form-input" placeholder="Apto, Bloco"></div>
                         </div>
                         <div class="grid-address-2">
-                            <div class="form-group" style="margin: 0;"><label class="form-label">Cidade *</label><input type="text" id="pac-cidade" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Cidade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-cidade" class="form-input" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;">
-                                <label class="form-label">UF *</label>
-                                <select id="pac-uf" class="form-select" required>
+                                <label class="form-label">UF <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                <select id="pac-uf" class="form-select" required aria-required="true">
                                     <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
                                 </select>
                             </div>
-                            <div class="form-group" style="margin: 0;"><label class="form-label">CEP *</label><input type="text" id="pac-cep" class="form-input" required></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-cep" class="form-input" required aria-required="true"></div>
                         </div>
 
                         <!-- Indicação Clínica (opcional) com sugestão de CID (IA CID) —
@@ -630,8 +673,8 @@
                     <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
                         <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Dados do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
-                            <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo *</label><input type="text" id="exam-pac-nome" class="form-input" required></div>
-                            <div class="form-group" style="margin: 0;"><label class="form-label">CPF / CNI *</label><input type="text" id="exam-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00"></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="exam-pac-nome" class="form-input" required aria-required="true"></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">CPF / CNI <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="exam-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00"></div>
                             <div class="form-group" style="margin: 0;">
                                 <label class="form-label">Prioridade</label>
                                 <select id="exam-prioridade" class="form-select">
@@ -702,7 +745,7 @@
 
                     <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Nome do Paciente *</label>
+                            <label class="form-label">Nome do Paciente <span class="obrigatorio" aria-hidden="true">*</span></label>
                             <input type="text" id="atestado-paciente" class="form-input"
                                    placeholder="Nome completo do paciente">
                             <label class="form-label" style="margin-top:10px;">CPF do Paciente *
@@ -712,7 +755,7 @@
                                    placeholder="000.000.000-00">
                         </div>
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Finalidade *</label>
+                            <label class="form-label">Finalidade <span class="obrigatorio" aria-hidden="true">*</span></label>
                             <select id="atestado-finalidade" class="form-input" onchange="_aoMudarFinalidade()">
                                 <option value="">Selecione a finalidade…</option>
                                 <option value="trabalhistas">Trabalhista</option>
@@ -728,7 +771,7 @@
                             <!-- Tipo ao lado do CPF (estado de UI só; NÃO entra no payload —
                                  o backend deriva comparecimento×afastamento de dias_afastamento,
                                  §10, sem coluna `tipo`). -->
-                            <label class="form-label" style="margin-top:10px;">Tipo de Atestado *</label>
+                            <label class="form-label" style="margin-top:10px;">Tipo de Atestado <span class="obrigatorio" aria-hidden="true">*</span></label>
                             <select id="atestado-tipo" class="form-input" onchange="_aoMudarTipoAtestado()">
                                 <option value="comparecimento">1. Comparecimento</option>
                                 <option value="afastamento">2. Afastamento</option>
@@ -767,7 +810,7 @@
 
                     <div class="grid-2" style="margin-bottom: 16px; gap: 16px;">
                         <div class="form-group" style="margin: 0;">
-                            <label class="form-label">Data do Documento *</label>
+                            <label class="form-label">Data do Documento <span class="obrigatorio" aria-hidden="true">*</span></label>
                             <input type="date" id="atestado-data" class="form-input">
                         </div>
                         <div class="form-group" style="margin: 0;">
@@ -775,7 +818,7 @@
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(o CFM exige local e data)</span>
                             </label>
                             <input type="text" id="atestado-municipio" class="form-input"
-                                   required placeholder="ex.: Recife">
+                                   required aria-required="true" placeholder="ex.: Recife">
                         </div>
                     </div>
 
@@ -798,7 +841,7 @@
                     </div>
 
                     <div class="form-group" style="margin-bottom: 16px;">
-                        <label class="form-label">Nome do Profissional *</label>
+                        <label class="form-label">Nome do Profissional <span class="obrigatorio" aria-hidden="true">*</span></label>
                         <input type="text" id="atestado-profissional" class="form-input"
                                placeholder="Nome completo do profissional responsável">
                     </div>
@@ -1191,13 +1234,13 @@
             let html = '';
             conselhosEdicao.forEach((c, index) => {
                 html += `<div class="grid-conselho">
-                    <select class="form-select" onchange="conselhosEdicao[${index}].tipo = this.value" required>`;
+                    <select class="form-select" onchange="conselhosEdicao[${index}].tipo = this.value" required aria-required="true">`;
                         TIPOS_CONSELHO.forEach(t => { html += `<option value="${t}" ${c.tipo === t ? 'selected' : ''}>${t}</option>`; });
                 html += `</select>
-                    <select class="form-select" onchange="conselhosEdicao[${index}].uf = this.value" required>`;
+                    <select class="form-select" onchange="conselhosEdicao[${index}].uf = this.value" required aria-required="true">`;
                         UFS.forEach(u => { html += `<option value="${u}" ${c.uf === u ? 'selected' : ''}>${u}</option>`; });
                 html += `</select>
-                    <input type="text" class="form-input" placeholder="Número" value="${c.numero}" onchange="conselhosEdicao[${index}].numero = this.value" required>
+                    <input type="text" class="form-input" placeholder="Número" value="${c.numero}" onchange="conselhosEdicao[${index}].numero = this.value" required aria-required="true">
                     ${conselhosEdicao.length > 1 ? `<button type="button" onclick="removerConselhoEdicao(${index}, '${tela}')" class="btn-text" style="color:#dc2626;">Remover</button>` : '<div style="width:16px;"></div>'}
                 </div>`;
             });
@@ -1714,10 +1757,10 @@
                     </div>
                 </div>
                 <div class="grid-4">
-                    <input type="text" class="form-input med-nome" placeholder="Princípio Ativo / Nome *" value="${nome}" required>
-                    <input type="text" class="form-input med-conc" placeholder="Concentração *" value="${conc}" required>
-                    <input type="number" class="form-input med-qtd" placeholder="Quantidade *" min="1" value="${qtd}" required style="max-width:120px;">
-                    <select class="form-select med-unidade" required>
+                    <input type="text" class="form-input med-nome" placeholder="Princípio Ativo / Nome *" value="${nome}" required aria-required="true">
+                    <input type="text" class="form-input med-conc" placeholder="Concentração *" value="${conc}" required aria-required="true">
+                    <input type="number" class="form-input med-qtd" placeholder="Quantidade *" min="1" value="${qtd}" required aria-required="true" style="max-width:120px;">
+                    <select class="form-select med-unidade" required aria-required="true">
                         <option value="">Unidade *</option>
                         <option value="ampola" ${unidade==='ampola'?'selected':''}>Ampola</option>
                         <option value="bisnaga" ${unidade==='bisnaga'?'selected':''}>Bisnaga</option>
@@ -1738,7 +1781,7 @@
                 <select class="form-select med-apresentacao" style="margin-top:8px;" onchange="_aoEscolherApresentacao(this)">
                     <option value="">Apresentação comercial (opcional — escolha após buscar o medicamento)</option>
                 </select>
-                <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required>${posologia}</textarea>
+                <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required aria-required="true">${posologia}</textarea>
                 <div class="ia-container"></div>
             `;
             container.appendChild(div);
@@ -3015,7 +3058,7 @@
                     ${exameCount > 1 ? `<button type="button" class="btn-text" style="color: #dc2626;" onclick="removerExame(${exameCount})">X Remover</button>` : ''}
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 80px; gap: 12px; align-items: start;">
-                    <input type="text" class="form-input exame-nome" placeholder="Nome do Exame *" value="${nome}" required>
+                    <input type="text" class="form-input exame-nome" placeholder="Nome do Exame *" value="${nome}" required aria-required="true">
                     <input type="number" class="form-input exame-qtd" placeholder="Qtd." min="1" value="${qtd}">
                 </div>
                 <input type="hidden" class="exame-codigo-tuss" value="${codigoTuss}">
@@ -4070,6 +4113,35 @@
                 };
                 _entrarNoDashboard();
             } catch (_e) { /* sessionStorage indisponível → fallback silencioso */ }
+        })();
+
+        // ── KIMI3-002 §1 — auto-login demo: acesso DIRETO por URL sem tela de senha ──
+        // Mesmo padrão do dispensador (_autoLoginDemo): se demo_mode e ninguém foi
+        // hidratado acima, chama POST /demo/login e entra no dashboard, pulando a
+        // tela de acesso/OTP. O portal mantém o seletor de personas (1 clique) —
+        // isto cobre quem abre o módulo direto pela URL. RBAC não é tocado:
+        // /demo/login emite JWT real e o require_role não sabe que é demo (§11).
+        (async function _autoLoginDemo() {
+            if (medicoLogado) return;   // _hidratarSessaoDemo já entrou
+            try {
+                const cfg = await fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+                                    .then(r => r.json()).catch(() => ({}));
+                if (!cfg.demo_mode) return;  // fora de demo → mantém tela de acesso
+                const resp = await fetch(`${BACKEND}/demo/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: 'prescritor' }),
+                });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                sessionStorage.setItem('picsaude_demo_token', data.access_token);
+                sessionStorage.setItem('picsaude_demo_role',  data.role);
+                sessionStorage.setItem('picsaude_demo_sub',   data.sub);
+                sessionStorage.setItem('picsaude_demo_nome',  data.nome);
+                jwtAccessToken = data.access_token;
+                medicoLogado = { nome: data.nome, cns: data.sub, conselhos: [] };
+                _entrarNoDashboard();
+            } catch (_e) { /* fallback: mantém a tela de acesso */ }
         })();
 
         // ── DEV_PRESET_CONTEXT — login automático com prescritor de teste ──────
