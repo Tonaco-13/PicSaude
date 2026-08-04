@@ -26,6 +26,9 @@ from playwright.sync_api import expect
 # Personas do seed de demo (backend/seed_demo.py).
 _PRESCRITOR = {"sub": "980001112223334", "nome": "Dra. Demo Maria Souza"}
 
+# Protocolo sentinela do atestado semeado (backend/seed_demo.py::_garantir_atestado_demo).
+_ATESTADO_SEED = "DEMO-ATESTADO-0001"
+
 # Cards do portal → módulo de destino. Espelha index.html; o smoke (a) percorre
 # todos. `clinica.html` e `validar.html` não passam pelo /demo/login (não têm
 # papel), mas precisam abrir.
@@ -267,7 +270,13 @@ class TestAtestadoNaCarteira:
         expect(lista).to_contain_text("3 dia(s)")
 
         # E o botão de PDF, que é como o documento sai da carteira.
-        expect(lista.get_by_role("button", name=re.compile("Baixar PDF"))).to_be_visible()
+        # Escopado AO ATESTADO DO SEED: a carteira é compartilhada com outras
+        # suítes que emitem atestados para o mesmo paciente (ex.: a etapa C),
+        # e "o botão Baixar PDF" vira ambíguo (strict mode). `.first` resolveria
+        # o erro afirmando menos — passaria mesmo se o card do seed sumisse.
+        expect(
+            lista.locator(f'button[onclick*="{_ATESTADO_SEED}"]')
+        ).to_be_visible(timeout=_TIMEOUT_MS)
 
         _sem_erros(erros_de_console, "cidadao.html (atestados)")
 
@@ -317,7 +326,9 @@ class TestAtestadoNaCarteira:
         lista = self._abrir_carteira(page, app_demo)
         expect(lista).to_contain_text("Comparecimento a consulta", timeout=_TIMEOUT_MS)
 
-        card = lista.locator(".exame-card").filter(
+        # F5-C3: atestado ganhou classe própria `.atestado-card` (verde),
+        # distinta de `.exame-card` (que laudos e pedidos de exame continuam usando).
+        card = lista.locator(".atestado-card").filter(
             has_text="Comparecimento a consulta"
         )
         assert "Afastamento" not in card.inner_text(), (
