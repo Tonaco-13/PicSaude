@@ -226,7 +226,8 @@ function renderizarBarraChavesDemo(_cfg, opcoes = {}) {
         const css = document.createElement('style');
         css.id = 'demo-keys-bar-css';
         css.textContent =
-            '.demo-keys-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;' +
+            '.demo-keys-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;' +
+            'gap:6px 14px;' +
             'background:#ffffff;border-bottom:1px solid #e2e8f0;padding:8px 20px;' +
             'font-size:12px;color:#475569;}' +
             '.demo-keys-bar .rotulo{font-weight:600;color:#92400e;white-space:nowrap;}' +
