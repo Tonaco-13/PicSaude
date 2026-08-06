@@ -129,17 +129,9 @@
   <script src="config.js"></script>
 </head>
 <body>
-<!-- TICKET-6 DEMO_MODE banner — validar continua público mesmo em demo,
-     mas exibe selo amarelo "PRESCRIÇÃO DEMO — sem efeito clínico" quando
-     o sistema atual está em modo demo (P2#7 CODEX rodada 1). -->
-<style id="demo-mode-styles">
-  .demo-banner {
-    background: #fef3c7; border-bottom: 3px solid #f59e0b;
-    color: #78350f; padding: 10px 24px;
-    font-size: 13px; font-weight: 600; text-align: center;
-  }
-  .demo-banner strong { color: #92400e; }
-</style>
+<!-- TICKET-6 DEMO_MODE — barra superior "Demo: chaves" (KIMI3-006 ampliado).
+     validar continua público mesmo em demo; o rótulo preserva o aviso
+     "sem efeito clínico" (P2#7 CODEX rodada 1). -->
 <script>
   (async function picsaudeDemoBoot() {
     try {
@@ -148,12 +140,9 @@
       const cfg = await r.json();
       if (!cfg.demo_mode) return;
       document.body.classList.add('demo');
-      const banner = document.createElement('div');
-      banner.className = 'demo-banner';
-      banner.id = 'demo-banner';
-      banner.innerHTML = '<strong>PRESCRIÇÃO DEMO</strong> — '
-        + 'documentos validados neste ambiente são fictícios e não têm efeito clínico.';
-      document.body.insertBefore(banner, document.body.firstChild);
+      renderizarBarraChavesDemo(cfg, {
+        rotulo: 'Demo — documentos fictícios, sem efeito clínico:',
+      });
     } catch (e) { console.warn('demo boot: ' + e.message); }
   })();
 </script>

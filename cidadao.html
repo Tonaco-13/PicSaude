@@ -265,15 +265,8 @@
   <script src="config.js"></script>
 </head>
 <body>
-    <!-- TICKET-6 DEMO_MODE banner -->
-    <style id="demo-mode-styles">
-      .demo-banner {
-        background: #fef3c7; border-bottom: 3px solid #f59e0b;
-        color: #78350f; padding: 10px 24px;
-        font-size: 13px; font-weight: 600; text-align: center;
-      }
-      .demo-banner strong { color: #92400e; }
-    </style>
+    <!-- TICKET-6 DEMO_MODE — barra superior "Demo: chaves" (KIMI3-006 ampliado:
+         o banner amarelo saiu de todas as telas; as 4 chaves ficam no topo) -->
     <script>
       (async function picsaudeDemoBanner() {
         try {
@@ -282,14 +275,8 @@
           const cfg = await r.json();
           if (!cfg.demo_mode) return;
           document.body.classList.add('demo');
-          const reset = cfg.proximo_reset ? new Date(cfg.proximo_reset) : null;
-          const msg = reset ? `Reset às ${reset.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}` : '';
-          const banner = document.createElement('div');
-          banner.className = 'demo-banner';
-          banner.id = 'demo-banner';
-          banner.innerHTML = `<strong>MODO DEMO</strong> — dados fictícios, nenhuma prescrição é real. ${msg}`;
-          document.body.insertBefore(banner, document.body.firstChild);
-        } catch (e) { console.warn('demo banner: ' + e.message); }
+          renderizarBarraChavesDemo(cfg);
+        } catch (e) { console.warn('demo barra: ' + e.message); }
       })();
     </script>
 
@@ -2012,18 +1999,5 @@
         </div>
     </div>
 
-    <!-- Trilha da demo — visível só em dev (localhost/file://) ou na vitrine (demo_mode); some em produção real. -->
-    <script>
-    (async function trilhaDemo(){
-      const dev = location.protocol === 'file:' || ['localhost','127.0.0.1'].includes(location.hostname);
-      let demo = false;
-      try { const r = await fetch('/config/public', { cache:'no-store' }); if (r.ok) demo = (await r.json()).demo_mode; } catch (e) {}
-      if (!dev && !demo) return;
-      const b = document.createElement('div');
-      b.style.cssText = 'background:#ecfeff;border-bottom:2px solid #06b6d4;color:#155e75;font-size:13px;line-height:1.4;padding:9px 16px;text-align:center;';
-      b.innerHTML = `🧭 <strong>Trilha da demo · você é o CIDADÃO</strong> — entre com <strong>CPF ${DEMO.cidadao.cpf}</strong>; o código de acesso aparece no <strong>terminal do servidor</strong>. A carteira mostra os objetos que <em>chegaram</em> a você.`;
-      document.body.insertBefore(b, document.body.firstChild);
-    })();
-    </script>
 </body>
 </html>

@@ -197,3 +197,115 @@ function showToast(msg, type = 'info') {
 function avisarFalha(msg) {
     showToast(msg, 'error');
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Barra superior "Demo: chaves" (KIMI3-006, ampliado pelo Fabiano 2026-08-06:
+// "em todos os módulos é para constar em cima somentes as chaves demo").
+//
+// Substitui o antigo banner amarelo em TODAS as telas: uma barra discreta no
+// topo com as 4 identidades canônicas (de DEMO.*, nunca literais), cada uma
+// clicável para copiar o valor SEM máscara. O aviso "dados fictícios" não
+// some — virou o rótulo da barra (ressalva nº 1 do conselheiro mantida).
+//
+// Uso (a tela já buscou /config/public e confirmou demo_mode):
+//   renderizarBarraChavesDemo(cfg);
+//   renderizarBarraChavesDemo(cfg, { rotulo: 'Demo — ...:' });
+//   renderizarBarraChavesDemo(cfg, { nota: 'texto extra', link: {href, texto} });
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Renderiza a barra de chaves demo no topo do body. Idempotente.
+ * @param {object} _cfg    — resposta de /config/public (reservado p/ usos futuros).
+ * @param {object} [opcoes]— { rotulo, nota, link:{href,texto} }
+ */
+function renderizarBarraChavesDemo(_cfg, opcoes = {}) {
+    if (document.getElementById('demo-keys-bar')) return;   // idempotente
+    if (!document.body) return;
+
+    if (!document.getElementById('demo-keys-bar-css')) {
+        const css = document.createElement('style');
+        css.id = 'demo-keys-bar-css';
+        css.textContent =
+            '.demo-keys-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;' +
+            'background:#ffffff;border-bottom:1px solid #e2e8f0;padding:8px 20px;' +
+            'font-size:12px;color:#475569;}' +
+            '.demo-keys-bar .rotulo{font-weight:600;color:#92400e;white-space:nowrap;}' +
+            '.demo-keys-bar .chip{display:inline-flex;align-items:center;gap:5px;' +
+            'background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;' +
+            'cursor:pointer;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;' +
+            'color:#0f172a;white-space:nowrap;}' +
+            '.demo-keys-bar .chip:hover{background:#f1f5f9;border-color:#cbd5e1;}' +
+            '.demo-keys-bar .chip .tipo{font-family:inherit;font-weight:700;color:#64748b;}' +
+            '.demo-keys-bar .nota{color:#94a3b8;font-style:italic;}' +
+            '.demo-keys-bar a{color:#1e3a8a;font-weight:600;text-decoration:none;' +
+            'white-space:nowrap;}' +
+            '.demo-keys-bar a:hover{text-decoration:underline;}';
+        document.head.appendChild(css);
+    }
+
+    const CHAVES = [
+        { icone: '🩺', tipo: 'CNS',  valor: formatarCNS(DEMO.prescritor.cns), bruto: DEMO.prescritor.cns,  modulo: 'Prescritor' },
+        { icone: '👤', tipo: 'CPF',  valor: formatarCPF(DEMO.cidadao.cpf),    bruto: DEMO.cidadao.cpf,     modulo: 'Cidadão' },
+        { icone: '💊', tipo: 'CNPJ', valor: formatarCNPJ(DEMO.farmacia.cnpj), bruto: DEMO.farmacia.cnpj,   modulo: 'Dispensador' },
+        { icone: '🏥', tipo: 'CNPJ', valor: formatarCNPJ(DEMO.clinica.cnpj),  bruto: DEMO.clinica.cnpj,    modulo: 'Clínica/Laboratório' },
+    ];
+
+    const barra = document.createElement('div');
+    barra.className = 'demo-keys-bar';
+    barra.id = 'demo-keys-bar';
+    barra.setAttribute('role', 'note');
+    barra.setAttribute('aria-label', 'Chaves de acesso da demo');
+
+    const rotulo = document.createElement('span');
+    rotulo.className = 'rotulo';
+    rotulo.textContent = opcoes.rotulo || 'Demo — dados fictícios:';
+    barra.appendChild(rotulo);
+
+    CHAVES.forEach(c => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.setAttribute('role', 'button');
+        chip.setAttribute('tabindex', '0');
+        chip.title = `Copiar ${c.tipo} do ${c.modulo} (sem máscara)`;
+        chip.setAttribute('aria-label', chip.title);
+
+        const icone = document.createElement('span');
+        icone.setAttribute('aria-hidden', 'true');
+        icone.textContent = c.icone;
+        const tipo = document.createElement('span');
+        tipo.className = 'tipo';
+        tipo.textContent = c.tipo;
+        const valor = document.createElement('span');
+        valor.textContent = c.valor;
+        chip.append(icone, tipo, valor);
+
+        const copiar = async () => {
+            try {
+                await navigator.clipboard.writeText(c.bruto);
+                showToast(`${c.tipo} do ${c.modulo} copiado`, 'success');
+            } catch (err) {
+                showToast(`Não consegui copiar — anote: ${c.bruto}`, 'error');
+            }
+        };
+        chip.addEventListener('click', copiar);
+        chip.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copiar(); }
+        });
+        barra.appendChild(chip);
+    });
+
+    if (opcoes.nota) {
+        const nota = document.createElement('span');
+        nota.className = 'nota';
+        nota.textContent = opcoes.nota;
+        barra.appendChild(nota);
+    }
+    if (opcoes.link) {
+        const a = document.createElement('a');
+        a.href = opcoes.link.href;
+        a.textContent = opcoes.link.texto;
+        barra.appendChild(a);
+    }
+
+    document.body.insertBefore(barra, document.body.firstChild);
+}
