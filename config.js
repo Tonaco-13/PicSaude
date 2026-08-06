@@ -46,6 +46,7 @@ const BACKEND_URL = _isFileProtocol
 // ─────────────────────────────────────────────────────────────────────────
 
 const DEMO = {
+    prescritor: { cns: '980001112223334', nome: 'Dra. Demo Maria Souza' },
     cidadao:  { cpf:  '12345678909',    nome: 'João Demo da Silva' },
     farmacia: { cnpj: '99999999000191', nome: 'Farmácia Demo Central' },
     clinica:  { cnpj: '11222333000181', nome: 'Clínica Demo' },
@@ -74,6 +75,13 @@ function formatarCPF(valor) {
 function formatarCNPJ(valor) {
     const d = String(valor || '').replace(/\D/g, '').slice(0, 14);
     if (d.length === 14) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+    return d;  // se inválido, retorna só os dígitos sem máscara
+}
+
+/** Formata CNS (15 dígitos) como 980.0011.1222.3334. Aceita string com ou sem máscara. */
+function formatarCNS(valor) {
+    const d = String(valor || '').replace(/\D/g, '').slice(0, 15);
+    if (d.length === 15) return `${d.slice(0,3)}.${d.slice(3,7)}.${d.slice(7,11)}.${d.slice(11,15)}`;
     return d;  // se inválido, retorna só os dígitos sem máscara
 }
 
