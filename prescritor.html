@@ -2494,7 +2494,13 @@
 
         /** Semáforo de apoio à decisão (validador, NÃO-bloqueante): confere o
          *  fármaco escolhido contra o CID da prescrição e acende um ponto discreto
-         *  🟢/🟡 no card. Atrás de feature flag no backend ({ativo:false} → nada). */
+         *  no card. Atrás de feature flag no backend ({ativo:false} → nada).
+         *
+         *  Sinais desta versão: 🟢 verde / 🟡 amarelo — o 🔴 vermelho está EM
+         *  DESENVOLVIMENTO (Fase 2, contraindicações). O motor v1
+         *  (backend/app/domain/semaforo_decisao.py) NUNCA emite `vermelho`; os
+         *  ramos de render abaixo são inertes hoje e ficam só para a Fase 2 não
+         *  chegar a uma tela que a ignora. A vitrine não promete o que não faz. */
         function _avaliarSemaforo(n, pa) {
             const el = document.getElementById('semaforo-' + n);
             if (!el) return;
@@ -2510,14 +2516,18 @@
             .then(r => r.ok ? r.json() : { ativo: false })
             .then(d => {
                 if (!d || !d.ativo) return;            // feature desligada → nada
+                // 'vermelho' na lista: aceito por antecipação da Fase 2 — hoje o
+                // motor não o produz, então este ramo nunca acende.
                 if (['verde','amarelo','vermelho'].indexOf(d.sinal) < 0) {
                     delete _fichasSemaforo[n];         // neutro → silêncio (sem ficha)
                     return;
                 }
                 const cor = d.sinal === 'verde' ? '#16a34a'
-                          : d.sinal === 'vermelho' ? '#dc2626' : '#f59e0b';
+                          : d.sinal === 'vermelho' ? '#dc2626'   /* Fase 2 — inerte na v1 */
+                          : '#f59e0b';
                 const rotulo = d.sinal === 'verde' ? 'Coerente'
-                          : d.sinal === 'vermelho' ? 'Alerta' : 'Atenção';
+                          : d.sinal === 'vermelho' ? 'Alerta'    /* Fase 2 — inerte na v1 */
+                          : 'Atenção';
                 const fonte = d.fonte ? ' · ' + _escDoc(d.fonte) : '';
                 _fichasSemaforo[n] = d;                // guarda a ficha p/ o "por quê?"
                 el.innerHTML = '<span class="semaforo-dot" style="background:' + cor + '"></span>' +
@@ -2543,6 +2553,7 @@
             const ex = d.explicabilidade || {};
             const ent = ex.entrada || {};
             const pv = ex.proveniencia;
+            // 🔴 = Fase 2 (ver _avaliarSemaforo): a v1 só chega aqui com 🟢/🟡.
             const cor = d.sinal === 'verde' ? '#16a34a'
                       : d.sinal === 'vermelho' ? '#dc2626' : '#f59e0b';
             const rotulo = d.sinal === 'verde' ? '🟢 Coerente'
