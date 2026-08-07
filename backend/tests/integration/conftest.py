@@ -121,6 +121,38 @@ def _aplicar_migrations_alembic() -> None:
 
 _aplicar_migrations_alembic()
 
+
+# ---------------------------------------------------------------------------
+# Setup automático — catálogo regulatório (DCB) no banco de teste
+# ---------------------------------------------------------------------------
+# Follow-up do DESPACHO-OPS-SEED-CATALOGO-DCB (PR #137, §5), secundado pelo
+# parecer do Revisor: os 7 testes de `test_catalogo_regulatorio.py` nasceram
+# assumindo o catálogo semeado, mas nada aqui o semeava — mesma raiz do "seeder
+# órfão" que o #137 corrigiu no pipeline da demo. Como não estão no filtro `-k`
+# do gate, ficaram vermelhos sem ninguém ver.
+#
+# Categoria: dado de REFERÊNCIA, igual às migrations acima — vem ANTES do teste
+# e é commitado no banco compartilhado (não contradiz o docstring do módulo, que
+# fala do dado PRODUZIDO pelo teste; esse continua morrendo no rollback do
+# `outer_conn`). Idempotente por `dcb_normalizada`: re-rodar a suíte não duplica.
+#
+# Medição no #137 (suíte completa, PG): sem catálogo 9 failed/355 passed; com
+# catálogo 2 failed/362 passed — só os 7 mudam de cor, colateral zero.
+
+def _semear_catalogo_regulatorio() -> None:
+    from app.database import get_conn
+    from app.domain.catalogo_seed import aplicar_seed_catalogo
+
+    conn = get_conn()
+    try:
+        aplicar_seed_catalogo(conn)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+_semear_catalogo_regulatorio()
+
 # ---------------------------------------------------------------------------
 # Constantes compartilhadas com os testes
 # ---------------------------------------------------------------------------

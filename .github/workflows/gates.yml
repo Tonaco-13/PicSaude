@@ -74,10 +74,16 @@ jobs:
         # relatorio: T8 — escopo por CNPJ do dispensador (test_relatorio_escopo_dispensador).
         # idempotencia/unicidade: TICKET-CORE-R2 — concorrência (FOR UPDATE) +
         #   guard-rail de unicidade de identificadores no relatório.
+        # catalogo: TASK 2 (autorizado pelo Revisor no PR #138, arquiteto em cópia).
+        #   test_catalogo_regulatorio.py ficou VERMELHO por muito tempo justamente
+        #   por estar fora deste filtro — ninguém via. Consertá-lo (fixture do
+        #   catálogo no conftest) sem gateá-lo convidaria o apodrecimento de volta:
+        #   verde e não gateado apodrece. Agora qualifica no critério do próprio
+        #   filtro ("suítes-gate verdes") — 23 testes, todos verdes contra PG.
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante or catalogo"
           -q
 
       - name: Gate do ledger imutável (SQLite + PostgreSQL)
@@ -127,12 +133,22 @@ jobs:
           python3 seed_demo.py
           echo "[smoke] catálogo regulatório na PG que o predeploy acabou de semear"
           # DESPACHO-OPS-SEED-CATALOGO-DCB — a guarda em tests/test_seed_catalogo_dcb.py
-          # roda em SQLite; esta linha confere o MESMO invariante no dialeto e no
-          # caminho da vitrine (predeploy → PG), onde o catálogo vazio doeu.
+          # roda em SQLite; estas duas linhas conferem os MESMOS invariantes no
+          # dialeto e no caminho da vitrine (predeploy → PG), onde o vazio doeu.
           python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute('SELECT COUNT(*) FROM catalogo_substancias'); n=k.fetchone()[0]; print(f'[smoke] catalogo_substancias={n}'); raise SystemExit(0 if n > 0 else 'catalogo_substancias VAZIA apos o predeploy — seeder orfao (ver seed_demo._garantir_catalogo_regulatorio)')"
+          # Aperto do Revisor (parecer no #137): tornar contínuo na PG o no-duplicate
+          # que só o SQLite gateava — doutrina do R2 (invariante executável, não
+          # memória de revisor).
+          # Achado ao implementar: a unicidade já é ESTRUTURAL nos DOIS dialetos —
+          # `uq_catalogo_dcb_normalizada`, criada pela migração 0c8654f77baf. Um
+          # UPSERT quebrado não produz linha duplicada: estoura IntegrityError
+          # DENTRO do `seed_demo.py` e o `set -e` do predeploy já aborta o deploy.
+          # Esta linha fica, então, como TRIPWIRE da constraint: o dia em que uma
+          # migração futura a derrubar, é aqui que aparece — antes da vitrine.
+          python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute('SELECT dcb_normalizada FROM catalogo_substancias GROUP BY dcb_normalizada HAVING COUNT(*) > 1'); d=[r[0] for r in k.fetchall()]; print(f'[smoke] DCBs duplicadas={len(d)}'); raise SystemExit(0 if not d else f'catalogo_substancias com DCB duplicada apos 2 seeds: {d[:5]} — UPSERT por dcb_normalizada nao segurou na PG')"
 
       - name: Gate do seed do catálogo DCB — DESPACHO-OPS-SEED-CATALOGO-DCB
-        # Guarda contra o "seeder órfão": `catalogo_seed.py` (~120 DCBs) existia
+        # Guarda contra o "seeder órfão": `catalogo_seed.py` (56 DCBs) existia
         # desde o Ticket 20 mas ninguém o chamava, e a tabela nascia vazia em todo
         # ambiente — motor RDC 1.000/2025 cego, /catalogo/substancias vazio.
         # Passo próprio (como o gate do ledger): a suíte monta um banco demo

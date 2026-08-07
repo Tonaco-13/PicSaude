@@ -140,6 +140,19 @@ Correção sugerida (follow-up, ~5 linhas): fixture de sessão em
 escopo deste despacho ("só ligar o que existe + guarda") — fica para martelo do
 Fabiano.
 
+> **Atualização (TASK 2 — PR #138, martelo dado):** implementado. O seed entrou no
+> **nível do módulo** do `tests/integration/conftest.py`, ao lado de
+> `_aplicar_migrations_alembic()` — mesma categoria (dado de referência, vem antes
+> do teste), o que garante a ordem migração → seed por construção. Suíte completa
+> em banco novo: **2 failed / 362 passed**, idêntico em duas rodadas seguidas.
+>
+> O mesmo PR atendeu o **aperto do Revisor** (parecer no #137): checagem contínua
+> de duplicata na PG do smoke. Achado ao implementar — a unicidade já é
+> **estrutural nos dois dialetos** (`uq_catalogo_dcb_normalizada`, migração
+> `0c8654f77baf`), então UPSERT quebrado estoura `IntegrityError` dentro do seed e
+> o `set -e` aborta o deploy. A checagem fica como **tripwire da constraint**, não
+> do upsert — e foi provada disparando (rc=1) com a constraint derrubada.
+
 ---
 
 ## 6. Nota de fato
