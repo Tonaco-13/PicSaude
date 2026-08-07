@@ -400,6 +400,120 @@ def test_disp_caso5_custodia_atual_nao_historica(client, outer_conn, seed_usuari
 
 
 # ===========================================================================
+# dispensador — REGISTRAR RESULTADO (R1 do arco V2 — DESPACHO-ENG-007)
+# ===========================================================================
+# Antes do R1 a clínica coletava e realizava, mas dependia de um prescritor para
+# "bater o resultado". O enxerto abriu o papel; estes testes provam que abriu SEM
+# afrouxar a posse — a mesma guarda do `coletar`, não uma guarda nova.
+
+def _preparar_item_coletado(client, token_prescritor, cnpj_prestador: str):
+    """Pedido agendado no prestador e item já coletado — pré-condição do resultado."""
+    proto = _criar_pedido(client, token_prescritor)
+    item_id = _item_id(client, token_prescritor, proto)
+    assert _agendar(client, token_prescritor, proto, cnpj_prestador).status_code == 201
+    r = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/coletar",
+        headers=_headers(_token(cnpj_prestador, "dispensador")),
+    )
+    assert r.status_code == 201, r.text
+    return proto, item_id
+
+
+def test_disp_resultado_dono_201_e_ledger(client, outer_conn, seed_usuario, seed_paciente):
+    """AC1 — dispensador DONO registra resultado: 201 + `resultado_registrado` no ledger."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto, item_id = _preparar_item_coletado(client, token_a, _CNPJ_A)
+
+    r = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
+        json={"resultado_resumo": "Glicemia 92 mg/dL"},
+        headers=_headers(_token(_CNPJ_A, "dispensador")),
+    )
+    assert r.status_code == 201, r.text
+
+    pedido_id = _pedido_id(outer_conn, proto)
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            "SELECT tipo_evento FROM pedido_exame_eventos WHERE pedido_id = %s",
+            (pedido_id,),
+        )
+        eventos = {row[0] for row in cur.fetchall()}
+    # O ledger da clínica é o MESMO do prescritor — sem evento novo (§3 do ENG-007).
+    assert "resultado_registrado" in eventos, eventos
+    assert "pedido_em_analise" in eventos, eventos
+
+
+def test_disp_resultado_outro_cnpj_403_sem_vazar_conteudo(client, seed_usuario, seed_paciente):
+    """AC2 — dispensador de OUTRO CNPJ: 403 e a resposta não vaza conteúdo do pedido.
+
+    Anti-leak §7.2: o 403 vem antes de qualquer devolutiva. O corpo do erro só
+    carrega código e mensagem genérica — nem paciente, nem exame, nem status.
+    """
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto, item_id = _preparar_item_coletado(client, token_a, _CNPJ_A)
+
+    r = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
+        json={"resultado_resumo": "resultado forjado por terceiro"},
+        headers=_headers(_token(_CNPJ_B, "dispensador")),
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["codigo"] == "nao_e_dono_do_pedido_exame"
+    corpo = r.text.upper()
+    for vazamento in (SEED_PACIENTE_NOME.upper(), SEED_PACIENTE_CPF, "HEMOGRAMA"):
+        assert vazamento not in corpo, f"403 vazou '{vazamento}' no corpo: {r.text}"
+
+
+def test_disp_resultado_sem_custodia_403(client, seed_usuario, seed_paciente):
+    """AC2 (2ª face) — sem custódia nível-pedido nenhuma, o dispensador não passa."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto = _criar_pedido(client, token_a)          # criado, NÃO agendado
+    item_id = _item_id(client, token_a, proto)
+
+    r = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
+        json={"resultado_resumo": "ok"},
+        headers=_headers(_token(_CNPJ_A, "dispensador")),
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["codigo"] == "nao_e_dono_do_pedido_exame"
+
+
+def test_disp_resultado_403_precede_422_de_estado(client, seed_usuario, seed_paciente):
+    """Ordenação anti-leak (#52): não-dono leva 403 mesmo quando o item ESTÁ em
+    estado que rejeitaria o resultado. Se o 422 viesse antes, o terceiro
+    aprenderia o estado do item — vazamento por código de status."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto = _criar_pedido(client, token_a)          # item em 'pendente' → 422 se dono
+    item_id = _item_id(client, token_a, proto)
+    assert _agendar(client, token_a, proto, _CNPJ_A).status_code == 201
+
+    r = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
+        json={"resultado_resumo": "ok"},
+        headers=_headers(_token(_CNPJ_B, "dispensador")),
+    )
+    assert r.status_code == 403, r.text
+    # O código importa: prova que o 403 veio da POSSE, não do papel barrado no
+    # require_role. Sem esta linha o teste passaria antes do enxerto, pelo motivo
+    # errado — e continuaria verde se a ownership fosse removida.
+    assert r.json()["detail"]["codigo"] == "nao_e_dono_do_pedido_exame"
+
+
+def test_prescritor_dono_resultado_inalterado_201(client, seed_usuario, seed_paciente):
+    """AC3 — o caminho do prescritor dono não muda: continua 201 (regressão nula)."""
+    token_a = obter_token_prescritor(client, seed_usuario)
+    proto, item_id = _preparar_item_coletado(client, token_a, _CNPJ_A)
+
+    r = client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
+        json={"resultado_resumo": "Hemoglobina 13,5 g/dL"},
+        headers=_headers(token_a),
+    )
+    assert r.status_code == 201, r.text
+
+
+# ===========================================================================
 # paciente — custodia / encerrar
 # ===========================================================================
 
