@@ -14,7 +14,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.observabilidade import ObservabilidadeMiddleware
 from app.observabilidade.logging_config import configure_logging
-from app.routers import agendamentos, api_keys, atestados, auth, assinaturas, catalogo, circulacao_diagnostica, config_publico, contrarreferencias, custodia, demo, dispensacoes, dispensadores, encaminhamentos, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
+from app.routers import agendamentos, api_keys, atestados, auth, assinaturas, catalogo, circulacao_diagnostica, clinicas, config_publico, contrarreferencias, custodia, demo, dispensacoes, dispensadores, encaminhamentos, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
 
 # Configura logging estruturado o mais cedo possível
 configure_logging()
@@ -214,6 +214,9 @@ app.include_router(prescritores.router)
 app.include_router(pacientes.router)
 app.include_router(auth.router)
 app.include_router(dispensadores.router)
+# DESPACHO-ENG-008 — relatórios da clínica/laboratório (router próprio; /dispensadores
+# é farmácia/SNGPC). Read-only, escopo pelo CNPJ do JWT.
+app.include_router(clinicas.router)
 app.include_router(prescricoes.router)
 app.include_router(receituarios.router)   # Ticket 15 — motor regulatório RDC 1.000/2025
 app.include_router(catalogo.router)        # Ticket 20 — catálogo regulatório de substâncias
