@@ -74,6 +74,9 @@ jobs:
         # relatorio: T8 — escopo por CNPJ do dispensador (test_relatorio_escopo_dispensador).
         # idempotencia/unicidade: TICKET-CORE-R2 — concorrência (FOR UPDATE) +
         #   guard-rail de unicidade de identificadores no relatório.
+        # faturamento: ENG-009 (R4). Mesmo motivo do `catalogo` abaixo — sem o termo,
+        #   test_faturamento_exames_clinica.py fica VERDE E NÃO GATEADO (conferido:
+        #   o CI do PR #143 deselecionou os 7 testes). Verde e não gateado apodrece.
         # catalogo: TASK 2 (autorizado pelo Revisor no PR #138, arquiteto em cópia).
         #   test_catalogo_regulatorio.py ficou VERMELHO por muito tempo justamente
         #   por estar fora deste filtro — ninguém via. Consertá-lo (fixture do
@@ -83,7 +86,7 @@ jobs:
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante or catalogo"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante or catalogo or faturamento"
           -q
 
       - name: Gate do ledger imutável (SQLite + PostgreSQL)
