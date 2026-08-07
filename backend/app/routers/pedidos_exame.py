@@ -976,7 +976,7 @@ def registrar_resultado_item(
     protocolo: str,
     item_id: int,
     payload: ResultadoIn,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),  # dispensador = clínica/lab (R1 V2)
 ):
     """
     Registra o resultado de um item de exame.
@@ -989,8 +989,13 @@ def registrar_resultado_item(
     """
     agora = datetime.utcnow().isoformat()
 
-    # TICKET-5C-BIS-A §7.2 — só o prescritor dono registra resultado; admin
-    # bypassa. Conjunto de papéis inalterado (§4.4/§8.3: sem dispensador aqui).
+    # TICKET-5C-BIS-A §7.2 — prescritor/dispensador validam ownership; admin
+    # bypassa. 404 → 403 → 422 de estado (anti-leak #52).
+    # R1 do arco V2 (DESPACHO-ENG-007): `dispensador` (clínica/lab) passou a
+    # registrar resultado. Antes, a clínica coletava e realizava mas dependia de
+    # um prescritor para "bater o resultado" — fricção sem justificativa clínica.
+    # A guarda de posse é a MESMA de coletar_item_exame: dono = prestador na
+    # custódia ATUAL do pedido inteiro. Nada de guarda nova.
     papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
@@ -999,6 +1004,8 @@ def registrar_resultado_item(
         if papel != "admin":
             if papel == "prescritor":
                 _assert_prescritor_dono_pedido(conn, protocolo, ident)
+            elif papel == "dispensador":
+                _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
