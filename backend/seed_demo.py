@@ -37,6 +37,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app.auth.jwt import hash_senha
 from app.database import get_conn
+from app.domain.catalogo_seed import aplicar_seed_catalogo
 
 # ---------------------------------------------------------------------------
 # Personas canônicas (§3.3 TICKET-6 — P3#8 CODEX rodada 1: IDs novos)
@@ -110,6 +111,37 @@ def _agora() -> str:
 # ---------------------------------------------------------------------------
 # Garantias idempotentes
 # ---------------------------------------------------------------------------
+
+def _garantir_catalogo_regulatorio(conn) -> dict:
+    """Semeia o catálogo regulatório de substâncias (DCB) — Ticket 20.
+
+    Dado de REFERÊNCIA (como `estabelecimentos_cnes`), não persona: nenhuma FK
+    aponta para ele e o `_upsert` de `catalogo_seed.py` é idempotente por
+    `dcb_normalizada` (re-execução atualiza, não duplica).
+
+    Por que aqui e não num script à parte: `scripts/seed_catalogo_substancias.py`
+    existia desde o Ticket 20 mas NINGUÉM o chamava — nem o `predeploy.sh` (Render),
+    nem o `reset_demo_db.py`, nem o conftest do gate de navegador. Resultado: a
+    tabela nascia vazia em todo ambiente e o motor RDC 1.000/2025
+    (`catalogo_regulatorio.validar_itens_prescricao`, chamado por
+    `routers/receituarios.py`) ficava CEGO — pelo princípio de cautela do catálogo
+    parcial, substância ausente é silêncio, não alerta. `/catalogo/substancias`
+    respondia vazio pelo mesmo motivo. Ligando no `seed_demo.main()` — o funil por
+    onde passam TODOS os caminhos que semeiam a demo — vitrine e local ficam iguais.
+
+    NÃO é best-effort: catálogo vazio é exatamente o defeito que este seed existe
+    para impedir. Falha aqui aborta o seed (e o deploy, via `set -e` do predeploy),
+    que é o sinal honesto — melhor que uma demo silenciosamente sem classificação
+    de controle.
+    """
+    contagens = aplicar_seed_catalogo(conn)
+    print(
+        f"  ✅ catálogo regulatório: {contagens['total']} substâncias "
+        f"(GLP-1 {contagens['glp1']} · antimicrobianos {contagens['antimicrobianos']} "
+        f"· Portaria 344 {contagens['portaria_344']} · inativas {contagens['inativos']})"
+    )
+    return contagens
+
 
 def _garantir_usuario(conn, identificador: str, nome: str, role: str) -> None:
     now = _agora()
@@ -678,6 +710,13 @@ def main() -> None:
                 SG_UF_CRM           TEXT
             )
         """)
+
+        # Catálogo regulatório (DCB) — dado de referência do motor RDC 1.000/2025.
+        # Antes das personas porque não depende de nenhuma delas; commit próprio
+        # para que a jornada do controlado (B1 CLONAZEPAM) já esteja servida
+        # mesmo que um bloco best-effort adiante falhe.
+        _garantir_catalogo_regulatorio(conn)
+        conn.commit()
 
         # Prescritor
         _garantir_usuario(conn, PRESCRITOR["cns"], PRESCRITOR["nome"], PRESCRITOR["role"])
