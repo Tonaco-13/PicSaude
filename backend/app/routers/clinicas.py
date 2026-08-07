@@ -32,7 +32,11 @@ from fastapi.responses import StreamingResponse
 
 from app.auth.dependencies import require_role
 from app.database_tx import get_tx
-from app.domain.pdf_relatorio_exames import MAX_REGISTROS_PDF, gerar_pdf_exames
+from app.domain.pdf_relatorio_exames import (
+    MAX_REGISTROS_PDF,
+    gerar_pdf_exames,
+    gerar_pdf_faturamento,
+)
 from app.utils.helpers import normalize_cnpj
 
 router = APIRouter(prefix="/clinicas", tags=["clinicas"])
@@ -205,6 +209,76 @@ def _linha_csv(ln: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Faturamento (R4 — DESPACHO-ENG-009): projeção read-only, contabilidade interna
+# ---------------------------------------------------------------------------
+# NÃO é guia TISS: nada é publicado a sistema externo, então não depende de G4A.
+# É "quantos exames de cada procedimento foram concluídos no período, aqui".
+#
+# Âncora de cobrança — decisão explicada, porque o despacho pediu para NÃO assumir:
+# o evento `resultado_registrado` grava o `item_id` dentro de `dados_json` (Text).
+# Casar evento→item por JSON exigiria função divergente entre SQLite e PostgreSQL.
+# Na MESMA transação que emite o evento, `pedidos_exame.py` carimba
+# `pedido_exame_itens.resultado_em` com o mesmo instante (`agora`). Ancoramos ali:
+# é por item (o evento agregado por pedido não seria), é dialeto-neutro, e a
+# equivalência com o ledger não fica na prosa — está travada em teste
+# (`test_faturamento_equivale_ao_ledger`).
+_ROTULO_SEM_TUSS = "(não classificado)"
+
+_SQL_FATURAMENTO_DO_CNPJ = """
+SELECT pei.codigo_tuss   AS codigo_tuss,
+       pei.resultado_em  AS resultado_em
+  FROM pedido_exame_itens pei
+  JOIN pedido_exame_custodia c ON c.pedido_id = pei.pedido_id
+ WHERE pei.resultado_em IS NOT NULL
+   AND c.item_id IS NULL
+   AND c.id = (
+        SELECT MAX(id) FROM pedido_exame_custodia
+         WHERE pedido_id = c.pedido_id AND item_id IS NULL
+   )
+   AND c.para = ?
+"""
+
+
+def _faturamento_do_cnpj(conn, cnpj: str) -> list[dict]:
+    rows = conn.execute(_SQL_FATURAMENTO_DO_CNPJ, (cnpj,)).fetchall()
+    return [{k: r[k] for k in r.keys()} for r in rows]
+
+
+def _agregar_por_tuss(linhas: list[dict]) -> list[dict]:
+    """Agrega por procedimento. Ordem estável: qtd desc, depois código asc —
+    sem o desempate por código, dois procedimentos de mesma contagem trocariam
+    de lugar entre execuções e o relatório deixaria de ser reproduzível."""
+    acc: dict[str, dict] = {}
+    for ln in linhas:
+        chave = (ln.get("codigo_tuss") or "").strip() or _ROTULO_SEM_TUSS
+        dt = _como_datetime(ln.get("resultado_em"))
+        grupo = acc.setdefault(chave, {"codigo_tuss": chave, "qtd": 0,
+                                       "primeiro_resultado": None, "ultimo_resultado": None})
+        grupo["qtd"] += 1
+        if dt is not None:
+            if grupo["primeiro_resultado"] is None or dt < grupo["primeiro_resultado"]:
+                grupo["primeiro_resultado"] = dt
+            if grupo["ultimo_resultado"] is None or dt > grupo["ultimo_resultado"]:
+                grupo["ultimo_resultado"] = dt
+    return sorted(acc.values(), key=lambda g: (-g["qtd"], g["codigo_tuss"]))
+
+
+def _linhas_faturamento(conn, cnpj: str, dt_inicio, dt_fim) -> list[dict]:
+    brutas = _faturamento_do_cnpj(conn, cnpj)
+    no_periodo = []
+    for ln in brutas:
+        dt = _como_datetime(ln.get("resultado_em"))
+        if dt is None:
+            continue
+        if dt_inicio and dt < dt_inicio:
+            continue
+        if dt_fim and dt > dt_fim:
+            continue
+        no_periodo.append(ln)
+    return _agregar_por_tuss(no_periodo)
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
@@ -269,6 +343,84 @@ def relatorio_exames_pdf(
     )
 
     filename = f"relatorio_exames_{date.today().isoformat()}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+CABECALHO_FATURAMENTO_CSV = [
+    "codigo_tuss",
+    "qtd",
+    "primeiro_resultado",
+    "ultimo_resultado",
+]
+
+
+@router.get("/faturamento.csv", summary="Faturamento de exames do prestador (CSV)")
+def faturamento_exames_csv(
+    usuario=Depends(require_role("dispensador")),
+    data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+):
+    """Agregação por procedimento (TUSS) dos exames concluídos no período, sob
+    custódia atual do próprio prestador. Contabilidade interna, read-only."""
+    cnpj = normalize_cnpj(usuario["sub"])
+    dt_inicio, dt_fim, _ = _janela_periodo(data_inicio, data_fim)
+
+    with get_tx() as conn:
+        grupos = _linhas_faturamento(conn, cnpj, dt_inicio, dt_fim)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, quoting=csv.QUOTE_ALL)
+    writer.writerow(CABECALHO_FATURAMENTO_CSV)
+    for g in grupos:
+        writer.writerow([
+            _fmt(g["codigo_tuss"]),
+            _fmt(g["qtd"]),
+            _fmt(g["primeiro_resultado"]),
+            _fmt(g["ultimo_resultado"]),
+        ])
+    buffer.seek(0)
+
+    filename = f"faturamento_exames_{date.today().isoformat()}.csv"
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/faturamento.pdf", summary="Faturamento de exames do prestador (PDF)")
+def faturamento_exames_pdf(
+    usuario=Depends(require_role("dispensador")),
+    data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (padrão: 30 dias atrás)"),
+    data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (padrão: hoje)"),
+):
+    """Mesma agregação em PDF. `MAX_REGISTROS_PDF` fica como teto defensivo — a
+    agregação por TUSS é naturalmente curta, mas truncagem silenciosa não existe
+    neste projeto."""
+    cnpj = normalize_cnpj(usuario["sub"])
+    dt_inicio, dt_fim, filtros = _janela_periodo(data_inicio, data_fim)
+    filtros["cnpj"] = cnpj
+
+    with get_tx() as conn:
+        grupos = _linhas_faturamento(conn, cnpj, dt_inicio, dt_fim)
+
+    total_no_periodo = len(grupos)
+    limitado = total_no_periodo > MAX_REGISTROS_PDF
+    if limitado:
+        grupos = grupos[:MAX_REGISTROS_PDF]
+
+    pdf_bytes = gerar_pdf_faturamento(
+        grupos=grupos,
+        filtros=filtros,
+        limitado=limitado,
+        total_no_periodo=total_no_periodo if limitado else None,
+    )
+
+    filename = f"faturamento_exames_{date.today().isoformat()}.pdf"
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",
