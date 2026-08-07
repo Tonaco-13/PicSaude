@@ -180,3 +180,97 @@ def gerar_pdf_exames(
 
     doc.build(story, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Faturamento (R4 — DESPACHO-ENG-009)
+# ---------------------------------------------------------------------------
+# Contabilidade INTERNA: quantos exames de cada procedimento foram concluídos no
+# período. Não é guia TISS, não sai da instituição.
+
+_COLUNAS_FATURAMENTO = [
+    ("Procedimento (TUSS)", 70 * mm),
+    ("Quantidade",          30 * mm),
+    ("Primeiro resultado",  40 * mm),
+    ("Último resultado",    40 * mm),
+]
+
+_HEADERS_FAT = [c[0] for c in _COLUNAS_FATURAMENTO]
+_COL_WIDTHS_FAT = [c[1] for c in _COLUNAS_FATURAMENTO]
+
+
+def gerar_pdf_faturamento(
+    grupos: list[dict],
+    filtros: dict,
+    limitado: bool = False,
+    total_no_periodo: int | None = None,
+) -> bytes:
+    """PDF do faturamento (agregação por procedimento) do prestador."""
+    titulo_s, subtitulo_s, filtro_s, aviso_s, cabecalho_s, celula_s = _estilos()
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=landscape(A4),
+        leftMargin=12 * mm, rightMargin=12 * mm,
+        topMargin=14 * mm, bottomMargin=16 * mm,
+    )
+
+    agora_utc = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+    total_exames = sum(int(g.get("qtd") or 0) for g in grupos)
+    story = []
+
+    story.append(Paragraph("PicSaúde", titulo_s))
+    story.append(Paragraph(
+        "Faturamento de exames — Prestador (relatório interno)", subtitulo_s))
+    story.append(Paragraph(f"Emitido em: {agora_utc}", filtro_s))
+    story.append(Spacer(1, 3 * mm))
+
+    periodo = f"{filtros.get('data_inicio') or '—'}  até  {filtros.get('data_fim') or '—'}"
+    story.append(Paragraph(f"Período: {periodo}", filtro_s))
+    if filtros.get("cnpj"):
+        story.append(Paragraph(f"Estabelecimento (CNPJ): {filtros['cnpj']}", filtro_s))
+    story.append(Paragraph(
+        f"Procedimentos distintos: {len(grupos)} · Exames concluídos: {total_exames}", filtro_s))
+    # Anti-overclaim: um documento chamado "faturamento" precisa dizer o que NÃO é,
+    # ou vira guia de cobrança na mão de quem o receber.
+    story.append(Paragraph(
+        "Relatório interno de contabilidade — não é guia TISS nem documento de "
+        "cobrança junto a operadora.", filtro_s))
+
+    if limitado:
+        total_txt = f" (total no período: {total_no_periodo})" if total_no_periodo else ""
+        story.append(Paragraph(
+            f"⚠  Relatório truncado em {MAX_REGISTROS_PDF} registros{total_txt} — "
+            "use o CSV para exportação completa.",
+            aviso_s,
+        ))
+
+    story.append(Spacer(1, 3 * mm))
+
+    data_table = [[Paragraph(h, cabecalho_s) for h in _HEADERS_FAT]]
+    for g in grupos:
+        data_table.append([
+            Paragraph(str(g.get("codigo_tuss") or ""), celula_s),
+            Paragraph(str(g.get("qtd") or 0), celula_s),
+            Paragraph(_fmt_data(g.get("primeiro_resultado")), celula_s),
+            Paragraph(_fmt_data(g.get("ultimo_resultado")), celula_s),
+        ])
+
+    tabela = Table(data_table, colWidths=_COL_WIDTHS_FAT, repeatRows=1)
+    tabela.setStyle(TableStyle([
+        ("BACKGROUND",  (0, 0), (-1, 0), NAVY),
+        ("TEXTCOLOR",   (0, 0), (-1, 0), WHITE),
+        ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN",       (0, 0), (-1, 0), "CENTER"),
+        ("ALIGN",       (1, 1), (1, -1), "CENTER"),
+        ("VALIGN",      (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [WHITE, GREY_BG]),
+        ("TOPPADDING",  (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("GRID",        (0, 0), (-1, -1), 0.25, colors.HexColor("#cbd5e1")),
+        ("LINEBELOW",   (0, 0), (-1, 0), 1, GREEN),
+    ]))
+    story.append(tabela)
+
+    doc.build(story, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
