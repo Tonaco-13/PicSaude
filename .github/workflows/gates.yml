@@ -125,3 +125,20 @@ jobs:
           sh predeploy.sh
           echo "[smoke] re-seed (idempotência — o deploy re-roda a cada push)"
           python3 seed_demo.py
+          echo "[smoke] catálogo regulatório na PG que o predeploy acabou de semear"
+          # DESPACHO-OPS-SEED-CATALOGO-DCB — a guarda em tests/test_seed_catalogo_dcb.py
+          # roda em SQLite; esta linha confere o MESMO invariante no dialeto e no
+          # caminho da vitrine (predeploy → PG), onde o catálogo vazio doeu.
+          python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute('SELECT COUNT(*) FROM catalogo_substancias'); n=k.fetchone()[0]; print(f'[smoke] catalogo_substancias={n}'); raise SystemExit(0 if n > 0 else 'catalogo_substancias VAZIA apos o predeploy — seeder orfao (ver seed_demo._garantir_catalogo_regulatorio)')"
+
+      - name: Gate do seed do catálogo DCB — DESPACHO-OPS-SEED-CATALOGO-DCB
+        # Guarda contra o "seeder órfão": `catalogo_seed.py` (~120 DCBs) existia
+        # desde o Ticket 20 mas ninguém o chamava, e a tabela nascia vazia em todo
+        # ambiente — motor RDC 1.000/2025 cego, /catalogo/substancias vazio.
+        # Passo próprio (como o gate do ledger): a suíte monta um banco demo
+        # efêmero com a receita do predeploy (alembic upgrade head + seed_demo.py)
+        # e prova, pela mesma função que `receituarios.py` chama, que o motor
+        # enxerga o CLONAZEPAM (B1). Não usa PG: o invariante é do seed, não do
+        # dialeto — e a linha acima já o confere na PG do predeploy.
+        working-directory: backend
+        run: python -m pytest tests/test_seed_catalogo_dcb.py -q
