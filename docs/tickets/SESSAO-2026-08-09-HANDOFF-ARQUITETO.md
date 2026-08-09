@@ -58,6 +58,35 @@
 
 ---
 
+## 3a. PRÓXIMA FRENTE — Motores da prescrição (decidido por Fabiano na noite de 09/08)
+
+> **Amanhã (10/08) começa por aqui.** Diagnóstico dos 5 motores — radiografia honesta do que
+> está pronto vs. o que falta, **antes** de qualquer ticket.
+
+| Peça | Estado verificado (09/08) | A diagnosticar amanhã |
+|---|---|---|
+| **Preenchimento de CID** | ✅ base completa 14.241 códigos (`cid10.csv`, `/ia/cid/buscar`) | UX do preenchimento |
+| **Medicamentos + dose + apresentação comercial** | ✅ 5.655 ativos + 25.392 apresentações (`def` + `cmed`) | UX do autocomplete |
+| **Posologia** | 🟡 só 11 linhas (`posologia_sugerida.csv`) | Quanto expandir |
+| **Motor regulatório RDC 1.000** | ⚠️ **metade** — catálogo DCB ativo (56 substâncias, #137); classificação de controle (B1/B2/C1/C2/D1) precisa confirmar alcance | Até onde chega a classificação |
+| **Motor de redundância clínica (semáforo)** | ✅ funciona, determinístico, sem LLM, não-bloqueante; 🟢/🟡 vivo | Confirmar "sem bloquear" + anti-fadiga |
+
+### Invariante de produto (decisão Fabiano, não reabrir)
+
+> **CID e hipótese clínica são SEMPRE opcionais.** O campo nunca vira obrigatório, mesmo que o
+> semáforo o use como entrada. Verificar no diagnóstico se isto já é verdade hoje.
+
+### Decisão sobre o 🔴 vermelho (muda o escopo)
+
+**Fabiano decidiu: trazer o 🔴 vermelho pra perto** (sair de "Fase 2" e entrar no diagnóstico).
+Custo de arquiteto registrado: o vermelho de contraindicação **exige fonte** (mesmo padrão do
+verde/amarelo — `fonte` + `validado_por` em `decisao_semaforo.csv`). Não dá pra fazer "vermelho
+achismo". **Na prática = curadoria clínica de contraindicações**, trabalho do Fabiano
+(validado_por). O diagnóstico de amanhã precisa medir **quanto dado de contraindicação já
+existe** vs. quanto falta.
+
+---
+
 ## 4. Pendências / dívidas conhecidas (do handoff Fable 5)
 
 - 2 testes vermelhos pré-existentes: `test_4d2_instance_id_ledger`, `test_regras_receituario`
