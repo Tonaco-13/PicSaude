@@ -187,6 +187,143 @@ def fila(
 
 
 # ---------------------------------------------------------------------------
+# TICKET-GAP-4-LISTAGENS-EXAME §2.2 — Fila de exames do laboratório
+# ---------------------------------------------------------------------------
+# Pedidos de exame sob custódia ATIVA do CNPJ autenticado — o que faz a bancada
+# do laboratório "ver os exames chegarem" (o exame cai como um pix), em vez de
+# digitar protocolo na mão. Espelho do /fila de prescrições (:93).
+#
+# Guardrail (mesmo do /fila): a query filtra pelo DETENTOR REAL na cadeia de
+# custódia — último registro de pedido_exame_custodia em nível de PEDIDO
+# (item_id IS NULL, ORDER BY id DESC LIMIT 1 — pós-'agendar'; nunca "qualquer
+# custódia histórica", correção P1(b) de pedidos_exame.py:597). Polling no
+# front basta para a demo.
+#
+# Classe `module`. Projection do ledger + custódia: não cria estado, não muta.
+# `acionavel` é DERIVADO (§10 — estados computados não persistidos): item em
+# estado que o laboratório pode agir (agendado→coletar, coletado→resultado).
+
+_ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"agendado", "coletado"})
+
+# Pedido some da fila quando atinge estado terminal — a custódia histórica
+# continua gravada, mas a fila é de trabalho pendente (critério §4.5 do ticket).
+_ESTADOS_PEDIDO_FIM_FILA = frozenset({"encerrado", "cancelado", "expirado", "encerrado_fisico"})
+
+
+@router.get("/fila-exames")
+def fila_exames(
+    usuario=Depends(require_role("dispensador", "admin")),
+    cnpj: Optional[str] = Query(None, description="Só admin: filtra por CNPJ."),
+    status: Optional[str] = Query(None, description="Filtra por status do pedido (ex.: agendado, coletado)."),
+):
+    """Fila de exames: pedidos sob custódia ativa do laboratório (clínica/lab)."""
+    # Dispensador vê a própria fila (CNPJ do JWT). Admin pode informar ?cnpj=.
+    if usuario["role"] == "dispensador":
+        cnpj_alvo = normalize_cnpj(usuario["sub"])
+    else:
+        if not cnpj:
+            raise HTTPException(
+                status_code=422,
+                detail={"codigo": "cnpj_obrigatorio_admin",
+                        "mensagem": "admin deve informar ?cnpj= para consultar a fila de exames."},
+            )
+        cnpj_alvo = normalize_cnpj(cnpj)
+
+    filtro_status = ""
+    params: list = [cnpj_alvo]
+    if status:
+        filtro_status = " AND p.status = ?"
+        params.append(status)
+
+    with get_tx() as conn:
+        # Detentor ATUAL do pedido (item_id IS NULL) = CNPJ do JWT. A subquery
+        # correlacionada pega o ÚLTIMO registro de custódia do pedido — quem
+        # já foi custodiante e perdeu a custódia não aparece.
+        pedidos = conn.execute(
+            f"""
+            SELECT p.id, p.protocolo, p.status, p.prioridade, p.data_emissao,
+                   pac.nome AS paciente_nome, pac.cpf AS paciente_cpf,
+                   pr.nome  AS prescritor_nome
+              FROM pedidos_exame p
+              JOIN pacientes pac   ON pac.id = p.paciente_id
+              JOIN prescritores pr ON pr.id = p.prescritor_id
+             WHERE p.id IN (
+                       SELECT c.pedido_id
+                         FROM pedido_exame_custodia c
+                        WHERE c.item_id IS NULL
+                          AND c.para = ?
+                          AND c.id = (
+                              SELECT MAX(c2.id)
+                                FROM pedido_exame_custodia c2
+                               WHERE c2.pedido_id = c.pedido_id
+                                 AND c2.item_id IS NULL
+                          )
+                   )
+             {filtro_status}
+             ORDER BY p.data_emissao DESC, p.id DESC
+            """,
+            params,
+        ).fetchall()
+
+        fila_out = []
+        for p in pedidos:
+            # Critério §4.5: pedido em estado terminal sai da fila mesmo com
+            # a custódia ainda registrada neste CNPJ.
+            if p["status"] in _ESTADOS_PEDIDO_FIM_FILA:
+                continue
+
+            itens = conn.execute(
+                """
+                SELECT i.id, i.nome_exame, i.codigo_tuss, i.quantidade,
+                       i.status_item, i.resultado_em
+                  FROM pedido_exame_itens i
+                 WHERE i.pedido_id = ?
+                 ORDER BY i.id
+                """,
+                (p["id"],),
+            ).fetchall()
+
+            itens_out = [
+                {
+                    "item_id": it["id"],
+                    "nome_exame": it["nome_exame"],
+                    "codigo_tuss": it["codigo_tuss"],
+                    "quantidade": it["quantidade"],
+                    "status_item": it["status_item"],
+                    # §10: derivado no backend — FONTE ÚNICA para a UI (nunca
+                    # recalcular "terminal" no cliente). agendado→coletar,
+                    # coletado→registrar resultado; demais estados, só leitura.
+                    "acionavel": it["status_item"] in _ESTADOS_ITEM_ACIONAVEL_LAB,
+                }
+                for it in itens
+            ]
+
+            # Último agendamento do pedido (informativo; não afeta ownership).
+            ult_ag = conn.execute(
+                """
+                SELECT data_hora FROM agendamentos
+                 WHERE pedido_id = ?
+                   AND status NOT IN ('cancelado', 'nao_compareceu')
+                 ORDER BY id DESC LIMIT 1
+                """,
+                (p["id"],),
+            ).fetchone()
+
+            fila_out.append({
+                "protocolo": p["protocolo"],
+                "status": p["status"],
+                "prioridade": p["prioridade"],
+                "data_emissao": p["data_emissao"],
+                "paciente": {"nome": p["paciente_nome"], "cpf": _cpf_display(p["paciente_cpf"])},
+                "prescritor": {"nome": p["prescritor_nome"]},
+                "data_ultimo_agendamento": ult_ag["data_hora"] if ult_ag else None,
+                "itens": itens_out,
+            })
+
+        return {"cnpj": cnpj_alvo, "total": len(fila_out), "fila": fila_out}
+
+
+# ---------------------------------------------------------------------------
 # T6 — Histórico de retenções desta unidade (PLANO_DEMO_CIRCULACAO §5)
 # ---------------------------------------------------------------------------
 # Prescrições em que ESTE estabelecimento dispensou ≥1 item, com dispensacao_id
