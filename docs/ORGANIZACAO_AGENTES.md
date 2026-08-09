@@ -45,6 +45,23 @@
 > bloqueante e passou a consultiva; o Conselheiro deixou de estar no fluxo de
 > toda decisão e passou a sob demanda. Decisão do dono do produto em 2026-08-06.
 
+### 3.1 Timing do parecer do Revisor (adotado 2026-08-09)
+
+A revisão é **consultiva** (não bloqueia), mas o **timing** do martelo importa conforme o
+que o PR toca:
+
+- **PR de baixo risco** (`local-extension` de frontend, `docs`, `ops` leve): o martelo pode
+  correr **em paralelo** ao parecer do Revisor. Se a auditoria chegar pós-merge e achar
+  regressão, vira heads-up pra reverter. Aceitável — o custo de reverter é baixo.
+- **PR que toca invariante sensível** (RBAC em `auth/`, ledger `*_eventos`, custódia
+  `prescricao_custodia`, máquinas de estados `domain/states*.py`, endpoints `/public/*`):
+  **esperar o parecer do Revisor ANTES do merge**, mesmo sendo consultivo. O custo de
+  reverter um invariante violado é alto; o Parecer pré-merge é barato.
+
+> **Origem:** alerta do Revisor (Claude-app) no PR #146 — a auditoria entrou pós-merge.
+> Como o #146 era `local-extension` de frontend (baixo risco) e não achou regressão, virou
+> ratificação retroativa. Mas o princípio fica: invariante sensível espera parecer.
+
 ---
 
 ## 4. Governança — quem aprova mudança `core`
