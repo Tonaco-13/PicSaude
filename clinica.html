@@ -134,6 +134,46 @@
     .busca-erro { margin-top: 10px; font-size: 13px; color: #dc2626; font-weight: 600; }
 
     /* ============================================================ */
+    /* GAP-4 — Fila de exames do laboratório (espelho da fila do    */
+    /* dispensador: o exame "chega como um pix", sem digitar        */
+    /* protocolo)                                                   */
+    /* ============================================================ */
+    .fila-card { border-left: 4px solid #06b6d4; }
+    .fila-card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #cffafe;
+    }
+    .fila-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 7px; margin-left: 6px;
+      border-radius: 11px; background: #0e7490; color: #fff;
+      font-size: 12px; font-weight: 700; vertical-align: middle;
+    }
+    .fila-refresh {
+      background: transparent; border: 1px solid #cbd5e1; color: #475569;
+      padding: 7px 14px; border-radius: 5px; font-size: 12px; font-weight: 600;
+      cursor: pointer;
+    }
+    .fila-refresh:hover { background: #f8fafc; border-color: #94a3b8; }
+    .fila-vazia {
+      font-size: 14px; color: #64748b; text-align: center; padding: 20px;
+      border: 1px dashed #cbd5e1; border-radius: 6px;
+    }
+    .fila-item {
+      border: 1px solid #e2e8f0; border-left: 4px solid #06b6d4;
+      border-radius: 6px; padding: 14px 16px; margin-bottom: 12px;
+      background: #f8feff; cursor: pointer; transition: border-color 0.15s;
+    }
+    .fila-item:hover { border-color: #06b6d4; }
+    .fila-item-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .fila-paciente { font-weight: 700; color: #0f172a; font-size: 15px; }
+    .fila-proto { font-size: 11px; color: #64748b; font-family: monospace; margin-top: 3px; }
+    .fila-exames-lista { margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.8; }
+    .fila-exame-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
+    .fila-ag-info { font-size: 12px; color: #64748b; margin-top: 8px; }
+    .fila-abrir { font-size: 11px; color: #0e7490; font-weight: 700; white-space: nowrap; }
+
+    /* ============================================================ */
     /* Cards genéricos                                              */
     /* ============================================================ */
     .card {
@@ -566,6 +606,20 @@
         <button class="btn-banner-corrigir" type="button" onclick="abrirModalCNESClinica()">Corrigir agora</button>
       </div>
 
+      <!-- FILA DE EXAMES (GAP-4 — "o exame chega como um pix") ────── -->
+      <div class="card fila-card" id="fila-card">
+        <div class="fila-card-head">
+          <div class="card-titulo" style="border:none;margin:0;padding:0;">
+            📥 Fila de Exames<span class="fila-count" id="fila-count">0</span>
+          </div>
+          <button type="button" class="fila-refresh" onclick="carregarFilaExames(true)">↻ Atualizar</button>
+        </div>
+        <div id="fila-feedback" class="hidden"></div>
+        <div id="fila-lista">
+          <p class="fila-vazia">Carregando fila…</p>
+        </div>
+      </div>
+
       <!-- BUSCA -------------------------------------------------- -->
       <div class="busca-section">
         <h2>🔍 Buscar Pedido de Exame</h2>
@@ -956,6 +1010,8 @@
       const contextFound = await _carregarContextoInstitucional(token);
       if (contextFound) {
         document.getElementById('tela-dashboard').classList.remove('hidden');
+        carregarFilaExames();   // GAP-4: a fila é a primeira coisa que a bancada vê
+        _iniciarPollingFila();
         document.getElementById('busca-protocolo')?.focus();
       } else {
         document.getElementById('tela-onboarding').classList.remove('hidden');
@@ -991,6 +1047,8 @@
     function _pularOnboarding() {
       document.getElementById('tela-onboarding').classList.add('hidden');
       document.getElementById('tela-dashboard').classList.remove('hidden');
+      carregarFilaExames();   // GAP-4
+      _iniciarPollingFila();
       document.getElementById('busca-protocolo')?.focus();
     }
 
@@ -1060,12 +1118,104 @@
       pedidoAtual           = null;
       agendamentosAtuais    = [];
       _cnesConfirmadoManual = false;
+      _pararPollingFila();   // GAP-4
 
       document.getElementById('header-sessao').classList.add('hidden');
       document.getElementById('tela-dashboard').classList.add('hidden');
       document.getElementById('resultado-pedido').classList.add('hidden');
       document.getElementById('busca-protocolo').value = '';
       document.getElementById('tela-login').classList.remove('hidden');
+    }
+
+    // ─────────────────────────────────────────
+    // FILA DE EXAMES (GAP-4 — /dispensadores/fila-exames)
+    // O laboratório "vê os exames chegarem" sem digitar protocolo.
+    // Escopo = custódia ativa do CNPJ do JWT (backend). 'acionavel' é
+    // derivado no backend (§10) — a UI NUNCA recalcula estado no cliente.
+    // Polling de 30s (análogo ao _pollCarteira do cidadão).
+    // ─────────────────────────────────────────
+
+    let _filaPollTimer = null;
+
+    async function carregarFilaExames(feedbackManual = false) {
+      const lista = document.getElementById('fila-lista');
+      if (!lista || !jwtAccessToken) return;
+      try {
+        const resp = await fetch(BACKEND + '/dispensadores/fila-exames', { headers: authHeaders() });
+        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          lista.innerHTML = '<p class="fila-vazia">Não foi possível carregar a fila: ' +
+            esc(_extrairMsgErro(err, String(resp.status))) + '</p>';
+          return;
+        }
+        const data = await resp.json();
+        _renderizarFilaExames(data.fila || []);
+        if (feedbackManual) mostrarFeedback('fila-feedback', 'ok', 'Fila atualizada.');
+      } catch (_) {
+        lista.innerHTML = '<p class="fila-vazia">Sem conexão com o servidor.</p>';
+      }
+    }
+
+    function _renderizarFilaExames(fila) {
+      const lista = document.getElementById('fila-lista');
+      const count = document.getElementById('fila-count');
+      // Mesmo precedente do B2 §4.1 (fila de prescrições): o pedido só fica na
+      // fila enquanto tiver ao menos um item ACIONÁVEL — i.acionavel vem do
+      // backend (§10), NUNCA recalculado no cliente. Sem nada a fazer, o
+      // pedido continua acessível pela busca/relatório, não pela fila.
+      const visiveis = (fila || []).filter(p => (p.itens || []).some(i => i.acionavel));
+      if (count) count.textContent = visiveis.length;
+
+      if (!visiveis.length) {
+        lista.innerHTML = '<p class="fila-vazia">Nenhum exame aguardando atendimento na bancada.</p>';
+        return;
+      }
+
+      lista.innerHTML = visiveis.map(p => {
+        const exames = (p.itens || []).map(i => `
+          <div class="fila-exame-row">
+            <span>${esc(i.nome_exame)}${i.quantidade > 1 ? ` ×${i.quantidade}` : ''}</span>
+            ${badgeItem(i.status_item)}
+          </div>`).join('');
+        const agInfo = p.data_ultimo_agendamento
+          ? `<div class="fila-ag-info">📅 Agendado: ${formatarData(p.data_ultimo_agendamento)}</div>` : '';
+        return `
+          <div class="fila-item" onclick="abrirPedidoDaFila('${esc(p.protocolo)}')"
+               role="button" tabindex="0"
+               onkeydown="if(event.key==='Enter') abrirPedidoDaFila('${esc(p.protocolo)}')">
+            <div class="fila-item-head">
+              <div>
+                <div class="fila-paciente">${esc(p.paciente?.nome || '—')}</div>
+                <div class="fila-proto">${esc(p.protocolo)}</div>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                ${badgePedido(p.status)}
+                ${badgePrioridade(p.prioridade)}
+                <span class="fila-abrir">Abrir →</span>
+              </div>
+            </div>
+            <div class="fila-exames-lista">${exames}</div>
+            ${agInfo}
+          </div>`;
+      }).join('');
+    }
+
+    // Clique no card da fila = a mesma busca por protocolo de sempre (fonte
+    // única: buscarPedido/renderizarPedido), só que sem digitação.
+    function abrirPedidoDaFila(protocolo) {
+      const input = document.getElementById('busca-protocolo');
+      if (input) input.value = protocolo;
+      buscarPedido();
+    }
+
+    function _iniciarPollingFila() {
+      if (_filaPollTimer) clearInterval(_filaPollTimer);
+      _filaPollTimer = setInterval(carregarFilaExames, 30000);
+    }
+
+    function _pararPollingFila() {
+      if (_filaPollTimer) { clearInterval(_filaPollTimer); _filaPollTimer = null; }
     }
 
     // ─────────────────────────────────────────
@@ -1608,6 +1758,7 @@
           renderizarPedido(pedidoAtual);
         }
       } catch (_) { /* falha silenciosa — UI já foi atualizada localmente */ }
+      carregarFilaExames();   // GAP-4: após mutação, a fila reflete o novo estado
     }
 
     // ─────────────────────────────────────────
