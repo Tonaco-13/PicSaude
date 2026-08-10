@@ -118,15 +118,19 @@ class TestTerminais:
             )
 
     def test_terminais_item_tem_frozenset_vazio_em_transicoes(self):
-        # `dispensado` é terminal de negócio mas permite escape para `estornado`
-        # (reversão após dispensação). Os demais terminais não têm saída.
+        # `dispensado` é terminal de negócio mas admite DUAS saídas nomeadas
+        # (exceções explícitas, à moda do COER2-POS-MERGE-FIX):
+        #   - `estornado`  : scaffolding dormente (objeto-derivado; não usado no fluxo real)
+        #   - `devolvido_paciente` : estorno TOTAL nos motivos "cidadão recupera"
+        #     (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO §3.2) — devolve a custódia
+        #     ao paciente e destrava retry + devolução ao prescritor.
+        # Os demais terminais não têm saída.
         terminais_sem_escape = ESTADOS_TERMINAIS_ITEM - {"dispensado"}
         for terminal in terminais_sem_escape:
             assert TRANSICOES_ITEM[terminal] == frozenset(), (
                 f"Terminal '{terminal}' tem transições de saída não-vazias"
             )
-        # dispensado só permite estornado
-        assert TRANSICOES_ITEM["dispensado"] == frozenset({"estornado"})
+        assert TRANSICOES_ITEM["dispensado"] == frozenset({"estornado", "devolvido_paciente"})
 
 
 # ---------------------------------------------------------------------------
@@ -228,11 +232,14 @@ class TestTransicoesItem:
         """Abandono de balcão permite nova tentativa."""
         assert transicao_valida_item("devolvido_paciente", "em_custodia") is True
 
-    def test_dispensado_so_permite_estorno(self):
-        """Após dispensação, apenas estorno é permitido."""
-        for destino in ESTADOS_ITEM - {"estornado"}:
+    def test_dispensado_permite_estorno_e_devolucao_pos_estorno(self):
+        """Após dispensação, só dois destinos nomeados são permitidos:
+        `estornado` (scaffolding dormente) e `devolvido_paciente` (estorno TOTAL
+        nos motivos "cidadão recupera" — TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO)."""
+        for destino in ESTADOS_ITEM - {"estornado", "devolvido_paciente"}:
             assert transicao_valida_item("dispensado", destino) is False
         assert transicao_valida_item("dispensado", "estornado") is True
+        assert transicao_valida_item("dispensado", "devolvido_paciente") is True
 
 
 # ---------------------------------------------------------------------------
