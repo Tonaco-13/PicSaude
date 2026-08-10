@@ -162,20 +162,47 @@ class TestImpressaoNuncaFalhaCalada:
 
 
 class TestImpressaoDaPaginaPrincipal:
-    """`imprimirDireto` e `imprimirPedidoFisico` NÃO têm o mesmo defeito.
+    """`imprimirDireto` NÃO tem o mesmo defeito.
 
-    Verificado: as duas chamam `window.print()` na própria página, sem abrir
-    janela nenhuma — não há o que um bloqueador de pop-up intercepte. Esta
-    guarda existe para que continuem assim: se alguém as migrar para janela
-    nova, cai no mesmo buraco.
+    Verificado: chama `window.print()` na própria página, sem abrir janela
+    nenhuma — não há o que um bloqueador de pop-up intercepte. Esta guarda
+    existe para que continue assim: se alguém a migrar para janela nova, cai
+    no mesmo buraco.
+
+    `imprimirPedidoFisico` SAIU desta guarda em 2026-08-10 (decisão do
+    arquiteto): migrou para o padrão PDF-do-servidor (POST /pedidos-exame/
+    fisica → GET /{proto}/pdf → download de blob), o mesmo do atestado físico
+    (LEARNINGS 2026-07-22). O medo fundador desta guarda — window.open
+    bloqueado, retorno mudo — não se aplica a download de blob. A função
+    passou a ser guardada pelo registro de ação-sem-silêncio
+    (test_frontend_acao_sem_silencio.py), e a proibição de window.open
+    permanece travada abaixo.
     """
 
     @pytest.mark.parametrize(
-        "funcao", ["async function imprimirDireto", "function imprimirPedidoFisico"]
+        "funcao", ["async function imprimirDireto"]
     )
     def test_imprimem_a_propria_pagina(self, html, funcao):
         corpo = _corpo_da_funcao(html, funcao)
         assert "window.print()" in corpo
+        assert "window.open" not in corpo
+
+    @pytest.mark.parametrize(
+        "funcao", ["async function imprimirPedidoFisico", "async function imprimirAtestadoFisico"]
+    )
+    def test_emissao_fisica_nao_abre_janela(self, html, funcao):
+        """Emissões físicas server-PDF: sem janela, sem pop-up.
+
+        `imprimirPedidoFisico` migrou para PDF-do-servidor em 2026-08-10
+        (decisão do arquiteto). Bônus do parecer do Revisor (2026-08-10):
+        `imprimirAtestadoFisico` — o precedente — também entra; sua proibição
+        de window.open vivia só em comentário, agora travada em teste.
+
+        `_sem_comentarios` porque as próprias funções explicam NO COMENTÁRIO
+        por que window.open foi abandonado — guarda não lê prosa (mesmo motivo
+        do `_sem_comentarios` de test_iframe_e_renderizado_e_nao_display_none).
+        """
+        corpo = _sem_comentarios(_corpo_da_funcao(html, funcao))
         assert "window.open" not in corpo
 
 
