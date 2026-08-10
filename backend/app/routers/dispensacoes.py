@@ -31,8 +31,8 @@ from app.domain.medicamento import formatar_quantidade, normalizar_unidade
 from app.domain.motor_regulatorio import grupo_por_id
 from app.domain.states import MOTIVOS_ESTORNO
 from app.instance import get_instance_id_conn
-from app.routers.custodia import transferir_posse
-from app.utils.helpers import normalize_cnpj, normalize_cns
+from app.routers.custodia import _recalcular_status_prescricao, transferir_posse
+from app.utils.helpers import normalize_cnpj, normalize_cns, normalize_cpf
 
 router = APIRouter(prefix="/dispensacoes", tags=["dispensacoes"])
 
@@ -605,17 +605,34 @@ def estornar_dispensacao(
         ).fetchone()["t"]
         saldo_efetivo = (disp["qtd_prescrita"] or 0) - (disp_total - est_total)
 
-        # TICKET-B0 §3.2: se o estorno repôs saldo e o item ficou SEM custódia
-        # ativa (caso da dispensação total — custodia.py fecha a custódia ao
-        # zerar o saldo), reabrir a custódia do item para o estabelecimento que
-        # detinha a dispensação (retém o item de novo para re-dispensação) e
-        # emitir `custodia_transferida` — retenção sem o evento é bug (CLAUDE.md
-        # §2, invariante de retenção). No estorno PARCIAL o item seguia
-        # `em_custodia` com custódia aberta → nada a reabrir (não duplica).
-        # Reabrir custódia é evento de custódia legítimo, NÃO a transição
-        # proibida dispensado→estornado nem edição da dispensação (o item não é
-        # mutado — invariante do TICKET-ESTORNO preservado).
+        # TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO (10/08): o estorno TOTAL nos
+        # motivos "cidadão recupera" (desistencia_paciente / pagamento_nao_concluido
+        # / outro) devolve a custódia ao PACIENTE e muta o item a
+        # `devolvido_paciente`, destravando retry em outra farmácia e devolução ao
+        # prescritor (§3 do CLAUDE.md). `erro_dispensacao` e o estorno PARCIAL
+        # preservam o TICKET-B0 (re-abre ao dispensador, item NÃO mutado —
+        # re-dispensável na mesma farmácia). O objeto-estorno derivado é criado
+        # acima em qualquer ramo; o que muda é o destino da posse e o estado.
+        _DESTINO_DISPENSADOR = "dispensador"
+        _DESTINO_PACIENTE = "paciente"
+        # Roteamento por motivo (martelo Fabiano 10/08, ticket §3.2):
+        if payload.motivo == "erro_dispensacao":
+            destino = _DESTINO_DISPENSADOR          # farmácia corrige e re-dispensa (TICKET-B0)
+        else:
+            destino = _DESTINO_PACIENTE             # desistencia / pagamento_nao_concluido / outro
+        # Estorno TOTAL = saldo do item voltou integralmente ao prescrito. Só
+        # aqui o item (terminal `dispensado`) pode ir a `devolvido_paciente`.
+        # No parcial, a fração revertida vive só no saldo (TICKET-B0).
+        estorno_total = (
+            disp["status_item"] == "dispensado"
+            and saldo_efetivo >= (disp["qtd_prescrita"] or 0)
+        )
+
         custodia_reaberta = False
+        destino_custodia: Optional[str] = None
+        novo_status_item = disp["status_item"]
+        novo_status_prescricao = disp["status_prescricao"]
+
         if saldo_efetivo > 0:
             custodia_ativa = conn.execute(
                 """
@@ -626,20 +643,81 @@ def estornar_dispensacao(
                 (disp["prescricao_id"], disp["item_id"]),
             ).fetchone()
             if not custodia_ativa:
-                # Choke-point (COER-2): estorno repôs saldo e o item ficou SEM
-                # custódia (a dispensação total fechou a do item) → re-retém p/ o
-                # estabelecimento (re-dispensação). O _fechar interno é no-op aqui
-                # (guardado por `if not custodia_ativa`); o helper garante o evento
-                # custodia_transferida que a retenção exige (§2). `motivo` canônico
-                # do caminho ('estorno_reposicao_saldo', §6.2) p/ o T6 separar.
-                transferir_posse(
-                    conn, disp["prescricao_id"], disp["item_id"],
-                    "paciente", None, "dispensador", disp["cnpj_estabelecimento"],
-                    "estorno_reposicao_saldo", agora,
-                    ator_tipo="dispensador", ator_id=usuario["sub"], instance_id=instance_id,
-                    extra_payload={"origem_estorno_protocolo": protocolo},
-                )
-                custodia_reaberta = True
+                if destino == _DESTINO_PACIENTE and estorno_total:
+                    # --- Ramo PACIENTE (estorno total, cidadão recupera) -------
+                    # Mutar o item dispensado → devolvido_paciente (areststa
+                    # adicionada em states.py::TRANSICOES_ITEM). A transição
+                    # dispensado→estornado segue dormente (objeto derivado).
+                    conn.execute(
+                        "UPDATE prescricao_itens SET status_item = 'devolvido_paciente', updated_at = ? WHERE id = ?",
+                        (agora, disp["item_id"]),
+                    )
+                    novo_status_item = "devolvido_paciente"
+                    # CPF do paciente — transferir_posse exige o CPF normalizado
+                    # como detentor_id (custodia.py::_normalizar_id).
+                    cpf_paciente = conn.execute(
+                        "SELECT cpf FROM pacientes WHERE id = ?", (disp["paciente_id"],),
+                    ).fetchone()["cpf"]
+                    cpf_norm = normalize_cpf(cpf_paciente)
+                    # Choke-point (COER-2): devolve a custódia do ITEM ao paciente.
+                    transferir_posse(
+                        conn, disp["prescricao_id"], disp["item_id"],
+                        "dispensador", disp["cnpj_estabelecimento"],
+                        "paciente", cpf_norm,
+                        "devolucao_pos_estorno", agora,
+                        ator_tipo="dispensador", ator_id=usuario["sub"], instance_id=instance_id,
+                        extra_payload={"origem_estorno_protocolo": protocolo},
+                    )
+                    # Recalcular o status da prescrição a partir dos itens (vai a
+                    # `transferida_paciente` quando a posse volta integralmente).
+                    novo_status_prescricao = _recalcular_status_prescricao(
+                        conn, disp["prescricao_id"], agora,
+                    )
+                    # Reconciliação CROSS-granularidade (à moda de devolver_item):
+                    # se a prescrição voltou integralmente ao paciente, fechar a
+                    # custódia de nível-prescrição (item_id IS NULL) obsoleta do
+                    # dispensador para não deixar resquício de dupla posse.
+                    if novo_status_prescricao == "transferida_paciente":
+                        transferir_posse(
+                            conn, disp["prescricao_id"], None,
+                            "dispensador", disp["cnpj_estabelecimento"],
+                            "paciente", cpf_norm,
+                            "devolucao_pos_estorno", agora,
+                            ator_tipo="dispensador", ator_id=usuario["sub"], instance_id=instance_id,
+                            extra_payload={"origem_estorno_protocolo": protocolo, "nivel_reconciliacao": "prescricao"},
+                        )
+                    # Evento de item no ledger (transição dispensado → devolvido_paciente).
+                    registrar_evento_ledger(
+                        conn,
+                        objeto_tipo="prescricao",
+                        objeto_id=disp["prescricao_id"],
+                        tipo_evento="item_devolvido_paciente",
+                        instance_id=instance_id,
+                        payload={
+                            "item_id": disp["item_id"],
+                            "origem_estorno_protocolo": protocolo,
+                            "motivo_estorno": payload.motivo,
+                            "novo_status_item": "devolvido_paciente",
+                        },
+                        ator_tipo="dispensador",
+                        ator_id=usuario["sub"],
+                    )
+                    destino_custodia = _DESTINO_PACIENTE
+                    custodia_reaberta = True
+                else:
+                    # --- Ramo DISPENSADOR (TICKET-B0, inalterado) --------------
+                    # erro_dispensacao, ou estorno parcial de motivo "cidadão
+                    # recupera" (§3.4: não muta — só repõe saldo p/ re-dispensação).
+                    # Choke-point (COER-2): re-retém p/ o estabelecimento.
+                    transferir_posse(
+                        conn, disp["prescricao_id"], disp["item_id"],
+                        "paciente", None, "dispensador", disp["cnpj_estabelecimento"],
+                        "estorno_reposicao_saldo", agora,
+                        ator_tipo="dispensador", ator_id=usuario["sub"], instance_id=instance_id,
+                        extra_payload={"origem_estorno_protocolo": protocolo},
+                    )
+                    destino_custodia = _DESTINO_DISPENSADOR
+                    custodia_reaberta = True
 
         return {
             "estorno_id": estorno_id,
@@ -649,9 +727,12 @@ def estornar_dispensacao(
             "quantidade_estornada": qtd,
             "motivo": payload.motivo,
             "saldo_restante": saldo_efetivo,
-            # item NÃO é mutado — objeto derivado (TICKET-ESTORNO-OBJETO-DERIVADO §1)
-            "status_item": disp["status_item"],
-            "status_prescricao": disp["status_prescricao"],
-            # TICKET-B0 §3.2: custódia reaberta p/ re-dispensação (saldo reposto).
+            # No ramo paciente (total), reflete o NOVO estado; nos demais, o
+            # original (item não mutado — objeto derivado, §1).
+            "status_item": novo_status_item,
+            "status_prescricao": novo_status_prescricao,
             "custodia_reaberta": custodia_reaberta,
+            # Novo campo (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO §6.3):
+            # "paciente" | "dispensador" | None — o frontend decide a mensagem.
+            "destino_custodia": destino_custodia,
         }

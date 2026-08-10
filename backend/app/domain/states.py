@@ -144,7 +144,7 @@ TRANSICOES_ITEM: dict[str, frozenset[str]] = {
     "pendente":              frozenset({"em_custodia", "cancelado"}),
     "em_custodia":           frozenset({"dispensado", "devolvido_paciente", "devolvido_prescritor", "cancelado"}),
     "devolvido_paciente":    frozenset({"em_custodia", "cancelado", "devolvido_prescritor"}),   # retry ou volta ao médico (COER2-POS-MERGE-FIX)
-    "dispensado":            frozenset({"estornado"}),
+    "dispensado":            frozenset({"estornado", "devolvido_paciente"}),  # devolvido_paciente: estorno TOTAL p/ motivos "cidadão recupera" (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO §3.2)
     "devolvido_prescritor":  frozenset(),   # terminal — aguarda nova prescrição
     "cancelado":             frozenset(),   # terminal
     "estornado":             frozenset(),   # terminal
@@ -154,12 +154,21 @@ TRANSICOES_ITEM: dict[str, frozenset[str]] = {
 # ---------------------------------------------------------------------------
 # Estorno — objeto sanitário DERIVADO (T2, TICKET-ESTORNO-OBJETO-DERIVADO.md)
 # ---------------------------------------------------------------------------
-# O estorno NÃO é uma transição de estado do item: é um objeto derivado e
-# imutável (tabela `estornos`) que referencia a dispensação de origem. Por isso
-# o item NÃO é mutado para `estornado` no fluxo real — a transição
-# `dispensado → estornado` acima permanece como scaffolding dormente (§5 do
-# ticket: sua remoção/SM2 é adiada para não desincronizar o paper). O efeito do
-# estorno é contábil: saldo efetivo do item = Σ dispensado − Σ estornado.
+# O estorno é um objeto derivado e imutável (tabela `estornos`) que referencia
+# a dispensação de origem — a `dispensacoes` original permanece intocada (§1) e
+# o efeito contábil é sempre saldo efetivo = Σ dispensado − Σ estornado.
+#
+# MUTAÇÃO CONDICIONAL DE ITEM (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08):
+# o item SÓ é mutado pelo estorno em UM cenário restrito — estorno TOTAL
+# (Σ estornado == Σ dispensado do item) nos motivos "cidadão recupera"
+# (`desistencia_paciente`, `pagamento_nao_concluido`, `outro`): aí o item vai a
+# `devolvido_paciente` e a custódia volta ao paciente (areasta
+# `dispensado → devolvido_paciente` acima). Nos demais casos o item NÃO é
+# mutado: estorno PARCIAL repõe só o saldo (comportamento TICKET-B0 preservado)
+# e `erro_dispensacao` retém na farmácia p/ re-dispensação. A transição
+# `dispensado → estornado` segue como scaffolding dormente (§5 do
+# TICKET-ESTORNO-OBJETO-DERIVADO: remoção/SM2 adiada para não desincronizar o
+# paper) — não é usada no fluxo real em nenhum caminho.
 #
 # Enum de motivo (Fase 0.2 do PLANO_DEMO_CIRCULACAO.md), ancorado no vocabulário
 # do ledger (CLAUDE.md §2 — `pagamento_nao_concluido` já existe).
@@ -257,6 +266,7 @@ EVENTOS_ITEM: dict[tuple[str, str], str] = {
     ("devolvido_paciente", "cancelado"):          "item_cancelado",
     ("devolvido_paciente", "devolvido_prescritor"): "item_devolvido_prescritor",  # COER2-POS-MERGE-FIX
     ("dispensado",         "estornado"):          "item_estornado",
+    ("dispensado",         "devolvido_paciente"): "item_devolvido_paciente",  # estorno TOTAL "cidadão recupera" (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO)
 }
 
 
