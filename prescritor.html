@@ -694,6 +694,7 @@
                         <h4 style="color: #1e40af; font-size: 15px; text-transform: uppercase; margin-bottom: 16px;">Emissão do Pedido</h4>
                         <div id="msg-exam-cpf-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 12px;"></div>
                         <div id="carteira-status-exam" style="display:none; margin-bottom: 12px; font-size: 12px; padding: 6px 10px; border-radius: 4px;"></div>
+                        <p style="font-size: 12px; color: #475569; margin-bottom: 12px;">🔑 A chave de entrega é o <b>CPF do paciente</b> (campo em <b>Dados do Paciente</b>, no topo do formulário) — é o "PIX" que faz o pedido chegar à carteira digital dele.</p>
                         <button type="submit" class="btn btn-primary" style="font-size: 15px; padding: 15px;">📋 Emitir Pedido de Exame Digital</button>
                         <div style="border-top: 1px dashed #93c5fd; margin: 20px 0 0; padding-top: 18px;">
                             <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
@@ -704,6 +705,7 @@
                                 </div>
                             </div>
                             <button type="button" onclick="imprimirPedidoFisico()" class="btn btn-outline" style="background: white; border-color: #94a3b8; color: #475569;">🖨️ Apenas Imprimir Físico (sem envio digital)</button>
+                            <div id="msg-exam-fisica" class="msg-inline hidden" style="margin-top: 12px;"></div>
                         </div>
                     </div>
 
@@ -3248,7 +3250,18 @@
 
             const errCpfEl = document.getElementById('msg-exam-cpf-erro');
             if (!cpfPac) {
-                if (errCpfEl) { errCpfEl.textContent = 'O CPF do Paciente é obrigatório para emissão digital.'; errCpfEl.classList.remove('hidden'); }
+                if (errCpfEl) { errCpfEl.textContent = 'O CPF do paciente é obrigatório para emissão digital — é a chave que entrega o pedido na carteira dele (campo em "Dados do Paciente", no topo do formulário).'; errCpfEl.classList.remove('hidden'); }
+                // Leva o usuário ao campo: o erro aparece na seção de emissão,
+                // mas a chave mora no topo do formulário (relato Fabiano 2026-08-10:
+                // "não tem o campo de preenchimento da chave").
+                const cpfEl = document.getElementById('exam-pac-cpf');
+                if (cpfEl) {
+                    cpfEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    cpfEl.focus({ preventScroll: true });
+                    cpfEl.style.borderColor = '#dc2626';
+                    cpfEl.style.boxShadow = '0 0 0 3px rgba(220, 38, 38, 0.15)';
+                    setTimeout(() => { cpfEl.style.borderColor = ''; cpfEl.style.boxShadow = ''; }, 4000);
+                }
                 return;
             }
             if (errCpfEl) errCpfEl.classList.add('hidden');
@@ -3413,11 +3426,26 @@
         }
 
         /**
-         * Emissão física do pedido de exame — fire-and-forget.
-         * Mesmo trade-off da prescrição física: impressão não depende do backend.
-         * Se o backend estiver offline, o pedido é impresso sem persistência central.
+         * Emissão física do pedido de exame — documento gerado pelo SERVIDOR.
+         * Mesmo padrão do atestado físico (imprimirAtestadoFisico): o PDF e o
+         * layout do documento oficial moram no servidor. Então "imprimir físico" é:
+         *   POST /pedidos-exame/fisica (CPF opcional — sentinela) → protocolo →
+         *   GET /pedidos-exame/{proto}/pdf → baixa o PDF do servidor p/ impressão.
+         * Síncrono POR NATUREZA: o documento É o retorno da persistência.
+         * Antes era fire-and-forget + window.print(): como #print-area só contém
+         * o template do RECEITUÁRIO, a impressão do pedido saía sem documento
+         * (bug relatado por Fabiano em 2026-08-10). Backend offline → falha
+         * LEGÍVEL, nunca PDF em branco. Ver LEARNINGS 2026-07-22.
          */
-        function imprimirPedidoFisico() {
+        async function imprimirPedidoFisico() {
+            const msgEl = document.getElementById('msg-exam-fisica');
+            const _fisMsg = (html, tipo) => {
+                if (!msgEl) { showToast(html.replace(/<[^>]+>/g, ''), tipo === 'error' ? 'error' : 'success'); return; }
+                msgEl.className = 'msg-inline msg-inline-' + tipo;
+                msgEl.innerHTML = html;
+                msgEl.classList.remove('hidden');
+            };
+
             const nomePac = (document.getElementById('exam-pac-nome').value || '').trim();
             const cpfPac  = (document.getElementById('exam-pac-cpf').value  || '').replace(/\D/g, '');
             const priorid = document.getElementById('exam-prioridade').value;
@@ -3437,22 +3465,59 @@
                 }
             });
 
-            // Fire-and-forget — não aguarda resposta do backend
-            fetch(BACKEND + '/pedidos-exame/fisica', {
-                method:  'POST',
-                headers: authHeaders(),
-                body:    JSON.stringify({
-                    cns_prescritor:    medicoLogado.cns,
-                    nome_prescritor:   medicoLogado.nome,
-                    cpf_paciente:      cpfPac || null,
-                    nome_paciente:     (nomePac.toUpperCase()) || 'PACIENTE NÃO IDENTIFICADO',
-                    prioridade:        priorid,
-                    indicacao_clinica: indicac || null,
-                    itens:             itens
-                })
-            }).catch(() => {}); // silencioso: impressão não depende do backend
+            if (itens.length === 0) {
+                _fisMsg('Adicione ao menos um exame antes de imprimir o pedido físico.', 'error');
+                return;
+            }
 
-            window.print();
+            // 1. Emitir físico — síncrono: sem o servidor, não há documento a imprimir.
+            _fisMsg('Emitindo pedido físico…', 'warn');
+            let protocolo;
+            try {
+                const r = await fetch(BACKEND + '/pedidos-exame/fisica', {
+                    method:  'POST',
+                    headers: authHeaders(),
+                    body:    JSON.stringify({
+                        cns_prescritor:    medicoLogado.cns,
+                        nome_prescritor:   medicoLogado.nome,
+                        cpf_paciente:      cpfPac || null,
+                        nome_paciente:     (nomePac.toUpperCase()) || 'PACIENTE NÃO IDENTIFICADO',
+                        prioridade:        priorid,
+                        indicacao_clinica: indicac || null,
+                        itens:             itens
+                    })
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    if (r.status === 401) { _fisMsg('Sessão expirada. Faça login novamente.', 'error'); sair(); return; }
+                    _fisMsg(_escDoc('Não foi possível emitir o pedido físico (HTTP ' + r.status + '): ' + _extrairMsgErro(d, 'tente novamente.')), 'error');
+                    return;
+                }
+                protocolo = d.protocolo;
+            } catch (e) {
+                _fisMsg('Sem conexão com o servidor — não é possível emitir o pedido físico agora. O documento é gerado pelo servidor; tente de novo quando ele estiver acessível.', 'error');
+                return;
+            }
+
+            // 2. Buscar o PDF — o ÚNICO renderizador do documento oficial.
+            let blob;
+            try {
+                const rp = await fetch(BACKEND + '/pedidos-exame/' + protocolo + '/pdf', { headers: authHeaders() });
+                if (!rp.ok) {
+                    _fisMsg(_escDoc('Pedido físico registrado (protocolo ' + protocolo.slice(0, 8) + '), mas o PDF não pôde ser gerado (HTTP ' + rp.status + '). Tente de novo em instantes.'), 'error');
+                    return;
+                }
+                blob = await rp.blob();
+            } catch (e) {
+                _fisMsg('Pedido físico registrado, mas sem conexão para buscar o PDF do servidor. Tente de novo em instantes.', 'error');
+                return;
+            }
+
+            // 3. BAIXAR o PDF do servidor para impressão. Mesmo veículo confiável
+            //    do PDF digital (baixarPdfExame) — nunca window.open mudo, nunca
+            //    PDF em branco (guard-rail do LEARNINGS 2026-07-22).
+            _baixarBlobExame(blob, 'pedido-exame-fisico-' + protocolo.slice(0, 8) + '.pdf');
+            _fisMsg('✓ <b>Pedido físico emitido</b> (protocolo ' + _escDoc(protocolo) + '). <b>Baixamos o PDF</b> — abra, imprima e assine de próprio punho. Emissão exclusivamente física: sem envio digital, sem custódia.', 'success');
         }
 
         // =====================================================================
