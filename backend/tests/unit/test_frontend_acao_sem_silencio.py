@@ -65,6 +65,11 @@ _ACOES: dict[str, tuple[str, ...]] = {
         # servidor). Ação de clique com 6 caminhos de falha; cada um termina em
         # feedback visível (container inline), nenhum `return` mudo.
         "async function imprimirAtestadoFisico",
+        # Migração de 2026-08-10 (decisão do arquiteto): emissão física do exame
+        # saiu do window.print() para o mesmo padrão PDF-do-servidor do atestado
+        # (POST /pedidos-exame/fisica → GET /{proto}/pdf → _baixarBlobExame).
+        # Sai de TestImpressaoDaPaginaPrincipal e entra neste registro.
+        "async function imprimirPedidoFisico",
     ),
     "dispensador.html": (
         "async function dispensarItem",
@@ -188,11 +193,13 @@ def test_registro_nao_encolhe_em_silencio() -> None:
     Remover uma função da lista faria o gate ficar verde por omissão — o mesmo
     silêncio, um andar acima. São as 12 do ticket + 4 do mesmo padrão achadas
     na revisão daquele PR (agendamento/circulação) + 1 do item 3 de 2026-07-22
-    (imprimirAtestadoFisico). Baixar este número é uma decisão, não um efeito
-    colateral: mude o literal de propósito ou não mude.
+    (imprimirAtestadoFisico) + 1 da migração de 2026-08-10 (imprimirPedidoFisico,
+    que saiu de TestImpressaoDaPaginaPrincipal para este registro por decisão
+    do arquiteto). Baixar este número é uma decisão, não um efeito colateral:
+    mude o literal de propósito ou não mude.
     """
     total = sum(len(v) for v in _ACOES.values())
-    assert total == 17, f"Registro de ações mudou de tamanho: {total} != 17"
+    assert total == 18, f"Registro de ações mudou de tamanho: {total} != 18"
 
 
 @pytest.mark.parametrize("tela", sorted(_ACOES))
