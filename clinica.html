@@ -395,6 +395,14 @@
     /* Ticket 46 — Banner de risco + Modal de gate leve */
     .banner-ctx-risco{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-size:12px;font-weight:600;color:#92400e;}
     .banner-ctx-risco.hidden{display:none!important;}
+
+    /* KIMI3 (decisão Fabiano 2026-08-10) — na DEMO, o contexto institucional é
+       pré-condição do LOGIN, não do painel: a persona já entra "considerada
+       logada" (barra de chaves no topo). Banner de risco CNES e o card de
+       Contexto Institucional somem do dashboard em modo demo. Fora de demo
+       (login real), ambos continuam visíveis — o gate do Ticket 46 é real. */
+    body.demo .banner-ctx-risco{display:none!important;}
+    body.demo #ctxt-inst-card{display:none!important;}
     .banner-ctx-risco .banner-msg{display:flex;align-items:center;gap:7px;}
     .btn-banner-corrigir{background:transparent;border:1.5px solid #d97706;color:#b45309;padding:5px 12px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
     .btn-banner-corrigir:hover{background:#fef3c7;}
@@ -723,6 +731,9 @@
     }
 
     function _confirmarContextoManual() {
+      // Demo (decisão Fabiano 2026-08-10): persona já entra "considerada
+      // logada" — o contexto é pré-condição do login, não um gate do painel.
+      if (document.body.classList.contains('demo')) return Promise.resolve(true);
       if (clinicaLogada?.cnes_verificado !== false) return Promise.resolve(true);
       if (_cnesConfirmadoManual) return Promise.resolve(true);
       return new Promise(resolve => {
