@@ -1356,7 +1356,19 @@
           BACKEND + '/pedidos-exame/' + encodeURIComponent(protocolo) + '/agendamentos',
           { headers: authHeaders() }
         );
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // 403 aqui NÃO é sessão inválida: `GET /pedidos-exame/{p}/agendamentos`
+        // recusa o papel `dispensador` por desenho (agendamentos.py §D4 — a
+        // listagem por pedido é do prescritor/paciente). Tratar isso como
+        // "sessão expirada" derrubava o operador para a tela de login toda vez
+        // que ele abria um pedido — inclusive pela Fila de Exames (GAP-4). Só
+        // 401 encerra a sessão; o 403 apenas apaga este painel.
+        if (resp.status === 401) { handleUnauthorized(); return; }
+        if (resp.status === 403) {
+          agendamentosAtuais = [];
+          el.innerHTML = '<p style="font-size:13px;color:#64748b">'
+            + 'Agendamentos deste pedido não são visíveis para o laboratório.</p>';
+          return;
+        }
         if (!resp.ok) { el.innerHTML = '<p style="font-size:13px;color:#dc2626">Erro ao carregar agendamentos.</p>'; return; }
 
         const data = await resp.json();
