@@ -605,21 +605,25 @@ def estornar_dispensacao(
         ).fetchone()["t"]
         saldo_efetivo = (disp["qtd_prescrita"] or 0) - (disp_total - est_total)
 
-        # TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO (10/08): o estorno TOTAL nos
-        # motivos "cidadão recupera" (desistencia_paciente / pagamento_nao_concluido
-        # / outro) devolve a custódia ao PACIENTE e muta o item a
-        # `devolvido_paciente`, destravando retry em outra farmácia e devolução ao
-        # prescritor (§3 do CLAUDE.md). `erro_dispensacao` e o estorno PARCIAL
-        # preservam o TICKET-B0 (re-abre ao dispensador, item NÃO mutado —
-        # re-dispensável na mesma farmácia). O objeto-estorno derivado é criado
-        # acima em qualquer ramo; o que muda é o destino da posse e o estado.
+        # TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO (10/08, Opção B do parecer do
+        # Revisor pós-CI #152): o estorno TOTAL nos motivos "cidadão recupera"
+        # (desistencia_paciente / pagamento_nao_concluido — intenção explícita de
+        # o cidadão recuperar a posse) devolve a custódia ao PACIENTE e muta o
+        # item a `devolvido_paciente`, destravando retry em outra farmácia e
+        # devolução ao prescritor (§3 do CLAUDE.md). `erro_dispensacao`, o catch-
+        # all `outro` e o estorno PARCIAL preservam o TICKET-B0 (re-abre ao
+        # dispensador, item NÃO mutado — rótulo `dispensado` indelével, §6.5 do
+        # TICKET-B0; re-dispensável na mesma farmácia). O objeto-estorno derivado
+        # é criado acima em qualquer ramo; o que muda é o destino da posse e o
+        # estado.
         _DESTINO_DISPENSADOR = "dispensador"
         _DESTINO_PACIENTE = "paciente"
-        # Roteamento por motivo (martelo Fabiano 10/08, ticket §3.2):
-        if payload.motivo == "erro_dispensacao":
-            destino = _DESTINO_DISPENSADOR          # farmácia corrige e re-dispensa (TICKET-B0)
+        # Roteamento por motivo (martelo Fabiano 10/08, ticket §3.2 + Opção B):
+        _MOTIVOS_CIDADAO_RECUPERA = frozenset({"desistencia_paciente", "pagamento_nao_concluido"})
+        if payload.motivo in _MOTIVOS_CIDADAO_RECUPERA:
+            destino = _DESTINO_PACIENTE             # cidadão recupera a posse
         else:
-            destino = _DESTINO_PACIENTE             # desistencia / pagamento_nao_concluido / outro
+            destino = _DESTINO_DISPENSADOR          # erro_dispensacao / outro (catch-all → B0)
         # Estorno TOTAL = saldo do item voltou integralmente ao prescrito. Só
         # aqui o item (terminal `dispensado`) pode ir a `devolvido_paciente`.
         # No parcial, a fração revertida vive só no saldo (TICKET-B0).
@@ -706,8 +710,10 @@ def estornar_dispensacao(
                     custodia_reaberta = True
                 else:
                     # --- Ramo DISPENSADOR (TICKET-B0, inalterado) --------------
-                    # erro_dispensacao, ou estorno parcial de motivo "cidadão
-                    # recupera" (§3.4: não muta — só repõe saldo p/ re-dispensação).
+                    # erro_dispensacao, o catch-all `outro` (Opção B: default
+                    # conservador — não apaga o rótulo, não ejeta o item), ou
+                    # estorno parcial de motivo "cidadão recupera" (§3.4: não
+                    # muta — só repõe saldo p/ re-dispensação).
                     # Choke-point (COER-2): re-retém p/ o estabelecimento.
                     transferir_posse(
                         conn, disp["prescricao_id"], disp["item_id"],
