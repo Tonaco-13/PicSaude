@@ -109,6 +109,21 @@ que passam a depender do **motivo**.
 
 **A régua resumida:** *"cidadão recupera, exceto erro operacional da farmácia."*
 
+> **⚠️ EMENDA (10/08, pós-CI do PR #152 — parecer do Revisor, Opção B ratificada):**
+> a linha `outro → paciente` colidiu com o `TICKET-B0` §6.5 ("rótulo `dispensado` nunca
+> apagado", motivado por §2a R1) — 4 testes-guarda do B0 usam `motivo: "outro"` como
+> catch-all do fluxo farmácia-retém. A decisão ratificada **reverte** esta linha:
+>
+> | `motivo` | Destino da custódia (total) | `status_item` (total) | Racional |
+> |---|---|---|---|
+> | `outro` | **dispensador** (mantém `TICKET-B0`) | `dispensado` (não muta) | Catch-all → default conservador = **não apaga** o rótulo indelével, não ejeta o item |
+>
+> **Régua final:** só `desistencia_paciente` e `pagamento_nao_concluido` (os motivos com
+> intenção explícita de o cidadão recuperar) vão ao paciente e mutam o rótulo; `outro` e
+> `erro_dispensacao` seguem o B0. O invariante mais antigo e mais forte (rótulo indelével,
+> R1) prevalece para o motivo genérico; a mutação é exceção estrita dos dois motivos com
+> intenção real. Refletido em `CLAUDE.md` §2/§5a(†)/§5b e em `states.py`.
+
 **O único ponto genuinamente ambíguo é `pagamento_nao_concluido`** — defesa clínica para os dois
 lados (ver §3.3). Os outros três têm consenso Arquiteto+Revisor.
 

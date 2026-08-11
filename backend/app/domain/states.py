@@ -158,14 +158,16 @@ TRANSICOES_ITEM: dict[str, frozenset[str]] = {
 # a dispensação de origem — a `dispensacoes` original permanece intocada (§1) e
 # o efeito contábil é sempre saldo efetivo = Σ dispensado − Σ estornado.
 #
-# MUTAÇÃO CONDICIONAL DE ITEM (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08):
-# o item SÓ é mutado pelo estorno em UM cenário restrito — estorno TOTAL
-# (Σ estornado == Σ dispensado do item) nos motivos "cidadão recupera"
-# (`desistencia_paciente`, `pagamento_nao_concluido`, `outro`): aí o item vai a
-# `devolvido_paciente` e a custódia volta ao paciente (areasta
-# `dispensado → devolvido_paciente` acima). Nos demais casos o item NÃO é
-# mutado: estorno PARCIAL repõe só o saldo (comportamento TICKET-B0 preservado)
-# e `erro_dispensacao` retém na farmácia p/ re-dispensação. A transição
+# MUTAÇÃO CONDICIONAL DE ITEM (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08;
+# roteamento ratificado na Opção B do parecer do Revisor pós-CI #152): o item
+# SÓ é mutado pelo estorno em UM cenário restrito — estorno TOTAL (Σ estornado
+# == Σ dispensado do item) nos motivos "cidadão recupera" (`desistencia_paciente`,
+# `pagamento_nao_concluido`): aí o item vai a `devolvido_paciente` e a custódia
+# volta ao paciente (aresta `dispensado → devolvido_paciente` acima). Nos demais
+# casos o item NÃO é mutado: estorno PARCIAL repõe só o saldo, `erro_dispensacao`
+# retém na farmácia p/ re-dispensação, e o catch-all `outro` segue o default
+# conservador do TICKET-B0 (rótulo `dispensado` indelével, §6.5 — preserva o
+# invariante R1 para o motivo genérico). A transição
 # `dispensado → estornado` segue como scaffolding dormente (§5 do
 # TICKET-ESTORNO-OBJETO-DERIVADO: remoção/SM2 adiada para não desincronizar o
 # paper) — não é usada no fluxo real em nenhum caminho.
