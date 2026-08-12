@@ -37,11 +37,33 @@ on:
       # O seed é o fornecedor dos dados que o smoke da fila audita (item
       # controlado + unidade). Quebrou o seed, quebrou o smoke.
       - 'backend/seed_demo.py'
+      # ── Backend que decide o que a tela mostra (lição do #152/#155) ──────
+      # O #152 mudou a custódia (estorno total devolve a posse ao cidadão) sem
+      # tocar em nenhum .html. Nenhum path casou, o gate não rodou, e a quebra
+      # dos smokes ficou SEIS HORAS invisível — entre dois nightlies. Quando
+      # apareceu, foi no colo de um PR de frontend alheio (#154), que levou a
+      # culpa por herança e por pouco não gerou um "fix" no lugar errado.
+      #
+      # Router e máquina de estados são exatamente onde nasce a divergência
+      # entre o que o backend faz e o que a tela afirma — é o defeito que o
+      # smoke existe para pegar. O filtro por path é economia; economia que
+      # deixa o gate cego no ponto de maior risco não é economia, é dívida.
+      # ~3 min de runner por PR de backend é o preço, e é barato perto de um
+      # diagnóstico errado.
+      #
+      # Deliberadamente ABRANGENTE (`routers/**`, não uma lista de routers de
+      # tela): lista nomeada envelhece em silêncio e reabre o mesmo buraco no
+      # dia em que alguém criar um router novo.
+      - 'backend/app/routers/**'
+      - 'backend/app/domain/states*.py'
   schedule:
     # 06:20 UTC — 20 min depois do gate principal, para não disputar runner.
-    # O nightly pega o que o filtro de paths não pega: quebra vinda de mudança
-    # no backend que só aparece na tela (ex.: /config/public parar de servir os
-    # conselhos deixaria o seletor vazio sem tocar em nenhum .html).
+    # O nightly pega o que o filtro de paths não pega. Ele continua sendo a
+    # rede de baixo mesmo depois de router e states entrarem nos paths: sobra
+    # o resto de `domain/` (ex.: /config/public parar de servir os conselhos
+    # deixaria o seletor vazio sem tocar em nenhum .html), catálogo, migração e
+    # deriva de ambiente. O que os paths fizeram foi encurtar a janela de
+    # descoberta no caso mais provável — não substituir a varredura.
     - cron: "20 6 * * *"
   workflow_dispatch:
 
