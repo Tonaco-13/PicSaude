@@ -1,0 +1,9 @@
+{
+  "name": "picsaude-demo-preview",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Ponte de preview local: 'npm run dev' sobe o backend FastAPI em MODO DEMO servindo as telas do portal. O projeto em si é Python — este arquivo existe só para padronizar o comando de subida.",
+  "scripts": {
+    "dev": "test -f data/pix_saude_demo.db || (cd backend && PICSAUDE_DEMO_MODE=true $HOME/.venvs/picsaude/bin/python scripts/reset_demo_db.py); cd backend && PICSAUDE_DEMO_MODE=true exec $HOME/.venvs/picsaude/bin/python -m uvicorn app.main:app --host 0.0.0.0"
+  }
+}
