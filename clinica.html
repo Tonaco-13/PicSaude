@@ -494,9 +494,11 @@
 </head>
 <body>
 
-  <!-- TICKET-6 DEMO_MODE — barra superior "Demo: chaves" (KIMI3-006 ampliado).
-       Mantido o tratamento especial da clínica (P2#7 CODEX rodada 1): o link
-       "Trocar persona"/"Ir para o seletor" migra para o fim da barra. -->
+  <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
+       (2026-08-12: barra slim → painel-cartão do índice, mesmo formato em
+       todas as telas). Mantido o tratamento especial da clínica (P2#7 CODEX
+       rodada 1): o link "Trocar persona"/"Ir para o seletor" migra para o
+       aviso do painel. -->
   <script>
     (async function picsaudeDemoBoot() {
       try {
@@ -506,12 +508,12 @@
         if (!cfg.demo_mode) return;
         document.body.classList.add('demo');
         if ((cfg.demo_roles || []).includes('clinica')) {
-          renderizarBarraChavesDemo(cfg, { link: { href: '/', texto: 'Trocar persona →' } });
+          renderizarPainelChavesDemo(cfg, { link: { href: '/', texto: 'Trocar persona →' } });
         } else {
           // Backend sem persona demo da clínica (pré-ADENDO-SEED-EXAMES):
           // degrada para aviso + atalho ao seletor.
-          renderizarBarraChavesDemo(cfg, {
-            nota: 'esta tela não tem persona demo —',
+          renderizarPainelChavesDemo(cfg, {
+            nota: 'Esta tela não tem persona demo —',
             link: { href: '/', texto: 'Ir para o seletor →' },
           });
         }

@@ -301,8 +301,9 @@
   <script src="config.js"></script>
 </head>
 <body>
-    <!-- TICKET-6 DEMO_MODE — barra superior "Demo: chaves" (KIMI3-006 ampliado:
-         o banner amarelo saiu de todas as telas; as 4 chaves ficam no topo) -->
+    <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
+         (2026-08-12: a barra slim virou o painel-cartão do índice, mesmo
+         formato em todas as telas; as 4 chaves ficam na borda superior) -->
     <script>
       (async function picsaudeDemoBanner() {
         try {
@@ -311,8 +312,8 @@
           const cfg = await r.json();
           if (!cfg.demo_mode) return;
           document.body.classList.add('demo');
-          renderizarBarraChavesDemo(cfg);
-        } catch (e) { console.warn('demo barra: ' + e.message); }
+          renderizarPainelChavesDemo(cfg);
+        } catch (e) { console.warn('demo painel: ' + e.message); }
       })();
     </script>
     <script>

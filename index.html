@@ -322,7 +322,9 @@
 <body>
 
   <!-- ============================================================ -->
-  <!-- TICKET-6 DEMO_MODE — painel de chaves + interceptação dos cards -->
+  <!-- TICKET-6 DEMO_MODE — badge DEMO nos cards + interceptação dos -->
+  <!-- cliques para /demo/login. (O painel de chaves NÃO fica no      -->
+  <!-- índice: só nos módulos — decisão 2026-08-12.)                  -->
   <!-- ============================================================ -->
   <style id="demo-mode-styles">
     body.demo .card[data-demo-role] { position: relative; }
@@ -333,69 +335,8 @@
       font-size: 10px; font-weight: 800;
       padding: 2px 6px; border-radius: 3px;
     }
-    /* Painel "Chaves de acesso (demo)" — espelha a estética do .status-block:
-       card branco, borda sutil, sem topo-fixo, sem amarelo. */
-    .chaves-demo-panel {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 20px 24px;
-      margin-top: 24px;
-    }
-    .chaves-demo-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      color: #94a3b8;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-    .chaves-demo-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px 20px;
-    }
-    .chaves-demo-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      background: #f8fafc;
-      border: 1px solid #eef2f7;
-    }
-    .chaves-demo-item .icone { font-size: 18px; }
-    .chaves-demo-item .rotulo {
-      font-size: 11px;
-      color: #64748b;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .4px;
-    }
-    .chaves-demo-item .valor {
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 14px;
-      color: #0f172a;
-      font-weight: 600;
-    }
-    .chaves-demo-item .texto { flex: 1; min-width: 0; }
-    .chaves-demo-copiar {
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: #334155;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 6px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .chaves-demo-copiar:hover { background: #f1f5f9; }
-    .chaves-demo-aviso {
-      margin-top: 12px;
-      font-size: 12px;
-      color: #94a3b8;
-      font-style: italic;
-    }
+    /* O painel "Chaves de acesso (demo)" vive no config.js
+       (renderizarPainelChavesDemo) e aparece só nas telas dos módulos. */
   </style>
   <script>
     (async function picsaudeDemoBoot() {
@@ -406,89 +347,10 @@
         if (!cfg.demo_mode) return;
         document.body.classList.add('demo');
 
-        // Painel "Chaves de acesso (demo)" — as 4 identidades canônicas que
-        // conectam os módulos. Todas vêm de DEMO.* do config.js (fonte única,
-        // guard-rail test_guardrail_identidades_demo.py) — nada chumbado aqui.
-        // Substitui o antigo banner amarelo do topo; o aviso "dados fictícios"
-        // continua visível, agora dentro do painel, mais discreto.
-        const CHAVES_DEMO = [
-          { icone: '🩺', modulo: 'Prescritor',           chave: 'CNS',
-            valor: formatarCNS(DEMO.prescritor.cns),     bruto: DEMO.prescritor.cns },
-          { icone: '👤', modulo: 'Cidadão',              chave: 'CPF',
-            valor: formatarCPF(DEMO.cidadao.cpf),        bruto: DEMO.cidadao.cpf },
-          { icone: '💊', modulo: 'Dispensador',          chave: 'CNPJ',
-            valor: formatarCNPJ(DEMO.farmacia.cnpj),     bruto: DEMO.farmacia.cnpj },
-          { icone: '🏥', modulo: 'Clínica/Laboratório',  chave: 'CNPJ',
-            valor: formatarCNPJ(DEMO.clinica.cnpj),      bruto: DEMO.clinica.cnpj },
-        ];
-
-        const painel = document.createElement('section');
-        painel.className = 'chaves-demo-panel';
-        painel.id = 'chaves-demo-panel';
-        painel.setAttribute('aria-label', 'Chaves de acesso da demo');
-
-        const titulo = document.createElement('div');
-        titulo.className = 'chaves-demo-title';
-        titulo.textContent = 'Chaves de acesso (demo)';
-        painel.appendChild(titulo);
-
-        const grid = document.createElement('div');
-        grid.className = 'chaves-demo-grid';
-        CHAVES_DEMO.forEach(c => {
-          const item = document.createElement('div');
-          item.className = 'chaves-demo-item';
-
-          const icone = document.createElement('span');
-          icone.className = 'icone';
-          icone.setAttribute('aria-hidden', 'true');
-          icone.textContent = c.icone;
-
-          const texto = document.createElement('span');
-          texto.className = 'texto';
-          const rotulo = document.createElement('div');
-          rotulo.className = 'rotulo';
-          rotulo.textContent = `${c.modulo} · ${c.chave}`;
-          const valor = document.createElement('div');
-          valor.className = 'valor';
-          valor.textContent = c.valor;
-          texto.appendChild(rotulo);
-          texto.appendChild(valor);
-
-          const copiar = document.createElement('button');
-          copiar.type = 'button';
-          copiar.className = 'chaves-demo-copiar';
-          copiar.textContent = '📋 Copiar';
-          copiar.setAttribute('aria-label', `Copiar ${c.chave} do ${c.modulo}`);
-          copiar.addEventListener('click', async () => {
-            try {
-              await navigator.clipboard.writeText(c.bruto);  // sem máscara
-              showToast(`${c.chave} do ${c.modulo} copiado`, 'success');
-            } catch (err) {
-              showToast(`Não consegui copiar — anote: ${c.bruto}`, 'error');
-            }
-          });
-
-          item.appendChild(icone);
-          item.appendChild(texto);
-          item.appendChild(copiar);
-          grid.appendChild(item);
-        });
-        painel.appendChild(grid);
-
-        const aviso = document.createElement('div');
-        aviso.className = 'chaves-demo-aviso';
-        aviso.textContent = 'Demo — dados fictícios, nenhuma prescrição é real. ' +
-          'Clique num perfil acima para entrar.';
-        painel.appendChild(aviso);
-
-        // Abaixo dos cards de perfil, dentro do <main>.
-        const statusBlock = document.querySelector('main .status-block');
-        const mainEl = document.querySelector('main');
-        if (statusBlock) {
-          mainEl.insertBefore(painel, statusBlock);
-        } else if (mainEl) {
-          mainEl.appendChild(painel);
-        }
+        // Decisão 2026-08-12 (Fabiano): o painel "Chaves de acesso (demo)"
+        // NÃO aparece no índice — só nos módulos (borda superior de cada
+        // tela, via renderizarPainelChavesDemo do config.js). O índice fica
+        // limpo como portal; no rodapé dele fica a Lente de Auditoria.
 
         // Mapeia cards → role para interceptar clicks e fazer /demo/login.
         const ROLE_BY_HREF = {
@@ -618,6 +480,69 @@
       </div>
     </section>
 
+    <!-- Lente de Auditoria — Circulação PicSaúde ------------------ -->
+    <!-- 2026-08-12: ocupa o lugar do antigo painel de chaves (que subiu
+         para a borda superior de todas as telas). Generaliza o motor de
+         busca da "Circulação Diagnóstica" do módulo Clínica/Laboratório
+         para QUALQUER objeto sanitário (receita, atestado, pedido de
+         exame, laudo, encaminhamento, contrarreferência, circulação
+         diagnóstica). Usa só os endpoints /public/* neutros — existência
+         e estado, nunca conteúdo clínico; a circulação diagnóstica, que
+         exige sessão, é consultada com o token demo da sessão quando
+         existir e renderizada de forma neutra (sem nomes nem exames). -->
+    <style>
+      /* Mesmo formato da "Circulação Diagnóstica" da clínica (cartão +
+         linha de busca + botão), em tom institucional azul — é uma lente
+         de auditoria do portal, não uma operação de laboratório. */
+      .lente-section { background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:12px; padding:20px 24px; margin-top:24px; }
+      .lente-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#1e3a8a; margin-bottom:6px; }
+      .lente-sub { font-size:12px; color:#475569; line-height:1.55; margin:0 0 14px; }
+      .lente-busca-row { display:flex; gap:10px; margin-bottom:6px; }
+      .lente-busca-input { flex:1; padding:10px 14px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:14px; font-family:'Courier New',monospace; letter-spacing:1px; color:#1e293b; background:#f8fafc; }
+      .lente-busca-input:focus { outline:none; border-color:#1d4ed8; background:#fff; }
+      .btn-lente-buscar { padding:10px 22px; border-radius:8px; background:#1e3a8a; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+      .btn-lente-buscar:hover { background:#0f766e; }
+      .lente-card { background:#fff; border:1.5px solid #bfdbfe; border-radius:10px; padding:16px 20px; margin-top:12px; }
+      .lente-card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+      .lente-tipo { font-size:14px; font-weight:700; color:#0f172a; }
+      .lente-badge { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 10px; border-radius:999px; background:#f1f5f9; color:#475569; }
+      .lente-badge.tono-azul    { background:#dbeafe; color:#1e40af; }
+      .lente-badge.tono-verde   { background:#d1fae5; color:#065f46; }
+      .lente-badge.tono-amarelo { background:#fef9c3; color:#854d0e; }
+      .lente-badge.tono-vermelho{ background:#fee2e2; color:#991b1b; }
+      .lente-chave-display { font-family:'Courier New',monospace; font-size:15px; font-weight:700; letter-spacing:2px; color:#1e3a8a; padding:8px 10px; background:#eff6ff; border:1px dashed #93c5fd; border-radius:6px; margin:10px 0; word-break:break-all; }
+      .lente-meta { font-size:12px; color:#64748b; line-height:1.7; }
+      .lente-itens { margin-top:10px; font-size:13px; color:#334155; }
+      .lente-item-row { display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9; }
+      .lente-item-row:last-child { border-bottom:none; }
+      .lente-nota { font-size:11px; color:#1e40af; background:#dbeafe; border-radius:4px; padding:6px 10px; margin-top:12px; }
+      .lente-nota a { color:#1e3a8a; font-weight:700; text-decoration:none; }
+      .lente-nota a:hover { text-decoration:underline; }
+      .lente-feedback { padding:8px 12px; border-radius:7px; font-size:13px; font-weight:600; margin-top:10px; }
+      .lente-feedback.ok  { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
+      .lente-feedback.err { background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; }
+      .hidden { display:none !important; }
+    </style>
+    <section class="lente-section" aria-label="Lente de auditoria da circulação PicSaúde">
+      <div class="lente-title">🔍 Lente de Auditoria — Circulação PicSaúde</div>
+      <p class="lente-sub">
+        Consulte a situação de qualquer objeto sanitário que circula na plataforma —
+        receita, atestado, pedido de exame, laudo, encaminhamento, contrarreferência
+        ou circulação diagnóstica — pela chave de circulação ou pelo protocolo.
+        Visão neutra de auditoria: existência e estado, sem dados clínicos.
+      </p>
+      <div class="lente-busca-row">
+        <input type="text" id="lente-input" class="lente-busca-input"
+               placeholder="Chave de circulação ou protocolo (ex: A3F1C2B4E5D6)"
+               maxlength="64" aria-label="Chave de circulação ou protocolo do objeto sanitário"
+               onkeydown="if(event.key==='Enter') consultarObjetoSanitario()">
+        <button type="button" class="btn-lente-buscar" onclick="consultarObjetoSanitario()">Consultar</button>
+      </div>
+      <div id="lente-feedback" class="hidden"></div>
+      <div id="lente-resultado" class="hidden"></div>
+    </section>
+    <!-- /lente de auditoria -->
+
     <!-- Status da instância ------------------------------------- -->
     <section class="status-block" aria-label="Estado da instância">
       <div class="status-title">Estado da instância</div>
@@ -739,6 +664,198 @@
       }
 
       carregarStatus();
+    })();
+  </script>
+
+  <!-- ============================================================ -->
+  <!-- LENTE DE AUDITORIA — motor de visualização da circulação     -->
+  <!-- PicSaúde (qualquer objeto sanitário).                        -->
+  <!--                                                              -->
+  <!-- Ordem de resolução da chave digitada:                        -->
+  <!--   1. Se tem formato de chave de circulação diagnóstica (hex) -->
+  <!--      E há sessão demo ativa → GET /circulacao/{chave}        -->
+  <!--      (endpoint autenticado; a lente renderiza de forma       -->
+  <!--      NEUTRA — sem paciente, prescritor ou nomes de exame).   -->
+  <!--   2. Senão/em sequência → endpoints públicos neutros:        -->
+  <!--      /public/{prescricoes,exames,atestados,laudos,           -->
+  <!--      encaminhamentos,contrarreferencias}/{protocolo}.        -->
+  <!--   3. Nada encontrado → feedback com o próximo passo.         -->
+  <!-- ============================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      var BACKEND = BACKEND_URL;
+
+      // Tipos de objeto sanitário consultáveis nos endpoints públicos neutros.
+      var LENTE_TIPOS = [
+        { path: 'prescricoes',        nome: 'Receita (prescrição)', icone: '📄', statusKey: 'status_prescricao' },
+        { path: 'exames',             nome: 'Pedido de exame',      icone: '🧪', statusKey: 'status_pedido' },
+        { path: 'atestados',          nome: 'Atestado',             icone: '🩺', statusKey: 'status' },
+        { path: 'laudos',             nome: 'Laudo',                icone: '📋', statusKey: 'status_laudo' },
+        { path: 'encaminhamentos',    nome: 'Encaminhamento',       icone: '↗️', statusKey: 'status_encaminhamento' },
+        { path: 'contrarreferencias', nome: 'Contrarreferência',    icone: '↩️', statusKey: 'status_contrarreferencia' },
+      ];
+
+      function esc(str) {
+        return String(str == null ? '' : str)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // Tom do badge por família de estado (contrato de estados, CLAUDE.md §5a/§5b).
+      function tonoDoStatus(status) {
+        var s = String(status || '').toLowerCase();
+        if (/cancel|desmarc|expira|recusad|revogad|indefer/.test(s)) return 'tono-vermelho';
+        if (/aguard|pendente|proposta|rascunho|selecionado/.test(s)) return 'tono-amarelo';
+        if (/confirm|dispens|realizad|assinado|entregue|conclu|vigente|transfer/.test(s)) return 'tono-verde';
+        if (/emit|enviado|custodia|registrado|ativo/.test(s)) return 'tono-azul';
+        return '';
+      }
+
+      function badge(status) {
+        return '<span class="lente-badge ' + tonoDoStatus(status) + '">' + esc(status || '—') + '</span>';
+      }
+
+      function feedback(tipo, msg) {
+        var el = document.getElementById('lente-feedback');
+        el.className = 'lente-feedback ' + tipo;
+        el.textContent = msg;
+        el.classList.remove('hidden');
+      }
+
+      function limparFeedback() {
+        document.getElementById('lente-feedback').classList.add('hidden');
+      }
+
+      function mostrarResultado(html) {
+        var el = document.getElementById('lente-resultado');
+        el.innerHTML = html;
+        el.classList.remove('hidden');
+      }
+
+      function esconderResultado() {
+        var el = document.getElementById('lente-resultado');
+        el.innerHTML = '';
+        el.classList.add('hidden');
+      }
+
+      // Cartão neutro para os endpoints /public/* — o payload já nasce neutro
+      // no backend (sem clínica, sem identidade); aqui só apresentamos.
+      function renderPublico(tipo, dados) {
+        var status = dados[tipo.statusKey];
+        var html = '<div class="lente-card">'
+          + '<div class="lente-card-head">'
+          +   '<span class="lente-tipo">' + tipo.icone + ' ' + esc(tipo.nome) + '</span>'
+          +   badge(status)
+          + '</div>'
+          + '<div class="lente-chave-display">' + esc(dados.protocolo) + '</div>'
+          + '<div class="lente-meta">Tipo de emissão: <strong>' + esc(dados.tipo_emissao || '—') + '</strong></div>';
+
+        if (tipo.path === 'atestados') {
+          html += '<div class="lente-meta">Assinado: <strong>' + (dados.assinado ? 'sim' : 'não') + '</strong>'
+            + (dados.vigente === null || dados.vigente === undefined
+               ? ''
+               : ' · Vigente: <strong>' + (dados.vigente ? 'sim' : 'não') + '</strong>')
+            + '</div>';
+        }
+
+        if (Array.isArray(dados.itens) && dados.itens.length) {
+          html += '<div class="lente-itens">';
+          dados.itens.forEach(function (it) {
+            html += '<div class="lente-item-row"><span>Item ' + esc(it.ordem) + '</span>'
+              + badge(it.status_item) + '</div>';
+          });
+          html += '</div>';
+        }
+
+        html += '<div class="lente-nota">Visão neutra de auditoria — existência e estado do objeto, '
+          + 'sem conteúdo clínico nem identificação das partes.</div></div>';
+        mostrarResultado(html);
+      }
+
+      // Cartão neutro para circulação diagnóstica. O endpoint autenticado
+      // retorna paciente/prescritor/exames — a lente NÃO os exibe: auditoria
+      // vê estado, validade e tamanho do conjunto; o restante é operação, e
+      // operação fica no módulo Clínica/Laboratório.
+      function renderCirculacao(circ) {
+        var nItens = Array.isArray(circ.itens) ? circ.itens.length : 0;
+        var validade = circ.validade ? String(circ.validade).slice(0, 10) : '—';
+        var html = '<div class="lente-card">'
+          + '<div class="lente-card-head">'
+          +   '<span class="lente-tipo">🔬 Circulação diagnóstica</span>'
+          +   badge(circ.status)
+          + '</div>'
+          + '<div class="lente-chave-display">' + esc(circ.chave_circulacao) + '</div>'
+          + '<div class="lente-meta">Validade da chave: <strong>' + esc(validade) + '</strong>'
+          + ' · Exames nesta circulação: <strong>' + nItens + '</strong></div>'
+          + '<div class="lente-nota">Visão neutra de auditoria. Detalhes clínicos e operação '
+          + '(proposta, confirmação, realização) no módulo '
+          + '<a href="clinica.html">Clínica/Laboratório →</a></div></div>';
+        mostrarResultado(html);
+      }
+
+      window.consultarObjetoSanitario = async function () {
+        var input = document.getElementById('lente-input');
+        var termo = (input.value || '').trim();
+
+        if (termo.length < 4) {
+          esconderResultado();
+          feedback('err', 'Informe a chave de circulação ou o protocolo (mínimo 4 caracteres).');
+          return;
+        }
+
+        limparFeedback();
+        mostrarResultado('<p style="font-size:13px;color:#64748b;margin:8px 0 0;">Consultando…</p>');
+
+        // Chave de circulação diagnóstica: hex curto, sem hífen (ex: A3F1C2B4E5D6).
+        // Protocolos (UUID com hífen) caem direto nos endpoints públicos.
+        var chaveCirc = termo.toUpperCase();
+        var pareceCirculacao = /^[0-9A-F]{8,16}$/.test(chaveCirc) && termo.indexOf('-') === -1;
+        var token = null;
+        try { token = sessionStorage.getItem('picsaude_demo_token'); } catch (_) {}
+
+        // 1) Circulação diagnóstica (autenticada) — só com sessão ativa.
+        if (pareceCirculacao && token) {
+          try {
+            var rc = await fetch(BACKEND + '/circulacao/' + encodeURIComponent(chaveCirc), {
+              headers: { 'Authorization': 'Bearer ' + token },
+            });
+            if (rc.ok) {
+              limparFeedback();
+              renderCirculacao(await rc.json());
+              return;
+            }
+          } catch (_) { /* rede — segue para os públicos */ }
+        }
+
+        // 2) Objetos sanitários via endpoints públicos neutros, na ordem.
+        for (var i = 0; i < LENTE_TIPOS.length; i++) {
+          var tipo = LENTE_TIPOS[i];
+          try {
+            var rp = await fetch(BACKEND + '/public/' + tipo.path + '/' + encodeURIComponent(termo));
+            if (rp.ok) {
+              limparFeedback();
+              renderPublico(tipo, await rp.json());
+              return;
+            }
+          } catch (_) { /* rede — tenta o próximo tipo */ }
+        }
+
+        // 3) Nada encontrado — feedback com o próximo passo (R4: nunca calar).
+        esconderResultado();
+        if (pareceCirculacao && !token) {
+          feedback('err', 'Formato de chave de circulação diagnóstica, mas nenhum objeto público '
+            + 'respondeu por ela. A circulação diagnóstica detalhada exige um perfil ativo — '
+            + 'entre pelo card da Clínica/Laboratório e consulte lá.');
+        } else if (pareceCirculacao) {
+          feedback('err', 'Nenhuma circulação ou objeto sanitário encontrado com "' + chaveCirc + '". '
+            + 'Confira a digitação ou consulte no módulo de origem.');
+        } else {
+          feedback('err', 'Nenhum objeto sanitário encontrado com este protocolo. '
+            + 'Confira a digitação — o protocolo é o identificador completo do documento.');
+        }
+      };
     })();
   </script>
 
