@@ -66,7 +66,7 @@ Vocabulário de eventos conhecido:
 | `assinatura_registrada` | Metadados de assinatura digital declarados pelo prescritor (stub MVP) |
 | `decisao_clinica_avaliada` | **Camada 3** — trilha de auditoria do semáforo: sinal + versão da regra por item, gravado na emissão (não-bloqueante; só com a flag `PICSAUDE_DECISAO_CLINICA` ativa e `codigo_cid` presente). Ver `docs/EXPLICABILIDADE_DECISAO_CLINICA.md` §11 |
 | `pdf_assinado_pades` | Geração de PDF com assinatura ICP-Brasil PAdES-B (cofre server-side). Emitido pela prescrição comum (`POST /prescricoes/{proto}/pdf-assinado`) e pelo receituário. Payload: hash do PDF + serial do certificado |
-| `estorno_registrado` | **T2** — reversão de uma dispensação registrada. O estorno é um **objeto sanitário derivado e imutável** (`estornos`, padrão `origem_dispensacao_id`), **não** uma transição de estado do item (a `dispensacoes` original permanece intocada). Efeito contábil: saldo efetivo do item = Σ dispensado − Σ estornado. Emitido por `POST /dispensacoes/{id}/estornar`. Payload: `estorno_id` + `estorno_protocolo` + `origem_dispensacao_id` + `item_id` + `quantidade_estornada` + `motivo` (enum `MOTIVOS_ESTORNO`). Ver `docs/tickets/TICKET-ESTORNO-OBJETO-DERIVADO.md` |
+| `estorno_registrado` | **T2** — reversão de uma dispensação registrada. O estorno é um **objeto sanitário derivado e imutável** (`estornos`, padrão `origem_dispensacao_id`); a `dispensacoes` original **sempre** permanece intocada e o efeito contábil é sempre saldo efetivo = Σ dispensado − Σ estornado. **Muta o item CONDICIONALMENTE** (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08; roteamento ratificado na Opção B pós-CI #152): só no estorno **TOTAL** (Σ estornado == Σ dispensado do item) nos motivos "cidadão recupera" (`desistencia_paciente`, `pagamento_nao_concluido`) o item vai a `devolvido_paciente` (evento `item_devolvido_paciente`) e a custódia volta ao paciente; nos demais casos (estorno parcial, `erro_dispensacao`, ou o catch-all `outro`) o item **não** é mutado (TICKET-B0 preservado — rótulo `dispensado` indelével). Emitido por `POST /dispensacoes/{id}/estornar`. Payload: `estorno_id` + `estorno_protocolo` + `origem_dispensacao_id` + `item_id` + `quantidade_estornada` + `motivo` (enum `MOTIVOS_ESTORNO`). Ver `docs/tickets/TICKET-ESTORNO-OBJETO-DERIVADO.md` e `docs/tickets/TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO.md` |
 | `custodia_reconciliada_data_fix` | **COER-2** — data-fix de reconciliação: encerra custódia ATIVA excedente quando um objeto tinha dupla posse (violação de unicidade). Emitido **pela migração** (`c0e2f1a3b4d5`), nunca no caminho clínico. Régua de corte: mantém a mais recente por `(created_at DESC, id DESC)`. Payload: `custodia_id_encerrada` + `custodia_id_mantida` + `detentor_tipo/_id` + `nivel` + `item_id`. Ver `docs/tickets/TICKET-COERENCIA-DEVOLUCOES-2.md` |
 
 **Fluxo físico emite DOIS eventos em sequência:**
@@ -160,8 +160,11 @@ que **obrigatoriamente** fecha a custódia anterior + abre a nova + emite
 `custodia_transferida` — atômico. Nenhum caminho de produto faz `_fechar` + `_abrir`
 à mão. O `motivo` da custódia é **canônico por caminho** (o T6/histórico separa os
 caminhos): `transferencia_farmacia` · `abandono_balcao` · `devolucao_integral_paciente`
-· `devolucao_ao_prescritor` · `estorno_reposicao_saldo` · `auto_retencao_demo` ·
-`dispensacao`. Texto livre do usuário vai em `motivo_detalhe` (nunca sobrescreve o canônico).
+· `devolucao_ao_prescritor` · `estorno_reposicao_saldo` · `devolucao_pos_estorno`
+· `auto_retencao_demo` · `dispensacao`. Texto livre do usuário vai em `motivo_detalhe`
+(nunca sobrescreve o canônico). (`devolucao_pos_estorno` = estorno TOTAL que devolve a
+custódia ao paciente — TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO; distinto de
+`estorno_reposicao_saldo`, que retem no dispensador.)
 
 > A constraint pega dupla posse de **mesma granularidade**. A dupla posse
 > **cross-granularidade** (nível-prescrição obsoleto + nível-item ativo — raiz do
@@ -236,11 +239,11 @@ encerrada_localmente     ← emissão exclusivamente física (terminal)
 ```
 pendente              ← estado inicial do ciclo digital
 em_custodia           ← dispensador reteve para dispensação
-dispensado            ← entregue ao paciente (terminal)
-devolvido_paciente    ← abandono de compra; nova tentativa OU volta ao médico (**)
+dispensado            ← entregue ao paciente (terminal; ver (†) — exceção pós-estorno)
+devolvido_paciente    ← abandono de compra; nova tentativa OU volta ao médico (**) · também destino do estorno TOTAL "cidadão recupera" (†)
 devolvido_prescritor  ← erro identificado; aguarda correção (terminal*)
 cancelado             ← revogação clínica (terminal)
-estornado             ← dispensação revertida após registro (terminal)
+estornado             ← scaffolding dormente — a transição existe no mapa mas NÃO é usada no fluxo real (o estorno é objeto derivado; ver (†))
 encerrado_fisico      ← emissão física; sem ciclo digital (terminal)
 ```
 
@@ -253,6 +256,21 @@ estorno/devolução ao paciente). Antes só `pendente → devolvido_prescritor` 
 (`transferida_prescritor`) e invisível no painel de correções — eco de "dupla posse" no
 nível de estado. Ao virar terminal, a custódia de ITEM no nome do paciente é FECHADA (sem
 órfã). Ver `TICKET-COER2-POS-MERGE-FIX` e a nota em `states.py::TRANSICOES_ITEM`.
+
+`(†)` **Estorno condicional (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08; roteamento
+ratificado na Opção B do parecer do Revisor pós-CI #152):** o estorno
+sempre cria o objeto derivado `estornos` (a `dispensacoes` original permanece intocada). O
+item SÓ é mutado no estorno **TOTAL** (`Σ estornado == Σ dispensado`) nos motivos "cidadão
+recupera" (`desistencia_paciente`, `pagamento_nao_concluido` — os motivos com intenção
+explícita de o cidadão recuperar a posse): aí o item vai
+`dispensado → devolvido_paciente` (aresta adicionada em `states.py::TRANSICOES_ITEM`), a
+custódia volta ao paciente (`devolucao_pos_estorno`) e a prescrição regredir a
+`transferida_paciente` (exceção nomeada ao terminal `dispensada`, à moda do
+COER2-POS-MERGE-FIX) — destravando retry em outra farmácia e devolução ao prescritor (§3).
+Nos demais casos (estorno **parcial**, motivo `erro_dispensacao`, ou o catch-all `outro`)
+o item **não** é mutado (TICKET-B0 preservado: saldo reposto, rótulo `dispensado`
+indelével — §6.5 do TICKET-B0 / §2a R1 —, re-dispensável na mesma farmácia). A transição
+`dispensado → estornado` segue como scaffolding dormente (não usada).
 
 > ⚠️ **Governança:** Estados de prescrição e de item são parte do modelo de domínio.
 > Não criar novos estados sem atualizar esta seção, o DDL em `docs/picsaude_ddl_postgres_v1.sql`
@@ -287,6 +305,15 @@ Prescrição:  dispensada · cancelada · encerrada_localmente · expirada
 Item:        dispensado · devolvido_prescritor · cancelado · estornado · encerrado_fisico
 ```
 
+> **Exceção nomeada ao terminal (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08; Opção B
+> pós-CI #152):** à moda
+> do COER2-POS-MERGE-FIX, `dispensada`/`dispensado` permanecem terminais no caso geral, mas
+> admitem **uma** regressão nomeada — o estorno TOTAL nos motivos "cidadão recupera"
+> (`desistencia_paciente`, `pagamento_nao_concluido`) leva o
+> item a `devolvido_paciente` e a prescrição a `transferida_paciente` (via
+> `_recalcular_status_prescricao`), devolvendo a custódia ao paciente. Não é afrouxamento
+> geral do terminal; é a única brecha legítima, declarada. Ver §5a `(†)`.
+
 ### Invariantes
 
 - Prescrições físicas não entram em custódia digital
@@ -298,6 +325,12 @@ Item:        dispensado · devolvido_prescritor · cancelado · estornado · enc
   está em `transferida_prescritor` (seria incoerência de estado). Guarda executável (PG):
   `tests/integration/test_custodia_devolucao.py::test_coer12_devolver_prescritor_de_item_devolvido_paciente_vira_devolvido_prescritor`
   (custódia sem órfã em `::test_coer13_...`; render do painel em `tests/browser/test_coer2_fix.py`)
+- **Estorno é condicional** (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO; Opção B pós-CI #152):
+  o objeto derivado
+  `estornos` é sempre criado, mas o item só é mutado (`dispensado → devolvido_paciente`) no
+  estorno TOTAL dos motivos "cidadão recupera" (`desistencia_paciente`,
+  `pagamento_nao_concluido`); nos demais casos — incluído o catch-all `outro` — o item não
+  é mutado (TICKET-B0 preservado). Guarda executável: `tests/integration/test_estorno.py`.
 - Transições válidas estão declaradas em `backend/app/domain/states.py`
 
 ---

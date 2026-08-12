@@ -1,5 +1,27 @@
 -- =============================================================================
--- PicSaúde v1.0 — Modelo Físico PostgreSQL
+-- ⚠️  OBSOLETO PARCIALMENTE desde 2026-08 (parecer Fable 5 Q3, ratificado).
+--
+-- Este arquivo contém APENAS as tabelas do núcleo de PRESCRIÇÃO (8 tabelas:
+-- pacientes, prescritores, estabelecimentos_proprios, prescricoes,
+-- prescricao_itens, prescricao_eventos, prescricao_custodia, dispensacoes).
+--
+-- NÃO contém as tabelas dos módulos posteriores (exame, laudo, agendamento,
+-- atestados, etc.) — estas foram adicionadas via migrations Alembic e NÃO foram
+-- retroportadas para este DDL legado.
+--
+-- FONTE DE VERDADE DO SCHEMA:
+--   backend/alembic/versions/  (especialmente 037d38d98806_baseline_schema_manual.py)
+--
+-- ⛔ ESTE ARQUIVO NÃO SERÁ MAIS ATUALIZADO. Schema = sempre a migration Alembic.
+-- Qualquer mudança de schema entra como migration nova em backend/alembic/versions/.
+-- Este DDL está congelado no estado do núcleo de prescrição e não recebe tabelas
+-- novas nem alterações de coluna. As tabelas abaixo permanecem precisas para o
+-- núcleo de prescrição como snapshot histórico, mas o conjunto está incompleto.
+-- Gerar DDL completo sob demanda a partir do Alembic (`alembic upgrade head` em
+-- DB vazio + dump do schema) se uma visão completa for necessária.
+-- =============================================================================
+--
+-- PicSaúde v1.0 — Modelo Físico PostgreSQL (núcleo de prescrição apenas)
 -- Anexo A do Whitepaper Técnico
 -- Derivado dos modelos SQLAlchemy em backend/app/models/
 -- =============================================================================

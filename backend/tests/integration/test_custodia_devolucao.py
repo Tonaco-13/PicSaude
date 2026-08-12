@@ -1302,12 +1302,16 @@ def test_guarda_unicidade_custodia_ativa_rejeita_dupla_posse(outer_conn):
 
 # --- COER-9: Cenário 1 (estorno + devolução ao paciente) ----------------------
 
-def test_coer9_estorno_mais_devolucao_paciente_limpa_fila(client, outer_conn):
-    """Cenário 1 reproduzido: dispensar total → estornar (repõe saldo) → devolver
-    ao paciente. ANTES: o item ficava rotulado 'dispensado' e o guard barrava a
-    devolução (409) enquanto a custódia obsoleta do dispensador prendia a receita
-    na fila (dupla posse). DEPOIS: devolução deriva do SALDO (reposto) → posse
-    volta ao paciente, fila limpa, dispensador sem custódia ativa."""
+def test_coer9_estorno_desistencia_um_passo_limpa_fila(client, outer_conn):
+    """Cenário 1 SUBSUMIDO pelo novo estorno (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO,
+    Opção B pós-CI #152): dispensar total → estornar (desistencia_paciente) já
+    devolve a custódia ao paciente em UM passo — item a `devolvido_paciente`,
+    prescrição a `transferida_paciente`, fila limpa. O 2º passo antigo
+    (devolução manual do dispensador ao paciente) deixou de existir no fluxo.
+    ANTES: o item ficava rotulado 'dispensado' e o guard barrava a devolução
+    (409) enquanto a custódia obsoleta do dispensador prendia a receita na fila
+    (dupla posse). DEPOIS: o estorno deriva do SALDO (reposto) → posse volta ao
+    paciente, fila limpa, dispensador sem custódia ativa."""
     prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
 
     # Dispensa total (10/10) — item 'dispensado', saldo 0.
@@ -1319,7 +1323,8 @@ def test_coer9_estorno_mais_devolucao_paciente_limpa_fila(client, outer_conn):
     assert rd.status_code == 201, rd.text
     dispensacao_id = rd.json()["dispensacao_id"]
 
-    # Estorna tudo — saldo efetivo volta a 10 (item segue rotulado 'dispensado').
+    # Estorna tudo por desistencia_paciente — saldo efetivo volta a 10 E a posse
+    # volta ao paciente no mesmo passo (item 'devolvido_paciente').
     re = client.post(
         f"/dispensacoes/{dispensacao_id}/estornar",
         json={"motivo": "desistencia_paciente"},
@@ -1328,10 +1333,10 @@ def test_coer9_estorno_mais_devolucao_paciente_limpa_fila(client, outer_conn):
     assert re.status_code == 201, re.text
     assert _saldo_efetivo_item(outer_conn, item_id)["saldo_efetivo"] == 10
 
-    # Devolve ao paciente — o guard NÃO barra mais (saldo reposto > 0).
-    rv = _devolver_ao_paciente(client, proto, item_id, motivo="desistiu da compra")
-    assert rv.status_code == 200, rv.text
-    assert rv.json()["status_prescricao"] == "transferida_paciente"
+    # Um passo só: o estorno já aterrissa em devolvido_paciente + transferida_paciente.
+    assert re.json()["status_item"] == "devolvido_paciente"
+    assert re.json()["status_prescricao"] == "transferida_paciente"
+    assert re.json()["destino_custodia"] == "paciente"
 
     # Fila do dispensador limpa + dispensador sem NENHUMA custódia ativa.
     fila = client.get("/dispensadores/fila", headers=_headers(_jwt_dispensador())).json()
@@ -1437,9 +1442,11 @@ def _status_item(outer_conn, item_id: int) -> str:
 
 
 def _seed_item_devolvido_paciente(client, outer_conn):
-    """Reproduz o fim do Cenário 1 (COER-9): dispensar total → estornar → devolver
-    ao paciente. Devolve (prescricao_id, proto, item_id) com o item em
-    `devolvido_paciente` e a prescrição em `transferida_paciente`."""
+    """Reproduz o fim do Cenário 1 (COER-9) em UM passo: dispensar total →
+    estornar (desistencia_paciente). O novo estorno já devolve a custódia ao
+    paciente (Opção B pós-CI #152) — não há mais o 2º passo de devolução manual.
+    Devolve (prescricao_id, proto, item_id) com o item em `devolvido_paciente`
+    e a prescrição em `transferida_paciente`."""
     prescricao_id, proto, [item_id] = _seed_prescricao_com_itens_em_custodia(outer_conn)
     rd = client.post(
         f"/prescricoes/{proto}/itens/{item_id}/dispensar",
@@ -1453,8 +1460,7 @@ def _seed_item_devolvido_paciente(client, outer_conn):
         headers=_headers(_jwt_dispensador()),
     )
     assert re.status_code == 201, re.text
-    rv = _devolver_ao_paciente(client, proto, item_id, motivo="desistiu")
-    assert rv.status_code == 200, rv.text
+    assert re.json()["destino_custodia"] == "paciente"
     assert _status_item(outer_conn, item_id) == "devolvido_paciente"
     # Precondição do bug: o item carrega custódia de item ATIVA no nome do paciente.
     assert _custodia_ativa_item(outer_conn, prescricao_id, item_id) == {

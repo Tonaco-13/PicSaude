@@ -803,6 +803,155 @@ def agendar_pedido_exame(
 
 
 # ---------------------------------------------------------------------------
+# POST /pedidos-exame/{protocolo}/transferir-laboratorio — ato do CIDADÃO
+# ---------------------------------------------------------------------------
+# Espelho exato de POST /paciente/prescricoes/{proto}/transferir-farmacia
+# (auth.py:202): o mesmo gesto da receita — o cidadão escolhe o estabelecimento,
+# entrega a posse, e o objeto cai na fila daquele CNPJ
+# (GET /dispensadores/fila-exames). Antes, o cidadão não tinha como transferir
+# custódia de exame: só `agendar` (papel prescritor/admin) e a chave de
+# circulação (que o operador do laboratório precisava digitar).
+#
+# Transição: emitido → agendado. No vocabulário do exame `agendado` É "sob
+# custódia do prestador, aguardando coleta" (states_exame.py + §7 do CLAUDE.md,
+# cadeia `prescritor → paciente → prestador_exame`), do mesmo modo que
+# `em_custodia` é o estado da receita retida no balcão. Itens pendentes →
+# agendado; custódia de nível-pedido (item_id IS NULL): paciente → <cnpj>.
+#
+# Classe `module` — extensão do módulo de exames; nenhum estado novo, nenhuma
+# transição nova, nenhum evento novo no vocabulário.
+
+class TransferirLaboratorioIn(BaseModel):
+    cnpj_laboratorio: str
+    nome_laboratorio: Optional[str] = None
+
+
+@router.post("/{protocolo}/transferir-laboratorio", status_code=201)
+def transferir_laboratorio(
+    protocolo: str,
+    payload: TransferirLaboratorioIn,
+    usuario=Depends(require_role("paciente")),
+):
+    """
+    Cidadão entrega a posse do pedido de exame ao laboratório que escolheu.
+
+    - Pedido deve estar em 'emitido' (posse do cidadão)
+    - Itens 'pendente' → 'agendado'
+    - Custódia: paciente → prestador_exame (nível pedido)
+    - Ledger: `custodia_transferida` (posse) + `pedido_agendado` (estado)
+    """
+    agora = datetime.utcnow().isoformat()
+
+    # §8.4 (opção A): normalizar o CNPJ na ESCRITA, na raiz — a custódia guarda
+    # o valor canônico contra o qual `_assert_dispensador_dono_pedido` compara.
+    cnpj = normalize_cnpj(payload.cnpj_laboratorio)
+    if len(cnpj) != 14:
+        raise HTTPException(status_code=400, detail="cnpj_laboratorio inválido")
+
+    _papel, ident = _normalizar_identidade_jwt(usuario)
+
+    with get_tx() as conn:
+        pedido = _get_pedido_ou_404(conn, protocolo)
+
+        # TICKET-5C-BIS-A §7.2 — ownership ANTES das checagens de estado
+        # (anti-leak #52): quem não é dono não descobre o status alheio.
+        _assert_paciente_dono_pedido(conn, protocolo, ident)
+
+        if eh_terminal_pedido(pedido["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Pedido '{protocolo}' está em estado terminal ({pedido['status']}).",
+            )
+        # Só circula o pedido que está em posse do cidadão. 'agendado' já está
+        # com um laboratório — mesmo 409 da receita fora de 'transferida_paciente'.
+        if pedido["status"] != "emitido":
+            raise HTTPException(
+                status_code=409,
+                detail=f"Pedido não está sob sua custódia (status: {pedido['status']})",
+            )
+
+        itens_transferir = [
+            i for i in _get_itens(conn, pedido["id"]) if i["status_item"] == "pendente"
+        ]
+        if not itens_transferir:
+            raise HTTPException(
+                status_code=422,
+                detail="Nenhum item 'pendente' disponível para transferir.",
+            )
+
+        for item in itens_transferir:
+            conn.execute(
+                "UPDATE pedido_exame_itens SET status_item = 'agendado' WHERE id = ?",
+                (item["id"],),
+            )
+
+        conn.execute(
+            """
+            INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json)
+            VALUES (?, NULL, 'paciente', ?, ?, ?)
+            """,
+            (
+                pedido["id"],
+                cnpj,
+                agora,
+                json.dumps({
+                    "nome_laboratorio": payload.nome_laboratorio,
+                    "motivo":           "transferencia_laboratorio",
+                    "origem":           "cidadao_app",
+                }, ensure_ascii=False),
+            ),
+        )
+
+        novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
+
+        instance_id = get_instance_id_conn(conn)
+        # DOIS eventos em sequência, como o fluxo físico da prescrição (§2):
+        # posse e estado são fatos distintos. `custodia_transferida` é
+        # obrigatório em toda retenção (§2, invariante de retenção); e
+        # `pedido_agendado` é o evento nomeado da transição emitido → agendado,
+        # o mesmo que o caminho `/agendar` emite — o ledger não fica com uma
+        # mudança de estado sem evento que a nomeie.
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="custodia_transferida",
+            instance_id=instance_id,
+            payload={
+                "de":       "paciente",
+                "de_id":    ident,
+                "para":     "prestador_exame",
+                "para_id":  cnpj,
+                "nivel":    "pedido",
+                "motivo":   "transferencia_laboratorio",
+                "origem":   "cidadao_app",
+            },
+        )
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="pedido_agendado",
+            instance_id=instance_id,
+            payload={
+                "cnpj_prestador":   cnpj,
+                "nome_prestador":   payload.nome_laboratorio,
+                "data_agendamento": None,   # data quem marca é o laboratório
+                "itens_agendados":  len(itens_transferir),
+                "via":              "transferencia_custodia_cidadao",
+            },
+        )
+
+        return {
+            "ok":                 True,
+            "protocolo":          protocolo,
+            "status":             novo_status,
+            "itens_transferidos": len(itens_transferir),
+            "cnpj_laboratorio":   cnpj,
+        }
+
+
+# ---------------------------------------------------------------------------
 # POST /pedidos-exame/{protocolo}/itens/{item_id}/coletar — nível do item
 # Transição do item: agendado → coletado
 # O item é a unidade operacional de coleta.
