@@ -257,16 +257,14 @@
         .btn-modal-confirmar:hover { background:#b91c1c; }
         .btn-modal-cancelar  { background:#f1f5f9; color:#374151; }
         .btn-modal-cancelar:hover { background:#e2e8f0; }
-        /* ── Copiar chave ───────────────────────────────────────────────── */
-        .btn-copiar-chave { background:transparent; border:1px solid #86efac; color:#166534; border-radius:4px; padding:4px 10px; font-size:11px; font-weight:600; cursor:pointer; display:block; width:100%; margin-bottom:8px; }
-        .btn-copiar-chave:hover { background:#f0fdf4; }
         /* ─────────────────────────────────────────────────────────────── */
     </style>
   <script src="config.js"></script>
 </head>
 <body>
-    <!-- TICKET-6 DEMO_MODE — barra superior "Demo: chaves" (KIMI3-006 ampliado:
-         o banner amarelo saiu de todas as telas; as 4 chaves ficam no topo) -->
+    <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
+         (2026-08-12: a barra slim virou o painel-cartão do índice, mesmo
+         formato em todas as telas; as 4 chaves ficam na borda superior) -->
     <script>
       (async function picsaudeDemoBanner() {
         try {
@@ -275,8 +273,8 @@
           const cfg = await r.json();
           if (!cfg.demo_mode) return;
           document.body.classList.add('demo');
-          renderizarBarraChavesDemo(cfg);
-        } catch (e) { console.warn('demo barra: ' + e.message); }
+          renderizarPainelChavesDemo(cfg);
+        } catch (e) { console.warn('demo painel: ' + e.message); }
       })();
     </script>
 

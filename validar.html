@@ -129,9 +129,10 @@
   <script src="config.js"></script>
 </head>
 <body>
-<!-- TICKET-6 DEMO_MODE — barra superior "Demo: chaves" (KIMI3-006 ampliado).
-     validar continua público mesmo em demo; o rótulo preserva o aviso
-     "sem efeito clínico" (P2#7 CODEX rodada 1). -->
+<!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
+     (2026-08-12: barra slim → painel-cartão do índice, mesmo formato em
+     todas as telas). validar continua público mesmo em demo; o aviso
+     "sem efeito clínico" segue no painel (P2#7 CODEX rodada 1). -->
 <script>
   (async function picsaudeDemoBoot() {
     try {
@@ -140,8 +141,8 @@
       const cfg = await r.json();
       if (!cfg.demo_mode) return;
       document.body.classList.add('demo');
-      renderizarBarraChavesDemo(cfg, {
-        rotulo: 'Demo — documentos fictícios, sem efeito clínico:',
+      renderizarPainelChavesDemo(cfg, {
+        aviso: 'Demo — documentos fictícios, sem efeito clínico.',
       });
     } catch (e) { console.warn('demo boot: ' + e.message); }
   })();
