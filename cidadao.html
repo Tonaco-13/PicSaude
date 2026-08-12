@@ -172,7 +172,7 @@
         .item-atom-codigo { font-family:'Courier New',monospace; font-size:22px; font-weight:800; letter-spacing:6px; color:#1e3a8a; text-align:center; padding:6px; background:white; border:1px dashed #1e3a8a; border-radius:4px; margin-bottom:4px; }
         .btn-atom-revogar-todos { background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; padding:7px 14px; font-size:11px; font-weight:600; cursor:pointer; width:100%; margin-top:6px; }
         .btn-atom-revogar-todos:hover { background:#fef2f2; }
-        /* ── Pedidos de Exame / Agendamento (Ticket 29) ─────────────── */
+        /* ── Pedidos de Exame ───────────────────────────────────────── */
         .exame-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-bottom:12px; }
         .exame-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
         .exame-badge-prioridade { font-size:11px; font-weight:700; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:#dbeafe; color:#1e40af; }
@@ -190,60 +190,22 @@
         .exame-lista { margin:8px 0; padding-left:0; list-style:none; }
         .exame-lista li { font-size:13px; color:#0f172a; padding:3px 0; border-bottom:1px solid #f1f5f9; }
         .exame-lista li:last-child { border-bottom:none; }
-        .agendar-area { background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:14px; margin-top:12px; }
-        .agendar-area-title { font-size:11px; font-weight:700; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; }
-        .agendamento-ativo { background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:10px 14px; font-size:13px; color:#1e3a8a; margin-top:10px; }
-        .agendamento-ativo strong { display:block; font-size:12px; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.4px; }
-        .btn-agendar { background:#1e3a8a; color:white; border:none; border-radius:4px; padding:8px 16px; font-size:12px; font-weight:600; cursor:pointer; width:100%; }
-        .btn-agendar:hover { background:#001a4f; }
-        .btn-cancelar-ag { background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; margin-top:8px; }
-        .btn-cancelar-ag:hover { background:#fef2f2; }
-        .form-agendar { display:none; flex-direction:column; gap:8px; margin-top:10px; }
-        .form-agendar.aberto { display:flex; }
-        .form-agendar input { font-size:13px; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; outline:none; }
-        .form-agendar input:focus { border-color:#3b82f6; }
-        /* ── Circulação Diagnóstica (Ticket 56) ─────────────────────── */
-        .circ-area { background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:14px; margin-top:12px; }
-        .circ-area-title { font-size:11px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; }
-        .circ-chave { font-family:'Courier New',monospace; font-size:20px; font-weight:800; letter-spacing:5px; color:#166534; text-align:center; padding:8px; background:white; border:1px dashed #16a34a; border-radius:4px; margin:6px 0 10px; }
-        .circ-status { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; padding:3px 10px; border-radius:12px; letter-spacing:0.4px; }
-        .circ-status.selecionado { background:#dcfce7; color:#166534; }
-        .circ-status.enviado_laboratorio { background:#dbeafe; color:#1e40af; }
-        .circ-status.proposta_recebida { background:#fef9c3; color:#854d0e; }
-        .circ-status.confirmado_paciente { background:#d1fae5; color:#065f46; }
-        .circ-status.desmarcado_paciente, .circ-status.desmarcado_laboratorio { background:#fee2e2; color:#991b1b; }
-        .circ-status.realizado { background:#e0e7ff; color:#3730a3; }
-        .circ-status.expirado, .circ-status.arquivado_laboratorio { background:#f1f5f9; color:#64748b; }
-        .circ-proposta { background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:10px 12px; margin:8px 0; font-size:13px; color:#92400e; line-height:1.6; }
-        .circ-proposta strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
-        .circ-privacy { font-size:11px; color:#166534; background:#dcfce7; border-radius:4px; padding:6px 10px; margin-bottom:10px; }
-        .circ-item-check { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px; color:#0f172a; border-bottom:1px solid #f1f5f9; }
-        .circ-item-check:last-of-type { border-bottom:none; }
-        .circ-item-check input[type=checkbox] { width:16px; height:16px; accent-color:#16a34a; cursor:pointer; flex-shrink:0; }
-        .btn-circ { background:#166534; color:white; border:none; border-radius:4px; padding:8px 16px; font-size:12px; font-weight:600; cursor:pointer; width:100%; margin-top:6px; text-transform:uppercase; letter-spacing:0.4px; }
-        .btn-circ:hover { background:#1e3a8a; }
-        .btn-circ-outline { background:transparent; border:1px solid #86efac; color:#166534; border-radius:4px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; width:100%; margin-top:4px; text-transform:uppercase; letter-spacing:0.3px; }
-        .btn-circ-outline:hover { background:#f0fdf4; }
-        .btn-circ-desmarcar { background:transparent; border:1px solid #fca5a5; color:#dc2626; border-radius:4px; padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; margin-top:6px; width:100%; }
-        .btn-circ-desmarcar:hover { background:#fef2f2; }
-        .form-circ { display:none; flex-direction:column; gap:8px; margin-top:10px; }
-        .form-circ.aberto { display:flex; }
-        .form-circ input { font-size:13px; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px; outline:none; }
-        .form-circ input:focus { border-color:#16a34a; }
-        /* ── Ticket 58 — Histórico de circulações múltiplas ─────────── */
-        .circ-hist-section { margin-top:10px; border-top:1px dashed #86efac; padding-top:8px; }
-        .circ-hist-title { font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:6px; }
-        .circ-hist-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:12px; color:#64748b; border-bottom:1px solid #f0fdf4; }
-        .circ-hist-item:last-child { border-bottom:none; }
-        .circ-hist-chave { font-family:'Courier New',monospace; font-size:11px; letter-spacing:2px; color:#374151; }
-        .circ-remarcada-badge { display:inline-block; font-size:9px; font-weight:700; padding:1px 7px; border-radius:10px; background:#fef9c3; color:#854d0e; text-transform:uppercase; letter-spacing:0.4px; margin-left:6px; vertical-align:middle; }
+        /* ── Transferência de custódia do pedido de exame ─────────────
+           O exame circula pelo MESMO gesto da receita: CNPJ do destino +
+           "Transferir Custódia". Por isso o card reaproveita `.transfer-area`,
+           `.form-input` e `.btn-action` da receita — a paridade é visual, não
+           só de fluxo. O que é próprio do exame fica abaixo. */
+        .exame-no-lab { background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; padding:10px 14px; font-size:13px; color:#1e3a8a; margin-top:12px; line-height:1.6; }
+        .exame-no-lab strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+        .exame-badge-status { font-size:11px; font-weight:700; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:#f1f5f9; color:#475569; letter-spacing:0.3px; }
+        .exame-badge-status.no-lab { background:#dbeafe; color:#1d4ed8; }
         /* ── Toast ──────────────────────────────────────────────────────── */
         #picsaude-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#0f172a; color:white; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:500; box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; pointer-events:none; z-index:9999; transition:opacity .25s, transform .25s; max-width:90vw; text-align:center; }
         #picsaude-toast.show    { opacity:1; transform:translateX(-50%) translateY(0); }
         #picsaude-toast.success { background:#166534; }
         #picsaude-toast.error   { background:#991b1b; }
         #picsaude-toast.info    { background:#1e40af; }
-        /* ── Modal: desmarcar ───────────────────────────────────────────── */
+        /* ── Modal (confirmação de transferência) ───────────────────────── */
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9000; align-items:center; justify-content:center; }
         .modal-overlay.aberto { display:flex; }
         .modal-box { background:white; border-radius:10px; padding:24px; max-width:360px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,.18); }
@@ -807,8 +769,24 @@
         }
 
         // ==========================================
-        // Pedidos de Exame / Agendamento (Ticket 29)
+        // Pedidos de Exame — circulação por transferência de custódia
         // ==========================================
+        // O pedido de exame circula pelo MESMO gesto da receita: o cidadão
+        // informa o CNPJ do destino e clica em "Transferir Custódia"; o pedido
+        // cai na fila daquele laboratório (clinica.html), como a receita cai na
+        // fila do balcão. Saíram desta tela, por decisão de produto:
+        //   · o agendamento (Ticket 29) — quem marca data é o laboratório;
+        //   · a chave de circulação (Tickets 56/58) — exigia que o operador do
+        //     laboratório digitasse um código para descobrir o pedido.
+        // Ambos seguem existindo no backend e na tela do laboratório.
+        const STATUS_EXAME_LABEL = {
+            emitido:              'Com você',
+            agendado:             'No laboratório',
+            coletado:             'Coletado',
+            em_analise:           'Em análise',
+            resultado_disponivel: 'Resultado disponível',
+        };
+
         async function carregarPedidosExame() {
             const container = document.getElementById('lista-pedidos-exame');
             try {
@@ -818,28 +796,15 @@
                     container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum pedido de exame ativo.</p>';
                     return;
                 }
-                // Buscar agendamentos e circulações em paralelo por pedido
-                const [agendsPorPedido, circsPorPedido] = await Promise.all([
-                    Promise.all(
-                        ativos.map(p =>
-                            apiFetch(`/pedidos-exame/${p.protocolo}/agendamentos`)
-                                .then(r => r.agendamentos || [])
-                                .catch(() => [])
-                        )
-                    ),
-                    Promise.all(ativos.map(p => buscarCirculacaoAtiva(p.protocolo))),
-                ]);
-                renderizarPedidosExame(ativos, agendsPorPedido, circsPorPedido);
+                renderizarPedidosExame(ativos);
             } catch (err) {
                 container.innerHTML = `<p style="color:#dc2626; font-size:13px;">Erro ao carregar pedidos: ${err.message}</p>`;
             }
         }
 
-        function renderizarPedidosExame(pedidos, agendsPorPedido, circsPorPedido = []) {
+        function renderizarPedidosExame(pedidos) {
             const container = document.getElementById('lista-pedidos-exame');
-            container.innerHTML = pedidos.map((pedido, idx) => {
-                const ags = agendsPorPedido[idx];
-                const agAtivo = ags.find(a => a.status === 'criado' || a.status === 'confirmado');
+            container.innerHTML = pedidos.map(pedido => {
                 const badgeClass = pedido.prioridade === 'urgentissimo' ? 'urgentissimo'
                                  : pedido.prioridade === 'urgente'       ? 'urgente' : '';
                 const itensHtml = (pedido.itens || []).map(it =>
@@ -849,41 +814,30 @@
                     ? new Date(pedido.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')
                     : '';
 
-                let agendarHtml;
-                if (agAtivo) {
-                    const dtAg = agAtivo.data_hora
-                        ? new Date(agAtivo.data_hora).toLocaleString('pt-BR', { dateStyle:'short', timeStyle:'short' })
-                        : '—';
-                    agendarHtml = `
-                        <div class="agendamento-ativo">
-                            <strong>Agendamento ${agAtivo.status === 'confirmado' ? '✓ Confirmado' : 'Criado'}</strong>
-                            📅 ${dtAg} — ${agAtivo.unidade_id || agAtivo.org_id || '—'}
-                        </div>
-                        <button class="btn-cancelar-ag" onclick="cancelarAgendamento('${agAtivo.protocolo}', '${pedido.protocolo}')">
-                            Cancelar agendamento
-                        </button>`;
-                } else if (pedido.status === 'emitido' || pedido.status === 'agendado') {
-                    agendarHtml = `
-                        <div class="agendar-area">
-                            <p class="agendar-area-title">Agendar exame</p>
-                            <button class="btn-agendar" onclick="abrirFormAgendar('${pedido.protocolo}')">
-                                + Agendar
-                            </button>
-                            <div class="form-agendar" id="form-ag-${pedido.protocolo}">
-                                <input type="datetime-local" id="ag-data-${pedido.protocolo}"
-                                       min="${new Date().toISOString().slice(0,16)}" />
-                                <input type="text" id="ag-org-${pedido.protocolo}" placeholder="Laboratório / organização" />
-                                <input type="text" id="ag-unidade-${pedido.protocolo}" placeholder="Unidade / endereço" />
-                                <button class="btn-agendar" onclick="criarAgendamento('${pedido.protocolo}')">Confirmar</button>
-                                <button class="btn-cancelar-ag" onclick="fecharFormAgendar('${pedido.protocolo}')">Cancelar</button>
-                            </div>
-                        </div>`;
-                } else {
-                    agendarHtml = '';
-                }
+                // `emitido` = em posse do cidadão (espelho de transferida_paciente
+                // na receita). Só nesse estado a transferência é oferecida — nos
+                // demais o pedido já está com o laboratório.
+                const emPosse = pedido.status === 'emitido';
+                const statusLabel = STATUS_EXAME_LABEL[pedido.status] || pedido.status;
 
-                const circsData = circsPorPedido[idx] || { ativa: null, historico: [], isDerivada: false };
-                const circHtml = renderizarSecaoCirculacao(pedido, circsData);
+                const acaoHtml = emPosse ? `
+                        <div class="transfer-area" style="margin-top:12px;">
+                            <p style="font-weight:600; margin-bottom:12px; font-size:13px; color:#1e3a8a; text-transform:uppercase;">Autorizar Coleta no Laboratório</p>
+                            <div style="display:flex; gap:12px;">
+                                <input type="text" id="cnpj-lab-${pedido.protocolo}" class="form-input"
+                                       value="${DEMO.clinica.cnpj}"
+                                       placeholder="CNPJ do laboratório (14 dígitos)" maxlength="18" style="flex:2;">
+                                <button onclick="transferirParaLaboratorio('${pedido.protocolo}')" class="btn btn-action" style="flex:1;">Transferir Custódia</button>
+                            </div>
+                            <p style="font-size:11px; color:#64748b; margin-top:8px;">
+                                🔬 Demo: <strong>${DEMO.clinica.nome}</strong> (${formatarCNPJ(DEMO.clinica.cnpj)}) já preenchida —
+                                só clicar em <strong>Transferir Custódia</strong> e o pedido cai na fila do laboratório.
+                            </p>
+                        </div>` : `
+                        <div class="exame-no-lab">
+                            <strong>Custódia transferida</strong>
+                            O pedido está com o laboratório. Você acompanha o resultado aqui e em <em>Laudos / Resultados</em>.
+                        </div>`;
 
                 return `
                     <div class="exame-card">
@@ -893,289 +847,55 @@
                                 <p style="font-size:14px; font-weight:600; color:#0f172a;">${pedido.prescritor_nome || '—'}</p>
                                 <p style="font-size:12px; color:#64748b;">Emitido em ${emissao}</p>
                             </div>
-                            <span class="exame-badge-prioridade ${badgeClass}">${pedido.prioridade || 'normal'}</span>
+                            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                                <span class="exame-badge-prioridade ${badgeClass}">${pedido.prioridade || 'normal'}</span>
+                                <span class="exame-badge-status ${emPosse ? '' : 'no-lab'}">${statusLabel}</span>
+                            </div>
                         </div>
                         <ul class="exame-lista">${itensHtml}</ul>
-                        ${agendarHtml}
-                        ${circHtml}
+                        ${acaoHtml}
                     </div>`;
             }).join('');
         }
 
-        // ── Ticket 58 — Renderiza seção de circulação (múltiplas por pedido) ──
-        function renderizarSecaoCirculacao(pedido, circsData) {
-            const { ativa, historico, isDerivada } = circsData || { ativa: null, historico: [], isDerivada: false };
-            const itensPendentes = (pedido.itens || []).filter(it => it.status_item === 'pendente');
-
-            // Sem nenhuma circulação conhecida
-            if (!ativa && historico.length === 0) {
-                if (itensPendentes.length === 0) return '';
-                return `
-                    <div class="circ-area">
-                        <p class="circ-area-title">🔬 Encaminhar para laboratório</p>
-                        <button class="btn-circ-outline" id="btn-circ-abrir-${pedido.protocolo}"
-                                onclick="abrirFormCirculacao('${pedido.protocolo}')">
-                            + Selecionar exames e encaminhar
-                        </button>
-                        <div class="form-circ" id="form-circ-${pedido.protocolo}"></div>
-                    </div>`;
+        // ── Transferência de custódia ao laboratório ──────────────────────
+        // Espelho de transferirParaFarmacia (receita): mesmo gesto, mesma
+        // confirmação, mesmo destino visual. A diferença é só o objeto.
+        async function transferirParaLaboratorio(proto) {
+            const cnpj = document.getElementById(`cnpj-lab-${proto}`).value.replace(/\D/g, '');
+            if (!cnpj || cnpj.length !== 14) {
+                showToast('Por favor, informe um CNPJ válido (14 dígitos).', 'error');
+                return;
             }
+            if (!confirm(`Confirma a transferência do pedido de exame ${proto} para o laboratório CNPJ ${cnpj}?`)) return;
 
-            const STATUS_CIRC_LABEL = {
-                selecionado:            'Aguardando envio',
-                enviado_laboratorio:    'Enviado ao laboratório',
-                proposta_recebida:      'Proposta recebida',
-                confirmado_paciente:    'Confirmado',
-                realizado:              'Realizado',
-                desmarcado_paciente:    'Desmarcado por você',
-                desmarcado_laboratorio: 'Desmarcado pelo laboratório',
-                arquivado_laboratorio:  'Arquivado',
-                expirado:               'Expirado',
-            };
-
-            // ── Histórico compacto (circulações anteriores) ───────────────
-            const histHtml = historico.length > 0 ? `
-                <div class="circ-hist-section">
-                    <p class="circ-hist-title">Circulações anteriores (${historico.length})</p>
-                    ${historico.map(h => `
-                        <div class="circ-hist-item">
-                            <span class="circ-hist-chave">${h.chave_circulacao}</span>
-                            <span class="circ-status ${h.status}" style="font-size:10px;padding:2px 8px;">
-                                ${STATUS_CIRC_LABEL[h.status] || h.status}
-                            </span>
-                        </div>`).join('')}
-                </div>` : '';
-
-            // Só há histórico, sem ativa (todos terminais e sem itens pendentes)
-            if (!ativa) {
-                return `
-                    <div class="circ-area">
-                        <p class="circ-area-title">🔬 Circulação diagnóstica</p>
-                        ${histHtml}
-                    </div>`;
-            }
-
-            // ── Badge de remarcação (derivada de uma anterior) ────────────
-            // Critério primário: origem_circulacao_id presente na ativa ou em qualquer
-            // circulação já resolvida (via isDerivada). Garante exibição mesmo quando
-            // só existe uma circulação ativa sem terminais no histórico.
-            const derivadaBadge = (isDerivada || ativa.origem_circulacao_id != null)
-                ? `<span class="circ-remarcada-badge">remarcação</span>`
-                : '';
-
-            // ── Exames da circulação ativa ────────────────────────────────
-            const itensCircHtml = (ativa.itens || []).map(it =>
-                `<li style="font-size:12px;color:#374151;padding:2px 0;">${it.nome_exame}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}</li>`
-            ).join('');
-
-            // ── Proposta do laboratório ───────────────────────────────────
-            let propostaHtml = '';
-            if (ativa.data_hora_proposta &&
-                (ativa.status === 'proposta_recebida' || ativa.status === 'confirmado_paciente')) {
-                const dtProposta = new Date(ativa.data_hora_proposta)
-                    .toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-                propostaHtml = `
-                    <div class="circ-proposta">
-                        <strong>📋 Proposta do laboratório</strong>
-                        📅 ${dtProposta}${ativa.local_texto ? `<br>📍 ${ativa.local_texto}` : ''}${ativa.instrucoes_preparo ? `<br>⚕️ <em>${ativa.instrucoes_preparo}</em>` : ''}
-                    </div>`;
-            }
-
-            // ── Ações sobre a circulação ativa ────────────────────────────
-            let acoesHtml = '';
-            if (!ativa._terminal) {
-                if (ativa.status === 'proposta_recebida') {
-                    acoesHtml = `
-                        <button class="btn-circ"
-                                onclick="confirmarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
-                            ✓ Confirmar agendamento
-                        </button>
-                        <button class="btn-circ-desmarcar"
-                                onclick="desmarcarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
-                            Desmarcar
-                        </button>`;
-                } else if (ativa.status === 'confirmado_paciente') {
-                    acoesHtml = `
-                        <button class="btn-circ-desmarcar"
-                                onclick="desmarcarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
-                            Cancelar confirmação
-                        </button>`;
-                } else {
-                    acoesHtml = `
-                        <button class="btn-circ-desmarcar"
-                                onclick="desmarcarCirculacao('${ativa.chave_circulacao}','${pedido.protocolo}')">
-                            Desmarcar
-                        </button>`;
-                }
-            } else if (itensPendentes.length > 0) {
-                acoesHtml = `
-                    <button class="btn-circ-outline" style="margin-top:8px;"
-                            id="btn-circ-abrir-${pedido.protocolo}"
-                            onclick="abrirFormCirculacao('${pedido.protocolo}')">
-                        + Nova circulação
-                    </button>
-                    <div class="form-circ" id="form-circ-${pedido.protocolo}"></div>`;
-            }
-
-            return `
-                <div class="circ-area">
-                    <p class="circ-area-title">🔬 Circulação diagnóstica${derivadaBadge}</p>
-                    ${!ativa._terminal ? `
-                        <p style="font-size:11px;color:#64748b;margin-bottom:2px;">Chave para o laboratório:</p>
-                        <div class="circ-chave">${ativa.chave_circulacao}</div>
-                        <button class="btn-copiar-chave" onclick="copiarChaveCirc('${ativa.chave_circulacao}')">📋 Copiar chave</button>
-                    ` : ''}
-                    <div style="text-align:center;margin-bottom:8px;">
-                        <span class="circ-status ${ativa.status}">${STATUS_CIRC_LABEL[ativa.status] || ativa.status}</span>
-                    </div>
-                    ${itensCircHtml ? `
-                        <p style="font-size:11px;color:#064e3b;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Exames nesta circulação:</p>
-                        <ul style="padding-left:16px;margin-bottom:8px;">${itensCircHtml}</ul>
-                        <p class="circ-privacy">🔒 O laboratório vê apenas estes exames — não o pedido completo.</p>
-                    ` : ''}
-                    ${propostaHtml}
-                    ${acoesHtml}
-                    ${histHtml}
-                </div>`;
-        }
-
-        function abrirFormAgendar(proto) {
-            document.getElementById(`form-ag-${proto}`).classList.add('aberto');
-        }
-
-        function fecharFormAgendar(proto) {
-            document.getElementById(`form-ag-${proto}`).classList.remove('aberto');
-        }
-
-        async function criarAgendamento(protoPedido) {
-            const dataHora  = document.getElementById(`ag-data-${protoPedido}`).value;
-            const org       = document.getElementById(`ag-org-${protoPedido}`).value.trim();
-            const unidade   = document.getElementById(`ag-unidade-${protoPedido}`).value.trim();
-            if (!dataHora) { showToast('Informe a data e hora do agendamento.', 'error'); return; }
-            if (!org)      { showToast('Informe o laboratório / organização.', 'error'); return; }
-            if (!unidade)  { showToast('Informe a unidade / endereço.', 'error'); return; }
             try {
-                await apiFetch('/agendamentos', {
+                await apiFetch(`/pedidos-exame/${proto}/transferir-laboratorio`, {
                     method: 'POST',
                     body: JSON.stringify({
-                        pedido_protocolo:  protoPedido,
-                        data_hora:         dataHora,
-                        org_id:            org,
-                        unidade_id:        unidade,
-                        tipo_agendamento:  'exame',
+                        cnpj_laboratorio: cnpj,
+                        nome_laboratorio: (typeof DEMO !== 'undefined' && DEMO.clinica &&
+                                           DEMO.clinica.cnpj === cnpj) ? DEMO.clinica.nome : null,
                     }),
                 });
-                carregarPedidosExame();
+                const protoCurto = proto.length > 13 ? proto.slice(0, 13) + '…' : proto;
+                const cnpjMascarado = formatarCNPJ(cnpj);
+                // Nome do laboratório só em demo (DEMO.clinica); fora dela, só CNPJ.
+                const nomeLab = (typeof DEMO !== 'undefined' && DEMO.clinica &&
+                                 DEMO.clinica.cnpj === cnpj) ? DEMO.clinica.nome : null;
+                const destino = nomeLab
+                    ? `<strong>${nomeLab}</strong> (CNPJ ${cnpjMascarado})`
+                    : `CNPJ ${cnpjMascarado}`;
+                abrirModalTransferencia(
+                    'Pedido de exame transferido',
+                    `Seu pedido <strong>${protoCurto}</strong> foi enviado para ${destino}. ` +
+                    `O laboratório já pode atendê-lo.`,
+                    { verHistorico: false },
+                );
+                showToast(`Transferência realizada para ${nomeLab || ('CNPJ ' + cnpjMascarado)}.`, 'success');
             } catch (err) {
-                showToast(`Erro ao agendar: ${err.message}`, 'error');
+                showToast(`Erro na transferência: ${err.message}`, 'error');
             }
-        }
-
-        async function cancelarAgendamento(protoAg, protoPedido) {
-            if (!confirm('Cancelar este agendamento?')) return;
-            try {
-                await apiFetch(`/agendamentos/${protoAg}/cancelar`, { method: 'POST' });
-                carregarPedidosExame();
-            } catch (err) {
-                showToast(`Erro ao cancelar: ${err.message}`, 'error');
-            }
-        }
-
-        // ==========================================
-        // Circulação Diagnóstica — ações (Ticket 56)
-        // ==========================================
-
-        async function abrirFormCirculacao(proto) {
-            const formDiv = document.getElementById(`form-circ-${proto}`);
-            const btn     = document.getElementById(`btn-circ-abrir-${proto}`);
-            if (!formDiv) return;
-
-            // Toggle: fechar se já aberto
-            if (formDiv.classList.contains('aberto')) {
-                formDiv.classList.remove('aberto');
-                if (btn) btn.textContent = formDiv.dataset.newCirc ? '+ Nova circulação' : '+ Selecionar exames e encaminhar';
-                return;
-            }
-
-            formDiv.innerHTML = '<p style="font-size:12px;color:#64748b;">Carregando exames…</p>';
-            formDiv.classList.add('aberto');
-            if (btn) btn.textContent = '✕ Fechar';
-
-            try {
-                const pedido = await apiFetch(`/pedidos-exame/${proto}`);
-                const itensPendentes = (pedido.itens || []).filter(it => it.status_item === 'pendente');
-
-                if (itensPendentes.length === 0) {
-                    formDiv.innerHTML = '<p style="font-size:12px;color:#dc2626;">Nenhum exame com status pendente disponível para encaminhar.</p>';
-                    return;
-                }
-
-                const checkboxes = itensPendentes.map(it => `
-                    <div class="circ-item-check">
-                        <input type="checkbox" id="circ-item-${proto}-${it.id}" value="${it.id}" checked>
-                        <label for="circ-item-${proto}-${it.id}">${it.nome_exame}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}</label>
-                    </div>`).join('');
-
-                formDiv.innerHTML = `
-                    <p class="circ-privacy">🔒 O laboratório verá apenas os exames selecionados — nunca o pedido completo.</p>
-                    <p style="font-size:12px;font-weight:600;color:#374151;margin-bottom:2px;">Selecione os exames a encaminhar:</p>
-                    ${checkboxes}
-                    <input type="text" id="circ-org-${proto}" placeholder="Laboratório / organização *"
-                           style="font-size:13px;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;outline:none;margin-top:4px;">
-                    <input type="text" id="circ-unidade-${proto}" placeholder="Unidade / endereço *"
-                           style="font-size:13px;padding:8px 10px;border:1px solid #d1d5db;border-radius:4px;outline:none;">
-                    <button class="btn-circ" onclick="emitirCirculacao('${proto}')">Encaminhar →</button>
-                    <button class="btn-circ-outline" onclick="fecharFormCirculacao('${proto}')">Cancelar</button>`;
-            } catch (err) {
-                formDiv.innerHTML = `<p style="font-size:12px;color:#dc2626;">Erro ao carregar exames: ${err.message}</p>`;
-            }
-        }
-
-        function fecharFormCirculacao(proto) {
-            const formDiv = document.getElementById(`form-circ-${proto}`);
-            const btn     = document.getElementById(`btn-circ-abrir-${proto}`);
-            if (formDiv) formDiv.classList.remove('aberto');
-            if (btn) btn.textContent = '+ Selecionar exames e encaminhar';
-        }
-
-        async function emitirCirculacao(proto) {
-            const formDiv   = document.getElementById(`form-circ-${proto}`);
-            const checkboxes = formDiv ? formDiv.querySelectorAll('input[type=checkbox]:checked') : [];
-            const itemIds   = Array.from(checkboxes).map(cb => parseInt(cb.value, 10));
-
-            if (itemIds.length === 0) {
-                showToast('Selecione ao menos um exame para encaminhar.', 'error');
-                return;
-            }
-            const org     = document.getElementById(`circ-org-${proto}`)?.value?.trim();
-            const unidade = document.getElementById(`circ-unidade-${proto}`)?.value?.trim();
-            if (!org)     { showToast('Informe o laboratório / organização.', 'error'); return; }
-            if (!unidade) { showToast('Informe a unidade / endereço.', 'error'); return; }
-
-            try {
-                const result = await apiFetch(`/pedidos-exame/${proto}/circulacao`, {
-                    method: 'POST',
-                    body: JSON.stringify({ org_id: org, unidade_id: unidade, item_ids: itemIds }),
-                });
-                _adicionarChaveCirc(proto, result.chave_circulacao);
-                carregarPedidosExame();
-            } catch (err) {
-                showToast(`Erro ao encaminhar: ${err.message}`, 'error');
-            }
-        }
-
-        async function confirmarCirculacao(chave, protoPedido) {
-            if (!confirm('Confirmar o agendamento proposto pelo laboratório?')) return;
-            try {
-                await apiFetch(`/circulacao/${chave}/confirmar`, { method: 'POST' });
-                carregarPedidosExame();
-            } catch (err) {
-                showToast(`Erro ao confirmar: ${err.message}`, 'error');
-            }
-        }
-
-        async function desmarcarCirculacao(chave, protoPedido) {
-            abrirModalDesmarcar(chave, protoPedido);
         }
 
         // ── Toast ──────────────────────────────────────────────────────────
@@ -1184,44 +904,6 @@
         // do mesmo aviso, e copiar a função seria criar cinco lugares para
         // divergir. O elemento #picsaude-toast e o CSS desta página continuam
         // valendo — o config.js só os cria quando não existem.
-
-        // ── Modal: desmarcar circulação ────────────────────────────────────
-        let _desmarcarCtx = { chave: null, proto: null };
-
-        function abrirModalDesmarcar(chave, proto) {
-            _desmarcarCtx = { chave, proto };
-            document.getElementById('modal-desmarcar-motivo').value = '';
-            document.getElementById('modal-desmarcar').classList.add('aberto');
-            document.getElementById('modal-desmarcar-motivo').focus();
-        }
-
-        function fecharModalDesmarcar() {
-            document.getElementById('modal-desmarcar').classList.remove('aberto');
-            _desmarcarCtx = { chave: null, proto: null };
-        }
-
-        async function confirmarDesmarcar() {
-            const { chave, proto } = _desmarcarCtx;
-            if (!chave) return;
-            const motivo = document.getElementById('modal-desmarcar-motivo').value.trim() || null;
-            fecharModalDesmarcar();
-            try {
-                await apiFetch(`/circulacao/${chave}/desmarcar`, {
-                    method: 'POST',
-                    body: JSON.stringify({ motivo }),
-                });
-                carregarPedidosExame();
-            } catch (err) {
-                showToast(`Erro ao desmarcar: ${err.message}`, 'error');
-            }
-        }
-
-        // ── Copiar chave de circulação ─────────────────────────────────────
-        function copiarChaveCirc(chave) {
-            navigator.clipboard.writeText(chave)
-                .then(() => showToast('Chave copiada!', 'success'))
-                .catch(() => showToast('Não foi possível copiar a chave.', 'error'));
-        }
 
         function renderizarAlertas(alertas) {
             const container = document.getElementById('alertas-renovacao');
@@ -1461,10 +1143,12 @@
                 const destino = nomeFarmacia
                     ? `<strong>${nomeFarmacia}</strong> (CNPJ ${cnpjMascarado})`
                     : `CNPJ ${cnpjMascarado}`;
-                document.getElementById('modal-transferencia-corpo').innerHTML =
+                abrirModalTransferencia(
+                    'Receita transferida',
                     `Sua receita <strong>${protoCurto}</strong> foi enviada para ${destino}. ` +
-                    `O balconista já pode atendê-lo.`;
-                document.getElementById('modal-transferencia').classList.add('aberto');
+                    `O balconista já pode atendê-lo.`,
+                    { verHistorico: true },
+                );
 
                 showToast(`Transferência realizada para ${nomeFarmacia || ('CNPJ ' + cnpjMascarado)}. Veja no histórico abaixo.`, 'success');
                 // carregarCarteira aguarda o usuário fechar o modal — assim o card
@@ -1478,13 +1162,23 @@
         // F5-C1: estado do modal de transferência (proto pendente de refresh).
         let _protoTransferido = null;
 
+        // Um só modal para os dois objetos. O botão "Ver no histórico" existe
+        // para a receita (que sai da posse e cai no histórico) e não para o
+        // pedido de exame (que continua na lista, rotulado "No laboratório").
+        function abrirModalTransferencia(titulo, corpoHtml, { verHistorico = true } = {}) {
+            document.getElementById('modal-transferencia-titulo').textContent = titulo;
+            document.getElementById('modal-transferencia-corpo').innerHTML = corpoHtml;
+            document.getElementById('modal-transferencia-historico')
+                    .classList.toggle('hidden', !verHistorico);
+            document.getElementById('modal-transferencia').classList.add('aberto');
+        }
+
         function fecharModalTransferencia() {
             document.getElementById('modal-transferencia').classList.remove('aberto');
-            if (_protoTransferido) {
-                const p = _protoTransferido;
-                _protoTransferido = null;
-                carregarCarteira();   // agora sim: o card sai, mas o usuário já viu o ack
-            }
+            _protoTransferido = null;
+            // Agora sim: a receita sai da posse e o pedido de exame muda de
+            // rótulo — mas só depois do ack visual, nunca durante.
+            carregarCarteira();
         }
 
         function verNoHistoricoAposTransferencia() {
@@ -1529,93 +1223,6 @@
         // Mapa em memória: protocolo → { modo: 'simples'|'atomizado', ...data }
         // NÃO persiste em localStorage — efêmero por design.
         const _tokensAtivos = new Map();
-
-        // ==========================================
-        // Circulação Diagnóstica — Ticket 56
-        // ==========================================
-        const _TERMINAIS_CIRC = new Set([
-            'realizado', 'desmarcado_paciente', 'desmarcado_laboratorio',
-            'arquivado_laboratorio', 'expirado',
-        ]);
-
-        // ── Ticket 58 — Storage multi-circulação por pedido ─────────────
-        // Formato novo: JSON array de strings (chaves).
-        // Migração automática: se o valor salvo for string simples (formato Ticket 56),
-        // converte para array na primeira leitura.
-        function _getListaCircs(protoPedido) {
-            const raw = localStorage.getItem(`picsaude_circ_${sessaoAtual.cpf}_${protoPedido}`);
-            if (!raw) return [];
-            try {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) return parsed;          // formato novo
-            } catch (_) {
-                // Formato antigo: string simples sem JSON (ex: "ABC-123")
-                if (raw.length > 0) return [raw];
-            }
-            return [];
-        }
-
-        function _salvarListaCircs(protoPedido, lista) {
-            localStorage.setItem(
-                `picsaude_circ_${sessaoAtual.cpf}_${protoPedido}`,
-                JSON.stringify(lista)
-            );
-        }
-
-        // Adiciona chave à lista do pedido (sem duplicatas).
-        function _adicionarChaveCirc(protoPedido, chave) {
-            const lista = _getListaCircs(protoPedido);
-            if (!lista.includes(chave)) {
-                lista.push(chave);
-                _salvarListaCircs(protoPedido, lista);
-            }
-        }
-
-        // Retorna { ativa, historico, isDerivada }.
-        // ativa      — circ mais recente não-terminal; ou a mais recente terminal se todas forem terminais.
-        // historico  — demais circs resolvidas (exceto a exibida como ativa).
-        // isDerivada — true quando qualquer circ possui origem_circulacao_id != null (remarcação confirmada
-        //              pelo backend). Fallback para heurística (terminal + não-terminal coexistentes)
-        //              caso o campo não venha na resposta.
-        async function buscarCirculacaoAtiva(protoPedido) {
-            const lista = _getListaCircs(protoPedido);
-            if (lista.length === 0) return { ativa: null, historico: [], isDerivada: false };
-
-            const resultados = await Promise.all(
-                lista.map(chave =>
-                    apiFetch(`/circulacao/${chave}`)
-                        .then(c => ({ ...c, _terminal: _TERMINAIS_CIRC.has(c.status) }))
-                        .catch(() => null)
-                )
-            );
-
-            const resolvidas = resultados.filter(Boolean);
-
-            // Atualiza lista para remover chaves que não resolveram (backend offline = manter)
-            const chavesResolvidas = resolvidas.map(c => c.chave_circulacao);
-            if (chavesResolvidas.length > 0 && chavesResolvidas.length !== lista.length) {
-                _salvarListaCircs(protoPedido, chavesResolvidas);
-            }
-
-            if (resolvidas.length === 0) return { ativa: null, historico: [], isDerivada: false };
-
-            const naoTerminais = resolvidas.filter(c => !c._terminal);
-            const terminais    = resolvidas.filter(c =>  c._terminal);
-
-            // Ativa = último não-terminal; se todos terminais, o mais recente terminal
-            const ativa = naoTerminais.length > 0
-                ? naoTerminais[naoTerminais.length - 1]
-                : terminais[terminais.length - 1];
-
-            const historico  = resolvidas.filter(c => c !== ativa);
-
-            // isDerivada — usa origem_circulacao_id como critério principal; fallback heurístico
-            // (terminal + não-terminal coexistentes) quando nenhuma circulação traz o campo preenchido.
-            const isDerivada = resolvidas.some(c => c.origem_circulacao_id != null)
-                || (terminais.length > 0 && naoTerminais.length > 0);
-
-            return { ativa, historico, isDerivada };
-        }
 
         async function gerarToken(proto) {
             const btnGerar  = document.getElementById(`btn-gerar-token-${proto}`);
@@ -1962,23 +1569,11 @@
     <!-- Toast ─────────────────────────────────────────────── -->
     <div id="picsaude-toast" role="status" aria-live="polite"></div>
 
-    <!-- Modal: desmarcar circulação ─────────────────────────── -->
-    <div id="modal-desmarcar" class="modal-overlay" role="dialog" aria-modal="true">
-        <div class="modal-box">
-            <h3>Desmarcar circulação</h3>
-            <p>Informe o motivo (opcional). Essa ação não pode ser desfeita.</p>
-            <textarea id="modal-desmarcar-motivo" rows="3" maxlength="300"
-                      placeholder="Motivo da desmarcação…"></textarea>
-            <div class="modal-footer">
-                <button class="btn-modal-cancelar"  onclick="fecharModalDesmarcar()">Cancelar</button>
-                <button class="btn-modal-confirmar" onclick="confirmarDesmarcar()">Desmarcar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- F5-C1: confirmação pós-transferência pra farmácia.
-         Substitui o desaparecimento silencioso do card — o cidadão vê
-         pra onde a receita foi e pode saltar direto pro histórico. -->
+    <!-- F5-C1: confirmação pós-transferência (receita → farmácia,
+         pedido de exame → laboratório). Substitui o desaparecimento silencioso
+         do card: o cidadão vê pra onde o documento foi. O botão "Ver no
+         histórico" só aparece para a receita — o pedido de exame continua
+         visível na própria lista, agora com o rótulo "No laboratório". -->
     <div id="modal-transferencia" class="modal-overlay" role="dialog" aria-modal="true">
         <div class="modal-box">
             <div style="text-align:center; margin-bottom:10px;">
@@ -1986,11 +1581,11 @@
                             display:inline-flex; align-items:center; justify-content:center; font-size:28px;
                             font-weight:700;">✓</div>
             </div>
-            <h3 style="text-align:center;">Receita transferida</h3>
+            <h3 id="modal-transferencia-titulo" style="text-align:center;">Receita transferida</h3>
             <p id="modal-transferencia-corpo" style="text-align:center;"></p>
             <div class="modal-footer">
                 <button class="btn-modal-cancelar" onclick="fecharModalTransferencia()">Fechar</button>
-                <button class="btn-modal-confirmar"
+                <button id="modal-transferencia-historico" class="btn-modal-confirmar"
                         style="background:#16a34a;"
                         onclick="verNoHistoricoAposTransferencia()">Ver no histórico</button>
             </div>

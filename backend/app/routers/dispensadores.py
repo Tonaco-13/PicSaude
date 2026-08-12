@@ -187,6 +187,126 @@ def fila(
 
 
 # ---------------------------------------------------------------------------
+# TICKET-GAP-4-LISTAGENS-EXAME §2.2 — Fila de exames do laboratório
+# ---------------------------------------------------------------------------
+# Pedidos de exame sob custódia ATIVA do CNPJ autenticado. É o que faz a bancada
+# do laboratório "ver os exames chegarem" — como o balcão vê as receitas no
+# /fila (:93) — em vez de digitar protocolo na mão. Par simétrico do
+# POST /pedidos-exame/{proto}/transferir-laboratorio (ato do cidadão).
+#
+# Guardrail (mesmo do /fila): filtra pelo DETENTOR REAL na cadeia de custódia —
+# o ÚLTIMO registro de `pedido_exame_custodia` em nível de PEDIDO
+# (item_id IS NULL, MAX(id)), nunca "qualquer custódia histórica". Quem já foi
+# custodiante e perdeu a posse não aparece — mesma correção do
+# `_assert_dispensador_dono_pedido` (pedidos_exame.py). Polling no front basta
+# para a demo.
+#
+# Classe `module`. Projection do ledger + custódia: não cria estado, não muta.
+# `acionavel` é DERIVADO no backend (§10 — estado computado não é persistido, e
+# a UI nunca recalcula "terminal" no cliente).
+
+_ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"agendado", "coletado"})
+
+# Pedido sai da fila ao atingir estado terminal — a custódia histórica continua
+# gravada, mas a fila é de trabalho pendente.
+_ESTADOS_PEDIDO_FIM_FILA = frozenset(
+    {"encerrado", "cancelado", "expirado", "encerrado_fisico"}
+)
+
+
+@router.get("/fila-exames")
+def fila_exames(
+    usuario=Depends(require_role("dispensador", "admin")),
+    cnpj: Optional[str] = Query(None, description="Só admin: filtra por CNPJ."),
+    status: Optional[str] = Query(None, description="Filtra por status do pedido."),
+):
+    """Fila de exames: pedidos sob custódia ativa do laboratório (clínica/lab)."""
+    # Dispensador vê a própria fila (CNPJ do JWT). Admin pode informar ?cnpj=.
+    if usuario["role"] == "dispensador":
+        cnpj_alvo = normalize_cnpj(usuario["sub"])
+    else:
+        if not cnpj:
+            raise HTTPException(
+                status_code=422,
+                detail={"codigo": "cnpj_obrigatorio_admin",
+                        "mensagem": "admin deve informar ?cnpj= para consultar a fila de exames."},
+            )
+        cnpj_alvo = normalize_cnpj(cnpj)
+
+    filtro_status = ""
+    params: list = [cnpj_alvo]
+    if status:
+        filtro_status = " AND p.status = ?"
+        params.append(status)
+
+    with get_tx() as conn:
+        pedidos = conn.execute(
+            f"""
+            SELECT p.id, p.protocolo, p.status, p.prioridade, p.data_emissao,
+                   pac.nome AS paciente_nome, pac.cpf AS paciente_cpf,
+                   pr.nome  AS prescritor_nome
+              FROM pedidos_exame p
+              JOIN pacientes pac   ON pac.id = p.paciente_id
+              JOIN prescritores pr ON pr.id  = p.prescritor_id
+             WHERE p.id IN (
+                       SELECT c.pedido_id
+                         FROM pedido_exame_custodia c
+                        WHERE c.item_id IS NULL
+                          AND c.para = ?
+                          AND c.id = (
+                              SELECT MAX(c2.id)
+                                FROM pedido_exame_custodia c2
+                               WHERE c2.pedido_id = c.pedido_id
+                                 AND c2.item_id IS NULL
+                          )
+                   )
+             {filtro_status}
+             ORDER BY p.data_emissao DESC, p.id DESC
+            """,
+            params,
+        ).fetchall()
+
+        fila_out = []
+        for p in pedidos:
+            if p["status"] in _ESTADOS_PEDIDO_FIM_FILA:
+                continue
+
+            itens = conn.execute(
+                """
+                SELECT i.id, i.nome_exame, i.codigo_tuss, i.quantidade, i.status_item
+                  FROM pedido_exame_itens i
+                 WHERE i.pedido_id = ?
+                 ORDER BY i.id
+                """,
+                (p["id"],),
+            ).fetchall()
+
+            fila_out.append({
+                "protocolo":    p["protocolo"],
+                "status":       p["status"],
+                "prioridade":   p["prioridade"],
+                "data_emissao": p["data_emissao"],
+                "paciente":     {"nome": p["paciente_nome"],
+                                 "cpf":  _cpf_display(p["paciente_cpf"])},
+                "prescritor":   {"nome": p["prescritor_nome"]},
+                "itens": [
+                    {
+                        "item_id":     it["id"],
+                        "nome_exame":  it["nome_exame"],
+                        "codigo_tuss": it["codigo_tuss"],
+                        "quantidade":  it["quantidade"],
+                        "status_item": it["status_item"],
+                        # agendado → coletar; coletado → registrar resultado.
+                        "acionavel":   it["status_item"] in _ESTADOS_ITEM_ACIONAVEL_LAB,
+                    }
+                    for it in itens
+                ],
+            })
+
+        return {"cnpj": cnpj_alvo, "total": len(fila_out), "fila": fila_out}
+
+
+# ---------------------------------------------------------------------------
 # T6 — Histórico de retenções desta unidade (PLANO_DEMO_CIRCULACAO §5)
 # ---------------------------------------------------------------------------
 # Prescrições em que ESTE estabelecimento dispensou ≥1 item, com dispensacao_id

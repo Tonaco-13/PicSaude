@@ -46,9 +46,6 @@
       border: 1px solid #cbd5e1; cursor: pointer;
     }
     .btn-logout:hover { background: #e2e8f0; }
-    /* KIMI3-007 — botões de relatório/faturamento no header (portado de dispensador.html) */
-    .btn-rel { padding: 6px 12px; border-radius: 6px; border: 1.5px solid #1a5276; background: #fff; color: #1a5276; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-    .btn-rel:hover { background: #eaf2f8; }
 
     /* ============================================================ */
     /* Layout principal                                             */
@@ -296,19 +293,13 @@
       border: 1px solid #a5f3fc;
     }
 
-    /* KIMI3-007 — registro de resultado pela UI (arco V2, R1) */
-    .btn-resultado {
-      padding: 8px 20px; border-radius: 7px; border: none; cursor: pointer;
-      background: #0f766e; color: #fff; font-size: 13px; font-weight: 700;
-      transition: background 0.15s;
-    }
-    .btn-resultado:hover { background: #0d9488; }
-    .btn-resultado:disabled { background: #94a3b8; cursor: not-allowed; }
-
-    .laudo-pronto {
-      font-size: 13px; color: #166534; font-weight: 600;
-      background: #f0fdf4; padding: 6px 12px; border-radius: 6px;
-      border: 1px solid #86efac;
+    /* KIMI3-004 (TICKET-UI-MOCK-SINALIZADO-CLINICA) — mock sinalizado:
+       a emissão de laudo pela UI é PRÓXIMA FASE (Q2=M ratificada). O aviso
+       evita que o placeholder de laudo seja relatado como bug pelo testador. */
+    .mock-tag {
+      display: inline-block; margin-left: 6px; padding: 2px 6px;
+      background: #fef3c7; color: #92400e; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
     }
 
     /* ============================================================ */
@@ -398,6 +389,23 @@
     .cnes-fallback{margin-top:14px;font-size:12px;color:#94a3b8;text-align:center;border-top:1px solid #f1f5f9;padding-top:12px;}
 
     /* ── Circulação Diagnóstica (Ticket 57) ────────────────────────── */
+    /* ── Fila de exames (TICKET-GAP-4-LISTAGENS-EXAME §2.2) ───────────────
+       Espelho da Fila de Dispensação do balcão: o pedido CHEGA quando o cidadão
+       transfere a custódia — o operador não precisa mais descobrir o protocolo. */
+    .fila-section { background:#fff; border:1.5px solid #e2e8f0; border-radius:12px; padding:20px 24px; margin-bottom:20px; }
+    .fila-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; padding-bottom:10px; border-bottom:2px solid #e2e8f0; }
+    .fila-titulo { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#1e3a8a; }
+    .fila-count { display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 7px; margin-left:6px; border-radius:11px; background:#1e3a8a; color:#fff; font-size:12px; font-weight:700; }
+    .fila-refresh { background:transparent; border:1px solid #cbd5e1; color:#475569; padding:7px 14px; border-radius:5px; font-size:12px; font-weight:600; cursor:pointer; }
+    .fila-refresh:hover { background:#f8fafc; border-color:#94a3b8; }
+    .fila-vazia { font-size:13px; color:#64748b; text-align:center; padding:18px; border:1px dashed #cbd5e1; border-radius:6px; }
+    .fila-item { border:1px solid #e2e8f0; border-left:4px solid #1e3a8a; border-radius:6px; padding:14px 16px; margin-bottom:10px; background:#f8fafc; cursor:pointer; }
+    .fila-item:hover { background:#eff6ff; border-color:#93c5fd; }
+    .fila-item-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+    .fila-paciente { font-weight:700; color:#0f172a; font-size:15px; }
+    .fila-proto { font-size:11px; color:#64748b; font-family:monospace; margin-top:3px; }
+    .fila-exames-lista { margin-top:10px; font-size:13px; color:#475569; line-height:1.7; }
+    .fila-abrir { font-size:11px; font-weight:700; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.4px; margin-top:8px; }
     .circ-section { background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:20px 24px; margin-bottom:20px; }
     .circ-section-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#166534; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid #bbf7d0; }
     .circ-busca-row { display:flex; gap:10px; margin-bottom:14px; }
@@ -488,9 +496,6 @@
     </div>
     <div class="header-right hidden" id="header-sessao">
       <span class="header-user" id="header-nome-clinica"></span>
-      <button type="button" class="btn-rel" onclick="abrirRelatorioExames('csv')">🔬 Relatório (CSV)</button>
-      <button type="button" class="btn-rel" onclick="abrirRelatorioExames('pdf')">🔬 Relatório (PDF)</button>
-      <button type="button" class="btn-rel" onclick="abrirFaturamento('csv')">💰 Faturamento</button>
       <button class="btn-logout" onclick="logout()">Sair</button>
     </div>
   </header>
@@ -566,6 +571,17 @@
       <div id="banner-ctx-risco" class="banner-ctx-risco hidden">
         <span class="banner-msg">⚠ Operando com contexto não verificado no CNES</span>
         <button class="btn-banner-corrigir" type="button" onclick="abrirModalCNESClinica()">Corrigir agora</button>
+      </div>
+
+      <!-- FILA DE EXAMES (TICKET-GAP-4-LISTAGENS-EXAME §2.2) ------- -->
+      <div class="fila-section">
+        <div class="fila-head">
+          <div class="fila-titulo">🧪 Fila de Exames <span id="fila-exames-count" class="fila-count">0</span></div>
+          <button class="fila-refresh" type="button" onclick="carregarFilaExames()">↻ Atualizar</button>
+        </div>
+        <div id="fila-exames-lista">
+          <p class="fila-vazia">Carregando fila…</p>
+        </div>
       </div>
 
       <!-- BUSCA -------------------------------------------------- -->
@@ -918,8 +934,7 @@
           clinicaLogada.cnes_verificado = prestador.cnes_verificado;
           _pendingContext = null;
           _atualizarDisplayContexto();
-          document.getElementById('tela-dashboard').classList.remove('hidden');
-          document.getElementById('busca-protocolo')?.focus();
+          _mostrarDashboard();
         } else {
           await _iniciarSessao(data.access_token);
         }
@@ -957,8 +972,7 @@
     async function _iniciarSessao(token) {
       const contextFound = await _carregarContextoInstitucional(token);
       if (contextFound) {
-        document.getElementById('tela-dashboard').classList.remove('hidden');
-        document.getElementById('busca-protocolo')?.focus();
+        _mostrarDashboard();
       } else {
         document.getElementById('tela-onboarding').classList.remove('hidden');
       }
@@ -990,10 +1004,18 @@
       });
     }
 
-    function _pularOnboarding() {
-      document.getElementById('tela-onboarding').classList.add('hidden');
+    // Porta única do dashboard — os três caminhos de entrada (login com contexto
+    // pré-selecionado, sessão com contexto resolvido, onboarding pulado) passam
+    // por aqui, senão a fila de exames só carregaria em um deles.
+    function _mostrarDashboard() {
       document.getElementById('tela-dashboard').classList.remove('hidden');
       document.getElementById('busca-protocolo')?.focus();
+      _iniciarFilaExames();
+    }
+
+    function _pularOnboarding() {
+      document.getElementById('tela-onboarding').classList.add('hidden');
+      _mostrarDashboard();
     }
 
     function _atualizarDisplayContexto() {
@@ -1057,6 +1079,7 @@
     }
 
     function logout() {
+      _pararFilaExames();          // sem timer órfão batendo na API pós-logout
       jwtAccessToken        = null;
       clinicaLogada         = null;
       pedidoAtual           = null;
@@ -1068,6 +1091,89 @@
       document.getElementById('resultado-pedido').classList.add('hidden');
       document.getElementById('busca-protocolo').value = '';
       document.getElementById('tela-login').classList.remove('hidden');
+    }
+
+    // ─────────────────────────────────────────
+    // FILA DE EXAMES (TICKET-GAP-4-LISTAGENS-EXAME §2.2)
+    // ─────────────────────────────────────────
+    // Os pedidos chegam sozinhos: o cidadão transfere a custódia no cidadao.html
+    // ("Transferir Custódia", o mesmo gesto da receita) e o pedido aparece aqui,
+    // como a receita aparece na fila do balcão. Antes, o operador só encontrava
+    // um pedido digitando o protocolo — ou a chave de circulação.
+    //
+    // Polling, como no dispensador: a demo não tem push, e 15s é imperceptível
+    // para quem está de pé na bancada.
+
+    const FILA_EXAMES_POLL_MS = 15000;
+    let _filaExamesTimer = null;
+
+    function _iniciarFilaExames() {
+      carregarFilaExames();
+      if (_filaExamesTimer) clearInterval(_filaExamesTimer);
+      _filaExamesTimer = setInterval(carregarFilaExames, FILA_EXAMES_POLL_MS);
+    }
+
+    function _pararFilaExames() {
+      if (_filaExamesTimer) { clearInterval(_filaExamesTimer); _filaExamesTimer = null; }
+    }
+
+    async function carregarFilaExames() {
+      const lista = document.getElementById('fila-exames-lista');
+      if (!lista || !jwtAccessToken) return;
+
+      try {
+        const resp = await fetch(BACKEND + '/dispensadores/fila-exames', { headers: authHeaders() });
+        // 401/403 no poll: parar o timer ANTES de tratar evita storm de fetches
+        // fantasmas a cada 15s depois da sessão cair.
+        if (resp.status === 401 || resp.status === 403) { _pararFilaExames(); handleUnauthorized(); return; }
+        if (!resp.ok) throw new Error(String(resp.status));
+
+        const data = await resp.json();
+        renderizarFilaExames(data.fila || []);
+        const count = document.getElementById('fila-exames-count');
+        if (count) count.textContent = String(data.total ?? (data.fila || []).length);
+      } catch (_) {
+        lista.innerHTML = '<p class="fila-vazia">Não foi possível carregar a fila. Use “Atualizar”.</p>';
+      }
+    }
+
+    function renderizarFilaExames(fila) {
+      const lista = document.getElementById('fila-exames-lista');
+      if (!lista) return;
+
+      if (fila.length === 0) {
+        lista.innerHTML = '<p class="fila-vazia">Nenhum exame aguardando. '
+          + 'Quando um cidadão transferir a custódia para este CNPJ, o pedido aparece aqui.</p>';
+        return;
+      }
+
+      lista.innerHTML = fila.map(p => {
+        const exames = (p.itens || []).map(it =>
+          `• ${esc(it.nome_exame)}${it.quantidade > 1 ? ' ×' + it.quantidade : ''} ${badgeItem(it.status_item)}`
+        ).join('<br>');
+        return `
+          <div class="fila-item" onclick="abrirPedidoDaFila('${esc(p.protocolo)}')">
+            <div class="fila-item-head">
+              <div>
+                <div class="fila-paciente">${esc(p.paciente?.nome || '—')}</div>
+                <div class="fila-proto">${esc(p.protocolo)}</div>
+              </div>
+              <div style="text-align:right">
+                ${badgePedido(p.status)}<br>${badgePrioridade(p.prioridade)}
+              </div>
+            </div>
+            <div class="fila-exames-lista">${exames}</div>
+            <div class="fila-abrir">Abrir pedido →</div>
+          </div>`;
+      }).join('');
+    }
+
+    function abrirPedidoDaFila(protocolo) {
+      const input = document.getElementById('busca-protocolo');
+      if (input) input.value = protocolo;
+      buscarPedido().then(() => {
+        document.getElementById('resultado-pedido')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
 
     // ─────────────────────────────────────────
@@ -1197,7 +1303,19 @@
           BACKEND + '/pedidos-exame/' + encodeURIComponent(protocolo) + '/agendamentos',
           { headers: authHeaders() }
         );
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // 403 aqui NÃO é sessão inválida: `GET /pedidos-exame/{p}/agendamentos`
+        // recusa o papel `dispensador` por desenho (agendamentos.py §D4 — a
+        // listagem por pedido é do prescritor/paciente). Tratar isso como
+        // "sessão expirada" derrubava o operador para a tela de login toda vez
+        // que ele abria um pedido — inclusive pela nova Fila de Exames. Só 401
+        // encerra a sessão; o 403 apenas apaga este painel.
+        if (resp.status === 401) { handleUnauthorized(); return; }
+        if (resp.status === 403) {
+          agendamentosAtuais = [];
+          el.innerHTML = '<p style="font-size:13px;color:#64748b">'
+            + 'Agendamentos deste pedido não são visíveis para o laboratório.</p>';
+          return;
+        }
         if (!resp.ok) { el.innerHTML = '<p style="font-size:13px;color:#dc2626">Erro ao carregar agendamentos.</p>'; return; }
 
         const data = await resp.json();
@@ -1463,14 +1581,9 @@
             Registrar coleta
           </button>`;
         } else if (item.status_item === 'coletado') {
-          acoesHtml = `<button class="btn-resultado" id="btn-resultado-${item.id}"
-            onclick="registrarResultado(${item.id})">
-            Registrar resultado
-          </button>`;
-        } else if (item.status_item === 'em_analise') {
-          acoesHtml = `<span class="laudo-aguardo">⏳ Em análise — resultado em breve.</span>`;
-        } else if (item.status_item === 'resultado_disponivel') {
-          acoesHtml = `<span class="laudo-pronto">✓ Resultado disponível</span>`;
+          acoesHtml = `<span class="laudo-aguardo mock-aviso">Aguardando laudo <small class="mock-tag">⚠ Emissão de laudo pela UI: próxima fase</small></span>`;
+        } else if (['em_analise','resultado_disponivel'].includes(item.status_item)) {
+          acoesHtml = `<span class="laudo-aguardo mock-aviso">Laudo em andamento <small class="mock-tag">⚠ Emissão de laudo pela UI: próxima fase</small></span>`;
         }
 
         return `
@@ -1522,43 +1635,6 @@
       }
     }
 
-    // ─────────────────────────────────────────
-    // REGISTRO DE RESULTADO (KIMI3-007 — R1 arco V2)
-    // POST /pedidos-exame/{proto}/itens/{id}/resultado (ENG-007 aceita dispensador)
-    // ─────────────────────────────────────────
-
-    async function registrarResultado(itemId) {
-      const resumo = prompt('Resumo do resultado (ex.: "Glicemia 92 mg/dL"):');
-      if (resumo == null) return;                      // cancelou
-      const btn = document.getElementById('btn-resultado-' + itemId);
-      if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
-
-      try {
-        const resp = await fetch(
-          BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
-          '/itens/' + itemId + '/resultado',
-          { method: 'POST', headers: authHeaders(), body: JSON.stringify({ resultado_resumo: resumo }) }
-        );
-
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
-
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          if (btn) { btn.disabled = false; btn.textContent = 'Registrar resultado'; }
-          alert('Erro: ' + _extrairMsgErro(err, String(resp.status)));
-          return;
-        }
-
-        const data = await resp.json();
-        atualizarStatusUI(itemId, data.status_item || 'resultado_disponivel');
-        recarregarPedido();                            // estado autoritativo vem do backend
-
-      } catch (_) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Registrar resultado'; }
-        alert('Falha de rede ao registrar resultado.');
-      }
-    }
-
     function atualizarStatusUI(itemId, novoStatus) {
       const itemEl = document.getElementById('item-exame-' + itemId);
       if (!itemEl) return;
@@ -1574,14 +1650,7 @@
       const acoesEl = itemEl.querySelector('.item-acoes');
       if (acoesEl) {
         if (novoStatus === 'coletado') {
-          acoesEl.innerHTML = `<button class="btn-resultado" id="btn-resultado-${itemId}"
-            onclick="registrarResultado(${itemId})">
-            Registrar resultado
-          </button>`;
-        } else if (novoStatus === 'em_analise') {
-          acoesEl.innerHTML = `<span class="laudo-aguardo">⏳ Em análise — resultado em breve.</span>`;
-        } else if (novoStatus === 'resultado_disponivel') {
-          acoesEl.innerHTML = `<span class="laudo-pronto">✓ Resultado disponível</span>`;
+          acoesEl.innerHTML = `<span class="laudo-aguardo mock-aviso">Aguardando laudo <small class="mock-tag">⚠ Emissão de laudo pela UI: próxima fase</small></span>`;
         } else {
           acoesEl.innerHTML = '';
         }
@@ -1610,55 +1679,6 @@
           renderizarPedido(pedidoAtual);
         }
       } catch (_) { /* falha silenciosa — UI já foi atualizada localmente */ }
-    }
-
-    // ─────────────────────────────────────────
-    // RELATÓRIO DE EXAMES + FATURAMENTO (KIMI3-007 — R3/R4 arco V2)
-    // Consome /clinicas/relatorio.{csv,pdf} e /clinicas/faturamento.{csv,pdf}
-    // (ENG-008/009, escopo = CNPJ do JWT). Download SEMPRE via fetch+Bearer→blob
-    // — nunca <a href> ao endpoint (relatório exige auth; portado de
-    // dispensador.html, LEARNINGS PII-EXAUSTIVIDADE).
-    // Período: sem query params → backend traz os últimos 30 dias.
-    // ─────────────────────────────────────────
-
-    function _baixarBlob(blob, filename) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-
-    function _isoLocal(dt) {   // Date → 'YYYY-MM-DD' (local, sem desvio de fuso)
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth() + 1).padStart(2, '0');
-      const d = String(dt.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-
-    async function _baixarArquivoClinica(endpoint, nomeArquivo, rotuloErro) {
-      try {
-        const resp = await fetch(BACKEND + endpoint, { headers: authHeaders() });
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          alert(rotuloErro + ': ' + _extrairMsgErro(err, String(resp.status)));
-          return;
-        }
-        _baixarBlob(await resp.blob(), nomeArquivo);
-      } catch (_) {
-        alert('Falha de rede ao baixar ' + rotuloErro.toLowerCase() + '.');
-      }
-    }
-
-    async function abrirRelatorioExames(fmt) {
-      const nome = `relatorio_exames_${_isoLocal(new Date())}.${fmt}`;
-      await _baixarArquivoClinica(`/clinicas/relatorio.${fmt}`, nome, 'Relatório de exames');
-    }
-
-    async function abrirFaturamento(fmt) {
-      const nome = `faturamento_exames_${_isoLocal(new Date())}.${fmt}`;
-      await _baixarArquivoClinica(`/clinicas/faturamento.${fmt}`, nome, 'Faturamento');
     }
 
     // ─────────────────────────────────────────

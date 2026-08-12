@@ -5,20 +5,14 @@
 | **Despacho** | KIMI3-007 (frontend puro + consumo de novos endpoints do arco V2) |
 | **De** | Arquiteto (Z) |
 | **Para** | Kimi 3 (implementa) · cc: Revisor · Conselheiro · Fabiano |
-| **Data** | 2026-08-07 (revalidado 2026-08-09 contra `f361ab8`) |
+| **Data** | 2026-08-07 |
 | **Origem** | `TICKET-MODULO-CLINICA-V2.md` §3/§4/§5/§6 |
 | **Classe** | `local-extension` (frontend/UI — não altera semântica clínica do backend) |
-| **Pré-requisito (GATE DURO)** | ✅ **SATISFEITO** — ENG-007 (#141), ENG-008 (#142), ENG-009 (#145) **mergeados** em `f361ab8`. Os endpoints `/clinicas/relatorio.*` e `/clinicas/faturamento.*` existem e aceitam `dispensador`. Sem bloqueio — implemente direto. |
+| **Pré-requisito (GATE DURO)** | `main` atual (`3162af9`) **+** backend despachado: ENG-007 (resultado p/ dispensador), ENG-008 (`/clinicas/relatorio.*`), ENG-009 (`/clinicas/faturamento.*`) **mergeados**. Sem isto, os botões chamam endpoints inexistentes. |
 
 ---
 
 ## §1 Contexto — por que este ticket existe
-
-> **Revalidação 2026-08-09 (`f361ab8`):** o GATE DURO do backend está **satisfeito** — todos os
-> endpoints que este despacho consome (`/pedidos-exame/{proto}/itens/{id}/resultado`,
-> `/clinicas/relatorio.{csv,pdf}`, `/clinicas/faturamento.{csv,pdf}`) existem e aceitam
-> `dispensador`. As âncoras `clinica.html:1452/1454/1477/478` foram confirmadas in-loco. Este é o
-> **gate duro real pendente** pra fechar o arco V2 e destravar a demo clínica/lab.
 
 `clinica.html` hoje opera o ciclo de coleta, mas tem **lacunas de UI** marcadas explicitamente como
 "próxima fase" via mock-tags (`clinica.html:1452`, `:1454`):

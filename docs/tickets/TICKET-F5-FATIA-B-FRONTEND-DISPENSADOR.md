@@ -7,7 +7,8 @@
 | **Para** | Z AI (parecer) → code/MS (engenheiro) |
 | **Origem** | Handoff arquiteto 2026-07-10 (mission #1–#3) · spec UX `dispensador.txt` · TICKET-F5-RELATORIO-SNGPC §4 (stub da Fatia B) |
 | **Pré-requisito (GATE DURO)** | (a) **#88 mergeado** — diagnóstico ponta-a-ponta **concluído (2026-07-11): não era bug**; backend da Fatia A comprovado ao vivo (§5.1–5.9 verdes, isolamento por CNPJ, saldo reposto). A "falha" do teste manual = ausência do botão (Fatia B) + roteiro que consumiu a receita inteira (terminal). Merge autorizado pelo Fabiano — gate = comando ao engenheiro, sem diagnóstico pendente. (b) decisão do §2 (B0) ratificada pelo Fabiano após parecer Z AI. |
-| **Parecer Z AI** | pendente |
+| **Estado** | ✅ **Implementado (2026-07-11)** — ver §10 (Registro de merge) |
+| **Parecer Z AI** | ✅ verde (Opção A para B0) — ver §2 |
 
 ---
 
@@ -332,18 +333,46 @@ confirmar que `comprovante` e `estornar` seguem sob `require_role(...)`.
 
 ---
 
-### Anexo — âncoras de código (para o engenheiro)
+## §10 Registro de merge — ✅ Implementado (2026-07-11)
 
-| Item | Arquivo:linha (aprox.) |
+Toda a Fatia B (B0 + §5.A + B1 + B2 + B3) foi implementada e mergeada em **2026-07-11**, na
+sequência-mestre do §9 (ponto 3). Cada escopo entrou como PR próprio:
+
+| Escopo | Commit | PR | Título |
+|---|---|---|---|
+| **B0** — dispensabilidade por saldo efetivo | `ea95bc4` | #90 | dispensabilidade derivada do saldo efetivo |
+| **§5.A** — comprovante expõe estorno (backend) | (em #92) | #92 | comprovante estorno (backend) |
+| **B1** — botões de relatório SNGPC na fila | `2e7ffda` | #91 | botões de relatório SNGPC na fila do dispensador |
+| **B2** — ciclo pós-dispensação + remoção dev. prescritor | `47239a5` | #93 | ciclo pós-dispensação na fila + remoção da ação dev. prescritor |
+| **B3** — carimbo ESTORNADO no modal de comprovante | `9062513` | #94 | carimbo ESTORNADO no modal de comprovante |
+
+**Decisão B0 ratificada:** Opção A (guard por saldo, não por rótulo) — martelo do Fabiano sobre
+parecer verde do Z AI. Implementada em `custodia.py` (`BLOQUEADOS_HARD_DISPENSA`, `i.acionavel`)
+e refletida no front (`dispensador.html`, `p.itens.some(i => i.acionavel)`).
+
+> **Status da validação UI pós-merge:** pendente de validação ao vivo na demo pelo UI tester
+> (browser headless). Critérios §7 continuam sendo a régua — não reabrir a implementação sem
+> evidência visual de regressão. Este ticket passa de "pendente" para "implementado; aguarda
+> validação UI".
+
+---
+
+### Anexo — âncoras de código (verificadas contra `main` em 2026-07-23, commit `2dfe15f`)
+
+> ⚠️ Âncoras abaixo refletem o estado **após merge** (a main andou: custodia.py e dispensador.html
+> receberam commits pós-F5, inclusive o arco COER-2). Linhas atualizadas pelo arquiteto em 2026-07-23.
+
+| Item | Arquivo:linha (verificado 2026-07-23) |
 |---|---|
-| Cabeçalho da fila (inserir botões B1) | `dispensador.html:418` (`.fila-card-head` de `#fila-container`) |
-| Render da fila (ocultar receita sem ação — B2.1) | `dispensador.html:1228-1271` (`_renderizarFila`), `_FILA_TERMINAIS`:1214 |
-| Botão/handler `✕ Prescritor` na fila (remover — B2.3) | `dispensador.html:1249`, `_devolverPrescritorFila`:1365 |
-| Bloco prescritor no painel (remover — B2.3) | `dispensador.html:1675`, `toggleMotivoPrescritor`:1702, `devolverItemPrescritor`:1934 |
-| Histórico (Comprovante + Estorno, `i.estornado`) — já OK | `dispensador.html:1503-1523` |
-| Modal comprovante (carimbo estorno — B3.B) | `dispensador.html:1444-1476` (`_renderComprovante`) |
-| Comprovante JSON (acrescentar `estorno` — B3.A) | `backend/app/routers/dispensacoes.py:89-146` (`_montar_json`) |
-| Estorno objeto-derivado (fonte de `estornos`) | `backend/app/routers/dispensacoes.py:392-517` |
+| Cabeçalho da fila (botões B1 — **presentes**) | `dispensador.html:442-444` (`Relatório Consolidado`, `SNGPC CSV`, `SNGPC PDF`) |
+| Guard B0 — `BLOQUEADOS_HARD_DISPENSA` | `backend/app/routers/custodia.py:33` (import), `:867` (guard), `:845` (comentário) |
+| Render da fila (ocultar receita sem ação — B2.1) | `dispensador.html:1299` (`_renderizarFila`), `:1308` (`p.itens.some(i => i.acionavel)`), `_FILA_TERMINAIS`:1285 |
+| Botão/handler `✕ Prescritor` na fila (**removido — B2.3**) | ~~`dispensador.html:1249`~~ — zero ocorrências de `_devolverPrescritorFila` |
+| Bloco prescritor no painel (**removido — B2.3**) | zero ocorrências de `toggleMotivoPrescritor` / `devolverItemPrescritor` (badges de estado `devolvido_prescritor` permanecem: `:923`) |
+| Histórico (Comprovante + Estorno, `i.estornado`) | `dispensador.html:1817` (`_renderHistorico`), estornado: `backend/app/routers/dispensadores.py:271` |
+| Modal comprovante (carimbo estorno — B3.B) | `dispensador.html:1545` (`_renderComprovante`), `:1549-1577` (carimbo) |
+| Comprovante JSON (seção `estorno` — B3.A) | `backend/app/routers/dispensacoes.py:130` (`_montar_json`), `:105` (`_montar_estorno`) |
+| Guard de dispensação (409) | `backend/app/routers/custodia.py:867-870` |
 | Guard de re-dispensação (B0) | `backend/app/routers/custodia.py:737-743` |
 | Dispensação total fecha custódia + status terminal (B0) | `backend/app/routers/custodia.py:787-796` |
 | Fila: prescrições com custódia ativa | `backend/app/routers/dispensadores.py:92-168` |
