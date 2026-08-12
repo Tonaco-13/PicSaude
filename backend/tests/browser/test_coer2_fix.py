@@ -68,6 +68,19 @@ def _item_id(base_url: str, dtok: str, proto: str) -> int:
     raise AssertionError(f"proto {proto} não está na fila do dispensador")
 
 
+def _status_item(base_url: str, pattok: str, proto: str) -> str:
+    """status_item do primeiro item, lido pela carteira do cidadão.
+
+    A carteira serve aqui como leitor de estado porque é a mesma projeção que a
+    tela usa — se ela não vê o item, a tela também não veria.
+    """
+    wallet = _api(base_url, pattok, "GET", "/paciente/prescricoes").json()
+    for p in [*wallet.get("posse", []), *wallet.get("historico", [])]:
+        if p["protocolo"] == proto:
+            return p["itens"][0]["status_item"]
+    raise AssertionError(f"proto {proto} não está na carteira do cidadão")
+
+
 def _autenticar(page, base_url: str, role: str, sub: str, nome: str) -> None:
     tok = _tok(base_url, role)
     page.add_init_script(
@@ -105,8 +118,15 @@ def test_nao_fresh_motivo_renderiza_na_caixa_de_correcoes(page, app_demo, erros_
     assert rd.status_code == 201, rd.text
     assert _api(base, dt, "POST", f"/dispensacoes/{rd.json()['dispensacao_id']}/estornar",
                 {"motivo": "desistencia_paciente"}).status_code == 201
-    assert _api(base, dt, "POST", f"/prescricoes/{proto}/itens/{iid}/devolver",
-                {"para": "paciente", "motivo": "desistiu"}).status_code == 200
+    # Opção B (#152): o estorno TOTAL "cidadão recupera" JÁ leva o item a
+    # `devolvido_paciente` — o `/devolver` que ficava aqui era o passo que
+    # produzia esse estado antes do roteamento por motivo, e hoje daria 403
+    # (o dispensador não detém mais). O que este teste precisa é do ESTADO de
+    # partida, então conferimos o estado em vez de reproduzir o passo antigo.
+    assert _status_item(base, pat, proto) == "devolvido_paciente", (
+        "pré-condição do caminho não-fresh não foi montada: o estorno deveria "
+        "ter deixado o item em devolvido_paciente"
+    )
     # E agora o caminho que faltava: cidadão devolve ao médico um item devolvido_paciente.
     assert _api(base, pat, "POST", f"/paciente/prescricoes/{proto}/devolver-prescritor",
                 {"motivo": _MOTIVO_NAO_FRESH}).status_code == 201

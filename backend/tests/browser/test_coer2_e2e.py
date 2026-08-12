@@ -12,10 +12,17 @@ REAL (mesma origem, API + frontend), e as asserções são sobre o que a TELA RE
 
 O QUE PROVA (critério de aceite: ZERO dupla posse)
 --------------------------------------------------
-Cenário 1 (estorno + devolução ao paciente): após dispensar→estornar→devolver, a
-receita SAI da fila do dispensador (não fica presa) e aparece ATIVA na carteira do
-cidadão. Cenário 2 (devolução ao prescritor): a receita SAI da posse do cidadão e o
+Cenário 1 (estorno que devolve ao paciente): após dispensar→estornar, a receita SAI
+da fila do dispensador (não fica presa) e aparece ATIVA na carteira do cidadão.
+Cenário 2 (devolução ao prescritor): a receita SAI da posse do cidadão e o
 motivo digitado pelo cidadão CHEGA renderizado ao painel de correções do prescritor.
+
+NOTA (Opção B, #152) — a coreografia do Cenário 1 tinha um terceiro passo,
+`/devolver` chamado pelo dispensador. Ele existia porque o estorno, à época,
+deixava a posse na farmácia. Desde o roteamento por motivo, o próprio estorno com
+`desistencia_paciente` devolve a posse ao cidadão, e o passo virou contraditório:
+o dispensador já não detém o item. As ASSERÇÕES abaixo não mudaram — o que mudou
+foi quem produz o efeito que elas verificam.
 
 A coreografia usa a API de demo (mesma origem) — clicar 30 telas acoplaria o teste a
 cada modal; o valor aqui é a asserção sobre o DOM renderizado das 3 telas.
@@ -76,8 +83,9 @@ def _item_id(base_url: str, dtok: str, proto: str) -> int:
 def cenarios(app_demo) -> dict:
     """Roda a coreografia dos 2 cenários uma vez e devolve os protocolos.
 
-    Cenário 1: emite → cidadão manda p/ farmácia → dispensa total → estorna →
-    devolve ao paciente. Cenário 2: emite (na carteira) → cidadão devolve ao médico.
+    Cenário 1: emite → cidadão manda p/ farmácia → dispensa total → estorna
+    (o estorno já devolve a posse ao cidadão). Cenário 2: emite (na carteira) →
+    cidadão devolve ao médico.
     """
     base = app_demo
     pt, pat, dt = _tok(base, "prescritor"), _tok(base, "paciente"), _tok(base, "dispensador")
@@ -92,9 +100,15 @@ def cenarios(app_demo) -> dict:
     assert rd.status_code == 201, rd.text
     assert _api(base, dt, "POST", f"/dispensacoes/{rd.json()['dispensacao_id']}/estornar",
                 {"motivo": "desistencia_paciente"}).status_code == 201
-    rv = _api(base, dt, "POST", f"/prescricoes/{p1}/itens/{iid}/devolver",
-              {"para": "paciente", "motivo": "desistiu"})
-    assert rv.status_code == 200, rv.text  # guard por SALDO, não 409 'já dispensado'
+    # O estorno TOTAL com motivo "cidadão recupera" JÁ devolve a posse (Opção B,
+    # #152): antes era preciso o dispensador chamar /devolver à mão, e era ESSE
+    # segundo passo que fechava o Cenário 1. Hoje chamá-lo devolveria 403
+    # `nao_detem_custodia` — e o 403 estaria certo: o dispensador não detém mais
+    # nada. Em vez do passo, guardamos o EFEITO que ele produzia, senão os testes
+    # abaixo passariam sem ninguém provar que a posse voltou.
+    posse = {p["protocolo"] for p in
+             _api(base, pat, "GET", "/paciente/prescricoes").json()["posse"]}
+    assert p1 in posse, "estorno total 'cidadão recupera' não devolveu a posse ao cidadão"
 
     # --- Cenário 2 ---
     p2 = _emit_para_paciente(base, pt, "AMOXICILINA-COER2")

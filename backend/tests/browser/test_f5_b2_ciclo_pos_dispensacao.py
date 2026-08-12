@@ -12,7 +12,10 @@ KIMI3-001 §3.2), nos 5 cenários do ticket.
 O QUE PROVA (invariantes do ticket B2 §5)
 ------------------------------------------
 Escopo A — fila: receita com todos os itens terminais NÃO aparece na fila;
-após estorno total (B0 repondo saldo) ela REAPARECE acionável.
+após estorno total que RETÉM na farmácia (B0 repondo saldo) ela REAPARECE acionável.
+Desde o roteamento por motivo (Opção B, #152), "retém" quer dizer `erro_dispensacao`
+ou o catch-all `outro` — nos motivos "cidadão recupera" a posse vai embora e a
+receita sai da fila (isso é o Cenário 1 de test_coer2_e2e.py, não o B0).
 Escopo B — ciclo: botão Estorno só existe se `i.estornado === false` — estado
 DERIVADO DO BACKEND (§10), nunca calculado no cliente (guarda estática incluída).
 Escopo C — comprovante: dispensação estornada mostra carimbo inequívoco SEM
@@ -104,23 +107,31 @@ def _dispensar_total(base_url: str, dtok: str, proto: str,
     return r.json()
 
 
-def _estornar(base_url: str, dtok: str, dispensacao_id: int) -> dict:
+def _estornar(base_url: str, dtok: str, dispensacao_id: int,
+              motivo: str = "desistencia_paciente") -> dict:
+    """Estorna a dispensação. O MOTIVO decide para quem vai a posse (Opção B, #152).
+
+    `desistencia_paciente` / `pagamento_nao_concluido` devolvem a posse ao cidadão;
+    `erro_dispensacao` e o catch-all `outro` retêm na farmácia (TICKET-B0). Por isso
+    o motivo é parâmetro: os cenários deste arquivo precisam dos dois ramos.
+    """
     r = _api(base_url, dtok, "POST",
              f"/dispensacoes/{dispensacao_id}/estornar",
-             {"motivo": "desistencia_paciente"})
+             {"motivo": motivo})
     assert r.status_code == 201, f"estorno falhou: {r.status_code} {r.text}"
     return r.json()
 
 
 def _montar_ciclo(base_url: str, med: str, ptok: str, pattok: str, dtok: str,
-                  lote: str | None = None, estornar: bool = False) -> dict:
+                  lote: str | None = None, estornar: bool = False,
+                  motivo_estorno: str = "desistencia_paciente") -> dict:
     """Emite → paciente transfere → dispensador dispensa TOTAL (→ opcionalmente estorna)."""
     proto = _emitir_para_paciente(base_url, ptok, med)
     _transferir_para_farmacia(base_url, pattok, proto)
     disp = _dispensar_total(base_url, dtok, proto, lote=lote)
     ciclo = {"proto": proto, "dispensacao_id": disp["dispensacao_id"]}
     if estornar:
-        est = _estornar(base_url, dtok, disp["dispensacao_id"])
+        est = _estornar(base_url, dtok, disp["dispensacao_id"], motivo=motivo_estorno)
         ciclo["estorno_protocolo"] = est["protocolo"]
     return ciclo
 
@@ -133,9 +144,16 @@ def cenarios(app_demo) -> dict:
     return {
         # Escopo A.1 — dispensação total SEM estorno: sai da fila, fica no histórico.
         "fila_total": _montar_ciclo(base, "IBUPROFENO-B2-FILA", pt, pat, dt),
-        # Escopo A.2 — dispensação total COM estorno: saldo reposto (B0), volta à fila.
-        "reentrada": _montar_ciclo(base, "PARACETAMOL-B2-REEN", pt, pat, dt, estornar=True),
+        # Escopo A.2 — dispensação total COM estorno que RETÉM na farmácia:
+        # saldo reposto (B0), volta à fila. O motivo é `erro_dispensacao` porque
+        # é ele que preserva o TICKET-B0 desde o roteamento por motivo (Opção B,
+        # #152) — com `desistencia_paciente` a posse vai ao cidadão e a receita
+        # sai da fila, que é o Cenário 1 do test_coer2_e2e, não o B0 §6.2.
+        "reentrada": _montar_ciclo(base, "PARACETAMOL-B2-REEN", pt, pat, dt,
+                                   estornar=True, motivo_estorno="erro_dispensacao"),
         # Escopos B/C — dispensação estornada COM lote (carimbo + dados originais).
+        # Segue no ramo "cidadão recupera" (default): o carimbo e a imutabilidade
+        # da linha valem nos dois roteamentos, e assim o arquivo exercita ambos.
         "estornada": _montar_ciclo(base, "AMOXICILINA-B2-EST", pt, pat, dt,
                                    lote="LOTE-B2-001", estornar=True),
         # Escopos B/C — dispensação NÃO estornada (botão habilitado, sem carimbo).
@@ -203,7 +221,7 @@ def test_b2_escopo_a_fila_so_dispensaveis(page, app_demo, cenarios, erros_de_con
 
 
 def test_b2_escopo_a_reentrada_por_estorno(page, app_demo, cenarios, erros_de_console):
-    """Após estornar dispensação total, a receita reaparece na fila com saldo > 0."""
+    """Estorno total que RETÉM na farmácia: a receita reaparece na fila com saldo > 0."""
     proto = cenarios["reentrada"]["proto"]
     _abrir_dispensador(page, app_demo)
 
