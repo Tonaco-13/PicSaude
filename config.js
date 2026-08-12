@@ -310,3 +310,150 @@ function renderizarBarraChavesDemo(_cfg, opcoes = {}) {
 
     document.body.insertBefore(barra, document.body.firstChild);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Painel "Chaves de acesso (demo)" — formato cartão (nascido no index.html,
+// promovido para cá em 2026-08-12 para ficar na borda superior de TODOS os
+// módulos, no mesmo formato em que aparecia na parte inferior do índice).
+//
+// Diferença para a barra slim acima: mesmo conteúdo (as 4 identidades de
+// DEMO.*, cópia sem máscara), apresentação em cartão com grade — um item por
+// perfil, com rótulo, valor mono e botão "📋 Copiar" dedicado.
+//
+// Uso (a tela já buscou /config/public e confirmou demo_mode):
+//   renderizarPainelChavesDemo(cfg);
+//   renderizarPainelChavesDemo(cfg, { aviso: 'texto', nota: 'extra',
+//                                     link: {href, texto} });
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Renderiza o painel-cartão de chaves demo na borda superior do body.
+ * Idempotente.
+ * @param {object} _cfg    — resposta de /config/public (reservado p/ usos futuros).
+ * @param {object} [opcoes]— { aviso, nota, link:{href,texto} }
+ */
+function renderizarPainelChavesDemo(_cfg, opcoes = {}) {
+    if (document.getElementById('chaves-demo-panel')) return;  // idempotente
+    if (!document.body) return;
+
+    if (!document.getElementById('chaves-demo-panel-css')) {
+        const css = document.createElement('style');
+        css.id = 'chaves-demo-panel-css';
+        css.textContent =
+            /* Espelha a estética do .status-block do portal: cartão branco,
+               borda sutil, sem amarelo. Posicionado na borda superior. */
+            '.chaves-demo-panel{background:#ffffff;border:1px solid #e2e8f0;' +
+            'border-radius:12px;padding:16px 24px;box-sizing:border-box;' +
+            'width:calc(100% - 24px);max-width:1080px;margin:12px auto 0;}' +
+            '.chaves-demo-title{font-size:11px;text-transform:uppercase;' +
+            'letter-spacing:1.2px;color:#94a3b8;font-weight:700;margin-bottom:12px;}' +
+            '.chaves-demo-grid{display:grid;' +
+            'grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 20px;}' +
+            /* Item em DUAS linhas: cabeçalho (ícone + rótulo) e corpo
+               (valor mono à esquerda, botão Copiar à direita). Assim o
+               valor nunca é espremido pelo botão — defeito visto na 1ª
+               versão (CNS/CNPJ cortados em 4 colunas). */
+            '.chaves-demo-item{display:flex;flex-direction:column;gap:6px;' +
+            'padding:8px 10px;border-radius:8px;background:#f8fafc;' +
+            'border:1px solid #eef2f7;}' +
+            '.chaves-demo-item .cabec{display:flex;align-items:center;gap:8px;}' +
+            '.chaves-demo-item .corpo{display:flex;align-items:center;' +
+            'justify-content:space-between;gap:8px;}' +
+            '.chaves-demo-item .icone{font-size:16px;}' +
+            '.chaves-demo-item .rotulo{font-size:11px;color:#64748b;font-weight:600;' +
+            'text-transform:uppercase;letter-spacing:.4px;}' +
+            '.chaves-demo-item .valor{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;' +
+            'font-size:13px;color:#0f172a;font-weight:600;white-space:nowrap;}' +
+            '.chaves-demo-copiar{border:1px solid #cbd5e1;background:#fff;color:#334155;' +
+            'font-size:11px;padding:3px 7px;border-radius:6px;cursor:pointer;' +
+            'white-space:nowrap;}' +
+            '.chaves-demo-copiar:hover{background:#f1f5f9;}' +
+            '.chaves-demo-aviso{margin-top:12px;font-size:12px;color:#94a3b8;font-style:italic;}' +
+            '.chaves-demo-aviso a{color:#1e3a8a;font-weight:600;text-decoration:none;' +
+            'font-style:normal;white-space:nowrap;}' +
+            '.chaves-demo-aviso a:hover{text-decoration:underline;}';
+        document.head.appendChild(css);
+    }
+
+    const CHAVES = [
+        { icone: '🩺', modulo: 'Prescritor',          chave: 'CNS',
+          valor: formatarCNS(DEMO.prescritor.cns),    bruto: DEMO.prescritor.cns },
+        { icone: '👤', modulo: 'Cidadão',             chave: 'CPF',
+          valor: formatarCPF(DEMO.cidadao.cpf),       bruto: DEMO.cidadao.cpf },
+        { icone: '💊', modulo: 'Dispensador',         chave: 'CNPJ',
+          valor: formatarCNPJ(DEMO.farmacia.cnpj),    bruto: DEMO.farmacia.cnpj },
+        { icone: '🏥', modulo: 'Clínica/Laboratório', chave: 'CNPJ',
+          valor: formatarCNPJ(DEMO.clinica.cnpj),     bruto: DEMO.clinica.cnpj },
+    ];
+
+    const painel = document.createElement('section');
+    painel.className = 'chaves-demo-panel';
+    painel.id = 'chaves-demo-panel';
+    painel.setAttribute('aria-label', 'Chaves de acesso da demo');
+
+    const titulo = document.createElement('div');
+    titulo.className = 'chaves-demo-title';
+    titulo.textContent = 'Chaves de acesso (demo)';
+    painel.appendChild(titulo);
+
+    const grid = document.createElement('div');
+    grid.className = 'chaves-demo-grid';
+    CHAVES.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'chaves-demo-item';
+
+        const cabec = document.createElement('div');
+        cabec.className = 'cabec';
+        const icone = document.createElement('span');
+        icone.className = 'icone';
+        icone.setAttribute('aria-hidden', 'true');
+        icone.textContent = c.icone;
+        const rotulo = document.createElement('span');
+        rotulo.className = 'rotulo';
+        rotulo.textContent = `${c.modulo} · ${c.chave}`;
+        cabec.appendChild(icone);
+        cabec.appendChild(rotulo);
+
+        const corpo = document.createElement('div');
+        corpo.className = 'corpo';
+        const valor = document.createElement('span');
+        valor.className = 'valor';
+        valor.textContent = c.valor;
+
+        const copiar = document.createElement('button');
+        copiar.type = 'button';
+        copiar.className = 'chaves-demo-copiar';
+        copiar.textContent = '📋 Copiar';
+        copiar.setAttribute('aria-label', `Copiar ${c.chave} do ${c.modulo}`);
+        copiar.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(c.bruto);  // sem máscara
+                showToast(`${c.chave} do ${c.modulo} copiado`, 'success');
+            } catch (err) {
+                showToast(`Não consegui copiar — anote: ${c.bruto}`, 'error');
+            }
+        });
+
+        corpo.appendChild(valor);
+        corpo.appendChild(copiar);
+        item.appendChild(cabec);
+        item.appendChild(corpo);
+        grid.appendChild(item);
+    });
+    painel.appendChild(grid);
+
+    const aviso = document.createElement('div');
+    aviso.className = 'chaves-demo-aviso';
+    aviso.textContent = opcoes.aviso || 'Demo — dados fictícios, nenhuma prescrição é real.';
+    if (opcoes.nota) aviso.textContent += ' ' + opcoes.nota;
+    if (opcoes.link) {
+        aviso.appendChild(document.createTextNode(' '));
+        const a = document.createElement('a');
+        a.href = opcoes.link.href;
+        a.textContent = opcoes.link.texto;
+        aviso.appendChild(a);
+    }
+    painel.appendChild(aviso);
+
+    document.body.insertBefore(painel, document.body.firstChild);
+}
