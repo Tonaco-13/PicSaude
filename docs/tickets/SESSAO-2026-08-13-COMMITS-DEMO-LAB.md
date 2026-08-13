@@ -184,55 +184,49 @@ $ gh api repos/Tonaco-13/PicSaude/compare/main...feat/laudo-dispensador-rt
            "backend/tests/integration/test_laudos_dispensador_autorizacao.py"]}
 ```
 
-### ⚠️ Pendência de cache — o registro do PR ainda não atualizou
+### A verificação obrigatória do despacho
 
 ```
 $ gh pr diff 159 --name-only
-Relatório Kimi Descritivo Módulos Demo/DESCRITIVO-MODULO-CIDADAO-2026-08-13.md
-Relatório Kimi Descritivo Módulos Demo/DESCRITIVO-MODULO-FARMACIA-2026-08-13.md
-Relatório Kimi Descritivo Módulos Demo/DESCRITIVO-MODULO-LABORATORIO-2026-08-13.md
-Relatório Kimi Descritivo Módulos Demo/DESCRITIVO-MODULO-PRESCRITOR-2026-08-13.md
-Relatório Kimi Descritivo Módulos Demo/DESCRITIVO-PORTAL-INDEX-2026-08-13.md
-Relatório Kimi Descritivo Módulos Demo/MENSAGEM-ENVIO.md
 backend/app/routers/laudos.py
 backend/tests/integration/test_laudos_dispensador_autorizacao.py
-docs/tickets/SESSAO-2026-08-11-EXAME-COMO-RECEITA.md
-docs/tickets/SESSAO-2026-08-12-CI-SMOKES-E-LIMPEZA.md
 ```
 
-**Não é o fast-forward que falhou.** O registro do PR guarda o `base_sha` do momento da abertura
-(`ef1692b`) e o GitHub o atualiza de forma preguiçosa. Diagnóstico, lado a lado:
+```
+$ gh api repos/Tonaco-13/PicSaude/pulls/159
+{"base_sha": "95f3536", "commits": 1, "changed_files": 2}
+```
 
-| Fonte | O que diz | Fresco? |
-|---|---|---|
-| `git diff origin/main...` (local) | 2 arquivos | ✅ ao vivo |
-| `compare/main...feat/...` (API) | 2 arquivos, ahead 1 / behind 0 | ✅ ao vivo |
-| `pulls/159` · `pulls/159/files` | 10 arquivos, `base_sha: ef1692b` | ❌ cache |
+**Exatamente os 2 arquivos esperados.**
 
-Aguardei ~90s em polling; não reconciliou sozinho.
-
-**Como resolver, quando o Fabiano autorizar:** fechar e reabrir o #159 (`gh pr close 159 && gh pr
-reopen 159`) força o GitHub a recalcular a base. É reversível e não toca em histórico —
-mas gera eventos de close/reopen num PR que está aguardando martelo, então **não fiz por conta
-própria**. Alternativa sem ruído: qualquer push futuro na branch do PR também dispara o recálculo.
+> **Nota de método — houve um intervalo enganoso.** Nos primeiros minutos após o fast-forward, o
+> `gh pr diff 159` continuou listando os 10 arquivos antigos, e o registro do PR ainda trazia
+> `base_sha: ef1692b`, `commits: 3`. O GitHub guarda a base do momento da abertura e a atualiza de
+> forma preguiçosa.
+>
+> Nesse intervalo, o que separou "falhou" de "ainda não atualizou" foi cruzar três fontes:
+> `git diff origin/main...` (local), a API de **compare** (calcula ao vivo) e o registro do PR
+> (cache). As duas primeiras já diziam 2 arquivos, `ahead 1 / behind 0` — ou seja, o repositório
+> estava certo desde o `git push`, e só a vitrine do PR estava velha.
+>
+> Não forcei `close`/`reopen`: seria ruído num PR aguardando martelo, para consertar uma aparência
+> que o próprio GitHub reconciliou sozinho. **Diagnosticar antes de agir custou minutos de espera e
+> evitou um evento desnecessário no PR.**
 
 ---
 
 ## §8 Estado final
 
 - **`main`** em `95f3536` (fast-forward de docs; nenhum código da demo entrou por aqui).
-- **#159** (`core`) — diff **real** limpo: 1 commit, 2 arquivos. A aba "Files changed" pode ainda
-  mostrar 10 até o GitHub recalcular a base (§7). Aguarda o **martelo do Fabiano**.
-- **#160** (`module`) — íntegro, com `base` no #159. Rebaseia para `main` após o merge.
-- **#158** — deve fechar como mergeado por consequência do fast-forward (mesmo conteúdo, mesmo
+- **#159** (`core`) — **1 commit, 2 arquivos**, base em `95f3536`. Diff limpo, confirmado.
+  Aguarda o **martelo do Fabiano**.
+- **#160** (`module`) — íntegro: base no #159, 2 commits, 33 arquivos (32 da demo + este registro).
+  Rebaseia para `main` após o merge do #159.
+- **#158** — fechado como **mergeado**, por consequência do fast-forward (mesmo conteúdo, mesmo
   destino).
 - Gates locais no momento do commit: **integração 351 · unit 419 · browser 63**, verdes.
 
-### Uma pergunta em aberto para o Fabiano
-
-Autorizar o `close`/`reopen` do #159 para forçar o recálculo da base? É o único passo que falta
-para a aba "Files changed" mostrar os 2 arquivos. Sem ele, o revisor precisa olhar o **commit**
-(`e51935a`) em vez da aba de arquivos — o conteúdo é o mesmo, só o caminho de leitura muda.
+Nada pendente. O caminho até o merge é: martelo no #159 → merge → rebase do #160 → merge.
 
 ---
 
