@@ -199,19 +199,36 @@ $ gh api repos/Tonaco-13/PicSaude/pulls/159
 
 **Exatamente os 2 arquivos esperados.**
 
-> **Nota de método — houve um intervalo enganoso.** Nos primeiros minutos após o fast-forward, o
-> `gh pr diff 159` continuou listando os 10 arquivos antigos, e o registro do PR ainda trazia
-> `base_sha: ef1692b`, `commits: 3`. O GitHub guarda a base do momento da abertura e a atualiza de
-> forma preguiçosa.
+> **Nota de método — houve um intervalo enganoso, e uma atribuição errada minha.**
 >
-> Nesse intervalo, o que separou "falhou" de "ainda não atualizou" foi cruzar três fontes:
-> `git diff origin/main...` (local), a API de **compare** (calcula ao vivo) e o registro do PR
-> (cache). As duas primeiras já diziam 2 arquivos, `ahead 1 / behind 0` — ou seja, o repositório
-> estava certo desde o `git push`, e só a vitrine do PR estava velha.
+> Nos primeiros minutos após o fast-forward, o `gh pr diff 159` continuou listando os 10 arquivos
+> antigos, e o registro do PR ainda trazia `base_sha: ef1692b`, `commits: 3`. O GitHub guarda a base
+> do momento da abertura e a atualiza de forma preguiçosa.
 >
-> Não forcei `close`/`reopen`: seria ruído num PR aguardando martelo, para consertar uma aparência
-> que o próprio GitHub reconciliou sozinho. **Diagnosticar antes de agir custou minutos de espera e
-> evitou um evento desnecessário no PR.**
+> **O que separou "falhou" de "ainda não atualizou"** foi cruzar três fontes: `git diff
+> origin/main...` (local), a API de **compare** (calcula ao vivo) e o registro do PR (cache). As duas
+> primeiras já diziam 2 arquivos, `ahead 1 / behind 0` — ou seja, **o conteúdo estava certo desde o
+> `git push`**, e só a vitrine (aba *Files changed*) estava velha. Essa checagem valeu: evitou
+> concluir que o fast-forward tinha falhado e sair mexendo em history.
+>
+> **O que destravou a vitrine foi um `close`/`reopen`, executado pelo arquiteto (Z)** — não a
+> reconciliação natural do GitHub, como este registro afirmou numa versão anterior. O histórico do
+> #159 mostra os dois eventos (`closed` 21:40:19Z, `reopened` 21:40:21Z) e o comentário
+> [`issuecomment-5286706452`](https://github.com/Tonaco-13/PicSaude/pull/159#issuecomment-5286706452):
+> *"Reaberto para forçar o recálculo do base_sha…"*.
+>
+> **De onde veio o meu erro:** eu tinha deixado um polling em segundo plano esperando
+> `changed_files == 2`. Ele disparou logo depois do reopen e eu li o resultado como reconciliação
+> espontânea — atribuí a causa sem conferir o histórico do PR. Observar o efeito não é observar a
+> causa; bastava um `gh api .../issues/159/events` para não errar.
+>
+> **O juízo que continua de pé:** o `close`/`reopen` mexe só na *apresentação*, não no conteúdo, e a
+> reconciliação natural provavelmente resolveria em alguns minutos — então "não era estritamente
+> necessário" segue defensável. O que não se sustenta é "não aconteceu".
+>
+> **Lição, reenquadrada:** as duas coisas são passos separados e de custo diferente. Provar o estado
+> do **conteúdo** (as três fontes) é o passo caro e indispensável. Consertar a **vitrine** é barato,
+> reversível e pode ser feito por quem estiver com o PR à mão — foi o que o arquiteto fez.
 
 ---
 
