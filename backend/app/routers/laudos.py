@@ -23,6 +23,19 @@ ROTAS IMPLEMENTADAS (Ticket 21)
 ---------------------------------
 GET  /laudos/{proto}/pdf                  ← PDF institucional do laudo
 GET  /laudos/{proto}/qr                   ← QR Code PNG → /public/laudos/{proto}
+
+RBAC — TICKET-C (core, aprovado pelo arquiteto)
+-----------------------------------------------
+O laudo exige Responsável Técnico com CNS, mas quem opera a tela do laboratório
+entra como `dispensador` (CNPJ da unidade). O dispensador PRODUZ EM NOME DO RT:
+declara `cns_autor`, e o RT continua sendo o `autor_id` — o CNPJ nunca vira autor.
+O direito de operar vem da POSSE do pedido de exame vinculado (custódia atual em
+`pedido_exame_custodia`), não de identidade nominal. Sem coluna nova, sem migração.
+
+  criar · assinar · liberar · encerrar · cancelar · GET · pdf · qr → + dispensador
+  ciencia-paciente (paciente) e ciencia-prescritor (solicitante) → INALTERADOS:
+  ciência é ato clínico de quem recebe o laudo, nunca de quem o produziu.
+  Laudo standalone (sem pedido vinculado) → segue restrito a prescritor/admin.
 """
 
 from __future__ import annotations
@@ -275,6 +288,73 @@ def _assert_paciente_dono(conn, protocolo: str, ident: str) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# TICKET-C (core, aprovado pelo arquiteto) — ownership do DISPENSADOR.
+#
+# O laudo exige um Responsável Técnico com CNS (patologista, bioquímico). Mas
+# quem opera a tela do laboratório entra como `dispensador`, identificado pelo
+# CNPJ da unidade. A decisão: o dispensador PRODUZ EM NOME DO RT — declara o CNS
+# e o RT continua sendo o `autor_id`. O CNPJ nunca vira autor.
+#
+# De onde vem o direito de operar, então? Da POSSE do pedido de exame: a unidade
+# só mexe em laudo vinculado a um pedido sob sua custódia ATUAL. É dado que já
+# existe (`pedido_exame_custodia`) — sem coluna nova, sem migração.
+#
+# A query é a mesma semântica de `pedidos_exame.py::_assert_dispensador_dono_pedido`
+# (custódia nível-pedido, `item_id IS NULL`, a mais recente). Fica escrita aqui,
+# e não importada, por decisão de arquitetura: ADR-002 opção C mantém as queries
+# de ownership locais ao subdomínio (mesma razão pela qual os 3 resolvers acima
+# são locais). Não é fonte única e não se pretende fonte única.
+# ---------------------------------------------------------------------------
+
+def _dispensador_detem_pedido(conn, pedido_id: int, ident_cnpj: str) -> bool:
+    """A custódia ATUAL do pedido inteiro é deste CNPJ?
+
+    ATUAL, não "qualquer custódia histórica": quem já foi custodiante e perdeu a
+    posse não continua operando (correção P1(b) que o módulo de exames já sofreu).
+    O guard de 14 dígitos é defensivo — ident não-CNPJ (a custódia do paciente
+    guarda CPF) nunca casa por acidente.
+    """
+    if len(ident_cnpj) != 14:
+        return False
+    row = conn.execute(
+        "SELECT para FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id IS NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (pedido_id,),
+    ).fetchone()
+    return row is not None and row["para"] == ident_cnpj
+
+
+def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
+    """Usado na CRIAÇÃO: o laudo nasce vinculado a um pedido que é nosso."""
+    _assert_or_403(
+        _dispensador_detem_pedido(conn, pedido_id, ident_cnpj),
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Pedido de exame sob responsabilidade de outra unidade.",
+    )
+
+
+def _assert_dispensador_dono_laudo_via_pedido(conn, laudo: dict, ident_cnpj: str) -> None:
+    """Usado nos demais endpoints: o direito é derivado do pedido vinculado.
+
+    Laudo standalone (`pedido_id IS NULL`) → 403. Não é lacuna: laudo sem pedido
+    não tem custódia de onde derivar posse, então segue restrito a
+    prescritor/admin. Negar é a resposta correta, não um efeito colateral.
+    """
+    if not laudo.get("pedido_id"):
+        _assert_or_403(
+            False,
+            codigo="laudo_sem_pedido_vinculado",
+            mensagem="Laudo sem pedido vinculado: operação restrita ao prescritor/admin.",
+        )
+    _assert_or_403(
+        _dispensador_detem_pedido(conn, laudo["pedido_id"], ident_cnpj),
+        codigo="nao_e_dono_do_laudo",
+        mensagem="Este laudo pertence a um pedido sob custódia de outra unidade.",
+    )
+
+
 def _get_itens_laudo(conn, laudo_id: int) -> list[dict]:
     return [
         dict(r) for r in conn.execute(
@@ -317,7 +397,7 @@ def _evento(conn, laudo_id: int, tipo: str, dados: dict, agora: str,
 @router.post("", status_code=201)
 def criar_laudo(
     payload: LaudoIn,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     """
     Cria um laudo no estado 'em_producao'.
@@ -325,7 +405,8 @@ def criar_laudo(
     Fluxo completo:
         em_producao → assinar → liberar → ciência → encerrar
 
-    O autor é o responsável técnico (cns_autor).
+    O autor é o responsável técnico (cns_autor) — inclusive quando quem opera é
+    a unidade (dispensador), que produz EM NOME do RT declarado.
     Suporte a vinculação com pedido_exame via pedido_protocolo.
     """
     # TICKET-5C-BIS-B §7.1 (Padrão A) — CNS do autor declarado == JWT; admin
@@ -336,12 +417,26 @@ def criar_laudo(
         raise HTTPException(status_code=422, detail="O laudo deve conter ao menos um item.")
 
     cns      = normalize_cns(payload.cns_autor)
-    if papel != "admin":
+    if papel == "prescritor":
         _assert_or_403(
             ident == cns,
             codigo="autor_mismatch",
             mensagem="CNS do autor não coincide com o responsável técnico autenticado.",
         )
+    elif papel == "dispensador":
+        # TICKET-C — a unidade não tem CNS para comparar; declara o do RT. O que
+        # a autoriza não é identidade nominal, é POSSE: o laudo tem que nascer
+        # preso a um pedido sob sua custódia. Sem o vínculo não há de onde
+        # derivar direito nenhum — por isso 422, e não um laudo órfão.
+        if not payload.pedido_protocolo:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "A unidade deve vincular o laudo a um pedido de exame sob sua "
+                    "custódia (pedido_protocolo)."
+                ),
+            )
+    # admin: bypass (como hoje)
     cpf      = normalize_cpf(payload.cpf_paciente)
     nome_pac = normalize_nome(payload.nome_paciente)
     protocolo = str(uuid.uuid4())
@@ -371,6 +466,12 @@ def criar_laudo(
                     status_code=404,
                     detail=f"Pedido de exame '{payload.pedido_protocolo}' não encontrado.",
                 )
+            # TICKET-C — a POSSE é conferida antes do vínculo clínico. Ordem
+            # deliberada (doutrina anti-leak #52): uma unidade alheia recebe 403
+            # sem aprender de quem é o pedido. Prescritor/admin não passam por aqui.
+            if papel == "dispensador":
+                _assert_dispensador_dono_pedido(conn, row["id"], ident)
+
             _assert_or_403(
                 row["cpf"] == cpf,
                 codigo="vinculo_pedido_invalido",
@@ -433,6 +534,11 @@ def criar_laudo(
             "origem_laudo_id": payload.origem_laudo_id,
             "pedido_id":       pedido_id,
             "itens_count":     len(payload.itens),
+            # TICKET-C — o autor é o RT; QUEM operou é outra pergunta, e o ledger
+            # responde as duas. Sem isto, um laudo produzido pela unidade seria
+            # indistinguível de um digitado pelo próprio RT.
+            "produzido_por":      papel,
+            "produzido_por_cnpj": ident if papel == "dispensador" else None,
         }, agora, protocolo=protocolo, instance_id=instance_id)
 
         return {
@@ -538,14 +644,18 @@ def criar_laudo_fisico(
 @router.get("/{protocolo}")
 def get_laudo(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
-    # §7.2 — leitura: prescritor (autor∨solicitante); admin bypassa.
+    # §7.2 — leitura: prescritor (autor∨solicitante) · dispensador (via pedido
+    # sob custódia, TICKET-C — é como a unidade acompanha a ciência do cidadão);
+    # admin bypassa.
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         laudo  = _get_laudo_ou_404(conn, protocolo)
-        if papel != "admin":
+        if papel == "prescritor":
             _assert_leitura_prescritor(conn, protocolo, ident)
+        elif papel == "dispensador":
+            _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
         itens  = _get_itens_laudo(conn, laudo["id"])
         eventos = [
             dict(r) for r in conn.execute(
@@ -591,20 +701,26 @@ def get_custodia_laudo(
 @router.post("/{protocolo}/assinar", status_code=200)
 def assinar_laudo(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     """
     Responsável técnico declara assinatura do laudo.
     Transição: em_producao → assinado
+
+    A assinatura continua sendo do RT (`autor_id` não muda). O dispensador
+    registra o ato em nome dele, pela mesma posse que o autorizou a produzir.
     """
     agora = datetime.utcnow().isoformat()
-    # §7.2 — só o autor assina; admin bypassa. 404 → 403 → 422.
+    # §7.2 — autor (ou a unidade que detém o pedido, TICKET-C); admin bypassa.
+    # 404 → 403 → 422.
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         laudo = _get_laudo_ou_404(conn, protocolo)
 
-        if papel != "admin":
+        if papel == "prescritor":
             _assert_autor_dono(conn, protocolo, ident)
+        elif papel == "dispensador":
+            _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
 
         if eh_terminal_laudo(laudo["status"]):
             raise HTTPException(status_code=422, detail=f"Laudo '{protocolo}' está em estado terminal.")
@@ -644,7 +760,10 @@ def assinar_laudo(
 # ---------------------------------------------------------------------------
 
 class LiberarIn(BaseModel):
-    cnpj_prestador: str
+    # TICKET-C — opcional porque o dispensador NÃO declara o próprio CNPJ: ele
+    # vem do JWT (ver abaixo). Continua obrigatório para prescritor/admin, agora
+    # com 422 nomeado em vez do erro genérico do Pydantic.
+    cnpj_prestador: Optional[str] = None
     cpf_paciente:   Optional[str] = None   # para registrar custódia direcionada
 
 
@@ -652,7 +771,7 @@ class LiberarIn(BaseModel):
 def liberar_laudo(
     protocolo: str,
     payload: LiberarIn,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     """
     Libera o laudo para acesso do paciente e/ou prescritor solicitante.
@@ -660,13 +779,26 @@ def liberar_laudo(
     Cria custódia: prestador → paciente
     """
     agora = datetime.utcnow().isoformat()
-    # §7.2 — só o autor libera; admin bypassa.
+    # §7.2 — autor (ou a unidade que detém o pedido, TICKET-C); admin bypassa.
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         laudo = _get_laudo_ou_404(conn, protocolo)
 
-        if papel != "admin":
+        if papel == "prescritor":
             _assert_autor_dono(conn, protocolo, ident)
+        elif papel == "dispensador":
+            _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
+
+        # TICKET-C — a custódia tem que registrar a unidade AUTENTICADA, não uma
+        # que o corpo da requisição afirme ser. Para o dispensador o CNPJ vem do
+        # JWT e o payload é ignorado: é a diferença entre posse provada e posse
+        # declarada, e a cadeia de custódia (§3) não aceita a segunda.
+        cnpj_prestador = ident if papel == "dispensador" else payload.cnpj_prestador
+        if not cnpj_prestador:
+            raise HTTPException(
+                status_code=422,
+                detail="cnpj_prestador é obrigatório para registrar a custódia do laudo.",
+            )
 
         if laudo["status"] != "assinado":
             raise HTTPException(
@@ -686,15 +818,16 @@ def liberar_laudo(
             """,
             (
                 laudo["id"],
-                payload.cnpj_prestador,
+                cnpj_prestador,
                 agora,
-                json.dumps({"cnpj_prestador": payload.cnpj_prestador}, ensure_ascii=False),
+                json.dumps({"cnpj_prestador": cnpj_prestador}, ensure_ascii=False),
             ),
         )
 
         instance_id = get_instance_id_conn(conn)
         _evento(conn, laudo["id"], "laudo_liberado", {
-            "cnpj_prestador": payload.cnpj_prestador,
+            "cnpj_prestador": cnpj_prestador,
+            "liberado_por":   papel,
         }, agora, protocolo=laudo["protocolo"], instance_id=instance_id)
 
         return {"protocolo": protocolo, "status": "liberado"}
@@ -819,20 +952,23 @@ def ciencia_prescritor(
 @router.post("/{protocolo}/encerrar", status_code=200)
 def encerrar_laudo(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     """
     Encerramento formal do laudo a partir de 'liberado', 'ciencia_paciente' ou 'ciencia_prescritor'.
     Usado quando apenas uma ciência é suficiente (configuração institucional).
     """
     agora = datetime.utcnow().isoformat()
-    # §8.2 — encerramento é fechamento operacional do produtor: só o autor; admin bypassa.
+    # §8.2 — encerramento é fechamento operacional do PRODUTOR: o autor ou a
+    # unidade que produziu em nome dele (TICKET-C); admin bypassa.
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         laudo = _get_laudo_ou_404(conn, protocolo)
 
-        if papel != "admin":
+        if papel == "prescritor":
             _assert_autor_dono(conn, protocolo, ident)
+        elif papel == "dispensador":
+            _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
 
         if laudo["status"] not in ("liberado", "ciencia_paciente", "ciencia_prescritor"):
             raise HTTPException(
@@ -867,19 +1003,21 @@ class CancelarLaudoIn(BaseModel):
 def cancelar_laudo(
     protocolo: str,
     payload: CancelarLaudoIn,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
     """
     Cancela um laudo que ainda não foi liberado (em_producao ou assinado).
     """
     agora = datetime.utcnow().isoformat()
-    # §7.2 — só o autor cancela; admin bypassa.
+    # §7.2 — autor (ou a unidade que detém o pedido, TICKET-C); admin bypassa.
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         laudo = _get_laudo_ou_404(conn, protocolo)
 
-        if papel != "admin":
+        if papel == "prescritor":
             _assert_autor_dono(conn, protocolo, ident)
+        elif papel == "dispensador":
+            _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
 
         if eh_terminal_laudo(laudo["status"]):
             raise HTTPException(
@@ -930,7 +1068,7 @@ def cancelar_laudo(
 )
 def pdf_laudo(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin", "paciente")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente", "dispensador")),
 ):
     """
     Gera e retorna o PDF institucional do laudo, com todos os resultados,
@@ -943,7 +1081,9 @@ def pdf_laudo(
     - Hash SHA-256 do documento canônico
     - Área de assinatura física do responsável técnico
     """
-    # §7.2 — matriz: prescritor (autor∨solicitante) · paciente; admin bypassa.
+    # §7.2 — matriz: prescritor (autor∨solicitante) · paciente · dispensador
+    # (via pedido sob custódia, TICKET-C — a unidade pré-visualiza o que
+    # produziu); admin bypassa.
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         laudo = _get_laudo_ou_404(conn, protocolo)
@@ -952,6 +1092,8 @@ def pdf_laudo(
                 _assert_leitura_prescritor(conn, protocolo, ident)
             elif papel == "paciente":
                 _assert_paciente_dono(conn, protocolo, ident)
+            elif papel == "dispensador":
+                _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
         itens = _get_itens_laudo(conn, laudo["id"])
 
         # Autor
@@ -1016,7 +1158,7 @@ def pdf_laudo(
 )
 def qr_laudo(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin", "paciente")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente", "dispensador")),
 ):
     """
     Gera e retorna um QR Code PNG para o protocolo do laudo.
@@ -1028,15 +1170,17 @@ def qr_laudo(
     - 404 se o protocolo não existir no banco.
     """
     # §7.2/§5.1 — QR precisa de query (Padrão B): 404 → 403 (leitura prescritor∨
-    # paciente dono; admin bypassa).
+    # paciente dono ∨ unidade que detém o pedido; admin bypassa).
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
-        _get_laudo_ou_404(conn, protocolo)
+        laudo = _get_laudo_ou_404(conn, protocolo)
         if papel != "admin":
             if papel == "prescritor":
                 _assert_leitura_prescritor(conn, protocolo, ident)
             elif papel == "paciente":
                 _assert_paciente_dono(conn, protocolo, ident)
+            elif papel == "dispensador":
+                _assert_dispensador_dono_laudo_via_pedido(conn, laudo, ident)
 
     url = f"{BASE_URL}/public/laudos/{protocolo}"
     qr  = qrcode.QRCode(
