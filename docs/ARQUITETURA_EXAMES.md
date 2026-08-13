@@ -278,10 +278,27 @@ Campos do hash:
 | GET  | `/pedidos-exame/{proto}/validacao` | — | Validação pública (QR Code) |
 | GET  | `/pedidos-exame/{proto}/custodia` | prescritor/paciente | Histórico de custódia |
 | POST | `/pedidos-exame/{proto}/agendar` | prestador | Registrar agendamento |
-| POST | `/pedidos-exame/{proto}/coletar` | prestador | Registrar coleta |
-| POST | `/pedidos-exame/{proto}/resultado/{item_id}` | prestador | Registrar laudo de item |
+| POST | `/pedidos-exame/{proto}/itens/{item_id}/coletar` | prestador | Registrar coleta (`agendado → coletado`) |
+| POST | `/pedidos-exame/{proto}/itens/{item_id}/em-analise` | prestador | **Enviar à bancada** (`coletado → em_analise`), `setor` opcional — Ticket B |
+| POST | `/pedidos-exame/{proto}/itens/{item_id}/resultado` | prestador | Registrar resultado do item (aceita `coletado` ou `em_analise`) |
+| POST | `/pedidos-exame/{proto}/transferir-laboratorio` | paciente | Cidadão entrega a posse ao laboratório escolhido |
 | POST | `/pedidos-exame/{proto}/encerrar` | paciente/prescritor | Ciência e encerramento |
 | GET  | `/paciente/pedidos-exame` | paciente | Carteira: pedidos ativos + histórico |
+
+> **Nota de precisão (2026-08-13):** as rotas de `coletar` e `resultado` estavam grafadas nesta
+> tabela no formato de projeto (`/{proto}/coletar`, `/{proto}/resultado/{item_id}`); a implementação
+> as expõe sob `/{proto}/itens/{item_id}/…`, porque **o item é a unidade operacional** (§ "Princípio
+> de estado"). Corrigido junto com a entrada do `em-analise`, para a tabela não ensinar caminho que
+> não existe.
+
+### `em_analise` deixou de ser estado fantasma
+
+Até o Ticket B, `em_analise` constava desta arquitetura e da lista branca de transições, mas
+**nenhum endpoint o persistia**: o `/resultado` emitia o evento `pedido_em_analise` como marco e
+escrevia `resultado_disponivel` direto. O endpoint `/em-analise` materializa a transição que este
+documento já prometia. **Fronteira LIMS:** `setor` é *work-area* leve; roteamento interno
+(analisador, técnico, fila de equipamento, lote) é o LIMS do laboratório, não o PicSaúde.
+Ver `docs/ARQUITETURA_LAUDO.md` § "Fluxo bancada".
 
 ---
 

@@ -198,15 +198,31 @@ _COLUNAS_FATURAMENTO = [
 _HEADERS_FAT = [c[0] for c in _COLUNAS_FATURAMENTO]
 _COL_WIDTHS_FAT = [c[1] for c in _COLUNAS_FATURAMENTO]
 
+# TICKET-D — o PDF tem que DIZER por qual tabela contou. Um relatório de
+# faturamento cujo cabeçalho não distingue TUSS de SIGTAP é um documento que
+# convida ao erro: são fontes pagadoras diferentes, com códigos diferentes para
+# o mesmo procedimento.
+_ROTULOS_CRITERIO = {
+    "tuss":   ("TUSS",   "Procedimento (TUSS)"),
+    "sigtap": ("SIGTAP", "Procedimento (SIGTAP)"),
+}
+
 
 def gerar_pdf_faturamento(
     grupos: list[dict],
     filtros: dict,
     limitado: bool = False,
     total_no_periodo: int | None = None,
+    criterio: str = "tuss",
 ) -> bytes:
-    """PDF do faturamento (agregação por procedimento) do prestador."""
+    """PDF do faturamento (agregação por procedimento) do prestador.
+
+    `criterio` seleciona a tabela de procedimentos usada na agregação
+    (`tuss` = planos de saúde · `sigtap` = SUS) e só afeta rótulos — a
+    contagem já vem pronta em `grupos`.
+    """
     titulo_s, subtitulo_s, filtro_s, aviso_s, cabecalho_s, celula_s = _estilos()
+    sigla, rotulo_coluna = _ROTULOS_CRITERIO.get(criterio, _ROTULOS_CRITERIO["tuss"])
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -221,7 +237,7 @@ def gerar_pdf_faturamento(
 
     story.append(Paragraph("PicSaúde", titulo_s))
     story.append(Paragraph(
-        "Faturamento de exames — Prestador (relatório interno)", subtitulo_s))
+        f"Faturamento de exames por {sigla} — Prestador (relatório interno)", subtitulo_s))
     story.append(Paragraph(f"Emitido em: {agora_utc}", filtro_s))
     story.append(Spacer(1, 3 * mm))
 
@@ -247,10 +263,11 @@ def gerar_pdf_faturamento(
 
     story.append(Spacer(1, 3 * mm))
 
-    data_table = [[Paragraph(h, cabecalho_s) for h in _HEADERS_FAT]]
+    cabecalhos = [rotulo_coluna, *_HEADERS_FAT[1:]]
+    data_table = [[Paragraph(h, cabecalho_s) for h in cabecalhos]]
     for g in grupos:
         data_table.append([
-            Paragraph(str(g.get("codigo_tuss") or ""), celula_s),
+            Paragraph(str(g.get("codigo") or ""), celula_s),
             Paragraph(str(g.get("qtd") or 0), celula_s),
             Paragraph(_fmt_data(g.get("primeiro_resultado")), celula_s),
             Paragraph(_fmt_data(g.get("ultimo_resultado")), celula_s),
