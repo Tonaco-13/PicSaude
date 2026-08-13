@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime, date, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -37,6 +37,7 @@ from app.domain.pdf_assinatura import (
     assinar_pdf_icp,
 )
 from app.instance import get_instance_id_conn
+from app.domain.states_laudo import ESTADOS_TERMINAIS_LAUDO
 from app.domain.states_exame import (
     ESTADOS_TERMINAIS_PEDIDO_EXAME,
     derivar_status_pedido,
@@ -663,7 +664,37 @@ def get_pedido_exame(
                 (pedido["id"],),
             ).fetchall()
         ]
-        return {**pedido, "itens": itens, "eventos": eventos}
+
+        # TICKET-I.1 — o pedido guarda `paciente_id`, não a identidade. A tela do
+        # laboratório sempre esperou os campos resolvidos (`renderizarPedido` já
+        # os procurava desde antes), e sem eles mostrava "Paciente: —" e não
+        # tinha como preencher o laudo. Sem escopo novo: quem chega aqui já
+        # passou pelo ownership acima e já enxerga itens e eventos.
+        pac = conn.execute(
+            "SELECT nome, cpf FROM pacientes WHERE id = ?", (pedido["paciente_id"],)
+        ).fetchone() if pedido.get("paciente_id") else None
+
+        # Laudo VIGENTE do pedido (não-terminal), se houver. É o que permite à
+        # tela travar "Produzir laudo" mesmo depois de um reload — antes o
+        # vínculo só vivia na sessão JS, e recarregar a página abria caminho
+        # para um segundo laudo do mesmo pedido.
+        _terminais = tuple(sorted(ESTADOS_TERMINAIS_LAUDO))
+        laudo = conn.execute(
+            "SELECT protocolo, status FROM laudos "
+            f"WHERE pedido_id = ? AND status NOT IN ({','.join('?' * len(_terminais))}) "
+            "ORDER BY id DESC LIMIT 1",
+            (pedido["id"], *_terminais),
+        ).fetchone()
+
+        return {
+            **pedido,
+            "paciente_nome":   pac["nome"] if pac else None,
+            "paciente_cpf":    pac["cpf"] if pac else None,
+            "laudo_protocolo": laudo["protocolo"] if laudo else None,
+            "laudo_status":    laudo["status"] if laudo else None,
+            "itens":           itens,
+            "eventos":         eventos,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -1029,6 +1060,123 @@ def coletar_item_exame(
             "protocolo":     protocolo,
             "item_id":       item_id,
             "status_item":   "coletado",
+            "status_pedido": novo_status,
+        }
+
+
+# ---------------------------------------------------------------------------
+# POST /pedidos-exame/{protocolo}/itens/{item_id}/em-analise — "enviar à bancada"
+# Transição do item: coletado → em_analise
+#
+# TICKET-B (demo laboratório, decisão #4). Até aqui `em_analise` era estado
+# FANTASMA: declarado em states_exame.py, na lista branca de transições e no
+# vocabulário de eventos — mas nenhum endpoint o persistia. O /resultado emitia
+# `pedido_em_analise` como marco intermediário e escrevia `resultado_disponivel`
+# direto; o item nunca REPOUSAVA na bancada. Este endpoint materializa a
+# transição que o contrato já previa, para que a clínica possa dizer "mandei
+# para a bancada" e o laudo ser produzido a partir daí.
+#
+# FRONTEIRA LIMS: `setor` é texto livre para visibilidade operacional ("bancada
+# de bioquímica"). Roteamento interno — analisador, técnico, fila de
+# equipamento, lote — é o LIMS do laboratório, NÃO o PicSaúde. O dia em que
+# `setor` virar fila de máquina, virou outro produto.
+# ---------------------------------------------------------------------------
+
+class EmAnaliseIn(BaseModel):
+    # max_length é higiene, não regra de negócio: texto livre que entra em
+    # ledger imutável (§2) não tem como ser corrigido depois.
+    setor: Optional[str] = Field(default=None, max_length=120)
+
+
+@router.post("/{protocolo}/itens/{item_id}/em-analise", status_code=200)
+def enviar_item_a_bancada(
+    protocolo: str,
+    item_id: int,
+    # Corpo opcional (precedente: circulacao_diagnostica.py:664) — enviar à
+    # bancada sem declarar setor é o caso comum.
+    payload: EmAnaliseIn = Body(default=EmAnaliseIn()),
+    # Quem envia à bancada é a UNIDADE que detém o pedido; o prescritor não
+    # participa deste gesto (não é dele a bancada).
+    usuario=Depends(require_role("dispensador", "admin")),
+):
+    """
+    Envia um item coletado à bancada do laboratório.
+
+    Item: coletado → em_analise
+    Status do pedido recalculado automaticamente via derivar_status_pedido().
+    """
+    agora = datetime.utcnow().isoformat()
+
+    # TICKET-5C-BIS-A §7.2 — dispensador valida ownership; admin bypassa.
+    # 404 → 403 → 422 de estado (anti-leak #52).
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
+    # String vazia não é setor declarado — o ledger não deve guardar "" como se
+    # fosse um dado que alguém informou.
+    setor = (payload.setor or "").strip() or None
+
+    with get_tx() as conn:
+        pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
+
+        if eh_terminal_pedido(pedido["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Pedido '{protocolo}' está em estado terminal.",
+            )
+
+        item = conn.execute(
+            "SELECT * FROM pedido_exame_itens WHERE id = ? AND pedido_id = ?",
+            (item_id, pedido["id"]),
+        ).fetchone()
+
+        if not item:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Item {item_id} não encontrado no pedido '{protocolo}'.",
+            )
+
+        if item["status_item"] != "coletado":
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Envio à bancada requer item em 'coletado'. "
+                    f"Status atual: '{item['status_item']}'."
+                ),
+            )
+
+        conn.execute(
+            "UPDATE pedido_exame_itens SET status_item = 'em_analise' WHERE id = ?",
+            (item_id,),
+        )
+
+        novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
+
+        ev_bancada = {
+            "item_id":    item_id,
+            "nome_exame": item["nome_exame"],
+            "setor":      setor,
+        }
+        instance_id = get_instance_id_conn(conn)
+        registrar_evento_ledger(
+            conn,
+            objeto_tipo="pedido_exame",
+            objeto_id=pedido["id"],
+            tipo_evento="pedido_em_analise",
+            instance_id=instance_id,
+            payload=ev_bancada,
+        )
+        registrar_outbox(
+            conn, "pedido_em_analise", "pedido_exame", protocolo, ev_bancada,
+            instance_id=instance_id,
+        )
+
+        return {
+            "protocolo":     protocolo,
+            "item_id":       item_id,
+            "status_item":   "em_analise",
             "status_pedido": novo_status,
         }
 

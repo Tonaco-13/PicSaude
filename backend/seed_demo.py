@@ -103,6 +103,12 @@ CLINICA = dict(
     unidade_tipo="laboratorio",
 )
 
+# TICKET-I.3 — códigos SIGTAP (tabela do SUS) dos exames semeados, pares dos
+# TUSS que já existiam. Vivem aqui, nomeados, e não soltos no meio do INSERT:
+# são dado de catálogo regulatório, não literal de conveniência.
+_SIGTAP_HEMOGRAMA = "0202020380"   # Hemograma completo
+_SIGTAP_GLICEMIA  = "0202010473"   # Glicose (dosagem)
+
 
 def _agora() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -444,10 +450,15 @@ def _garantir_pedido_exame_ativo(conn) -> None:
     ).fetchone()["id"]
 
     # Item: hemograma completo (pendente — aguardando agendamento/coleta)
+    # TICKET-I.3 — classificado nas DUAS tabelas: TUSS (planos de saúde) e
+    # SIGTAP (SUS). Sem o SIGTAP, `?agrupar_por=sigtap` jogava tudo em
+    # "(não classificado)" na vitrine, e a narrativa "mesma produção, pagadores
+    # diferentes" (decisão #3 da demo) não tinha o que mostrar.
     conn.execute(
         "INSERT INTO pedido_exame_itens (pedido_id, nome_exame, codigo_tuss, "
-        "status_item, quantidade, criado_em) VALUES (?, ?, ?, 'pendente', 1, ?)",
-        (pid, "Hemograma completo", "40301107", now),
+        "codigo_sigtap, status_item, quantidade, criado_em) "
+        "VALUES (?, ?, ?, ?, 'pendente', 1, ?)",
+        (pid, "Hemograma completo", "40301107", _SIGTAP_HEMOGRAMA, now),
     )
 
     # Custódia prescritor → paciente: mesma forma que a emissão digital grava
@@ -535,11 +546,13 @@ def _garantir_laudo_demo(conn) -> None:
     ).fetchone()["id"]
 
     # Item: glicemia de jejum (resultado_disponivel, com resultado preenchido)
+    # TICKET-I.3 — é ESTE o item que aparece no faturamento (tem `resultado_em`),
+    # então é ele que sustenta a comparação TUSS × SIGTAP na apresentação.
     conn.execute(
         "INSERT INTO pedido_exame_itens (pedido_id, nome_exame, codigo_tuss, "
-        "status_item, quantidade, resultado_resumo, resultado_em, criado_em) "
-        "VALUES (?, ?, ?, 'resultado_disponivel', 1, ?, ?, ?)",
-        (pid, "Glicemia de jejum", "40302055",
+        "codigo_sigtap, status_item, quantidade, resultado_resumo, resultado_em, criado_em) "
+        "VALUES (?, ?, ?, ?, 'resultado_disponivel', 1, ?, ?, ?)",
+        (pid, "Glicemia de jejum", "40302055", _SIGTAP_GLICEMIA,
          "98 mg/dL (referência: 70-99 mg/dL)", now, now),
     )
 
