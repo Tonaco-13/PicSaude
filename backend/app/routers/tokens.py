@@ -200,6 +200,33 @@ class ResolverTokenIn(BaseModel):
         return v.strip().upper()
 
 
+# TICKET-J.6.b — que objeto sanitário é este protocolo, se pertencer ao paciente?
+# Cada objeto guarda o dono por caminho próprio; a consulta é escrita por extenso
+# em vez de generalizada, porque generalizar aqui exigiria uma tabela de metadados
+# que o projeto não tem — e inventá-la para uma mensagem de erro seria caro.
+_OBJETOS_DO_PACIENTE = (
+    ("atestado",         "SELECT 1 FROM atestados a JOIN pacientes pa ON pa.id = a.paciente_id "
+                         "WHERE a.protocolo = ? AND pa.cpf = ?"),
+    ("pedido de exame",  "SELECT 1 FROM pedidos_exame pe JOIN pacientes pa ON pa.id = pe.paciente_id "
+                         "WHERE pe.protocolo = ? AND pa.cpf = ?"),
+    ("laudo",            "SELECT 1 FROM laudos l JOIN pacientes pa ON pa.id = l.paciente_id "
+                         "WHERE l.protocolo = ? AND pa.cpf = ?"),
+)
+
+
+def _tipo_de_objeto_do_paciente(conn, proto: str, cpf: str) -> str | None:
+    """Rótulo do objeto sanitário, ou None se não for do paciente autenticado."""
+    for rotulo, sql in _OBJETOS_DO_PACIENTE:
+        try:
+            if conn.execute(sql, (proto, cpf)).fetchone():
+                return rotulo
+        except Exception:  # noqa: BLE001
+            # Tabela ausente em algum ambiente não pode derrubar a emissão do
+            # token: isto é enfeite de mensagem, não caminho clínico.
+            continue
+    return None
+
+
 # ---------------------------------------------------------------------------
 # POST /tokens/apresentacao — paciente gera token
 # ---------------------------------------------------------------------------
@@ -238,6 +265,25 @@ def gerar_token(
         ).fetchone()
 
         if not prescricao:
+            # TICKET-J.6.b — o token de apresentação é da RECEITA. Quando o
+            # visitante da demo colava o protocolo de um atestado aqui, a
+            # resposta era "Prescrição não encontrada" — mensagem que sugere
+            # objeto perdido quando o objeto existe e apenas não usa este
+            # mecanismo. Dizer o tipo é a diferença entre "sumiu" e "não é aqui".
+            #
+            # ANTI-LEAK: o tipo só é revelado se o objeto for DO PRÓPRIO paciente
+            # autenticado. Para protocolo alheio (ou inexistente) a resposta
+            # continua sendo a genérica — nada de confirmar existência a terceiro.
+            tipo = _tipo_de_objeto_do_paciente(conn, proto, cpf_paciente)
+            if tipo:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Este protocolo é de {tipo}, que não usa token de "
+                        "apresentação — o token existe para a receita ser "
+                        "apresentada no balcão da farmácia."
+                    ),
+                )
             raise HTTPException(status_code=404, detail="Prescrição não encontrada.")
 
         if prescricao["cpf"] != cpf_paciente:

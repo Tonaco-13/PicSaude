@@ -457,3 +457,117 @@ function renderizarPainelChavesDemo(_cfg, opcoes = {}) {
 
     document.body.insertBefore(painel, document.body.firstChild);
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// TICKET-J.3 — Login invisível na demo (re-login transparente)
+//
+// O PROBLEMA (parecer da excursão de 14/08, §3): `JWT_ACCESS_TTL_MINUTES = 15`.
+// Passou de 15 minutos de uso, o próximo request leva 401, e os módulos mostravam
+// "Sessão expirada. Faça login novamente." + `sair()` → tela de acesso. O
+// auto-login demo existe nos 4 módulos, mas só roda no CARREGAMENTO da página —
+// não socorre sessão que expira no meio da visita.
+//
+// O QUE **NÃO** MUDA: JWT e RBAC continuam de pé. `/demo/login` emite JWT real e
+// o `require_role` nem sabe que é demo — esse é o desenho correto e é `core`.
+// O que sai é o ATRITO: em modo demo a sessão nasce sozinha e RENASCE sozinha.
+//
+// POR QUE ENVOLVER `window.fetch`: são 91 chamadas de fetch nos 4 módulos.
+// "Interceptador único" só existe de verdade num ponto que todas atravessam.
+// Envolver aqui, no arquivo que os 4 já carregam, evita 91 pontos de edição —
+// e evita que o próximo `fetch` escrito amanhã nasça desprotegido.
+// ─────────────────────────────────────────────────────────────────────────
+
+let _reloginEmVoo = null;   // mutex: N requests que expiram juntos renovam UMA vez
+let _reloginCfg = null;     // {api, role, aoRenovar} — preenchido na instalação
+
+/** Está em modo demo com re-login instalado? */
+function emDemoComRelogin() { return _reloginCfg !== null; }
+
+/**
+ * Renova a sessão demo sob demanda. Usado pelos módulos quando um 401 escapa do
+ * interceptador (ex.: `handleUnauthorized`) ou quando o visitante clica "Sair":
+ * em demo não existe "ficar deslogado" — a sessão renasce.
+ * @returns {Promise<object|null>} dados do /demo/login, ou null se falhou.
+ */
+async function renovarSessaoDemo() {
+    if (!_reloginCfg) return null;
+    return _reloginCfg.__renovar();
+}
+
+/**
+ * Instala o re-login transparente. Só tem efeito em DEMO_MODE.
+ *
+ * @param {object}   opcoes
+ * @param {string}   opcoes.api        base da API (ex.: BACKEND)
+ * @param {string}   opcoes.role       papel demo deste módulo ('paciente'|'prescritor'|'dispensador')
+ * @param {function} opcoes.aoRenovar  callback(data) — o módulo atualiza o token em memória
+ */
+function instalarReloginDemo({ api, role, aoRenovar }) {
+    if (window.__picsaudeReloginInstalado) return;   // idempotente
+    window.__picsaudeReloginInstalado = true;
+
+    const fetchOriginal = window.fetch.bind(window);
+
+    async function renovarSessao() {
+        // Um único /demo/login por rajada de 401 — sem o mutex, dez requests
+        // simultâneos disparariam dez logins e o último venceria a corrida.
+        if (_reloginEmVoo) return _reloginEmVoo;
+        _reloginEmVoo = (async () => {
+            try {
+                const resp = await fetchOriginal(`${api}/demo/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role }),
+                });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                sessionStorage.setItem('picsaude_demo_token', data.access_token);
+                sessionStorage.setItem('picsaude_demo_role',  data.role);
+                sessionStorage.setItem('picsaude_demo_sub',   data.sub);
+                sessionStorage.setItem('picsaude_demo_nome',  data.nome);
+                if (typeof aoRenovar === 'function') aoRenovar(data);
+                return data;
+            } catch (_e) {
+                return null;
+            } finally {
+                _reloginEmVoo = null;
+            }
+        })();
+        return _reloginEmVoo;
+    }
+
+    _reloginCfg = { api, role, aoRenovar, __renovar: renovarSessao };
+
+    window.fetch = async function (entrada, init) {
+        const resp = await fetchOriginal(entrada, init);
+        if (resp.status !== 401) return resp;
+
+        const url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+        // Nunca interceptar a própria renovação: 401 ali é falha real e
+        // recursão aqui seria laço infinito.
+        if (url.indexOf('/demo/login') !== -1) return resp;
+        // Uma tentativa por request. Se o retry também levar 401, o módulo
+        // trata como sempre tratou — a rede de segurança não vira armadilha.
+        if (init && init.__reloginTentado) return resp;
+        // Sem `init` não dá para reemitir com o header novo (corpo de Request
+        // já pode ter sido consumido); devolve o 401 em vez de arriscar.
+        if (!init) return resp;
+
+        const dados = await renovarSessao();
+        if (!dados || !dados.access_token) return resp;
+        const novoToken = dados.access_token;
+
+        // O header velho carrega o token expirado — trocar é o ponto todo.
+        const headers = Object.assign({}, init.headers || {});
+        for (const k of Object.keys(headers)) {
+            if (k.toLowerCase() === 'authorization') delete headers[k];
+        }
+        headers.Authorization = `Bearer ${novoToken}`;
+
+        return fetchOriginal(entrada, Object.assign({}, init, {
+            headers,
+            __reloginTentado: true,
+        }));
+    };
+}
