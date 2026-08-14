@@ -55,6 +55,8 @@ import json
 from dataclasses import dataclass
 from typing import Optional
 
+from app.utils.helpers import normalize_nome
+
 # ---------------------------------------------------------------------------
 # Versão do esquema — incrementar se campos obrigatórios mudarem
 # ---------------------------------------------------------------------------
@@ -196,15 +198,27 @@ def montar_documento_de_conn(conn, protocolo: str) -> Optional[DocumentoCanonico
 
     itens_dicts = [dict(r) for r in itens_rows]
 
+    # TICKET-J.2 (core) — a EMISSÃO hasheia `normalize_nome(payload.nome_*)`
+    # (maiúsculas, espaços colapsados), mas NÃO reescreve a linha do paciente
+    # quando ela já existe: resolve por CPF e reaproveita o nome que estiver lá.
+    # Um paciente semeado como "João Demo da Silva" fazia a reconstrução ler
+    # Title Case e o hash NUNCA casar — `integro: false` em receita recém-emitida,
+    # e a `/validacao` acusando adulteração que não houve.
+    #
+    # Normalizar aqui é restaurar a simetria: a caixa do nome nunca fez parte do
+    # que o hash promete (a emissão já a descartava). Não afrouxa a verificação —
+    # trocar o nome por OUTRO segue quebrando o hash, que é o que ela existe para
+    # detectar. `normalize_nome` é idempotente, então documentos cujo nome já
+    # estava em maiúsculas continuam com o mesmo hash.
     resultado = montar_documento(
         protocolo       = row["protocolo"],
         data_emissao    = row["data_emissao"],
         tipo_emissao    = row["tipo_emissao"],
         assinatura_modo = row["assinatura_modo"],
         cns_prescritor  = row["cns_prescritor"],
-        nome_prescritor = row["nome_prescritor"],
+        nome_prescritor = normalize_nome(row["nome_prescritor"]),
         cpf_paciente    = row["cpf_paciente"],
-        nome_paciente   = row["nome_paciente"],
+        nome_paciente   = normalize_nome(row["nome_paciente"]),
         itens           = itens_dicts,
     )
 
