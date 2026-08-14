@@ -216,7 +216,19 @@ _ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"agendado", "coletado", "em_analise"})
 
 # Pedido some da fila quando atinge estado terminal — a custódia histórica
 # continua gravada, mas a fila é de trabalho pendente (critério §4.5 do ticket).
-_ESTADOS_PEDIDO_FIM_FILA = frozenset({"encerrado", "cancelado", "expirado", "encerrado_fisico"})
+# TICKET-J.1 (companheiro): `resultado_disponivel` entrou aqui. Antes do J.1, o
+# pedido com todos os itens laudados era derivado como `encerrado` e saía da fila
+# por esse caminho; agora ele REPOUSA em `resultado_disponivel` aguardando a
+# ciência do cidadão — ato que não é do laboratório. Sem esta linha, o pedido
+# ficaria preso na fila do lab para sempre, sem nenhum item acionável.
+#
+# Não afrouxa o critério: `resultado_disponivel` no PEDIDO só é derivado quando
+# NENHUM item está fora de estado terminal (ver `derivar_status_pedido`) — ou
+# seja, não há trabalho de bancada pendente. O nome da constante é "fim da fila",
+# não "estado terminal": é sobre o lab ter terminado, não sobre o objeto.
+_ESTADOS_PEDIDO_FIM_FILA = frozenset({
+    "encerrado", "cancelado", "expirado", "encerrado_fisico", "resultado_disponivel",
+})
 
 
 @router.get("/fila-exames")
