@@ -49,6 +49,13 @@
     /* KIMI3-007 — botões de relatório/faturamento no header (portado de dispensador.html) */
     .btn-rel { padding: 6px 12px; border-radius: 6px; border: 1.5px solid #1a5276; background: #fff; color: #1a5276; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
     .btn-rel:hover { background: #eaf2f8; }
+    /* TICKET-I.2 — seletor do critério de faturamento, colado aos botões do
+       header para ler como um controle só ("agregar por X, baixar"). */
+    .sel-rel { padding: 6px 8px; border-radius: 6px; border: 1.5px solid #1a5276; background: #fff; color: #1a5276; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .sel-rel:focus-visible { outline: 2px solid #1a5276; outline-offset: 1px; }
+    /* Rótulo só para leitor de tela: o <select> precisa de nome acessível, mas
+       o header não tem espaço para texto visível. */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
     /* ============================================================ */
     /* Layout principal                                             */
@@ -336,6 +343,18 @@
       border: 1px solid #a5f3fc;
     }
 
+    /* TICKET-F — gesto "Enviar à bancada" (coletado → em_analise).
+       Âmbar: é passo INTERMEDIÁRIO, não conclusão. Verde (btn-resultado) fica
+       reservado para o que fecha o ciclo — se os dois tivessem a mesma cor, o
+       operador leria "enviar à bancada" como se já tivesse resultado. */
+    .btn-bancada {
+      padding: 8px 20px; border-radius: 7px; border: none; cursor: pointer;
+      background: #b45309; color: #fff; font-size: 13px; font-weight: 700;
+      transition: background 0.15s;
+    }
+    .btn-bancada:hover { background: #d97706; }
+    .btn-bancada:disabled { background: #94a3b8; cursor: not-allowed; }
+
     /* KIMI3-007 — registro de resultado pela UI (arco V2, R1) */
     .btn-resultado {
       padding: 8px 20px; border-radius: 7px; border: none; cursor: pointer;
@@ -349,6 +368,77 @@
       font-size: 13px; color: #166534; font-weight: 600;
       background: #f0fdf4; padding: 6px 12px; border-radius: 6px;
       border: 1px solid #86efac;
+    }
+
+    /* ── TICKET-G — produção do laudo estruturado ───────────────────────── */
+    .btn-laudo {
+      margin-top: 14px; padding: 10px 22px; border-radius: 7px; border: none;
+      cursor: pointer; background: #6d28d9; color: #fff; font-size: 14px;
+      font-weight: 700; transition: background 0.15s;
+    }
+    .btn-laudo:hover { background: #7c3aed; }
+    .btn-laudo:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    .laudo-editor {
+      margin-top: 14px; padding: 16px; border-radius: 8px;
+      background: #faf5ff; border: 1px solid #ddd6fe;
+    }
+    .laudo-editor h4 {
+      margin: 0 0 4px; font-size: 14px; color: #5b21b6;
+    }
+    .laudo-editor .laudo-sub {
+      margin: 0 0 14px; font-size: 12px; color: #64748b;
+    }
+    .laudo-item {
+      background: #fff; border: 1px solid #e9d5ff; border-radius: 7px;
+      padding: 12px; margin-bottom: 10px;
+    }
+    .laudo-item-nome {
+      font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 8px;
+    }
+    .laudo-item-nome .laudo-tuss {
+      font-weight: 400; color: #64748b; font-size: 11px; margin-left: 6px;
+    }
+    .laudo-campo { margin-bottom: 8px; }
+    .laudo-campo label {
+      display: block; font-size: 11px; font-weight: 700; color: #475569;
+      text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px;
+    }
+    .laudo-campo input, .laudo-campo select {
+      width: 100%; padding: 7px 10px; border: 1px solid #cbd5e1;
+      border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff;
+    }
+    .laudo-campo input:focus, .laudo-campo select:focus {
+      outline: 2px solid #a78bfa; outline-offset: 1px; border-color: #a78bfa;
+    }
+    .laudo-rt {
+      background: #fff; border: 1px dashed #c4b5fd; border-radius: 7px;
+      padding: 12px; margin-bottom: 12px;
+    }
+    .laudo-rt-titulo { font-size: 12px; font-weight: 700; color: #5b21b6; margin-bottom: 8px; }
+    .laudo-rt-nota { font-size: 11px; color: #64748b; margin-top: 6px; line-height: 1.45; }
+    .laudo-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .laudo-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .btn-laudo-cancelar {
+      padding: 9px 18px; border-radius: 7px; border: 1px solid #cbd5e1;
+      background: #fff; color: #475569; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+
+    .laudo-painel {
+      margin-top: 14px; padding: 14px 16px; border-radius: 8px;
+      background: #f5f3ff; border: 1px solid #ddd6fe;
+    }
+    .laudo-painel-linha { font-size: 13px; color: #1e293b; margin-bottom: 6px; }
+    .laudo-painel-proto { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #64748b; }
+    .laudo-etapas { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+    .laudo-etapa {
+      font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px;
+      background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe;
+    }
+    .laudo-etapa.feita { background: #dcfce7; color: #166534; border-color: #86efac; }
+
+    @media (max-width: 560px) {
+      .laudo-grid2 { grid-template-columns: 1fr; }
     }
 
     /* ============================================================ */
@@ -538,6 +628,14 @@
       <span class="header-user" id="header-nome-clinica"></span>
       <button type="button" class="btn-rel" onclick="abrirRelatorioExames('csv')">🔬 Relatório (CSV)</button>
       <button type="button" class="btn-rel" onclick="abrirRelatorioExames('pdf')">🔬 Relatório (PDF)</button>
+      <!-- TICKET-I.2 — o faturamento conta a MESMA produção por pagadores
+           diferentes: TUSS (planos) ou SIGTAP (SUS). O critério existia só na
+           URL; aqui vira escolha visível, ao lado do botão que o consome. -->
+      <label class="sr-only" for="faturamento-criterio">Critério de agregação do faturamento</label>
+      <select id="faturamento-criterio" class="sel-rel" title="Tabela usada para agregar o faturamento">
+        <option value="tuss" selected>TUSS (planos)</option>
+        <option value="sigtap">SIGTAP (SUS)</option>
+      </select>
       <button type="button" class="btn-rel" onclick="abrirFaturamento('csv')">💰 Faturamento</button>
       <button class="btn-logout" onclick="logout()">Sair</button>
     </div>
@@ -677,6 +775,13 @@
         <div class="card">
           <div class="card-titulo">Exames Solicitados</div>
           <div id="lista-itens"></div>
+          <!-- TICKET-G — o laudo é do PEDIDO, não do item: um laudo cobre os
+               exames que estão na bancada. Por isso o gatilho e o editor vivem
+               no rodapé do card, e não dentro de cada item. -->
+          <div id="acoes-laudo"></div>
+          <div id="feedback-laudo" class="hidden"></div>
+          <div id="editor-laudo" class="hidden"></div>
+          <div id="painel-laudo" class="hidden"></div>
         </div>
 
       </div>
@@ -1266,10 +1371,27 @@
           return;
         }
 
+        // TICKET-G — o laudo pertence AO PEDIDO aberto. Trocar de pedido sem
+        // limpar deixaria o painel do laudo anterior na tela e, pior, o retry
+        // reaproveitaria um laudo de outro paciente.
+        _limparEstadoLaudo();
+
         pedidoAtual = await resp.json();
         renderizarPedido(pedidoAtual);
         document.getElementById('resultado-pedido').classList.remove('hidden');
         await carregarAgendamentos(protocolo);
+
+        // TICKET-I.1 — ADOTA o laudo vigente que o backend informa. `laudoDoPedido`
+        // morria no F5; sem isto, um pedido cujo laudo já existe (ex.: falha
+        // parcial ao fechar os itens) faria o próximo clique emitir um SEGUNDO
+        // laudo. Adotar é melhor que bloquear o botão: preserva o retry do
+        // Ticket G — que conclui o laudo existente — e torna a duplicação
+        // impossível pelo mesmo caminho.
+        if (pedidoAtual.laudo_protocolo) {
+          laudoDoPedido = pedidoAtual.laudo_protocolo;
+          await atualizarPainelLaudo();
+          if (pedidoAtual.laudo_status !== 'encerrado') _iniciarPollingLaudo();
+        }
 
       } catch (_) {
         erroEl.textContent = 'Falha de rede. Verifique a conexão com o backend.';
@@ -1281,6 +1403,7 @@
       document.getElementById('resultado-pedido').classList.add('hidden');
       pedidoAtual = null;
       agendamentosAtuais = [];
+      _limparEstadoLaudo();
       document.getElementById('busca-protocolo').value = '';
       document.getElementById('busca-protocolo').focus();
     }
@@ -1636,12 +1759,24 @@
             Registrar coleta
           </button>`;
         } else if (item.status_item === 'coletado') {
-          acoesHtml = `<button class="btn-resultado" id="btn-resultado-${item.id}"
+          // TICKET-F — dois caminhos legítimos a partir de 'coletado':
+          //   "Enviar à bancada" → em_analise (o material vai ser processado)
+          //   "Registrar resultado" → resultado_disponivel (atalho: o backend
+          //     aceita resultado direto de 'coletado', e para exame de leitura
+          //     imediata passar pela bancada seria burocracia inventada).
+          acoesHtml = `<button class="btn-bancada" id="btn-bancada-${item.id}"
+            onclick="registrarBancada(${item.id})">
+            Enviar à bancada
+          </button>
+          <button class="btn-resultado" id="btn-resultado-${item.id}"
             onclick="registrarResultado(${item.id})">
             Registrar resultado
           </button>`;
         } else if (item.status_item === 'em_analise') {
-          acoesHtml = `<span class="laudo-aguardo">⏳ Em análise — resultado em breve.</span>`;
+          // O gesto que tira o item daqui é "Produzir laudo", no nível do PEDIDO
+          // (Ticket G) — um laudo cobre o pedido, não o item. Por isso não há
+          // botão por item neste estado.
+          acoesHtml = `<span class="laudo-aguardo">⏳ Na bancada — aguardando laudo</span>`;
         } else if (item.status_item === 'resultado_disponivel') {
           acoesHtml = `<span class="laudo-pronto">✓ Resultado disponível</span>`;
         }
@@ -1660,6 +1795,8 @@
           </div>
         `;
       }).join('');
+
+      renderizarGatilhoLaudo(itens);   // TICKET-G — o laudo é do pedido
     }
 
     // ─────────────────────────────────────────
@@ -1677,7 +1814,12 @@
           { method: 'POST', headers: authHeaders(), body: '{}' }
         );
 
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-I.4 — 403 aqui é POSSE (custódia do pedido), não sessão
+        // expirada. Tratá-lo como expiração deslogava o operador que abrisse um
+        // pedido de outra unidade: ele perdia a sessão e não descobria o motivo.
+        // Só 401 encerra a sessão. Mesmo padrão de `registrarBancada` e
+        // `carregarAgendamentos`.
+        if (resp.status === 401) { handleUnauthorized(); return; }
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
@@ -1692,6 +1834,420 @@
       } catch (_) {
         if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
         alert('Falha de rede ao registrar coleta.');
+      }
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // LAUDO ESTRUTURADO (TICKET-G) — a pedra angular da demo
+    //
+    // O laudo é o ARTEFATO CLÍNICO; o `resultado_resumo` do item é só o
+    // ponteiro. Quem assina é sempre o Responsável Técnico (CNS): o
+    // dispensador PRODUZ EM NOME DELE e o `autor_id` nunca vira o CNPJ
+    // (TICKET-C). Ao liberar, o laudo passa à CUSTÓDIA DO CIDADÃO — é a
+    // política de docs/POLITICA_CUSTODIA_CLINICA_LAUDO.md acontecendo na tela.
+    // ═════════════════════════════════════════════════════════════
+
+    // Protocolo do laudo já criado NESTE pedido, para o retry não gerar um
+    // segundo laudo (risco declarado no ticket). Some ao trocar de pedido.
+    let laudoDoPedido = null;
+
+    const _CONCLUSOES = ['normal', 'alterado', 'indeterminado', 'inconclusivo'];
+
+    // A ciência acontece na tela DO CIDADÃO, noutra máquina. Sem um poll, o
+    // laboratório só saberia dela na próxima mutação do pedido — e depois de
+    // liberar não há mais mutação nenhuma, então nunca saberia. 30s, o mesmo
+    // ritmo da fila (GAP-4).
+    let _laudoPollTimer = null;
+
+    function _iniciarPollingLaudo() {
+      if (_laudoPollTimer) clearInterval(_laudoPollTimer);
+      _laudoPollTimer = setInterval(atualizarPainelLaudo, 30000);
+    }
+
+    function _pararPollingLaudo() {
+      if (_laudoPollTimer) { clearInterval(_laudoPollTimer); _laudoPollTimer = null; }
+    }
+
+    function _limparEstadoLaudo() {
+      _pararPollingLaudo();
+      laudoDoPedido = null;
+      for (const id of ['editor-laudo', 'painel-laudo', 'acoes-laudo', 'feedback-laudo']) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        el.innerHTML = '';
+        if (id !== 'acoes-laudo') el.classList.add('hidden');
+      }
+    }
+
+    function _itensNaBancada(itens) {
+      return (itens || []).filter(i => i.status_item === 'em_analise');
+    }
+
+    function renderizarGatilhoLaudo(itens) {
+      const el = document.getElementById('acoes-laudo');
+      if (!el) return;
+      const naBancada = _itensNaBancada(itens);
+
+      // O gatilho só existe quando há material na bancada. Não é cosmético: é o
+      // mesmo critério que o backend exige (o laudo cobre o que está em análise),
+      // e é o que impede laudo duplicado — feito o ciclo, os itens saem de
+      // `em_analise` e o botão desaparece sozinho.
+      if (!naBancada.length) { el.innerHTML = ''; return; }
+
+      const editorAberto = !document.getElementById('editor-laudo').classList.contains('hidden');
+      el.innerHTML = `
+        <button class="btn-laudo" id="btn-produzir-laudo"
+          onclick="abrirEditorLaudo()" ${editorAberto ? 'disabled' : ''}>
+          🔬 Produzir laudo (${naBancada.length} ${naBancada.length === 1 ? 'exame' : 'exames'})
+        </button>`;
+    }
+
+    function abrirEditorLaudo() {
+      const naBancada = _itensNaBancada(pedidoAtual && pedidoAtual.itens);
+      if (!naBancada.length) {
+        mostrarFeedback('feedback-laudo', 'err',
+          'Nenhum exame na bancada. Envie ao menos um item à bancada antes de laudar.');
+        return;
+      }
+
+      // RT pré-preenchido pela FONTE ÚNICA das identidades da demo (config.js
+      // DEMO.*) — nunca literal na tela. Campos seguem editáveis: em produção o
+      // RT é o profissional do laboratório, não o prescritor do seed.
+      const rtCns  = (typeof DEMO !== 'undefined' && DEMO.prescritor) ? DEMO.prescritor.cns  : '';
+      const rtNome = (typeof DEMO !== 'undefined' && DEMO.prescritor) ? DEMO.prescritor.nome : '';
+
+      const camposItens = naBancada.map(item => `
+        <div class="laudo-item" data-item-id="${item.id}">
+          <div class="laudo-item-nome">${esc(item.nome_exame)}
+            ${item.codigo_tuss ? `<span class="laudo-tuss">TUSS ${esc(item.codigo_tuss)}</span>` : ''}
+            ${item.codigo_sigtap ? `<span class="laudo-tuss">SIGTAP ${esc(item.codigo_sigtap)}</span>` : ''}
+          </div>
+          <div class="laudo-campo">
+            <label for="laudo-resumo-${item.id}">Resultado</label>
+            <input type="text" id="laudo-resumo-${item.id}" class="laudo-resumo"
+                   placeholder="ex.: Glicemia 92 mg/dL">
+          </div>
+          <div class="laudo-grid2">
+            <div class="laudo-campo">
+              <label for="laudo-conclusao-${item.id}">Conclusão</label>
+              <select id="laudo-conclusao-${item.id}" class="laudo-conclusao">
+                ${_CONCLUSOES.map(c => `<option value="${c}">${c}</option>`).join('')}
+              </select>
+            </div>
+            <div class="laudo-campo">
+              <label for="laudo-ref-${item.id}">Valor de referência</label>
+              <input type="text" id="laudo-ref-${item.id}" class="laudo-ref"
+                     placeholder="ex.: 70–99 mg/dL">
+            </div>
+          </div>
+        </div>`).join('');
+
+      const editor = document.getElementById('editor-laudo');
+      editor.innerHTML = `
+        <div class="laudo-editor">
+          <h4>Produzir laudo do pedido</h4>
+          <p class="laudo-sub">Ao liberar, o laudo vai à <strong>custódia do cidadão</strong>.
+             O laboratório retém o rastro (protocolo, hash, ledger, cadeia de custódia).</p>
+
+          <div class="laudo-rt">
+            <div class="laudo-rt-titulo">Responsável Técnico</div>
+            <div class="laudo-grid2">
+              <div class="laudo-campo">
+                <label for="laudo-rt-cns">CNS do RT</label>
+                <input type="text" id="laudo-rt-cns" value="${esc(rtCns)}"
+                       inputmode="numeric" maxlength="15">
+              </div>
+              <div class="laudo-campo">
+                <label for="laudo-rt-nome">Nome do RT</label>
+                <input type="text" id="laudo-rt-nome" value="${esc(rtNome)}">
+              </div>
+            </div>
+            <p class="laudo-rt-nota">O laudo é sempre atribuído ao RT. A unidade produz
+               <em>em nome dele</em> — o CNPJ fica registrado no ledger como produtor, nunca como autor.</p>
+          </div>
+
+          ${camposItens}
+
+          <div class="laudo-acoes">
+            <button class="btn-laudo" id="btn-liberar-laudo" onclick="produzirLiberarLaudo()">
+              Assinar e liberar ao cidadão
+            </button>
+            <button class="btn-laudo-cancelar" onclick="fecharEditorLaudo()">Cancelar</button>
+          </div>
+        </div>`;
+      editor.classList.remove('hidden');
+      renderizarGatilhoLaudo(pedidoAtual.itens);   // desabilita o gatilho
+    }
+
+    function fecharEditorLaudo() {
+      const editor = document.getElementById('editor-laudo');
+      editor.innerHTML = '';
+      editor.classList.add('hidden');
+      renderizarGatilhoLaudo(pedidoAtual && pedidoAtual.itens);
+    }
+
+    // O laudo exige `cpf_paciente`/`nome_paciente`, e o backend confere que o
+    // paciente do laudo é o do pedido vinculado (`vinculo_pedido_invalido`).
+    //
+    // TICKET-I.1 — a identidade agora vem do PRÓPRIO pedido: o
+    // `GET /pedidos-exame/{proto}` passou a resolver `paciente_nome`/
+    // `paciente_cpf`. Antes, o Ticket G a buscava na fila do laboratório —
+    // correto por construção, mas frágil: dependia de o pedido estar na fila e
+    // de uma segunda requisição. Uma fonte, um lugar.
+    function _identidadePacienteDoPedido() {
+      const cpf = String((pedidoAtual && pedidoAtual.paciente_cpf) || '').replace(/\D/g, '');
+      if (cpf.length !== 11) return null;          // inclui a sentinela e o vazio
+      return { cpf, nome: (pedidoAtual.paciente_nome || '') };
+    }
+
+    function _coletarItensDoEditor() {
+      return Array.from(document.querySelectorAll('#editor-laudo .laudo-item')).map(el => {
+        const id = Number(el.dataset.itemId);
+        const item = (pedidoAtual.itens || []).find(i => i.id === id) || {};
+        const val = sel => (el.querySelector(sel) || {}).value || '';
+        return {
+          item_id:          id,
+          nome_exame:       item.nome_exame,
+          codigo_tuss:      item.codigo_tuss || null,
+          resultado_resumo: val('.laudo-resumo').trim() || null,
+          conclusao:        val('.laudo-conclusao') || null,
+          valor_referencia: val('.laudo-ref').trim() || null,
+        };
+      });
+    }
+
+    // Erro do backend numa das etapas encadeadas. Diz QUAL etapa falhou — sem
+    // isso o operador vê "erro 422" e não sabe se o laudo existe ou não.
+    async function _falhaEtapa(resp, etapa) {
+      const err = await resp.json().catch(() => ({}));
+      mostrarFeedback('feedback-laudo', 'err',
+        `Falha ao ${etapa}: ${_extrairMsgErro(err, String(resp.status))}`);
+    }
+
+    async function produzirLiberarLaudo() {
+      const btn = document.getElementById('btn-liberar-laudo');
+      const itensLaudo = _coletarItensDoEditor();
+      const cnsRt  = (document.getElementById('laudo-rt-cns').value || '').replace(/\D/g, '');
+      const nomeRt = (document.getElementById('laudo-rt-nome').value || '').trim();
+
+      if (!cnsRt || !nomeRt) {
+        mostrarFeedback('feedback-laudo', 'err',
+          'Informe CNS e nome do Responsável Técnico — o laudo é sempre atribuído a ele.');
+        return;
+      }
+      if (!itensLaudo.length) {
+        mostrarFeedback('feedback-laudo', 'err', 'Nenhum exame na bancada para laudar.');
+        return;
+      }
+
+      if (btn) { btn.disabled = true; btn.textContent = 'Produzindo…'; }
+      const restaurar = () => {
+        if (btn) { btn.disabled = false; btn.textContent = 'Assinar e liberar ao cidadão'; }
+      };
+
+      try {
+        // ── 1. Criar o laudo ────────────────────────────────────────────────
+        // Retry NÃO recria: se já existe laudo deste pedido nesta sessão,
+        // reaproveita. Sem isso, uma falha na etapa 4 geraria um segundo laudo
+        // a cada clique — e laudo é objeto sanitário, não rascunho.
+        if (!laudoDoPedido) {
+          const paciente = _identidadePacienteDoPedido();
+          if (!paciente) {
+            restaurar();
+            mostrarFeedback('feedback-laudo', 'err',
+              'Este pedido não tem paciente identificado — não é possível emitir ' +
+              'laudo sem identificar a quem ele pertence.');
+            return;
+          }
+
+          const respCriar = await fetch(BACKEND + '/laudos', {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({
+              cns_autor:        cnsRt,
+              nome_autor:       nomeRt,
+              cpf_paciente:     paciente.cpf,
+              nome_paciente:    paciente.nome,
+              pedido_protocolo: pedidoAtual.protocolo,
+              itens: itensLaudo.map(i => ({
+                nome_exame:       i.nome_exame,
+                codigo_tuss:      i.codigo_tuss,
+                resultado_resumo: i.resultado_resumo,
+                conclusao:        i.conclusao,
+                valor_referencia: i.valor_referencia,
+              })),
+            }),
+          });
+          if (respCriar.status === 401) { handleUnauthorized(); return; }
+          if (!respCriar.ok) { restaurar(); await _falhaEtapa(respCriar, 'criar o laudo'); return; }
+          laudoDoPedido = (await respCriar.json()).protocolo;
+        }
+
+        // ── 2. Assinar (marco do RT) ────────────────────────────────────────
+        const respAssinar = await fetch(
+          BACKEND + '/laudos/' + encodeURIComponent(laudoDoPedido) + '/assinar',
+          { method: 'POST', headers: authHeaders() });
+        if (respAssinar.status === 401) { handleUnauthorized(); return; }
+        // 422 aqui costuma ser "já assinado" num retry — segue para a liberação.
+        if (!respAssinar.ok && respAssinar.status !== 422) {
+          restaurar(); await _falhaEtapa(respAssinar, 'assinar o laudo'); return;
+        }
+
+        // ── 3. Liberar ao cidadão (cria a custódia prestador → paciente) ────
+        // Corpo vazio de propósito: o CNPJ vem do JWT (TICKET-C). Posse provada,
+        // não declarada.
+        const respLiberar = await fetch(
+          BACKEND + '/laudos/' + encodeURIComponent(laudoDoPedido) + '/liberar',
+          { method: 'POST', headers: authHeaders(), body: '{}' });
+        if (respLiberar.status === 401) { handleUnauthorized(); return; }
+        if (!respLiberar.ok && respLiberar.status !== 422) {
+          restaurar(); await _falhaEtapa(respLiberar, 'liberar o laudo'); return;
+        }
+
+        // ── 4. Ponte item↔laudo: fechar os itens do pedido ──────────────────
+        // O laudo é o artefato; o item guarda o ponteiro. Feita no frontend para
+        // não acoplar os dois objetos no backend (decisão do ticket). Falha aqui
+        // deixa item em `em_analise` — o botão reaparece e o retry conclui.
+        const falhas = [];
+        for (const it of itensLaudo) {
+          const r = await fetch(
+            BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
+            '/itens/' + it.item_id + '/resultado',
+            { method: 'POST', headers: authHeaders(),
+              body: JSON.stringify({ resultado_resumo: it.resultado_resumo }) });
+          if (r.status === 401) { handleUnauthorized(); return; }
+          if (!r.ok) falhas.push(it.nome_exame);
+        }
+
+        fecharEditorLaudo();
+        if (falhas.length) {
+          mostrarFeedback('feedback-laudo', 'err',
+            `Laudo liberado, mas estes exames não fecharam: ${falhas.join(', ')}. ` +
+            'Clique em "Produzir laudo" outra vez para concluir — o laudo não será duplicado.');
+        } else {
+          mostrarFeedback('feedback-laudo', 'ok',
+            'Laudo liberado — está na carteira do cidadão, aguardando ciência.');
+        }
+
+        await recarregarPedido();
+        await atualizarPainelLaudo();
+        _iniciarPollingLaudo();   // a ciência do cidadão chega por aqui
+
+      } catch (_) {
+        restaurar();
+        mostrarFeedback('feedback-laudo', 'err', 'Falha de rede ao produzir o laudo.');
+      }
+    }
+
+    // ── G4 — acompanhamento da ciência do cidadão ─────────────────────────
+    // O ciclo só fecha quando o cidadão vê o laudo. A tela do laboratório
+    // mostra essa progressão porque é ela que prova a entrega.
+    const _ETAPAS_LAUDO = [
+      ['liberado',          'Liberado'],
+      ['ciencia_paciente',  'Ciência do cidadão'],
+      ['encerrado',         'Encerrado'],
+    ];
+
+    async function atualizarPainelLaudo() {
+      const painel = document.getElementById('painel-laudo');
+      if (!painel) return;
+      if (!laudoDoPedido) { painel.classList.add('hidden'); painel.innerHTML = ''; return; }
+
+      try {
+        const resp = await fetch(
+          BACKEND + '/laudos/' + encodeURIComponent(laudoDoPedido), { headers: authHeaders() });
+        if (resp.status === 401) { handleUnauthorized(); return; }
+        if (!resp.ok) {
+          // 403 aqui é posse (o laudo é de pedido sob custódia de outra unidade),
+          // não sessão expirada — apaga o painel, não a sessão.
+          painel.classList.add('hidden');
+          return;
+        }
+        const laudo = await resp.json();
+        const alcancado = _ETAPAS_LAUDO.findIndex(([st]) => st === laudo.status);
+        // Ciclo fechado: nada mais muda, não há o que vigiar.
+        if (laudo.status === 'encerrado') _pararPollingLaudo();
+
+        painel.innerHTML = `
+          <div class="laudo-painel">
+            <div class="laudo-painel-linha"><strong>Laudo do pedido</strong>
+              <span class="laudo-painel-proto">${esc(laudo.protocolo)}</span></div>
+            <div class="laudo-etapas">
+              ${_ETAPAS_LAUDO.map(([st, rot], i) => `
+                <span class="laudo-etapa ${alcancado >= i && alcancado !== -1 ? 'feita' : ''}">${esc(rot)}</span>
+              `).join('')}
+            </div>
+            <div class="laudo-painel-linha">
+              ${laudo.status === 'encerrado'
+                ? '✓ Ciclo encerrado — o cidadão deu ciência.'
+                : (laudo.status === 'ciencia_paciente'
+                    ? '✓ O cidadão deu ciência do laudo.'
+                    : '⏳ Na carteira do cidadão, aguardando ciência.')}
+            </div>
+            <div class="laudo-acoes">
+              <button class="btn-laudo-cancelar" onclick="baixarPdfLaudoClinica()">
+                📄 Baixar PDF do laudo
+              </button>
+            </div>
+          </div>`;
+        painel.classList.remove('hidden');
+      } catch (_) {
+        painel.classList.add('hidden');
+      }
+    }
+
+    async function baixarPdfLaudoClinica() {
+      if (!laudoDoPedido) return;
+      await _baixarArquivoClinica(
+        '/laudos/' + encodeURIComponent(laudoDoPedido) + '/pdf',
+        `laudo_${laudoDoPedido.slice(0, 8)}.pdf`, 'Laudo');
+    }
+
+    // ─────────────────────────────────────────
+    // ENVIO À BANCADA (TICKET-F)
+    // POST /pedidos-exame/{proto}/itens/{id}/em-analise  →  coletado → em_analise
+    //
+    // FRONTEIRA LIMS: `setor` é work-area livre ("bioquímica"), só para
+    // visibilidade. Não vira seletor de analisador/técnico/fila — isso é o LIMS
+    // do laboratório, outro produto.
+    // ─────────────────────────────────────────
+
+    async function registrarBancada(itemId) {
+      const setorBruto = prompt('Setor/bancada (opcional, ex.: bioquímica):');
+      if (setorBruto === null) return;                  // cancelou → nada é enviado
+      const setor = setorBruto.trim() || null;          // vazio ≠ setor declarado
+
+      const btn = document.getElementById('btn-bancada-' + itemId);
+      if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+      const restaurar = () => {
+        if (btn) { btn.disabled = false; btn.textContent = 'Enviar à bancada'; }
+      };
+
+      try {
+        const resp = await fetch(
+          BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
+          '/itens/' + itemId + '/em-analise',
+          { method: 'POST', headers: authHeaders(), body: JSON.stringify({ setor }) }
+        );
+
+        // 403 aqui é PAPEL/CUSTÓDIA (o endpoint exige dispensador dono do
+        // pedido), não sessão expirada — derrubar o operador para o login seria
+        // diagnóstico errado. Mesmo precedente de `carregarAgendamentos`.
+        if (resp.status === 401) { handleUnauthorized(); return; }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          restaurar();
+          alert('Erro: ' + _extrairMsgErro(err, String(resp.status)));
+          return;
+        }
+
+        const data = await resp.json();
+        atualizarStatusUI(itemId, data.status_item || 'em_analise');
+        recarregarPedido();                            // estado autoritativo vem do backend
+
+      } catch (_) {
+        restaurar();
+        alert('Falha de rede ao enviar à bancada.');
       }
     }
 
@@ -1713,7 +2269,8 @@
           { method: 'POST', headers: authHeaders(), body: JSON.stringify({ resultado_resumo: resumo }) }
         );
 
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-I.4 — ver nota em `registrarColeta`: 403 é posse, não expiração.
+        if (resp.status === 401) { handleUnauthorized(); return; }
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
@@ -1747,12 +2304,19 @@
       const acoesEl = itemEl.querySelector('.item-acoes');
       if (acoesEl) {
         if (novoStatus === 'coletado') {
-          acoesEl.innerHTML = `<button class="btn-resultado" id="btn-resultado-${itemId}"
+          // TICKET-F — espelho exato do ramo 'coletado' de renderizarItens. Se
+          // os dois divergirem, a tela mente logo após a mutação e só volta a
+          // dizer a verdade no recarregarPedido.
+          acoesEl.innerHTML = `<button class="btn-bancada" id="btn-bancada-${itemId}"
+            onclick="registrarBancada(${itemId})">
+            Enviar à bancada
+          </button>
+          <button class="btn-resultado" id="btn-resultado-${itemId}"
             onclick="registrarResultado(${itemId})">
             Registrar resultado
           </button>`;
         } else if (novoStatus === 'em_analise') {
-          acoesEl.innerHTML = `<span class="laudo-aguardo">⏳ Em análise — resultado em breve.</span>`;
+          acoesEl.innerHTML = `<span class="laudo-aguardo">⏳ Na bancada — aguardando laudo</span>`;
         } else if (novoStatus === 'resultado_disponivel') {
           acoesEl.innerHTML = `<span class="laudo-pronto">✓ Resultado disponível</span>`;
         } else {
@@ -1784,6 +2348,9 @@
         }
       } catch (_) { /* falha silenciosa — UI já foi atualizada localmente */ }
       carregarFilaExames();   // GAP-4: após mutação, a fila reflete o novo estado
+      // TICKET-G — a ciência do cidadão chega por aqui: cada recarga do pedido
+      // relê o laudo e move as etapas (liberado → ciência → encerrado).
+      if (laudoDoPedido) atualizarPainelLaudo();
     }
 
     // ─────────────────────────────────────────
@@ -1831,8 +2398,14 @@
     }
 
     async function abrirFaturamento(fmt) {
-      const nome = `faturamento_exames_${_isoLocal(new Date())}.${fmt}`;
-      await _baixarArquivoClinica(`/clinicas/faturamento.${fmt}`, nome, 'Faturamento');
+      // TICKET-I.2 — o critério vai no nome do arquivo também: dois CSVs de
+      // "faturamento" na pasta de Downloads, contando por tabelas diferentes,
+      // seriam indistinguíveis pelo nome.
+      const sel = document.getElementById('faturamento-criterio');
+      const criterio = (sel && sel.value) === 'sigtap' ? 'sigtap' : 'tuss';
+      const nome = `faturamento_exames_${criterio}_${_isoLocal(new Date())}.${fmt}`;
+      await _baixarArquivoClinica(
+        `/clinicas/faturamento.${fmt}?agrupar_por=${criterio}`, nome, 'Faturamento');
     }
 
     // ─────────────────────────────────────────

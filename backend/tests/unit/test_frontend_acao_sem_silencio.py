@@ -86,6 +86,17 @@ _ACOES: dict[str, tuple[str, ...]] = {
         "async function confirmarAgendamento",
         "async function realizarAgendamento",
         "async function realizarCirculacao",
+        # TICKET-F (2026-08-13): gesto "Enviar à bancada" (coletado → em_analise).
+        # Entra no registro por ser AÇÃO DE CLIQUE que escreve no ledger — o
+        # critério desta lista. Tem três desistências, todas com voz: prompt
+        # cancelado (o próprio usuário), 401 (handleUnauthorized) e erro do
+        # backend (alert com _extrairMsgErro).
+        "async function registrarBancada",
+        # TICKET-G (2026-08-13): produção do laudo estruturado — a ação mais
+        # cara da tela (cria objeto sanitário, assina, libera ao cidadão e fecha
+        # os itens). Encadeia 4 chamadas; cada desistência nomeia a etapa que
+        # falhou, senão o operador não sabe se o laudo existe.
+        "async function produzirLiberarLaudo",
     ),
 }
 
@@ -197,9 +208,14 @@ def test_registro_nao_encolhe_em_silencio() -> None:
     que saiu de TestImpressaoDaPaginaPrincipal para este registro por decisão
     do arquiteto). Baixar este número é uma decisão, não um efeito colateral:
     mude o literal de propósito ou não mude.
+
+    +1 em 2026-08-13 (TICKET-F): `registrarBancada` no clinica.html — ação de
+    clique nova, que escreve no ledger (`pedido_em_analise`).
+    +1 em 2026-08-13 (TICKET-G): `produzirLiberarLaudo` — cria/assina/libera o
+    laudo e fecha os itens do pedido.
     """
     total = sum(len(v) for v in _ACOES.values())
-    assert total == 18, f"Registro de ações mudou de tamanho: {total} != 18"
+    assert total == 20, f"Registro de ações mudou de tamanho: {total} != 20"
 
 
 @pytest.mark.parametrize("tela", sorted(_ACOES))

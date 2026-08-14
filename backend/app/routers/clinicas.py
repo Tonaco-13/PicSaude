@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -148,14 +148,35 @@ def _linhas_do_cnpj(conn, cnpj: str) -> list[dict]:
 
 
 def _como_datetime(valor) -> Optional[datetime]:
+    """Normaliza para datetime NAIVE em UTC.
+
+    BUG PRÉ-EXISTENTE, achado pelo E2E do TICKET-H (2026-08-13): o banco mistura
+    os dois formatos. O `seed_demo.py` grava `datetime.now(timezone.utc)` —
+    com fuso; os routers gravam `datetime.utcnow()` — sem. A janela do período
+    (`_janela_periodo`) é naive. Comparar `dt < dt_inicio` com um lado aware
+    estoura `TypeError: can't compare offset-naive and offset-aware datetimes`,
+    e o endpoint devolve **500**.
+
+    Consequência real: com o seed da vitrine no banco, os botões "Relatório de
+    exames" e "Faturamento" do `clinica.html` quebravam — as duas rotas passam
+    por aqui (`_filtrar_periodo` e `_linhas_faturamento`). Por isso a correção
+    fica NESTE funil, e não nos dois chamadores.
+
+    Não escondemos o fuso: convertemos para UTC antes de descartá-lo, que é a
+    convenção do resto do módulo (tudo naive-UTC).
+    """
     if valor is None:
         return None
     if isinstance(valor, datetime):
-        return valor
-    try:
-        return datetime.fromisoformat(str(valor))
-    except ValueError:
-        return None
+        dt = valor
+    else:
+        try:
+            dt = datetime.fromisoformat(str(valor))
+        except ValueError:
+            return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def _data_referencia(linha: dict) -> Optional[datetime]:
@@ -222,10 +243,44 @@ def _linha_csv(ln: dict) -> list[str]:
 # é por item (o evento agregado por pedido não seria), é dialeto-neutro, e a
 # equivalência com o ledger não fica na prosa — está travada em teste
 # (`test_faturamento_equivale_ao_ledger`).
-_ROTULO_SEM_TUSS = "(não classificado)"
+_ROTULO_SEM_CLASSIFICACAO = "(não classificado)"
 
+# TICKET-D — duas fontes pagadoras, um só caminho de agregação.
+# TUSS é a tabela dos planos de saúde; SIGTAP é a do SUS. O item de exame já
+# carrega as DUAS colunas (`models/pedido_exame_item.py:25-26`) — o que faltava
+# era deixar o relatório escolher por qual delas contar. Sem schema change.
+#
+# O mapa é WHITELIST, e é o que torna seguro interpolar o nome da coluna no SQL
+# abaixo: o valor nunca vem do usuário, vem daqui. Query param fora do mapa
+# morre em 422 antes de chegar ao banco.
+_CRITERIOS_FATURAMENTO = {
+    "tuss":   "codigo_tuss",
+    "sigtap": "codigo_sigtap",
+}
+
+
+def _resolver_criterio(agrupar_por: str) -> tuple[str, str]:
+    """Valida o critério e devolve `(criterio, coluna)`. 422 nomeado se inválido."""
+    criterio = (agrupar_por or "tuss").strip().lower()
+    coluna = _CRITERIOS_FATURAMENTO.get(criterio)
+    if coluna is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "codigo": "agrupar_por_invalido",
+                "mensagem": (
+                    f"agrupar_por deve ser um de {sorted(_CRITERIOS_FATURAMENTO)}. "
+                    f"Recebido: '{agrupar_por}'."
+                ),
+            },
+        )
+    return criterio, coluna
+
+
+# A coluna entra por f-string porque SQL não parametriza identificador — só
+# valor. É seguro pelo motivo acima (whitelist), e por nenhum outro.
 _SQL_FATURAMENTO_DO_CNPJ = """
-SELECT pei.codigo_tuss   AS codigo_tuss,
+SELECT pei.{coluna}      AS codigo,
        pei.resultado_em  AS resultado_em
   FROM pedido_exame_itens pei
   JOIN pedido_exame_custodia c ON c.pedido_id = pei.pedido_id
@@ -239,20 +294,26 @@ SELECT pei.codigo_tuss   AS codigo_tuss,
 """
 
 
-def _faturamento_do_cnpj(conn, cnpj: str) -> list[dict]:
-    rows = conn.execute(_SQL_FATURAMENTO_DO_CNPJ, (cnpj,)).fetchall()
+def _faturamento_do_cnpj(conn, cnpj: str, coluna: str = "codigo_tuss") -> list[dict]:
+    sql = _SQL_FATURAMENTO_DO_CNPJ.format(coluna=coluna)
+    rows = conn.execute(sql, (cnpj,)).fetchall()
     return [{k: r[k] for k in r.keys()} for r in rows]
 
 
-def _agregar_por_tuss(linhas: list[dict]) -> list[dict]:
+def _agregar_por_codigo(linhas: list[dict]) -> list[dict]:
     """Agrega por procedimento. Ordem estável: qtd desc, depois código asc —
     sem o desempate por código, dois procedimentos de mesma contagem trocariam
-    de lugar entre execuções e o relatório deixaria de ser reproduzível."""
+    de lugar entre execuções e o relatório deixaria de ser reproduzível.
+
+    A chave do grupo é `codigo`, neutra quanto à tabela: quem escolheu TUSS ou
+    SIGTAP foi o caller, e o rótulo entra na borda (cabeçalho do CSV/PDF). Item
+    sem o código escolhido não some da conta — cai em `(não classificado)`.
+    """
     acc: dict[str, dict] = {}
     for ln in linhas:
-        chave = (ln.get("codigo_tuss") or "").strip() or _ROTULO_SEM_TUSS
+        chave = (ln.get("codigo") or "").strip() or _ROTULO_SEM_CLASSIFICACAO
         dt = _como_datetime(ln.get("resultado_em"))
-        grupo = acc.setdefault(chave, {"codigo_tuss": chave, "qtd": 0,
+        grupo = acc.setdefault(chave, {"codigo": chave, "qtd": 0,
                                        "primeiro_resultado": None, "ultimo_resultado": None})
         grupo["qtd"] += 1
         if dt is not None:
@@ -260,11 +321,12 @@ def _agregar_por_tuss(linhas: list[dict]) -> list[dict]:
                 grupo["primeiro_resultado"] = dt
             if grupo["ultimo_resultado"] is None or dt > grupo["ultimo_resultado"]:
                 grupo["ultimo_resultado"] = dt
-    return sorted(acc.values(), key=lambda g: (-g["qtd"], g["codigo_tuss"]))
+    return sorted(acc.values(), key=lambda g: (-g["qtd"], g["codigo"]))
 
 
-def _linhas_faturamento(conn, cnpj: str, dt_inicio, dt_fim) -> list[dict]:
-    brutas = _faturamento_do_cnpj(conn, cnpj)
+def _linhas_faturamento(conn, cnpj: str, dt_inicio, dt_fim,
+                        coluna: str = "codigo_tuss") -> list[dict]:
+    brutas = _faturamento_do_cnpj(conn, cnpj, coluna)
     no_periodo = []
     for ln in brutas:
         dt = _como_datetime(ln.get("resultado_em"))
@@ -275,7 +337,7 @@ def _linhas_faturamento(conn, cnpj: str, dt_inicio, dt_fim) -> list[dict]:
         if dt_fim and dt > dt_fim:
             continue
         no_periodo.append(ln)
-    return _agregar_por_tuss(no_periodo)
+    return _agregar_por_codigo(no_periodo)
 
 
 # ---------------------------------------------------------------------------
@@ -358,26 +420,40 @@ CABECALHO_FATURAMENTO_CSV = [
 ]
 
 
+def _cabecalho_faturamento_csv(coluna: str) -> list[str]:
+    """O cabeçalho nomeia a tabela usada — quem abre o CSV precisa saber se
+    está lendo TUSS ou SIGTAP sem ter que lembrar da URL que baixou."""
+    return [coluna, "qtd", "primeiro_resultado", "ultimo_resultado"]
+
+
+_Q_AGRUPAR_POR = Query(
+    "tuss", description="Critério de agregação: tuss (planos) | sigtap (SUS)."
+)
+
+
 @router.get("/faturamento.csv", summary="Faturamento de exames do prestador (CSV)")
 def faturamento_exames_csv(
     usuario=Depends(require_role("dispensador")),
     data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
     data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    agrupar_por: str = _Q_AGRUPAR_POR,
 ):
-    """Agregação por procedimento (TUSS) dos exames concluídos no período, sob
-    custódia atual do próprio prestador. Contabilidade interna, read-only."""
+    """Agregação por procedimento (TUSS ou SIGTAP) dos exames concluídos no
+    período, sob custódia atual do próprio prestador. Contabilidade interna,
+    read-only — não é guia TISS nem APAC."""
     cnpj = normalize_cnpj(usuario["sub"])
+    _criterio, coluna = _resolver_criterio(agrupar_por)
     dt_inicio, dt_fim, _ = _janela_periodo(data_inicio, data_fim)
 
     with get_tx() as conn:
-        grupos = _linhas_faturamento(conn, cnpj, dt_inicio, dt_fim)
+        grupos = _linhas_faturamento(conn, cnpj, dt_inicio, dt_fim, coluna)
 
     buffer = io.StringIO()
     writer = csv.writer(buffer, quoting=csv.QUOTE_ALL)
-    writer.writerow(CABECALHO_FATURAMENTO_CSV)
+    writer.writerow(_cabecalho_faturamento_csv(coluna))
     for g in grupos:
         writer.writerow([
-            _fmt(g["codigo_tuss"]),
+            _fmt(g["codigo"]),
             _fmt(g["qtd"]),
             _fmt(g["primeiro_resultado"]),
             _fmt(g["ultimo_resultado"]),
@@ -397,16 +473,18 @@ def faturamento_exames_pdf(
     usuario=Depends(require_role("dispensador")),
     data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (padrão: 30 dias atrás)"),
     data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (padrão: hoje)"),
+    agrupar_por: str = _Q_AGRUPAR_POR,
 ):
     """Mesma agregação em PDF. `MAX_REGISTROS_PDF` fica como teto defensivo — a
-    agregação por TUSS é naturalmente curta, mas truncagem silenciosa não existe
-    neste projeto."""
+    agregação por procedimento é naturalmente curta, mas truncagem silenciosa
+    não existe neste projeto."""
     cnpj = normalize_cnpj(usuario["sub"])
+    criterio, coluna = _resolver_criterio(agrupar_por)
     dt_inicio, dt_fim, filtros = _janela_periodo(data_inicio, data_fim)
     filtros["cnpj"] = cnpj
 
     with get_tx() as conn:
-        grupos = _linhas_faturamento(conn, cnpj, dt_inicio, dt_fim)
+        grupos = _linhas_faturamento(conn, cnpj, dt_inicio, dt_fim, coluna)
 
     total_no_periodo = len(grupos)
     limitado = total_no_periodo > MAX_REGISTROS_PDF
@@ -418,6 +496,7 @@ def faturamento_exames_pdf(
         filtros=filtros,
         limitado=limitado,
         total_no_periodo=total_no_periodo if limitado else None,
+        criterio=criterio,
     )
 
     filename = f"faturamento_exames_{date.today().isoformat()}.pdf"

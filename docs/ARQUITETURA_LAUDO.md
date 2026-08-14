@@ -264,6 +264,103 @@ O PDF do laudo tem os mesmos blocos estruturais do núcleo, com ajustes de conte
 
 ---
 
+## Produção do laudo pelo dispensador (unidade) em nome do RT
+
+> Implementado no **Ticket C** (`core`, 2026-08-13). Esta seção existe para que o próximo
+> desenvolvedor não leia o modelo como acidente.
+
+### O problema
+
+O laudo exige **Responsável Técnico com CNS** (patologista, bioquímico, médico laboratorista) — é
+quem responde pelo conteúdo, por força da Resolução CFM 2.052/2013. Mas quem opera a tela do
+laboratório (`clinica.html`) entra como `dispensador`, identificado pelo **CNPJ da unidade**. Os dois
+fatos são verdadeiros ao mesmo tempo, e o modelo tem que acomodar ambos sem mentir sobre nenhum.
+
+### O modelo
+
+> **A unidade produz em nome do RT. O RT é sempre o autor. O CNPJ nunca vira autor.**
+
+- O dispensador cria/assina/libera **declarando `cns_autor`**; o `autor_id` do laudo resolve para
+  esse CNS. A unidade não se torna autora em nenhuma hipótese.
+- **Ownership por posse, não por identidade nominal:** o dispensador só opera laudo vinculado a um
+  pedido de exame sob sua **custódia ATUAL** (`pedido_exame_custodia`, `item_id IS NULL`, registro
+  mais recente). Nada de custódia histórica — quem perdeu a posse do pedido perde o laudo junto.
+- **Sem coluna nova, sem migração.** O direito é derivado de dado que já existia.
+
+### Superfície
+
+```
+criar · assinar · liberar · encerrar · cancelar · GET · pdf · qr   → prescritor · admin · dispensador
+ciencia-paciente · ciencia-prescritor · /laudos/fisica             → INALTERADOS
+laudo standalone (pedido_id IS NULL)                               → prescritor · admin (403 ao dispensador)
+```
+
+Duas fronteiras que **não** se atravessa, e por quê:
+
+1. **Ciência.** É ato de quem *recebe* o laudo — o cidadão (`ciencia-paciente`) ou o prescritor
+   solicitante (`ciencia-prescritor`). Quem produziu não dá ciência por ninguém; seria o produtor
+   atestando o próprio recebimento.
+2. **Laudo standalone.** Sem pedido vinculado não existe custódia de onde derivar posse. Negar o
+   dispensador ali é a resposta correta, não efeito colateral — por isso tem código próprio
+   (`laudo_sem_pedido_vinculado`), distinto do 403 genérico de ownership.
+
+### Auditoria — o ledger responde "foi a unidade ou o RT?"
+
+| Evento | Campo | Para quê |
+|---|---|---|
+| `laudo_criado` | `produzido_por` · `produzido_por_cnpj` | Sem isso, laudo produzido pela unidade seria indistinguível de um digitado pelo próprio RT |
+| `laudo_liberado` | `liberado_por` · `cnpj_prestador` | Quem entregou ao cidadão |
+| `laudo_custodia` | `de = <CNPJ da unidade autenticada>` | O CNPJ vem do **JWT**, não do corpo da requisição — posse provada, não declarada. Se o payload mandasse, uma unidade poderia assinar a cadeia com o CNPJ de outra, e a cadeia deixaria de valer como prova |
+
+**Guarda executável:** `backend/tests/integration/test_laudos_dispensador_autorizacao.py` (16 casos,
+incluindo unidade A ≠ unidade B em todas as superfícies e custódia atual × histórica).
+
+**Ver também:** `docs/POLITICA_CUSTODIA_CLINICA_LAUDO.md` — onde a posse do laboratório termina e a
+do cidadão começa.
+
+---
+
+## Fluxo bancada — o estado `em_analise`
+
+> Implementado no **Ticket B** (`module`, 2026-08-13).
+
+O item de exame percorre:
+
+```
+agendado → coletado → em_analise → resultado_disponivel
+```
+
+`em_analise` significa **"o material está na bancada do laboratório"**. O estado já existia no
+contrato (`states_exame.py`: lista de estados, lista branca de transições e vocabulário de eventos),
+mas era **fantasma** — nenhum endpoint o persistia, e o `/resultado` emitia o evento
+`pedido_em_analise` como marco intermediário enquanto escrevia `resultado_disponivel` direto. O item
+nunca repousava na bancada, e por isso não havia onde ancorar a produção do laudo.
+
+| Aspecto | Valor |
+|---|---|
+| Endpoint | `POST /pedidos-exame/{proto}/itens/{id}/em-analise` |
+| Papel | `dispensador` · `admin` — a bancada é da unidade; o prescritor não participa deste gesto |
+| Entrada | `setor` (opcional, texto livre) |
+| Evento | `pedido_em_analise` — `item_id`, `nome_exame`, `setor` |
+| Efeito | Item → `em_analise`; status do pedido re-derivado |
+
+### Fronteira LIMS — o guardrail desta seção
+
+**O PicSaúde é a trilha sanitária, não o LIMS do laboratório.** `setor` é *work-area* leve, para
+visibilidade operacional ("bancada de bioquímica"). **Não modelar** analisador, técnico, fila de
+equipamento ou lote: roteamento interno é sistema do laboratório. No dia em que `setor` virar fila de
+máquina, virou outro produto.
+
+### Consequência na fila do laboratório
+
+Item em `em_analise` permanece **acionável** (`dispensadores.py::_ESTADOS_ITEM_ACIONAVEL_LAB`).
+Trabalho na bancada é trabalho pendente; sair da fila é privilégio de estado **terminal**. Sem isso,
+o gesto "enviar à bancada" apagaria o pedido da tela no instante do clique.
+
+**Ver também:** `docs/ARQUITETURA_EXAMES.md` — máquina de estados do item de exame.
+
+---
+
 ## O que o Laudo Revela sobre o Núcleo
 
 A aplicação do checklist do `NUCLEO_SANITARIO.md` ao laudo revelou **três pontos de refinamento** no núcleo. Nenhum quebra o contrato — todos o aperfeiçoam.
@@ -346,5 +443,6 @@ Ticket 21 — domain/pdf_laudo.py + GET /pdf + GET /qr
 |---|---|
 | `docs/NUCLEO_SANITARIO.md` | Contrato que este documento aplica |
 | `docs/ARQUITETURA_EXAMES.md` | Padrão arquitetural do segundo objeto |
+| `docs/POLITICA_CUSTODIA_CLINICA_LAUDO.md` | **Política de custódia clínica** — a custódia clínica do laudo é do cidadão; o laboratório retém rastro forense + mínimo legal do RT (RDC 302/2005, CFM 2.052/2013, LGPD). Complementa a seção "Custódia" acima dizendo onde a posse do laboratório **termina** |
 | `backend/app/domain/states_exame.py` | Referência de implementação da máquina de estados |
 | `backend/app/domain/pdf_pedido_exame.py` | Referência de implementação do PDF |

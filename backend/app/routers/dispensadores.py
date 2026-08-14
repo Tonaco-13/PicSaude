@@ -201,9 +201,18 @@ def fila(
 #
 # Classe `module`. Projection do ledger + custódia: não cria estado, não muta.
 # `acionavel` é DERIVADO (§10 — estados computados não persistidos): item em
-# estado que o laboratório pode agir (agendado→coletar, coletado→resultado).
+# estado que o laboratório pode agir (agendado→coletar, coletado→enviar à
+# bancada ou registrar resultado, em_analise→registrar resultado/produzir laudo).
+#
+# TICKET-B: `em_analise` entrou aqui junto com o endpoint que passou a
+# materializar esse estado. Item na bancada é trabalho PENDENTE do laboratório —
+# se ficasse fora deste conjunto, o gesto "enviar à bancada" apagaria o pedido da
+# fila (clinica.html só lista pedido com ao menos um item acionável) e o lab
+# perderia o caminho para o resultado, que o /resultado aceita a partir de
+# `em_analise`. Sair da fila é privilégio de estado TERMINAL — ver
+# `_ESTADOS_PEDIDO_FIM_FILA` abaixo.
 
-_ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"agendado", "coletado"})
+_ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"agendado", "coletado", "em_analise"})
 
 # Pedido some da fila quando atinge estado terminal — a custódia histórica
 # continua gravada, mas a fila é de trabalho pendente (critério §4.5 do ticket).
@@ -292,7 +301,8 @@ def fila_exames(
                     "status_item": it["status_item"],
                     # §10: derivado no backend — FONTE ÚNICA para a UI (nunca
                     # recalcular "terminal" no cliente). agendado→coletar,
-                    # coletado→registrar resultado; demais estados, só leitura.
+                    # coletado→enviar à bancada/registrar resultado,
+                    # em_analise→registrar resultado; demais estados, só leitura.
                     "acionavel": it["status_item"] in _ESTADOS_ITEM_ACIONAVEL_LAB,
                 }
                 for it in itens

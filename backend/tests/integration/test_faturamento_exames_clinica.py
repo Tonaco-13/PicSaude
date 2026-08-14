@@ -268,3 +268,156 @@ def test_contrato_csv_pdf_periodo_e_papel(client, outer_conn, seed_usuario, seed
         "/clinicas/faturamento.csv",
         headers=_headers(_token(SEED_PRESCRITOR_CNS, "prescritor")),
     ).status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# TICKET-D — agregação por SIGTAP (SUS) além de TUSS (planos)
+# ---------------------------------------------------------------------------
+# Duas fontes pagadoras, um caminho de agregação. Segue contabilidade interna
+# read-only: nada é transmitido a operadora ou ao SUS (guia TISS/APAC é adapter,
+# depende de G4A). O que muda é POR QUAL TABELA se conta.
+
+def _carimbar_sigtap(outer_conn, proto: str, codigo: str | None) -> None:
+    """`codigo_sigtap` não entra pelo payload de emissão (nem o TUSS entra) —
+    mesmo recurso do `_concluir_exame`: UPDATE direto no item."""
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE pedido_exame_itens SET codigo_sigtap = %s
+             WHERE pedido_id = (SELECT id FROM pedidos_exame WHERE protocolo = %s)
+            """,
+            (codigo, proto),
+        )
+
+
+def test_agrupar_por_tuss_e_o_default_sem_regressao(client, outer_conn, seed_usuario, seed_paciente):
+    """AC1 — omitir o parâmetro e pedir `tuss` explicitamente têm que produzir o
+    MESMO CSV. Se divergirem, o default deixou de ser o comportamento antigo."""
+    token_p = obter_token_prescritor(client, seed_usuario)
+    _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)
+    h = _headers(_token(_CNPJ_A, "dispensador"))
+
+    sem_param = client.get("/clinicas/faturamento.csv", headers=h)
+    com_tuss = client.get("/clinicas/faturamento.csv?agrupar_por=tuss", headers=h)
+    assert sem_param.status_code == 200 and com_tuss.status_code == 200
+    assert sem_param.text == com_tuss.text
+
+
+def test_agrupar_por_sigtap_agrega_pela_tabela_do_sus(client, outer_conn, seed_usuario, seed_paciente):
+    """AC2 — o mesmo exame conta por outro código quando o pagador é o SUS."""
+    token_p = obter_token_prescritor(client, seed_usuario)
+    for _ in range(2):
+        proto = _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)
+        _carimbar_sigtap(outer_conn, proto, "0202020380")
+    proto_g = _concluir_exame(client, token_p, _CNPJ_A, "GLICEMIA", "40302016", outer_conn)
+    _carimbar_sigtap(outer_conn, proto_g, "0202010473")
+
+    h = _headers(_token(_CNPJ_A, "dispensador"))
+    r = client.get("/clinicas/faturamento.csv?agrupar_por=sigtap", headers=h)
+    assert r.status_code == 200, r.text
+
+    # O cabeçalho nomeia a tabela: quem abre o arquivo não precisa lembrar da URL.
+    assert next(csv.reader(io.StringIO(r.text))) == [
+        "codigo_sigtap", "qtd", "primeiro_resultado", "ultimo_resultado",
+    ]
+
+    por_sigtap = {row["codigo_sigtap"]: int(row["qtd"]) for row in _csv_rows(r)}
+    assert por_sigtap["0202020380"] == 2
+    assert por_sigtap["0202010473"] == 1
+    # Ordem estável (qtd desc) — mesmo requisito de reprodutibilidade do TUSS.
+    assert _csv_rows(r)[0]["codigo_sigtap"] == "0202020380"
+
+
+def test_mesmo_exame_conta_nos_dois_criterios(client, outer_conn, seed_usuario, seed_paciente):
+    """O total não muda com o critério — muda só o rótulo sob o qual ele aparece.
+    É o que prova que SIGTAP é caminho paralelo, não filtro."""
+    token_p = obter_token_prescritor(client, seed_usuario)
+    proto = _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)
+    _carimbar_sigtap(outer_conn, proto, "0202020380")
+    h = _headers(_token(_CNPJ_A, "dispensador"))
+
+    tuss = _csv_rows(client.get("/clinicas/faturamento.csv?agrupar_por=tuss", headers=h))
+    sig = _csv_rows(client.get("/clinicas/faturamento.csv?agrupar_por=sigtap", headers=h))
+
+    assert sum(int(r["qtd"]) for r in tuss) == sum(int(r["qtd"]) for r in sig)
+    assert {r["codigo_tuss"] for r in tuss} == {"40304361"}
+    assert {r["codigo_sigtap"] for r in sig} == {"0202020380"}
+
+
+def test_item_sem_sigtap_vira_nao_classificado(client, outer_conn, seed_usuario, seed_paciente):
+    """Exame com TUSS mas sem SIGTAP não pode SUMIR da conta do SUS — cai em
+    `(não classificado)`, exatamente como o inverso já fazia."""
+    token_p = obter_token_prescritor(client, seed_usuario)
+    _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)  # sem sigtap
+
+    rows = _csv_rows(client.get("/clinicas/faturamento.csv?agrupar_por=sigtap",
+                                headers=_headers(_token(_CNPJ_A, "dispensador"))))
+    assert any(r["codigo_sigtap"] == "(não classificado)" and int(r["qtd"]) >= 1 for r in rows), rows
+
+
+def test_agrupar_por_invalido_422_nomeado(client, outer_conn, seed_usuario, seed_paciente):
+    """AC4 — valor fora da whitelist morre em 422 ANTES de chegar ao banco.
+    É a whitelist que torna seguro interpolar o nome da coluna no SQL."""
+    h = _headers(_token(_CNPJ_A, "dispensador"))
+    for valor in ("invalido", "codigo_tuss", "tuss; DROP TABLE pedidos_exame"):
+        r = client.get(f"/clinicas/faturamento.csv?agrupar_por={valor}", headers=h)
+        assert r.status_code == 422, (valor, r.text)
+        assert r.json()["detail"]["codigo"] == "agrupar_por_invalido"
+
+    rp = client.get("/clinicas/faturamento.pdf?agrupar_por=invalido", headers=h)
+    assert rp.status_code == 422, rp.text
+
+
+def test_sigtap_respeita_periodo_e_escopo_por_cnpj(client, outer_conn, seed_usuario, seed_paciente):
+    """AC — os guardrails do TUSS valem igual no SIGTAP: janela e escopo do JWT.
+    Um critério novo não pode ser porta lateral para ver dado de outra unidade."""
+    token_p = obter_token_prescritor(client, seed_usuario)
+    proto_a = _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)
+    _carimbar_sigtap(outer_conn, proto_a, "0202020380")
+    proto_b = _concluir_exame(client, token_p, _CNPJ_B, "GLICEMIA", "40302016", outer_conn)
+    _carimbar_sigtap(outer_conn, proto_b, "0202010473")
+
+    h_a = _headers(_token(_CNPJ_A, "dispensador"))
+
+    # Janela antiga não contém o exame de hoje.
+    assert _csv_rows(client.get(
+        "/clinicas/faturamento.csv?agrupar_por=sigtap"
+        "&data_inicio=2020-01-01&data_fim=2020-01-31", headers=h_a)) == []
+
+    # Escopo: A não vê o SIGTAP da unidade B.
+    codigos_a = {r["codigo_sigtap"] for r in _csv_rows(
+        client.get("/clinicas/faturamento.csv?agrupar_por=sigtap", headers=h_a))}
+    assert "0202020380" in codigos_a
+    assert "0202010473" not in codigos_a
+
+
+def test_pdf_sigtap_servivel_e_rotulado(client, outer_conn, seed_usuario, seed_paciente):
+    """AC3 — o PDF diz por qual tabela contou. Um relatório de faturamento que
+    não distingue TUSS de SIGTAP convida ao erro: são pagadores diferentes."""
+    from app.domain.pdf_relatorio_exames import _ROTULOS_CRITERIO
+
+    token_p = obter_token_prescritor(client, seed_usuario)
+    proto = _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)
+    _carimbar_sigtap(outer_conn, proto, "0202020380")
+    h = _headers(_token(_CNPJ_A, "dispensador"))
+
+    for criterio in ("tuss", "sigtap"):
+        r = client.get(f"/clinicas/faturamento.pdf?agrupar_por={criterio}", headers=h)
+        assert r.status_code == 200, (criterio, r.text)
+        assert r.content[:4] == b"%PDF"
+
+    # Os rótulos são distintos — sem isso os dois PDFs seriam indistinguíveis.
+    assert _ROTULOS_CRITERIO["tuss"] != _ROTULOS_CRITERIO["sigtap"]
+    assert "SIGTAP" in _ROTULOS_CRITERIO["sigtap"][1]
+
+
+def test_sigtap_continua_read_only(client, outer_conn, seed_usuario, seed_paciente):
+    """O critério novo não pode ter aberto caminho de escrita."""
+    token_p = obter_token_prescritor(client, seed_usuario)
+    _concluir_exame(client, token_p, _CNPJ_A, "HEMOGRAMA", "40304361", outer_conn)
+    h = _headers(_token(_CNPJ_A, "dispensador"))
+
+    antes = _contagens(outer_conn)
+    assert client.get("/clinicas/faturamento.csv?agrupar_por=sigtap", headers=h).status_code == 200
+    assert client.get("/clinicas/faturamento.pdf?agrupar_por=sigtap", headers=h).status_code == 200
+    assert _contagens(outer_conn) == antes
