@@ -198,9 +198,16 @@ def test_status_permite_pdf():
 
 
 def test_validar_emissao_receituario_ok():
-    """Validação bem-sucedida para cenário válido."""
-    agora = datetime(2026, 4, 26, 10, 0, 0)
-    data_validade = datetime(2026, 5, 26, 10, 0, 0)  # futura
+    """Validação bem-sucedida para cenário válido.
+
+    TICKET-I.5 — a validade era `datetime(2026, 5, 26)`, escrita como "futura"
+    em abril de 2026. Virou passado em maio e o teste passou a falhar sozinho:
+    `validar_emissao_receituario` não recebe relógio, compara com `utcnow()`
+    internamente (`receituario_expirado`). Data fixa aqui é bomba-relógio, não
+    determinismo — o `agora` local que existia nem chegava a ser usado.
+    Relativa ao momento da execução, a validade é sempre futura.
+    """
+    data_validade = datetime.utcnow() + timedelta(days=30)
 
     valido, motivos = validar_emissao_receituario(
         tipo_receituario="notificacao_receita_b",

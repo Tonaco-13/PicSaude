@@ -9,7 +9,9 @@ Cobertura:
   - admin: sem ?cnpj → 422 canônico; com ?cnpj → vê a fila do CNPJ informado.
   - Filtro ?status= funciona.
   - Pedido terminal (encerrado) sai da fila mesmo com custódia registrada.
-  - `acionavel` derivado: agendado/coletado → True; demais → False.
+  - `acionavel` derivado: agendado/coletado/em_analise → True; demais → False.
+    (TICKET-B: `em_analise` entrou quando o estado deixou de ser fantasma — item
+    na bancada é trabalho pendente do lab, não trabalho terminado.)
   - Ex-custodiante (perdeu a custódia) não vê mais o pedido.
 
 Requer PostgreSQL (conftest de integração faz skip se DATABASE_URL não for PG).
@@ -212,6 +214,47 @@ def test_fila_exames_ciclo_completo_sai_da_fila(client, seed_usuario, seed_pacie
     assert r.status_code == 201, r.text
     fila = _fila(client, tok_a)
     assert proto not in [p["protocolo"] for p in fila["fila"]]
+
+
+def test_fila_exames_item_em_analise_continua_acionavel(client, seed_usuario, seed_paciente):
+    """TICKET-B — enviar à bancada NÃO pode apagar o pedido da fila do laboratório.
+
+    `clinica.html` só lista pedido com ao menos um item acionável. Se `em_analise`
+    ficasse fora de `_ESTADOS_ITEM_ACIONAVEL_LAB`, o gesto "enviar à bancada"
+    faria o pedido sumir da tela e o lab perderia o caminho para o resultado —
+    que o /resultado aceita justamente a partir de `em_analise`. Sair da fila é
+    privilégio de estado terminal.
+    """
+    token_pre = obter_token_prescritor(client, seed_usuario)
+    proto = _criar_pedido(client, token_pre)
+    _agendar_para(client, token_pre, proto, _CNPJ_A)
+    tok_a = _token(_CNPJ_A, "dispensador")
+
+    item_id = next(
+        p for p in _fila(client, tok_a)["fila"] if p["protocolo"] == proto
+    )["itens"][0]["item_id"]
+
+    assert client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/coletar",
+        json={}, headers=_headers(tok_a),
+    ).status_code == 201
+
+    assert client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/em-analise",
+        json={"setor": "bioquímica"}, headers=_headers(tok_a),
+    ).status_code == 200
+
+    fila = _fila(client, tok_a)
+    card = next(p for p in fila["fila"] if p["protocolo"] == proto)
+    assert card["status"] == "em_analise"
+    assert card["itens"][0]["status_item"] == "em_analise"
+    assert card["itens"][0]["acionavel"] is True
+
+    # E o caminho segue aberto: dá para registrar o resultado a partir da bancada.
+    assert client.post(
+        f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
+        json={"resultado_resumo": "normal"}, headers=_headers(tok_a),
+    ).status_code == 201
 
 
 def test_fila_exames_pedido_cancelado_sai_da_fila(client, seed_usuario, seed_paciente):

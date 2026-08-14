@@ -83,10 +83,26 @@ jobs:
         #   catálogo no conftest) sem gateá-lo convidaria o apodrecimento de volta:
         #   verde e não gateado apodrece. Agora qualifica no critério do próprio
         #   filtro ("suítes-gate verdes") — 23 testes, todos verdes contra PG.
+        # ── Família de INVARIANTE/LEDGER (parecer do Arquiteto 2026-08-13 §4.2) ──
+        # test_4d1/test_4d2 (instance_id no ledger), test_4e_e2e (E2E consolidado),
+        #   integridade (FK pendurada, evento sem prescrição, prescrição sem ledger),
+        #   transferencia_exame (custódia nível-pedido paciente→CNPJ + ledger).
+        # Motivo: o `test_4d2` passou meses VERMELHO sem ninguém ver, porque não
+        #   casava com nenhum termo daqui. É a mesma lição do `catalogo` acima, um
+        #   grau pior: verde e não gateado apodrece; VERMELHO e não gateado mente.
+        #   Suíte que afirma invariante é justamente a que não pode ficar fora.
+        # Varredura feita na mesma sessão: as 5 estavam verdes contra PG ao entrar.
+        #   Fora ficou `test_regras_receituario.py` — vermelho PRÉ-EXISTENTE por
+        #   data fixa (validade 2026-05-26 vs. utcnow), não por invariante. Gatear
+        #   suíte vermelha só transferiria o apodrecimento para o CI.
+        # regras_receituario: ENTROU em 2026-08-13 (TICKET-I.5). A data fixa virou
+        #   relativa (`utcnow() + 30 dias`), então a suíte não vence mais sozinha —
+        #   deixou de ser bomba-relógio e passou a qualificar no critério do filtro
+        #   ("suítes-gate verdes"). Era a última exceção nomeada aqui.
         run: >-
           python -m pytest tests/integration
           --ignore=tests/integration/test_concorrencia.py
-          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante or catalogo or faturamento"
+          -k "autorizacao or institucional or test_pedidos_exame or importar_cnes or test_custodia_devolucao or fila or relatorio or estorno or comprador or historico or idempotencia or unicidade or b0 or acionavel or comprovante or catalogo or faturamento or test_4d1 or test_4d2 or test_4e_e2e or integridade or transferencia_exame or regras_receituario"
           -q
 
       - name: Gate do ledger imutável (SQLite + PostgreSQL)

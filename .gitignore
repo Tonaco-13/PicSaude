@@ -139,8 +139,15 @@ reports/
 
 # ─── Config local de IDE/editor (Claude Code, VS Code, JetBrains etc.) ────────
 .claude/
+.zcode/
 .idea/
 .vscode/
+
+# ─── Área de rascunho local (não versionada) ──────────────────────────────────
+# `inbox/` é bandeja de trabalho da sessão: material solto que não é entrega.
+# Ficava aparecendo como untracked e disputando espaço no `git add` — risco real
+# de entrar num commit por engano.
+inbox/
 
 # ─── Exceção: permitir que o template .env.example seja versionado ────────────
 # (a regra .env.* acima pegaria .env.example; esta exceção a desfaz)

@@ -374,8 +374,18 @@ def test_laudo_ciencia_paciente_dois_eventos_mesmo_instance_id(
     laudo e gera 2 eventos (``ciencia_paciente`` + ``laudo_encerrado``)
     com mesmo instance_id."""
     token = obter_token_prescritor(client, seed_usuario)
+
+    # O laudo PRECISA de pedido vinculado: `/ciencia-prescritor` é do prescritor
+    # SOLICITANTE, resolvido pelo pedido (TICKET-5C-BIS-B §8.1 — sem fallback de
+    # autor). Laudo standalone → solicitante None → 403, e a invariante deste
+    # teste (2 eventos, 1 instance_id) nunca chegava a ser exercitada. O vínculo
+    # é válido porque `_PAYLOAD_PEDIDO` e `_PAYLOAD_LAUDO` compartilham o mesmo
+    # paciente semeado; o payload é montado LOCAL para não contaminar o base.
+    protocolo_pedido, _ = _criar_pedido(client, token)
+    payload_laudo = {**_PAYLOAD_LAUDO, "pedido_protocolo": protocolo_pedido}
+
     # Criar laudo + assinar + liberar + ciencia_prescritor
-    r = client.post("/laudos", json=_PAYLOAD_LAUDO, headers=_headers(token))
+    r = client.post("/laudos", json=payload_laudo, headers=_headers(token))
     assert r.status_code == 201, r.text
     protocolo = r.json()["protocolo"]
     laudo_id = r.json()["id"]

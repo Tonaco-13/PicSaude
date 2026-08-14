@@ -161,3 +161,72 @@ def test_pedido_exame_201_quando_nao_enviar_ao_paciente_sem_carteira(
             (_CPF_PACIENTE_NOVO_5A,),
         )
         assert cur.fetchone()[0] == 1
+
+
+# ---------------------------------------------------------------------------
+# TICKET-I.1 — o GET resolve a identidade do paciente e o laudo vigente
+# ---------------------------------------------------------------------------
+# `pedidos_exame` guarda `paciente_id`, não nome/CPF. A tela do laboratório
+# sempre esperou os campos resolvidos (`renderizarPedido` já os procurava) e,
+# sem eles, mostrava "Paciente: —" e não tinha como preencher o laudo.
+
+def test_get_pedido_resolve_identidade_do_paciente(client, outer_conn, seed_usuario, seed_paciente):
+    """AC I.1 — `paciente_nome`/`paciente_cpf` vêm resolvidos no GET."""
+    token = obter_token_prescritor(client, seed_usuario)
+    r = client.post("/pedidos-exame", json=_PAYLOAD_BASE, headers=_headers(token))
+    assert r.status_code == 201, r.text
+    proto = r.json()["protocolo"]
+
+    body = client.get(f"/pedidos-exame/{proto}", headers=_headers(token)).json()
+    assert body["paciente_nome"] == SEED_PACIENTE_NOME
+    assert body["paciente_cpf"] == SEED_PACIENTE_CPF
+
+
+def test_get_pedido_sem_laudo_devolve_campos_nulos(client, outer_conn, seed_usuario, seed_paciente):
+    """Ausência de laudo é `None` explícito, não campo faltando: a tela decide
+    o gate do botão por este valor e não pode ter que adivinhar."""
+    token = obter_token_prescritor(client, seed_usuario)
+    proto = client.post(
+        "/pedidos-exame", json=_PAYLOAD_BASE, headers=_headers(token)
+    ).json()["protocolo"]
+
+    body = client.get(f"/pedidos-exame/{proto}", headers=_headers(token)).json()
+    assert "laudo_protocolo" in body and body["laudo_protocolo"] is None
+    assert "laudo_status" in body and body["laudo_status"] is None
+
+
+def test_get_pedido_expoe_laudo_vigente_e_ignora_terminal(
+    client, outer_conn, seed_usuario, seed_paciente
+):
+    """AC I.1 — o laudo vigente aparece; o CANCELADO (terminal) não.
+
+    É esse campo que impede um segundo laudo nascer depois de um reload — e é
+    por isso que ele precisa ignorar terminais: um laudo cancelado não pode
+    travar a emissão do laudo bom.
+    """
+    token = obter_token_prescritor(client, seed_usuario)
+    proto = client.post(
+        "/pedidos-exame", json=_PAYLOAD_BASE, headers=_headers(token)
+    ).json()["protocolo"]
+
+    laudo = {
+        "cns_autor": "987654321098765", "nome_autor": "DR. TESTE TICKET13",
+        "cpf_paciente": SEED_PACIENTE_CPF, "nome_paciente": SEED_PACIENTE_NOME,
+        "pedido_protocolo": proto,
+        "itens": [{"nome_exame": "HEMOGRAMA"}],
+    }
+    r = client.post("/laudos", json=laudo, headers=_headers(token))
+    assert r.status_code == 201, r.text
+    proto_laudo = r.json()["protocolo"]
+
+    body = client.get(f"/pedidos-exame/{proto}", headers=_headers(token)).json()
+    assert body["laudo_protocolo"] == proto_laudo
+    assert body["laudo_status"] == "em_producao"
+
+    # Cancelado → terminal → some do campo, e o pedido volta a poder ser laudado.
+    assert client.post(
+        f"/laudos/{proto_laudo}/cancelar", json={"motivo": "erro"}, headers=_headers(token)
+    ).status_code == 200
+
+    body2 = client.get(f"/pedidos-exame/{proto}", headers=_headers(token)).json()
+    assert body2["laudo_protocolo"] is None, "laudo cancelado não pode travar o pedido"
