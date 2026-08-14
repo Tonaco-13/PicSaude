@@ -164,20 +164,35 @@ def derivar_status_pedido(status_itens: list[str]) -> str:
     são ignorados no cálculo do estado agregado.
 
     Se todos os itens estiverem em estado terminal:
-    - todos encerrados ou resultado_disponivel → "encerrado"
-    - ao menos um cancelado (sem encerrado) → "cancelado"
-    """
-    ativos = [s for s in status_itens if s not in ESTADOS_TERMINAIS_ITEM_EXAME
-              or s == "resultado_disponivel"]
+    - ao menos um em resultado_disponivel → "resultado_disponivel" (aguarda ciência)
+    - todos encerrados/nao_realizados/físicos → "encerrado"
+    - caso contrário (há cancelado) → "cancelado"
 
-    # Remove resultado_disponivel dos "ativos" para recálculo correto
+    TICKET-J.1 (`core`) — o pedido REPOUSA em `resultado_disponivel`.
+    Antes, "todos os itens com resultado" caía no ramo dos terminais e devolvia
+    `encerrado` direto. Três consequências, todas observadas na excursão de 14/08
+    na vitrine:
+      1. o estado `resultado_disponivel` do PEDIDO era inalcançável, embora
+         declarado em `ESTADOS_PEDIDO_EXAME` e no `_PRIORIDADE_ESTADO` abaixo;
+      2. `POST /pedidos-exame/{proto}/encerrar` exige `resultado_disponivel` e
+         portanto devolvia **422 circular** — nunca dava para encerrar;
+      3. como só o `/encerrar` promove itens a `encerrado` e emite
+         `pedido_encerrado`, esse evento **nunca existia** no ledger e os itens
+         nunca chegavam ao terminal de verdade.
+
+    `encerrado` passa a ser exclusivamente resultado do ato de ciência
+    (`/encerrar`) — que é o que o estado significa. Derivar "encerrado" de
+    "o laboratório terminou" confundia *produzir o resultado* com *o cidadão
+    tomar ciência dele*: são dois fatos, e o segundo é o que fecha o ciclo.
+    """
     ativos_sem_resultado = [s for s in status_itens if s not in ESTADOS_TERMINAIS_ITEM_EXAME]
 
     if not ativos_sem_resultado:
-        # Todos terminais — determina se foi encerrado ou cancelado
-        terminais = [s for s in status_itens]
-        if all(s in {"encerrado", "resultado_disponivel", "nao_realizado", "encerrado_fisico"}
-               for s in terminais):
+        # Todos terminais. O resultado pendente de ciência tem precedência: é o
+        # único caso em que ainda há ato a praticar sobre o pedido.
+        if "resultado_disponivel" in status_itens:
+            return "resultado_disponivel"
+        if all(s in {"encerrado", "nao_realizado", "encerrado_fisico"} for s in status_itens):
             return "encerrado"
         return "cancelado"
 

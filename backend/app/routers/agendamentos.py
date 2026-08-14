@@ -239,6 +239,15 @@ def _itens_ativos_do_pedido(conn, pedido_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def _protocolo_do_pedido(conn, pedido_id: int) -> str | None:
+    """Protocolo do pedido — o outbox publica por protocolo, não por id interno
+    (TICKET-J.5)."""
+    row = conn.execute(
+        "SELECT protocolo FROM pedidos_exame WHERE id = ?", (pedido_id,)
+    ).fetchone()
+    return row["protocolo"] if row else None
+
+
 def _recalcular_status_pedido(conn, pedido_id: int, agora: str) -> str:
     itens = _itens_ativos_do_pedido(conn, pedido_id)
     novo_status = derivar_status_pedido([i["status_item"] for i in itens])
@@ -511,6 +520,22 @@ def realizar_agendamento(
         ag = _transicionar(conn, protocolo, "realizado", agora)
 
         # MVP: realizado → itens agendado → coletado
+        #
+        # TICKET-J.5 (`core`) — a coleta por esta via também entra no ledger DO
+        # PEDIDO. Antes, o item virava `coletado` aqui e só o ledger do
+        # AGENDAMENTO registrava (`agendamento_realizado`): quem lesse a trilha do
+        # pedido via `GET /pedidos-exame/{proto}` via o item coletado sem nenhum
+        # evento explicando quando nem por quê — buraco na proveniência do objeto
+        # sanitário (NUCLEO_SANITARIO). A outra via de coleta
+        # (`pedidos_exame.py::coletar_item_exame`) sempre emitiu `pedido_coletado`;
+        # as duas passam a contar a mesma história.
+        #
+        # `instance_id` é obtido ANTES do laço e compartilhado por todos os
+        # eventos desta transação — agendamento e pedido —, que é a invariante
+        # forense do 4D.2: um ato, um identificador.
+        instance_id = get_instance_id_conn(conn)
+        proto_pedido = _protocolo_do_pedido(conn, ag["pedido_id"])
+
         itens = _itens_ativos_do_pedido(conn, ag["pedido_id"])
         coletados = 0
         for item in itens:
@@ -521,12 +546,34 @@ def realizar_agendamento(
                 )
                 coletados += 1
 
+                ev_coletado = {
+                    "item_id":    item["id"],
+                    "nome_exame": item["nome_exame"],
+                    # A via fica registrada: coleta por agendamento e coleta
+                    # direta no balcão são o mesmo fato com origens diferentes,
+                    # e a auditoria tem direito de distinguir.
+                    "via":                   "agendamento",
+                    "agendamento_protocolo": protocolo,
+                }
+                registrar_evento_ledger(
+                    conn,
+                    objeto_tipo="pedido_exame",
+                    objeto_id=ag["pedido_id"],
+                    tipo_evento="pedido_coletado",
+                    instance_id=instance_id,
+                    payload=ev_coletado,
+                )
+                registrar_outbox(
+                    conn, "pedido_coletado", "pedido_exame",
+                    proto_pedido, ev_coletado,
+                    instance_id=instance_id,
+                )
+
         novo_status_pedido = _recalcular_status_pedido(conn, ag["pedido_id"], agora)
 
         payload_ev = _montar_payload_evento(ag)
         payload_ev["itens_coletados"] = coletados
         payload_ev["mvp_nota"] = "realizado implica coletado — simplificacao MVP"
-        instance_id = get_instance_id_conn(conn)
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_realizado",
                                    payload_ev, agora,
                                    instance_id=instance_id, ag_context=ag)

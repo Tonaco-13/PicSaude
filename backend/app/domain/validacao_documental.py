@@ -92,6 +92,7 @@ from app.domain.assinatura import (
 )
 from app.domain.documento_canonico import montar_documento
 from app.domain.states import ESTADOS_ITEM, ESTADOS_PRESCRICAO
+from app.utils.helpers import normalize_nome
 
 
 # ---------------------------------------------------------------------------
@@ -392,15 +393,21 @@ def _camada_integridade(row, itens, eh_fisica: bool) -> dict[str, Verificacao]:
 
     # 2.2 — hash íntegro: recomputar e comparar
     try:
+        # TICKET-J.2 — MESMA normalização de `montar_documento_de_conn`. Este é o
+        # segundo sítio que reconstrói o canônico a partir do banco, e é o que o
+        # cidadão/auditor enxerga: sem isto, a camada de integridade acusaria
+        # adulteração inexistente pela caixa do nome. Os dois sítios têm de
+        # normalizar igual — divergir aqui faria `/documento` e `/validacao`
+        # discordarem sobre o mesmo documento.
         doc_result = montar_documento(
             protocolo       = row["protocolo"],
             data_emissao    = row["data_emissao"],
             tipo_emissao    = row["tipo_emissao"],
             assinatura_modo = row["assinatura_modo"],
             cns_prescritor  = row["cns_prescritor"],
-            nome_prescritor = row["nome_prescritor"],
+            nome_prescritor = normalize_nome(row["nome_prescritor"]),
             cpf_paciente    = row["cpf_paciente"],
-            nome_paciente   = row["nome_paciente"],
+            nome_paciente   = normalize_nome(row["nome_paciente"]),
             itens           = [dict(r) for r in itens],
         )
         if doc_result.hash_sha256 == hash_armazenado:
