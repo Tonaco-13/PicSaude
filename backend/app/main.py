@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.cnes_demo import garantir_snapshot_cnes_demo
 from app.database import SessionLocal
 from app.instance import get_instance_id
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -123,7 +124,8 @@ _validate_demo_mode_at_boot(PICSAUDE_ENV, PICSAUDE_DEMO_MODE)
 
 def _lifespan_bootstrap() -> None:
     """
-    Hook do startup — bootstrap idempotente do ``instance_id``.
+    Hook do startup — bootstrap idempotente do ``instance_id`` e, em
+    DEMO_MODE, do snapshot CNES da vitrine.
 
     Função module-level para ser patchável em testes via
     ``unittest.mock.patch`` (CODEX rodada 5 P1). Em produção/dev, abre
@@ -148,6 +150,12 @@ def _lifespan_bootstrap() -> None:
         get_instance_id(session)
     finally:
         session.close()
+
+    # DESPACHO-ENG-011 §5 (`ops`) — snapshot CNES da demo. O sítio é o boot, e
+    # não o `predeploy.sh`: o pre-deploy do Render roda em instância separada e
+    # o que ele escreve no filesystem não chega ao container do serviço
+    # (verificação em `app/cnes_demo.py`). No-op fora de DEMO_MODE; nunca levanta.
+    garantir_snapshot_cnes_demo()
 
 
 @asynccontextmanager

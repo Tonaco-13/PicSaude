@@ -36,6 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.auth.jwt import hash_senha
+from app.cnes_demo import DDL_CNES_DEMO
 from app.database import get_conn
 from app.domain.catalogo_seed import aplicar_seed_catalogo
 
@@ -672,15 +673,13 @@ def main() -> None:
         # para que endpoints de contexto institucional não quebrem em demo.
         # Defense in depth: o fallback em login.py:311 já pega o cenário, mas
         # o CREATE garante schema correto para novos bancos demo.
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS estabelecimentos_cnes (
-                CO_CNES      TEXT,
-                NU_CNPJ      TEXT,
-                TP_UNIDADE   TEXT,
-                NO_FANTASIA  TEXT,
-                CO_MUNICIPIO TEXT
-            )
-        """)
+        #
+        # O DDL vem de `app.cnes_demo` — FONTE ÚNICA, compartilhada com o
+        # bootstrap de boot que garante o SQLite de referência CNES da vitrine
+        # (DESPACHO-ENG-011 §5). Aqui os statements rodam em `get_conn()`
+        # (PostgreSQL na vitrine, SQLite em dev); lá, no side-car SQLite.
+        for _ddl in DDL_CNES_DEMO:
+            conn.execute(_ddl)
         # T0.5b — semeia o CNES das farmácias demo (TP_UNIDADE '04' ∈ _TP_FARMACIA)
         # para que /auth/me/institucional devolva cnes_verificado=true. Sem isto, a
         # demo cai no modal de confirmação manual de CNES a cada dispensação.
@@ -702,27 +701,6 @@ def main() -> None:
                 "VALUES (?, ?, '04', ?, '261160') RETURNING NU_CNPJ",
                 (_cnes, _cnpj, _nome),
             )
-        # Tabelas de validação do prescritor (vazias): garantem que a consulta
-        # CNES (cnes_prescritor.py) rode e retorne `nao_encontrado` em vez de
-        # falhar por tabela ausente. Colunas = as referenciadas pela query.
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS profissionais_cnes (
-                CO_PROFISSIONAL_SUS TEXT,
-                CO_CNS              TEXT,
-                NO_PROFISSIONAL     TEXT,
-                CO_CPF              TEXT
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS relacao_prof_estab (
-                CO_PROFISSIONAL_SUS TEXT,
-                CO_UNIDADE          TEXT,
-                CO_CBO              TEXT,
-                CO_CONSELHO_CLASSE  TEXT,
-                NU_REGISTRO         TEXT,
-                SG_UF_CRM           TEXT
-            )
-        """)
 
         # Catálogo regulatório (DCB) — dado de referência do motor RDC 1.000/2025.
         # Antes das personas porque não depende de nenhuma delas; commit próprio
