@@ -815,6 +815,24 @@
     const BACKEND = BACKEND_URL;
 
     let jwtAccessToken  = null;
+
+// TICKET-J.3 — re-login transparente: em DEMO_MODE, um 401 no meio da visita
+// renova a sessão e reemite o request, em vez de derrubar para a tela de
+// acesso. O interceptador vive em config.js (ponto único por onde os
+// 29 fetches desta tela passam). JWT/RBAC intocados.
+(function _ligarReloginDemo() {
+    fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(cfg => {
+            if (!cfg || !cfg.demo_mode) return;   // fora de demo, nada muda
+            instalarReloginDemo({
+                api: BACKEND,
+                role: 'clinica',
+                aoRenovar: (data) => { jwtAccessToken = data.access_token; },
+            });
+        })
+        .catch(() => { /* sem config → comportamento antigo */ });
+})();
     let clinicaLogada   = null;  // { nome, cnpj }
     let pedidoAtual     = null;
 
@@ -1005,7 +1023,14 @@
       return m[status] || 'status-pendente';
     }
 
-    function handleUnauthorized() {
+    async function handleUnauthorized() {
+      // TICKET-J.3 — em demo, sessão não expira aos olhos do visitante. Se um 401
+      // escapou do interceptador (config.js), renova aqui e segue: nada de alerta
+      // nem de tela de acesso. Só fora de demo o fluxo antigo vale.
+      if (typeof emDemoComRelogin === 'function' && emDemoComRelogin()) {
+        const dados = await renovarSessaoDemo();
+        if (dados) return;                 // sessão renasceu — o visitante não viu nada
+      }
       alert('Sessão expirada ou sem permissão. Faça login novamente.');
       logout();
     }

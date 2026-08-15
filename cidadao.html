@@ -403,6 +403,12 @@
             // F5-C2: 401/403 durante poll = sessão expirou. Parar o timer ANTES
             // de jogar o erro evita storm de fetches fantasmas a cada 30s
             // (bug do dispensador que não portamos).
+            //
+            // TICKET-J.3 — em DEMO, o 401 já foi tratado pelo interceptador
+            // (config.js): se chegou aqui como 401, a renovação falhou de fato.
+            // Um 401 que o interceptador resolveu nunca aparece nesta linha —
+            // ele devolve a resposta do RETRY. Parar o poll por 403 continua
+            // certo: 403 é papel/posse, não expiração, e insistir não resolve.
             if (res.status === 401 || res.status === 403) {
                 _pararCarteiraPoll();
             }
@@ -495,8 +501,23 @@
             _iniciarCarteiraPoll();                  // F5-C2: poll começa ao entrar
         }
 
-        function sair() {
+        async function sair() {
             _pararCarteiraPoll();                    // F5-C2: limpa timer (não repete bug do dispensador)
+
+            // TICKET-J.3 — na demo não existe "ficar deslogado": a tela de acesso
+            // é o atrito que o Fabiano pediu para remover. Sair reentra com uma
+            // sessão nova; fora de demo, o comportamento é o de sempre.
+            if (typeof emDemoComRelogin === 'function' && emDemoComRelogin()) {
+                const dados = await renovarSessaoDemo();
+                if (dados) {
+                    sessaoAtual.token = dados.access_token;
+                    sessaoAtual.cpf   = dados.sub;
+                    sessaoAtual.nome  = dados.nome;
+                    entrarNaCarteira();
+                    return;
+                }
+            }
+
             sessaoAtual = { cpf: null, nome: null, token: null };
             esconderTudo();
             document.getElementById('header-controls').classList.add('hidden');
@@ -1519,6 +1540,23 @@
         // Quando o usuário clicou em "Entrar como Paciente" em index.html,
         // o seletor demo gravou o JWT em sessionStorage. Aqui hidratamos
         // sessaoAtual e abrimos a carteira direto, pulando OTP.
+        // TICKET-J.3 — re-login transparente: em DEMO_MODE, um 401 no meio da
+        // visita renova a sessão e reemite o request, em vez de parar o poll da
+        // carteira e mostrar a tela de acesso. Interceptador único em config.js.
+        (function _ligarReloginDemo() {
+            fetch(`${API}/config/public`, { cache: 'no-store' })
+                .then(r => r.json())
+                .then(cfg => {
+                    if (!cfg || !cfg.demo_mode) return;
+                    instalarReloginDemo({
+                        api: API,
+                        role: 'paciente',
+                        aoRenovar: (data) => { sessaoAtual.token = data.access_token; },
+                    });
+                })
+                .catch(() => { /* sem config → comportamento antigo */ });
+        })();
+
         (function _hidratarSessaoDemo() {
             try {
                 const token = sessionStorage.getItem('picsaude_demo_token');

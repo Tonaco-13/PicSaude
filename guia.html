@@ -223,6 +223,13 @@
     align-items: flex-end; justify-content: space-between;
   }
   .demo-hooks { font-size: .82rem; color: var(--muted); }
+  /* TICKET-J.4 (c) — nota sobre o selo de confiança na demo. Largura limitada
+     para continuar legível ao lado dos ganchos, e quebra para baixo no mobile
+     junto com o resto do rodapé (regra .footer do @media). */
+  .nota-demo {
+    font-size: .78rem; color: var(--muted); line-height: 1.55;
+    max-width: 46ch; margin: 0;
+  }
   .demo-hooks .label {
     font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
     text-transform: uppercase; display: block; margin-bottom: .4rem;
@@ -434,6 +441,17 @@
           <code>DEMO-FILA-0001</code> receita na fila &nbsp;·&nbsp;
           <code>DEMO-ATESTADO-0001</code> atestado assinado
         </div>
+        <!-- TICKET-J.4 (c) — o score de confiança "baixo" na demo não é falha: é
+             o indicador dizendo a verdade sobre uma identidade que não existe no
+             CNES. Explicar isso é mais honesto que forçar o indicador a mentir. -->
+        <p class="nota-demo">
+          <strong>Sobre o selo de confiança:</strong> na demonstração ele aparece como
+          <em>baixo</em> — as personas usam CNS e CNPJ sintéticos, que por definição não
+          constam no CNES. O selo está funcionando: ele informa que não conseguiu confirmar
+          o profissional numa base oficial. Em operação real, com registro válido, o mesmo
+          selo sobe. Um indicador de confiança que nunca dissesse "baixo" não serviria
+          para nada.
+        </p>
       </footer>
 
     </div>
