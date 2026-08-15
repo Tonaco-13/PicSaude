@@ -1007,6 +1007,24 @@
         let carteiraDigitalStatus = null; // Ticket 63: null=não verificado, true/false=resultado
         let jwtAccessToken = null;  // Bearer token em memória (não persiste em localStorage)
 
+// TICKET-J.3 — re-login transparente: em DEMO_MODE, um 401 no meio da visita
+// renova a sessão e reemite o request, em vez de derrubar para a tela de
+// acesso. O interceptador vive em config.js (ponto único por onde os
+// 32 fetches desta tela passam). JWT/RBAC intocados.
+(function _ligarReloginDemo() {
+    fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(cfg => {
+            if (!cfg || !cfg.demo_mode) return;   // fora de demo, nada muda
+            instalarReloginDemo({
+                api: BACKEND,
+                role: 'prescritor',
+                aoRenovar: (data) => { jwtAccessToken = data.access_token; },
+            });
+        })
+        .catch(() => { /* sem config → comportamento antigo */ });
+})();
+
         // ── Navegação de submódulos ──────────────────────────────────────
         function mostrarSubmodulo(qual) {
             const mapa = {

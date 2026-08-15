@@ -614,6 +614,24 @@
         // Estado da sessão (em memória — não persiste no disco)
         // ─────────────────────────────────────────────────
         let jwtAccessToken    = null;
+
+// TICKET-J.3 — re-login transparente: em DEMO_MODE, um 401 no meio da visita
+// renova a sessão e reemite o request, em vez de derrubar para a tela de
+// acesso. O interceptador vive em config.js (ponto único por onde os
+// 22 fetches desta tela passam). JWT/RBAC intocados.
+(function _ligarReloginDemo() {
+    fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(cfg => {
+            if (!cfg || !cfg.demo_mode) return;   // fora de demo, nada muda
+            instalarReloginDemo({
+                api: BACKEND,
+                role: 'dispensador',
+                aoRenovar: (data) => { jwtAccessToken = data.access_token; },
+            });
+        })
+        .catch(() => { /* sem config → comportamento antigo */ });
+})();
         let dispensadorLogado = null;  // { nome, cnpj }
 
         // DEV_PRESET_CONTEXT: pré-seleciona a farmácia de teste automaticamente.
