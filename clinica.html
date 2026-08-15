@@ -181,6 +181,55 @@
     .fila-abrir { font-size: 11px; color: #0e7490; font-weight: 700; white-space: nowrap; }
 
     /* ============================================================ */
+    /* TICKET-J.8 — Abas do percurso do exame                       */
+    /* ------------------------------------------------------------ */
+    /* Recepção → Agendamento → Realização → Bancada. As abas       */
+    /* espelham o PERCURSO (o que o operador faz), não o estado do  */
+    /* item: a partição é "ainda não coletado" vs "já coletado",    */
+    /* nunca `agendado` como sinônimo de "com o laboratório" — esse */
+    /* acoplamento é o que o J.7 pode desfazer (despacho §6).       */
+    /* ============================================================ */
+    .abas-lab {
+      display: flex; gap: 4px; margin-bottom: 20px;
+      border-bottom: 2px solid #cffafe; flex-wrap: wrap;
+    }
+    .aba-lab {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 11px 18px; border: none; background: transparent;
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+      font-size: 13px; font-weight: 700; color: #64748b;
+      cursor: pointer; white-space: nowrap; border-radius: 6px 6px 0 0;
+    }
+    .aba-lab:hover { background: #f0fdff; color: #0e7490; }
+    .aba-lab.ativa { color: #1e3a8a; border-bottom-color: #06b6d4; background: #f0fdff; }
+    .aba-lab:focus-visible { outline: 2px solid #06b6d4; outline-offset: -2px; }
+    .aba-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+      background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700;
+    }
+    .aba-lab.ativa .aba-count { background: #0e7490; color: #fff; }
+    .aba-vazia {
+      font-size: 14px; color: #64748b; text-align: center; padding: 28px 20px;
+      border: 1px dashed #cbd5e1; border-radius: 8px; background: #fff;
+      line-height: 1.7;
+    }
+    /* Faixa do pedido em foco — persiste entre as abas, para o operador
+       nunca perder de vista sobre QUAL pedido as ações da aba agem. */
+    .pedido-foco {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 12px; flex-wrap: wrap;
+      background: #ecfeff; border: 1px solid #a5f3fc; border-left: 4px solid #06b6d4;
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;
+    }
+    .pedido-foco-rotulo {
+      display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: #0e7490; margin-bottom: 2px;
+    }
+    .pedido-foco-texto { font-size: 14px; font-weight: 600; color: #0f172a; }
+    .pedido-foco-proto { font-family: monospace; font-size: 12px; color: #475569; }
+
+    /* ============================================================ */
     /* Cards genéricos                                              */
     /* ============================================================ */
     .card {
@@ -714,6 +763,45 @@
         <button class="btn-banner-corrigir" type="button" onclick="abrirModalCNESClinica()">Corrigir agora</button>
       </div>
 
+      <!-- ── TICKET-J.8 — pedido em foco ────────────────────────────
+           Faixa persistente ACIMA das abas: as ações de Agendamento,
+           Realização e Bancada agem sobre um pedido só, e o operador
+           precisa vê-lo sem voltar à Recepção. -->
+      <div id="pedido-foco" class="pedido-foco hidden">
+        <div>
+          <span class="pedido-foco-rotulo">Pedido em foco</span>
+          <span class="pedido-foco-texto" id="pedido-foco-texto"></span>
+        </div>
+        <button class="btn-nova-busca" onclick="novaBusca()">← Nova busca</button>
+      </div>
+
+      <!-- ── TICKET-J.8 — abas do percurso do exame ────────────────── -->
+      <nav class="abas-lab" role="tablist" aria-label="Etapas do exame">
+        <button type="button" role="tab" class="aba-lab ativa"
+                id="aba-btn-recepcao" aria-controls="aba-recepcao" aria-selected="true"
+                onclick="abrirAbaLab('recepcao')">
+          📥 Recepção <span class="aba-count" id="aba-count-recepcao">0</span>
+        </button>
+        <button type="button" role="tab" class="aba-lab"
+                id="aba-btn-agendamento" aria-controls="aba-agendamento" aria-selected="false"
+                onclick="abrirAbaLab('agendamento')">
+          📅 Agendamento <span class="aba-count" id="aba-count-agendamento">0</span>
+        </button>
+        <button type="button" role="tab" class="aba-lab"
+                id="aba-btn-realizacao" aria-controls="aba-realizacao" aria-selected="false"
+                onclick="abrirAbaLab('realizacao')">
+          🧪 Realização <span class="aba-count" id="aba-count-realizacao">0</span>
+        </button>
+        <button type="button" role="tab" class="aba-lab"
+                id="aba-btn-bancada" aria-controls="aba-bancada" aria-selected="false"
+                onclick="abrirAbaLab('bancada')">
+          🔬 Bancada <span class="aba-count" id="aba-count-bancada">0</span>
+        </button>
+      </nav>
+
+      <!-- ══════════════ ABA 1 — RECEPÇÃO ══════════════ -->
+      <section class="aba-painel" id="aba-recepcao" role="tabpanel" aria-labelledby="aba-btn-recepcao">
+
       <!-- FILA DE EXAMES (GAP-4 — "o exame chega como um pix") ────── -->
       <div class="card fila-card" id="fila-card">
         <div class="fila-card-head">
@@ -751,42 +839,6 @@
         </button>
       </div>
 
-      <!-- RESULTADO ---------------------------------------------- -->
-      <div id="resultado-pedido" class="hidden">
-
-        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-          <button class="btn-nova-busca" onclick="novaBusca()">← Nova busca</button>
-        </div>
-
-        <!-- ── DETALHES DO PEDIDO ── -->
-        <div class="card" id="card-pedido">
-          <div class="card-titulo">Pedido de Exame</div>
-          <div id="detalhes-pedido"></div>
-        </div>
-
-        <!-- ── AGENDAMENTO ── -->
-        <div class="card" id="card-agendamento">
-          <div class="card-titulo">Agendamento</div>
-          <div id="feedback-agendamento" class="hidden"></div>
-          <div id="conteudo-agendamento"></div>
-        </div>
-
-        <!-- ── EXAMES SOLICITADOS ── -->
-        <div class="card">
-          <div class="card-titulo">Exames Solicitados</div>
-          <div id="lista-itens"></div>
-          <!-- TICKET-G — o laudo é do PEDIDO, não do item: um laudo cobre os
-               exames que estão na bancada. Por isso o gatilho e o editor vivem
-               no rodapé do card, e não dentro de cada item. -->
-          <div id="acoes-laudo"></div>
-          <div id="feedback-laudo" class="hidden"></div>
-          <div id="editor-laudo" class="hidden"></div>
-          <div id="painel-laudo" class="hidden"></div>
-        </div>
-
-      </div>
-      <!-- /resultado-pedido -->
-
       <!-- ── Circulação Diagnóstica (Ticket 57) ──────────────────── -->
       <div class="circ-section">
         <div class="circ-section-title">🔬 Circulação Diagnóstica</div>
@@ -802,6 +854,61 @@
         <div id="circ-resultado" class="hidden"></div>
       </div>
       <!-- /circulação diagnóstica -->
+
+        <!-- ── DETALHES DO PEDIDO ── -->
+        <div class="card hidden" id="card-pedido">
+          <div class="card-titulo">Pedido de Exame</div>
+          <div id="detalhes-pedido"></div>
+        </div>
+
+      </section>
+      <!-- /aba-recepcao -->
+
+      <!-- ══════════════ ABA 2 — AGENDAMENTO ══════════════ -->
+      <section class="aba-painel hidden" id="aba-agendamento" role="tabpanel" aria-labelledby="aba-btn-agendamento">
+        <div class="aba-vazia sem-pedido hidden" id="vazio-agendamento">
+          Nenhum pedido em foco.<br>
+          Abra um pedido pela <strong>Recepção</strong> para marcar, confirmar ou remarcar a coleta.
+        </div>
+        <div class="card" id="card-agendamento">
+          <div class="card-titulo">Agendamento</div>
+          <div id="feedback-agendamento" class="hidden"></div>
+          <div id="conteudo-agendamento"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════ ABA 3 — REALIZAÇÃO ══════════════ -->
+      <!-- Comparecimento e coleta. A lista é dos exames que AINDA NÃO foram
+           coletados — critério de percurso, não de estado nominal (§6). -->
+      <section class="aba-painel hidden" id="aba-realizacao" role="tabpanel" aria-labelledby="aba-btn-realizacao">
+        <div class="aba-vazia sem-pedido hidden" id="vazio-realizacao">
+          Nenhum pedido em foco.<br>
+          Abra um pedido pela <strong>Recepção</strong> para registrar comparecimento e coleta.
+        </div>
+        <div class="card" id="card-realizacao">
+          <div class="card-titulo">Exames a realizar</div>
+          <div id="lista-realizacao"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════ ABA 4 — BANCADA ══════════════ -->
+      <section class="aba-painel hidden" id="aba-bancada" role="tabpanel" aria-labelledby="aba-btn-bancada">
+        <div class="aba-vazia sem-pedido hidden" id="vazio-bancada">
+          Nenhum pedido em foco.<br>
+          Abra um pedido pela <strong>Recepção</strong> para processar material e liberar laudo.
+        </div>
+        <div class="card" id="card-bancada">
+          <div class="card-titulo">Bancada e laudo</div>
+          <div id="lista-bancada"></div>
+          <!-- TICKET-G — o laudo é do PEDIDO, não do item: um laudo cobre os
+               exames que estão na bancada. Por isso o gatilho e o editor vivem
+               no rodapé do card, e não dentro de cada item. -->
+          <div id="acoes-laudo"></div>
+          <div id="feedback-laudo" class="hidden"></div>
+          <div id="editor-laudo" class="hidden"></div>
+          <div id="painel-laudo" class="hidden"></div>
+        </div>
+      </section>
 
     </div>
   </div>
@@ -840,6 +947,9 @@
     // Mude para false antes de publicar em produção.
     const DEV_PRESET_CONTEXT = true;
     let agendamentosAtuais = [];
+    // TICKET-J.8 — a listagem por pedido é vedada ao laboratório (403 de posse,
+    // por desenho). Distingue "não há agendamento" de "não posso ver".
+    let _agendamentosOcultosPorPosse = false;
 
     // Ticket 46 — Gate leve de contexto CNES
     let _cnesConfirmadoManual = false;
@@ -1023,6 +1133,105 @@
       return m[status] || 'status-pendente';
     }
 
+    // ═════════════════════════════════════════════════════════════
+    // TICKET-J.8 — ABAS DO PERCURSO DO EXAME
+    //
+    // Recepção → Agendamento → Realização → Bancada. UI ONLY: nenhuma rota,
+    // estado, evento ou custódia muda por causa das abas.
+    //
+    // A partição dos itens é por PERCURSO ("já saiu material?"), não pelo nome
+    // do estado. Em especial, nada aqui lê `agendado` como sinônimo de "está
+    // com o laboratório" — posse é custódia, e o J.7 pode retirar a transição
+    // para `agendado` do ato de transferir (despacho §4). Se isso acontecer, os
+    // itens chegam como `pendente` e continuam caindo em Realização, sem
+    // retrabalho nesta tela.
+    // ═════════════════════════════════════════════════════════════
+
+    const _ABAS_LAB = ['recepcao', 'agendamento', 'realizacao', 'bancada'];
+
+    // Etapas em que o material JÁ foi coletado — daí para a frente o trabalho é
+    // de bancada. Tudo o que não está aqui nem encerrado ainda é Realização.
+    const _ETAPAS_POS_COLETA = ['coletado', 'em_analise', 'resultado_disponivel'];
+    const _ETAPAS_ENCERRADAS = ['encerrado', 'cancelado', 'encerrado_fisico'];
+
+    let abaLabAtiva = 'recepcao';
+
+    function _itensDaAbaRealizacao(itens) {
+      return (itens || []).filter(i =>
+        !_ETAPAS_POS_COLETA.includes(i.status_item) &&
+        !_ETAPAS_ENCERRADAS.includes(i.status_item));
+    }
+
+    function _itensDaAbaBancada(itens) {
+      return (itens || []).filter(i => _ETAPAS_POS_COLETA.includes(i.status_item));
+    }
+
+    function abrirAbaLab(nome) {
+      if (!_ABAS_LAB.includes(nome)) return;
+      abaLabAtiva = nome;
+      _ABAS_LAB.forEach(n => {
+        const painel = document.getElementById('aba-' + n);
+        const botao  = document.getElementById('aba-btn-' + n);
+        if (painel) painel.classList.toggle('hidden', n !== nome);
+        if (botao) {
+          botao.classList.toggle('ativa', n === nome);
+          botao.setAttribute('aria-selected', String(n === nome));
+        }
+      });
+    }
+
+    /**
+     * Aba onde está o próximo gesto deste pedido.
+     *
+     * Abrir um pedido e cair numa aba vazia obrigaria o operador a caçar o
+     * trabalho. O critério é o mesmo da partição — percurso, não nome de
+     * estado — então continua válido se o J.7 tirar o `agendado` da
+     * transferência: sem coleta feita, o trabalho é Realização.
+     */
+    function _abaSugeridaParaPedido() {
+      const itens = (pedidoAtual && pedidoAtual.itens) || [];
+      if (_itensDaAbaRealizacao(itens).length) return 'realizacao';
+      if (_itensDaAbaBancada(itens).length)    return 'bancada';
+      return 'recepcao';
+    }
+
+    function _definirContador(id, valor) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(valor);
+    }
+
+    /** Faixa do pedido em foco + estados vazios das abas 2–4 + contadores. */
+    function _sincronizarAbas() {
+      const temPedido = !!pedidoAtual;
+      const itens = (pedidoAtual && pedidoAtual.itens) || [];
+
+      const faixa = document.getElementById('pedido-foco');
+      if (faixa) faixa.classList.toggle('hidden', !temPedido);
+      if (temPedido) {
+        const nome = pedidoAtual.paciente_nome || pedidoAtual.paciente?.nome || '—';
+        const alvo = document.getElementById('pedido-foco-texto');
+        if (alvo) {
+          alvo.innerHTML = `${esc(nome)} · <span class="pedido-foco-proto">${esc(pedidoAtual.protocolo)}</span>`;
+        }
+      }
+
+      // O card só aparece quando há o que mostrar; o aviso, quando não há.
+      [['agendamento', 'card-agendamento'],
+       ['realizacao',  'card-realizacao'],
+       ['bancada',     'card-bancada']].forEach(([aba, cardId]) => {
+        const vazio = document.getElementById('vazio-' + aba);
+        const card  = document.getElementById(cardId);
+        if (vazio) vazio.classList.toggle('hidden', temPedido);
+        if (card)  card.classList.toggle('hidden', !temPedido);
+      });
+
+      const naFila = document.getElementById('fila-count');
+      _definirContador('aba-count-recepcao', naFila ? naFila.textContent : 0);
+      _definirContador('aba-count-agendamento', (agendamentosAtuais || []).length);
+      _definirContador('aba-count-realizacao', _itensDaAbaRealizacao(itens).length);
+      _definirContador('aba-count-bancada', _itensDaAbaBancada(itens).length);
+    }
+
     async function handleUnauthorized() {
       // TICKET-J.3 — em demo, sessão não expira aos olhos do visitante. Se um 401
       // escapou do interceptador (config.js), renova aqui e segue: nada de alerta
@@ -1033,6 +1242,36 @@
       }
       alert('Sessão expirada ou sem permissão. Faça login novamente.');
       logout();
+    }
+
+    // ─────────────────────────────────────────
+    // TICKET-J.8 (§1 do despacho ENG-011) — 403 de POSSE ≠ 403 de SESSÃO
+    // ─────────────────────────────────────────
+    // Os dois códigos diziam a mesma frase ("Sessão expirada ou sem permissão")
+    // e tomavam o mesmo caminho. São fatos diferentes:
+    //
+    //   401 → o TOKEN não vale mais            → renovar sessão (J.3) / relogar
+    //   403 → o token vale; o OBJETO não é seu → avisar no lugar certo e seguir
+    //
+    // Tratar 403 como sessão expirada mente para o visitante e, fora da demo,
+    // desloga quem está perfeitamente logado. A sessão permanece intacta aqui.
+    //
+    // Isto GENERALIZA o que `carregarAgendamentos` já fazia sozinho para o seu
+    // 403 (§D4): o remédio existia num sítio só, e os outros 11 seguiam
+    // colapsando os dois códigos.
+    const _MSG_403_POSSE =
+      'Este pedido não está sob a posse deste estabelecimento. A sessão segue ativa.';
+
+    async function tratarNaoAutorizado(resp, containerFeedbackId) {
+      if (resp.status === 401) { await handleUnauthorized(); return; }
+
+      const err = await resp.json().catch(() => ({}));
+      const msg = _extrairMsgErro(err, _MSG_403_POSSE);
+      if (containerFeedbackId && document.getElementById(containerFeedbackId)) {
+        mostrarFeedback(containerFeedbackId, 'err', msg);
+      } else {
+        alert(msg);
+      }
     }
 
     function _extrairMsgErro(errData, fallback) {
@@ -1265,8 +1504,11 @@
 
       document.getElementById('header-sessao').classList.add('hidden');
       document.getElementById('tela-dashboard').classList.add('hidden');
-      document.getElementById('resultado-pedido').classList.add('hidden');
+      document.getElementById('card-pedido').classList.add('hidden');
       document.getElementById('busca-protocolo').value = '';
+      // TICKET-J.8 — a próxima sessão começa na Recepção, sem pedido em foco.
+      _sincronizarAbas();
+      abrirAbaLab('recepcao');
       document.getElementById('tela-login').classList.remove('hidden');
     }
 
@@ -1285,7 +1527,8 @@
       if (!lista || !jwtAccessToken) return;
       try {
         const resp = await fetch(BACKEND + '/dispensadores/fila-exames', { headers: authHeaders() });
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'fila-feedback'); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           lista.innerHTML = '<p class="fila-vazia">Não foi possível carregar a fila: ' +
@@ -1309,6 +1552,7 @@
       // pedido continua acessível pela busca/relatório, não pela fila.
       const visiveis = (fila || []).filter(p => (p.itens || []).some(i => i.acionavel));
       if (count) count.textContent = visiveis.length;
+      _definirContador('aba-count-recepcao', visiveis.length);   // TICKET-J.8
 
       if (!visiveis.length) {
         lista.innerHTML = '<p class="fila-vazia">Nenhum exame aguardando atendimento na bancada.</p>';
@@ -1381,7 +1625,17 @@
           headers: authHeaders(),
         });
 
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        if (resp.status === 401) { await handleUnauthorized(); return; }
+
+        // TICKET-J.8 — 403 aqui é POSSE, não sessão: o pedido existe, mas não
+        // está com este estabelecimento. Dizer "sessão expirada" mandaria o
+        // operador relogar para resolver algo que login nenhum resolve.
+        if (resp.status === 403) {
+          const err403 = await resp.json().catch(() => ({}));
+          erroEl.textContent = _extrairMsgErro(err403, _MSG_403_POSSE);
+          erroEl.classList.remove('hidden');
+          return;
+        }
 
         if (resp.status === 404) {
           erroEl.textContent = `Pedido "${protocolo}" não encontrado.`;
@@ -1403,7 +1657,9 @@
 
         pedidoAtual = await resp.json();
         renderizarPedido(pedidoAtual);
-        document.getElementById('resultado-pedido').classList.remove('hidden');
+        document.getElementById('card-pedido').classList.remove('hidden');
+        _sincronizarAbas();
+        abrirAbaLab(_abaSugeridaParaPedido());
         await carregarAgendamentos(protocolo);
 
         // TICKET-I.1 — ADOTA o laudo vigente que o backend informa. `laudoDoPedido`
@@ -1425,10 +1681,14 @@
     }
 
     function novaBusca() {
-      document.getElementById('resultado-pedido').classList.add('hidden');
+      document.getElementById('card-pedido').classList.add('hidden');
       pedidoAtual = null;
       agendamentosAtuais = [];
       _limparEstadoLaudo();
+      // TICKET-J.8 — soltar o pedido volta o operador à Recepção, que é onde se
+      // pega o próximo. As outras abas passam ao aviso de "nenhum pedido em foco".
+      _sincronizarAbas();
+      abrirAbaLab('recepcao');
       document.getElementById('busca-protocolo').value = '';
       document.getElementById('busca-protocolo').focus();
     }
@@ -1514,15 +1774,21 @@
         // 401 encerra a sessão; o 403 apenas apaga este painel.
         if (resp.status === 401) { handleUnauthorized(); return; }
         if (resp.status === 403) {
+          // TICKET-J.8 — LER a lista é vedado ao laboratório, mas CRIAR não é
+          // (`POST /agendamentos` aceita `dispensador`). Antes o painel virava
+          // um parágrafo morto; com a aba dedicada isso deixaria a Agendamento
+          // permanentemente inútil. Agora o aviso explica a lacuna e o formulário
+          // de marcação continua ali. Nada de RBAC muda — é a mesma API.
           agendamentosAtuais = [];
-          el.innerHTML = '<p style="font-size:13px;color:#64748b">'
-            + 'Agendamentos deste pedido não são visíveis para o laboratório.</p>';
+          _agendamentosOcultosPorPosse = true;
+          renderizarAgendamentos();
           return;
         }
         if (!resp.ok) { el.innerHTML = '<p style="font-size:13px;color:#dc2626">Erro ao carregar agendamentos.</p>'; return; }
 
         const data = await resp.json();
         agendamentosAtuais = data.agendamentos || data || [];
+        _agendamentosOcultosPorPosse = false;
         renderizarAgendamentos();
 
       } catch (_) {
@@ -1535,6 +1801,10 @@
       const ativos = agendamentosAtuais.filter(
         a => !['cancelado', 'nao_compareceu'].includes(a.status)
       );
+
+      // TICKET-J.8 — o contador da aba mostra os agendamentos VIVOS; cancelado
+      // e não-compareceu continuam na lista (histórico), mas não são trabalho.
+      _definirContador('aba-count-agendamento', ativos.length);
 
       let html = '';
 
@@ -1573,6 +1843,13 @@
             </div>
           `;
         }
+      } else if (_agendamentosOcultosPorPosse) {
+        // A lista é do prescritor/paciente (agendamentos.py §D4). Dizer isso é
+        // melhor que fingir "nenhum agendamento" — que seria a tela mentindo.
+        html = `<p style="font-size:13px;color:#64748b;margin-bottom:12px">
+          A <strong>lista</strong> de agendamentos deste pedido é visível ao prescritor e ao
+          cidadão, não ao laboratório. Marcar a coleta abaixo continua disponível.
+        </p>`;
       } else {
         html = `<p style="font-size:13px;color:#64748b;margin-bottom:12px">
           Nenhum agendamento ativo para este pedido.
@@ -1674,7 +1951,8 @@
           }),
         });
 
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'feedback-agendamento'); return; }
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
@@ -1703,7 +1981,8 @@
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/confirmar', {
           method: 'POST', headers: authHeaders(), body: '{}',
         });
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'feedback-agendamento'); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
@@ -1722,7 +2001,8 @@
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/cancelar', {
           method: 'POST', headers: authHeaders(), body: '{}',
         });
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'feedback-agendamento'); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
@@ -1747,7 +2027,8 @@
         const resp = await fetch(BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/realizar', {
           method: 'POST', headers: authHeaders(), body: '{}',
         });
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'feedback-agendamento'); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
@@ -1765,10 +2046,24 @@
     // ITENS / EXAMES
     // ─────────────────────────────────────────
 
+    // TICKET-J.8 — o mesmo cartão de item, renderizado em DUAS listas: os que
+    // ainda não foram coletados vão para a aba Realização; os que já foram, para
+    // a Bancada. Um item muda de aba sozinho ao mudar de etapa.
     function renderizarItens(itens) {
-      const el = document.getElementById('lista-itens');
+      _pintarItens('lista-realizacao', _itensDaAbaRealizacao(itens),
+                   'Nenhum exame aguardando coleta neste pedido.');
+      _pintarItens('lista-bancada', _itensDaAbaBancada(itens),
+                   'Nenhum material na bancada. Registre a coleta na aba Realização.');
+
+      renderizarGatilhoLaudo(itens);   // TICKET-G — o laudo é do pedido
+      _sincronizarAbas();
+    }
+
+    function _pintarItens(containerId, itens, mensagemVazia) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
       if (!itens || itens.length === 0) {
-        el.innerHTML = '<p style="font-size:13px;color:#64748b">Nenhum exame encontrado no pedido.</p>';
+        el.innerHTML = `<p style="font-size:13px;color:#64748b">${esc(mensagemVazia)}</p>`;
         return;
       }
 
@@ -1820,8 +2115,6 @@
           </div>
         `;
       }).join('');
-
-      renderizarGatilhoLaudo(itens);   // TICKET-G — o laudo é do pedido
     }
 
     // ─────────────────────────────────────────
@@ -2315,45 +2608,21 @@
     }
 
     function atualizarStatusUI(itemId, novoStatus) {
-      const itemEl = document.getElementById('item-exame-' + itemId);
-      if (!itemEl) return;
-
-      // Atualizar classe de borda
-      itemEl.className = 'item-exame ' + itemStatusClass(novoStatus);
-
-      // Atualizar badge no header
-      const badgeEl = itemEl.querySelector('.badge');
-      if (badgeEl) badgeEl.outerHTML = badgeItem(novoStatus);
-
-      // Atualizar ações
-      const acoesEl = itemEl.querySelector('.item-acoes');
-      if (acoesEl) {
-        if (novoStatus === 'coletado') {
-          // TICKET-F — espelho exato do ramo 'coletado' de renderizarItens. Se
-          // os dois divergirem, a tela mente logo após a mutação e só volta a
-          // dizer a verdade no recarregarPedido.
-          acoesEl.innerHTML = `<button class="btn-bancada" id="btn-bancada-${itemId}"
-            onclick="registrarBancada(${itemId})">
-            Enviar à bancada
-          </button>
-          <button class="btn-resultado" id="btn-resultado-${itemId}"
-            onclick="registrarResultado(${itemId})">
-            Registrar resultado
-          </button>`;
-        } else if (novoStatus === 'em_analise') {
-          acoesEl.innerHTML = `<span class="laudo-aguardo">⏳ Na bancada — aguardando laudo</span>`;
-        } else if (novoStatus === 'resultado_disponivel') {
-          acoesEl.innerHTML = `<span class="laudo-pronto">✓ Resultado disponível</span>`;
-        } else {
-          acoesEl.innerHTML = '';
-        }
-      }
-
-      // Atualizar pedidoAtual em memória
+      // Atualizar pedidoAtual em memória — fonte da verdade da tela
       if (pedidoAtual && pedidoAtual.itens) {
         const item = pedidoAtual.itens.find(i => i.id === itemId);
         if (item) item.status_item = novoStatus;
       }
+
+      // TICKET-J.8 — repinta as duas listas a partir do estado em memória, em
+      // vez de remendar o cartão no lugar. Coletar um exame agora o MOVE de
+      // Realização para Bancada; um remendo in-place o deixaria na aba errada
+      // até o próximo `recarregarPedido`.
+      //
+      // De quebra, resolve o risco que o próprio TICKET-F anotava aqui: o ramo
+      // 'coletado' era um "espelho exato" do `renderizarItens`, e dois espelhos
+      // divergem. Agora há um só sítio que sabe desenhar um item.
+      renderizarItens((pedidoAtual && pedidoAtual.itens) || []);
     }
 
     // ─────────────────────────────────────────
@@ -2405,7 +2674,8 @@
     async function _baixarArquivoClinica(endpoint, nomeArquivo, rotuloErro) {
       try {
         const resp = await fetch(BACKEND + endpoint, { headers: authHeaders() });
-        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp); return; }
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
           alert(rotuloErro + ': ' + _extrairMsgErro(err, String(resp.status)));
@@ -2494,7 +2764,8 @@
                 headers: authHeaders(),
             });
 
-            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+            if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'circ-feedback'); return; }
             if (resp.status === 404) {
                 resEl.innerHTML = '';
                 resEl.classList.add('hidden');
@@ -2737,7 +3008,8 @@
                     body: JSON.stringify({ data_hora_proposta: dataHoraISO, local_texto: localTexto, instrucoes_preparo: instrucoes }),
                 }
             );
-            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+            if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'circ-feedback'); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
                 _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
@@ -2769,7 +3041,8 @@
                 BACKEND + '/circulacao/' + encodeURIComponent(_circAtual.chave_circulacao) + '/realizar',
                 { method: 'POST', headers: authHeaders(), body: '{}' }
             );
-            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+            if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'circ-feedback'); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
                 _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
@@ -2796,7 +3069,8 @@
                     body: JSON.stringify({ motivo: motivo.trim() || null }),
                 }
             );
-            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+            if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'circ-feedback'); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
                 _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
@@ -2836,7 +3110,8 @@
                     body: JSON.stringify({ org_id: orgId, unidade_id: unidade, observacao: obs }),
                 }
             );
-            if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }
+            // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+            if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'circ-feedback'); return; }
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
                 _circFeedback('err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));

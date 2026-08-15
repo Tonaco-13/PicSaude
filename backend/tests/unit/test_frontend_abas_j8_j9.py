@@ -1,0 +1,204 @@
+"""
+test_frontend_abas_j8_j9.py — TICKET-J.8 / J.9 (DESPACHO-ENG-011 §6, §7, §1).
+
+AS REGRAS QUE ESTE ARQUIVO TRAVA
+--------------------------------
+1. **A tela do laboratório tem as 4 abas do percurso** (Recepção · Agendamento ·
+   Realização · Bancada) e a carteira do cidadão tem as 3 dela (Receita · Exames
+   · Atestado) — botão, painel e ligação ARIA para cada uma.
+
+2. **Nenhuma aba lê `agendado` como "está com o laboratório".** É a instrução
+   explícita do §6: o J.7 pode retirar a transição para `agendado` do ato de
+   transferir custódia, e a UI não pode ruir junto. A partição é por PERCURSO
+   ("já foi coletado?"), então `agendado` não aparece nas listas que decidem
+   aba. Guarda de regressão contra a gambiarra que o despacho proíbe.
+
+3. **403 de posse não é 403 de sessão** (§1). Nenhum sítio da `clinica.html`
+   pode mandar um 403 para `handleUnauthorized`, que alerta e desloga.
+
+POR QUE ESTÁTICO
+----------------
+Mesmo molde de `test_frontend_atestado.py` e `test_frontend_acao_sem_silencio.py`:
+roda em TODO PR, antes e independentemente do gate de navegador (que só roda em
+PR que toca `**.html` e no nightly). O E2E prova que a tela funciona; estas
+guardas provam que a REGRA continua escrita no código.
+
+A prova de que mordem está em `TestAsGuardasMordem`.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+_RAIZ = Path(__file__).resolve().parents[3]
+_CLINICA = _RAIZ / "clinica.html"
+_CIDADAO = _RAIZ / "cidadao.html"
+
+
+def _fonte(p: Path) -> str:
+    return p.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# 1 — estrutura das abas
+# ---------------------------------------------------------------------------
+
+_ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada"]
+_ABAS_CARTEIRA = ["receita", "exames", "atestado"]
+
+
+@pytest.mark.parametrize("aba", _ABAS_LAB)
+def test_clinica_tem_botao_e_painel_de_cada_aba(aba):
+    html = _fonte(_CLINICA)
+    assert f'id="aba-btn-{aba}"' in html, f"falta o botão da aba {aba}"
+    assert f'id="aba-{aba}"' in html, f"falta o painel da aba {aba}"
+    assert f'aria-controls="aba-{aba}"' in html, f"aba {aba} sem ligação ARIA botão→painel"
+    assert f'aria-labelledby="aba-btn-{aba}"' in html, f"painel {aba} sem ligação ARIA painel→botão"
+
+
+@pytest.mark.parametrize("aba", _ABAS_CARTEIRA)
+def test_cidadao_tem_botao_e_painel_de_cada_aba(aba):
+    html = _fonte(_CIDADAO)
+    assert f'id="aba-btn-{aba}"' in html, f"falta o botão da aba {aba}"
+    assert f'id="aba-{aba}"' in html, f"falta o painel da aba {aba}"
+    assert f'aria-controls="aba-{aba}"' in html, f"aba {aba} sem ligação ARIA botão→painel"
+    assert f'aria-labelledby="aba-btn-{aba}"' in html, f"painel {aba} sem ligação ARIA painel→botão"
+
+
+def test_uma_aba_comeca_ativa_em_cada_tela():
+    """Sem aba ativa inicial a tela abre com tudo escondido."""
+    for tela, classe in ((_CLINICA, "aba-lab ativa"), (_CIDADAO, "aba-cart ativa")):
+        assert _fonte(tela).count(f'class="{classe}"') == 1, (
+            f"{tela.name}: deve haver exatamente UMA aba ativa na marcação inicial"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 2 — a partição das abas não pode se acoplar a `agendado` (§6)
+# ---------------------------------------------------------------------------
+
+def _listas_de_particao(html: str) -> dict[str, str]:
+    """Extrai o corpo das constantes que decidem em qual aba um item cai."""
+    achados = {}
+    for nome in ("_ETAPAS_POS_COLETA", "_ETAPAS_ENCERRADAS"):
+        m = re.search(rf"const\s+{nome}\s*=\s*\[(.*?)\]", html, re.S)
+        assert m, f"constante {nome} sumiu de clinica.html (o J.8 foi desfeito?)"
+        achados[nome] = m.group(1)
+    return achados
+
+
+def test_particao_das_abas_nao_menciona_agendado():
+    """§6, verbatim: "evitar acoplar UI ao estado `agendado` como sinônimo de
+    'com o laboratório'".
+
+    Se o J.7 tirar a transição para `agendado` do `transferir-laboratorio`, os
+    itens chegam ao laboratório como `pendente`. Uma partição escrita em cima de
+    `agendado` mandaria todos eles para lugar nenhum — a aba Realização ficaria
+    vazia com trabalho a fazer. Por isso o critério é "já foi coletado?".
+    """
+    for nome, corpo in _listas_de_particao(_fonte(_CLINICA)).items():
+        assert "agendado" not in corpo, (
+            f"{nome} passou a depender de `agendado` — é o acoplamento que o §6 proíbe"
+        )
+
+
+def test_realizacao_e_o_complemento_da_bancada_e_nao_uma_lista_de_estados():
+    """A aba Realização é definida por NEGAÇÃO (o que não foi coletado nem
+    encerrado). Uma lista positiva de estados voltaria a acoplar a UI ao
+    vocabulário que o J.7 pode mexer."""
+    html = _fonte(_CLINICA)
+    m = re.search(r"function _itensDaAbaRealizacao\(itens\)\s*\{(.*?)\n    \}", html, re.S)
+    assert m, "_itensDaAbaRealizacao sumiu de clinica.html"
+    corpo = m.group(1)
+    assert "!_ETAPAS_POS_COLETA.includes" in corpo and "!_ETAPAS_ENCERRADAS.includes" in corpo, (
+        "Realização deixou de ser o complemento de Bancada — reacoplamento a estados nominais"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3 — 403 de posse ≠ 403 de sessão (§1)
+# ---------------------------------------------------------------------------
+
+_RE_403_PARA_UNAUTHORIZED = re.compile(
+    r"status\s*===\s*403.*?handleUnauthorized", re.S
+)
+
+
+def _sitios_que_colapsam_403(html: str) -> list[str]:
+    """Linhas que mandam um 403 direto para `handleUnauthorized` (que alerta e
+    desloga). Casadas linha a linha — um `.*?` sobre o arquivo inteiro casaria
+    trechos separados por milhares de caracteres."""
+    return [
+        f"linha {n}: {linha.strip()}"
+        for n, linha in enumerate(html.splitlines(), 1)
+        if _RE_403_PARA_UNAUTHORIZED.search(linha)
+    ]
+
+
+def test_nenhum_403_da_clinica_cai_em_handle_unauthorized():
+    """403 é posse: o token vale, o objeto é que não é seu. Mandá-lo para
+    `handleUnauthorized` mostra "Sessão expirada" e desloga — mentira para o
+    visitante e, fora da demo, expulsão de quem estava logado."""
+    ofensas = _sitios_que_colapsam_403(_fonte(_CLINICA))
+    assert not ofensas, (
+        "403 tratado como sessão expirada em clinica.html "
+        "(use `tratarNaoAutorizado`):\n  " + "\n  ".join(ofensas)
+    )
+
+
+def test_o_desambiguante_existe_e_separa_os_dois_codigos():
+    html = _fonte(_CLINICA)
+    m = re.search(r"async function tratarNaoAutorizado\(.*?\n    \}", html, re.S)
+    assert m, "tratarNaoAutorizado sumiu de clinica.html"
+    corpo = m.group(0)
+    assert "status === 401" in corpo, "o desambiguante não distingue mais o 401"
+    assert "handleUnauthorized" in corpo, "401 deixou de renovar/encerrar a sessão"
+    assert "mostrarFeedback" in corpo, "403 deixou de avisar no painel da tela"
+
+
+# ---------------------------------------------------------------------------
+# 4 — J.3 preservado (regressão do despacho §7)
+# ---------------------------------------------------------------------------
+
+def test_relogin_transparente_do_j3_continua_intacto():
+    """§7: "Manter o poll da carteira e o re-login transparente do J.3 intactos
+    (o interceptador é global — não duplicar)"."""
+    cidadao = _fonte(_CIDADAO)
+    assert "_pollCarteira" in cidadao, "o poll da carteira sumiu"
+    clinica = _fonte(_CLINICA)
+    assert "emDemoComRelogin" in clinica and "renovarSessaoDemo" in clinica, (
+        "o re-login transparente do J.3 sumiu de clinica.html"
+    )
+    # O interceptador vive em config.js — as telas o consomem, não o reimplementam.
+    assert clinica.count("function renovarSessaoDemo") == 0, (
+        "renovarSessaoDemo foi reimplementado na tela; o interceptador é global (config.js)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 5 — prova por mutação: as guardas mordem
+# ---------------------------------------------------------------------------
+
+class TestAsGuardasMordem:
+    """Guarda que nunca falha quando deveria é decoração (lição do R2, §2a)."""
+
+    def test_acoplamento_a_agendado_seria_acusado(self):
+        falso = "const _ETAPAS_POS_COLETA = ['agendado', 'coletado'];\n" \
+                "const _ETAPAS_ENCERRADAS = ['encerrado'];"
+        corpos = _listas_de_particao(falso)
+        assert "agendado" in corpos["_ETAPAS_POS_COLETA"], (
+            "o extrator não enxergaria o acoplamento proibido"
+        )
+
+    def test_403_colapsado_seria_acusado(self):
+        falso = "        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }"
+        assert _sitios_que_colapsam_403(falso), "o scanner deixou passar um 403 colapsado"
+
+    def test_403_tratado_a_parte_nao_e_acusado(self):
+        ok = (
+            "        if (resp.status === 401) { await handleUnauthorized(); return; }\n"
+            "        if (resp.status === 403) { await tratarNaoAutorizado(resp, 'fila-feedback'); return; }"
+        )
+        assert not _sitios_que_colapsam_403(ok), "falso positivo: 403 já está separado do 401"

@@ -117,6 +117,14 @@ _FEEDBACK = (
     "_avisarFalhaDeImpressao(",
     "tratarSessaoExpirada(",
     "handleUnauthorized(",
+    # TICKET-J.8 (2026-08-15): desambiguante de 401/403 da clinica.html. Entra no
+    # registro pelo mesmo motivo de `handleUnauthorized(`: SEMPRE termina em voz —
+    # 401 renova a sessão (ou alerta e desloga), 403 escreve no painel de feedback
+    # do gesto (`mostrarFeedback`) e, sem painel, cai no `alert`. É o oposto de
+    # desistir calado: existe justamente para o 403 parar de mentir "sessão
+    # expirada". A guarda de que ele não emudece está em
+    # `test_frontend_abas_j8_j9.py::test_o_desambiguante_existe_e_separa_os_dois_codigos`.
+    "tratarNaoAutorizado(",
     "reportValidity(",
     "innerHTML",
     "textContent",
