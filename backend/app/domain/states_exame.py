@@ -8,6 +8,36 @@ sem atualizar este arquivo, a seção 7 do CLAUDE.md e docs/ARQUITETURA_EXAMES.m
 
 Princípio central: o estado do PEDIDO é derivado dos estados dos ITENS.
 Nunca atualizar pedidos_exame.status diretamente — sempre via função derivar_status_pedido().
+
+TICKET-J.7 (`core`, martelo do Fabiano em 15/08 — DESPACHO-ENG-011 §4 + §11a)
+----------------------------------------------------------------------------
+**Custódia é posse; agenda é compromisso. São fatos distintos.**
+
+Até aqui, `POST /pedidos-exame/{p}/transferir-laboratorio` fazia os dois de uma
+vez: entregava a posse E movia os itens `pendente → agendado`, sem criar
+agendamento nenhum. O resultado era um pedido `agendado` que ninguém agendou —
+e a fila do laboratório não conseguia distinguir "chegou, esperando marcar" de
+"já marcado para quinta às 8h".
+
+A regra martelada:
+
+  > transferir ao laboratório é um ato de posse (custódia), não de agenda;
+  > itens continuam `pendente`; quem promove a `agendado` é o laboratório,
+  > criando agendamento com data/hora/unidade — ou realizando direto.
+
+Consequências neste arquivo (nenhum estado novo — só arestas):
+
+  · `pendente → coletado` (item) e `emitido → coletado` (pedido) — a coleta
+    direta, sem agendamento, que o martelo autoriza.
+  · `agendado` volta a significar **o que o nome diz**: existe um objeto
+    `agendamentos` com data/hora/unidade. Só `POST /agendamentos` leva um item
+    até lá.
+
+Quem responde "onde está o pedido?" passa a ser a CUSTÓDIA
+(`pedido_exame_custodia`), não o status. Um pedido `emitido` pode estar com o
+cidadão ou com o laboratório; a diferença está na cadeia de custódia, e é ela
+que a fila do laboratório (`GET /dispensadores/fila-exames`) e a carteira do
+cidadão (`GET /paciente/pedidos-exame`) consultam.
 """
 
 from __future__ import annotations
@@ -69,8 +99,20 @@ ESTADOS_TERMINAIS_PEDIDO_EXAME: frozenset[str] = frozenset({
 # Transições válidas de Pedido
 # ---------------------------------------------------------------------------
 
+# TICKET-J.7 (`core`, martelo do Fabiano em 15/08 — DESPACHO-ENG-011 §11a):
+# `emitido → coletado` é aresta NOVA, e é consequência direta da regra
+# martelada. Entregar a posse ao laboratório deixou de mover o pedido para
+# `agendado`; ele permanece `emitido` (itens `pendente`) enquanto a custódia
+# — não o status — registra quem o detém. Se o laboratório coleta direto, sem
+# marcar hora ("ou realizando direto", verbatim do martelo), o pedido é
+# derivado de `emitido` para `coletado` sem passar por `agendado`.
+#
+# Nenhum estado novo: só o caminho que a regra nova torna alcançável. Declarar
+# a aresta é o que impede o contrato de mentir — `derivar_status_pedido` não
+# valida transição, então sem esta linha a máquina declarada e a máquina real
+# discordariam em silêncio.
 TRANSICOES_PEDIDO_EXAME: dict[str, frozenset[str]] = {
-    "emitido":              frozenset({"agendado", "cancelado", "expirado"}),
+    "emitido":              frozenset({"agendado", "coletado", "cancelado", "expirado"}),
     "agendado":             frozenset({"coletado", "cancelado", "expirado"}),
     "coletado":             frozenset({"em_analise", "cancelado"}),
     "em_analise":           frozenset({"resultado_disponivel", "cancelado"}),
@@ -109,8 +151,14 @@ ESTADOS_TERMINAIS_ITEM_EXAME: frozenset[str] = frozenset({
 # Transições válidas de Item
 # ---------------------------------------------------------------------------
 
+# TICKET-J.7 — espelho, no nível do item, da aresta acrescentada ao pedido.
+# `pendente → coletado` é a "coleta direta": o laboratório que já está com o
+# material na mão não precisa inventar um agendamento retroativo para poder
+# registrar a coleta. `pendente → agendado` continua sendo o caminho de quem
+# MARCA hora (`POST /agendamentos`, evento `agendamento_criado`) — e segue
+# sendo o ÚNICO jeito de um item chegar a `agendado` (AC §4.3(iii)).
 TRANSICOES_ITEM_EXAME: dict[str, frozenset[str]] = {
-    "pendente":              frozenset({"agendado", "cancelado"}),
+    "pendente":              frozenset({"agendado", "coletado", "cancelado"}),
     "agendado":              frozenset({"coletado", "cancelado"}),
     "coletado":              frozenset({"em_analise", "cancelado"}),
     "em_analise":            frozenset({"resultado_disponivel", "cancelado"}),
