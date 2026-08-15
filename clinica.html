@@ -2073,7 +2073,14 @@
         const sigtap = item.codigo_sigtap ? `<span><strong>SIGTAP:</strong> ${esc(item.codigo_sigtap)}</span>` : '';
 
         let acoesHtml = '';
-        if (item.status_item === 'agendado') {
+        // TICKET-J.7 — `pendente` também coleta.
+        //
+        // Entregar a posse ao laboratório deixou de mover o item para
+        // `agendado`: ele chega `pendente`, e é aí que há MAIS a fazer —
+        // marcar hora (aba Agendamento) ou coletar direto, que é o que o
+        // martelo autoriza. Antes do J.7 este ramo só olhava `agendado`, e o
+        // item recém-chegado ficaria sem nenhum botão.
+        if (item.status_item === 'pendente' || item.status_item === 'agendado') {
           acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}"
             onclick="registrarColeta(${item.id})">
             Registrar coleta

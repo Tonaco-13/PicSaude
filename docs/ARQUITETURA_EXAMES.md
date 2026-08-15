@@ -111,11 +111,36 @@ caso contrário                         → pedido = emitido
 
 ## Máquina de Estados
 
+> ### TICKET-J.7 (`core`, martelo do Fabiano 2026-08-15) — custódia é posse; agenda é compromisso
+>
+> Entregar o pedido ao laboratório (`POST /pedidos-exame/{p}/transferir-laboratorio`) é **ato de
+> custódia e nada mais**: emite `custodia_transferida`, e só. Itens permanecem `pendente`, pedido
+> permanece `emitido`.
+>
+> Antes, esse mesmo endpoint movia pedido e itens para `agendado` **sem criar agendamento algum** —
+> e a fila do laboratório não conseguia distinguir "chegou, esperando marcar" de "já marcado para
+> quinta às 8h". `agendado` voltou a significar o que o nome diz: existe uma linha em
+> `agendamentos`, com data/hora/unidade.
+>
+> Quem promove um item a `agendado` é o laboratório, via `POST /agendamentos` — **ou coleta
+> direto** (`pendente → coletado`), quando o material já está na bancada e marcar hora seria
+> burocracia retroativa.
+>
+> **Corolário:** `pedidos_exame.status` **não responde** "onde está o pedido". Quem responde é
+> `pedido_exame_custodia` (helpers `detentor_atual_pedido` / `posse_do_cidadao`). Guard de
+> transferência, fila do prestador e carteira do cidadão consultam a custódia, não o status.
+>
+> Arestas acrescentadas — **nenhum estado novo**: `pendente → coletado` (item) e
+> `emitido → coletado` (pedido).
+
+
 ### Status do Pedido (`pedidos_exame.status`)
 
 ```
-emitido               ← pedido emitido digitalmente, em custódia do paciente
-agendado              ← ao menos um item agendado com prestador
+emitido               ← emitido digitalmente e ainda sem agenda. NÃO diz onde está:
+                        pode estar com o cidadão OU já na bancada do laboratório
+                        (TICKET-J.7 — quem responde a posse é a CUSTÓDIA)
+agendado              ← ao menos um item com agendamento marcado (data/hora/unidade)
 coletado              ← ao menos um item coletado
 em_analise            ← laboratório processando
 resultado_disponivel  ← ao menos um laudo disponível, aguarda ciência
@@ -158,7 +183,7 @@ encerrado_fisico      ← fluxo físico, sem ciclo digital            [TERMINAL]
 ### Transições válidas — Pedido
 
 ```
-emitido              → agendado | cancelado | expirado
+emitido              → agendado | coletado | cancelado | expirado
 agendado             → coletado | cancelado | expirado
 coletado             → em_analise | cancelado
 em_analise           → resultado_disponivel | cancelado
@@ -172,7 +197,7 @@ encerrado_fisico     → (terminal)
 ### Transições válidas — Item
 
 ```
-pendente             → agendado | cancelado
+pendente             → agendado | coletado | cancelado
 agendado             → coletado | cancelado
 coletado             → em_analise | cancelado
 em_analise           → resultado_disponivel | cancelado
@@ -278,7 +303,7 @@ Campos do hash:
 | GET  | `/pedidos-exame/{proto}/validacao` | — | Validação pública (QR Code) |
 | GET  | `/pedidos-exame/{proto}/custodia` | prescritor/paciente | Histórico de custódia |
 | POST | `/pedidos-exame/{proto}/agendar` | prestador | Registrar agendamento |
-| POST | `/pedidos-exame/{proto}/itens/{item_id}/coletar` | prestador | Registrar coleta (`agendado → coletado`) |
+| POST | `/pedidos-exame/{proto}/itens/{item_id}/coletar` | prestador | Registrar coleta (`pendente|agendado → coletado`) |
 | POST | `/pedidos-exame/{proto}/itens/{item_id}/em-analise` | prestador | **Enviar à bancada** (`coletado → em_analise`), `setor` opcional — Ticket B |
 | POST | `/pedidos-exame/{proto}/itens/{item_id}/resultado` | prestador | Registrar resultado do item (aceita `coletado` ou `em_analise`) |
 | POST | `/pedidos-exame/{proto}/transferir-laboratorio` | paciente | Cidadão entrega a posse ao laboratório escolhido |

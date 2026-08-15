@@ -17,6 +17,11 @@ from app.domain.conselho_profissional import conselho_ou_padrao, formatar_regist
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.states import ESTADOS_TERMINAIS_PRESCRICAO
 from app.routers.custodia import transferir_posse, _fechar_custodia_ativa  # choke-point de posse (COER-2) + fecha custódia de item terminal
+from app.routers.pedidos_exame import (  # TICKET-J.7 — posse do exame vem da custódia, não do status
+    DETENTOR_PACIENTE,
+    detentor_atual_pedido,
+    posse_do_cidadao,
+)
 from app.domain.states_exame import ESTADOS_TERMINAIS_PEDIDO_EXAME
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf
@@ -450,6 +455,13 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
     - posse: pedidos ainda em curso (emitido, agendado)
     - em_andamento: coletado, em_analise, resultado_disponivel
     - historico: encerrados, cancelados, expirados, encerrado_fisico
+
+    TICKET-J.7 — cada pedido leva `sob_minha_custodia` (bool) e `detentor`.
+    Os BALDES continuam por status (nada muda para quem já os consome), mas
+    "posso entregar este pedido a um laboratório?" deixou de ser derivável do
+    status: depois do J.7 o pedido entregue permanece `emitido`, e só a cadeia
+    de custódia sabe se ele ainda está com o cidadão. A tela lê este campo em
+    vez de comparar status — ver `cidadao.html::renderizarPedidosExame`.
     """
     cpf = usuario["sub"]
 
@@ -485,6 +497,9 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
                 """,
                 (row["id"],),
             ).fetchall()
+            # TICKET-J.7 — posse vem da CUSTÓDIA, não do status. `None` = nunca
+            # saiu do cidadão (a emissão não grava linha de nível-pedido).
+            detentor = detentor_atual_pedido(conn, row["id"])
             pedidos.append({
                 "protocolo":      row["protocolo"],
                 "status":         row["status"],
@@ -493,6 +508,8 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
                 "data_emissao":   row["data_emissao"],
                 "data_validade":  row["data_validade"],
                 "prescritor_nome": row["prescritor_nome"],
+                "detentor":          detentor or DETENTOR_PACIENTE,
+                "sob_minha_custodia": posse_do_cidadao(detentor),
                 "itens": [dict(i) for i in itens],
             })
 
