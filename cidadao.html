@@ -889,13 +889,29 @@
         //   · a chave de circulação (Tickets 56/58) — exigia que o operador do
         //     laboratório digitasse um código para descobrir o pedido.
         // Ambos seguem existindo no backend e na tela do laboratório.
+        // TICKET-J.7 — `agendado` voltou a significar o que o nome diz: existe
+        // um agendamento com data/hora. Antes ele era usado como "está com o
+        // laboratório" (transferir movia o pedido para lá sem marcar nada), e a
+        // etiqueta refletia esse uso. Quem responde "onde está?" agora é a
+        // custódia — ver `_rotuloStatusExame`.
         const STATUS_EXAME_LABEL = {
             emitido:              'Com você',
-            agendado:             'No laboratório',
+            agendado:             'Agendado',
             coletado:             'Coletado',
             em_analise:           'Em análise',
             resultado_disponivel: 'Resultado disponível',
         };
+
+        /** Etiqueta do cartão: a POSSE tem precedência sobre o estado.
+         *
+         * Um pedido entregue ao laboratório permanece `emitido` (J.7). Sem esta
+         * precedência o cartão diria "Com você" logo abaixo de "Custódia
+         * transferida" — a tela se contradizendo na mesma linha.
+         */
+        function _rotuloStatusExame(pedido, emPosse) {
+            if (!emPosse && pedido.status === 'emitido') return 'No laboratório';
+            return STATUS_EXAME_LABEL[pedido.status] || pedido.status;
+        }
 
         async function carregarPedidosExame() {
             const container = document.getElementById('lista-pedidos-exame');
@@ -926,11 +942,18 @@
                     ? new Date(pedido.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')
                     : '';
 
-                // `emitido` = em posse do cidadão (espelho de transferida_paciente
-                // na receita). Só nesse estado a transferência é oferecida — nos
-                // demais o pedido já está com o laboratório.
-                const emPosse = pedido.status === 'emitido';
-                const statusLabel = STATUS_EXAME_LABEL[pedido.status] || pedido.status;
+                // TICKET-J.7 — posse é CUSTÓDIA, não status.
+                //
+                // Antes: `emitido` = comigo. Funcionava só porque transferir
+                // movia o pedido para `agendado`. Com o J.7, transferir não
+                // mexe em estado nenhum — o pedido entregue continua `emitido`,
+                // e comparar status voltaria a oferecer "Transferir Custódia"
+                // de algo que já está com o laboratório. `sob_minha_custodia`
+                // vem do backend (`GET /paciente/pedidos-exame`), derivado da
+                // cadeia de custódia. O `?? ...` mantém a tela de pé contra um
+                // backend antigo, sem inventar posse que não existe.
+                const emPosse = pedido.sob_minha_custodia ?? (pedido.status === 'emitido');
+                const statusLabel = _rotuloStatusExame(pedido, emPosse);
 
                 const acaoHtml = emPosse ? `
                         <div class="transfer-area" style="margin-top:12px;">

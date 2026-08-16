@@ -592,6 +592,48 @@ def _assert_paciente_dono_pedido(conn, protocolo: str, ident_cpf: str) -> None:
     )
 
 
+# Valor que `pedido_exame_custodia.para` guarda quando quem detém é o cidadão.
+# A coluna guarda o PAPEL para o paciente ('paciente') e o CNPJ para o
+# prestador — o CPF fica só em `dados_json.para_id`. Comparar o detentor com o
+# CPF do JWT nunca casaria; é a lição de custo baixo que o gate de navegador
+# cobrou antes do merge.
+DETENTOR_PACIENTE = "paciente"
+
+
+def posse_do_cidadao(detentor: Optional[str]) -> bool:
+    """O pedido está com o cidadão? Fonte única do predicado (TICKET-J.7).
+
+    `None` = nenhuma linha de custódia de nível-pedido: o pedido nunca saiu de
+    onde nasceu (emissão sem `enviar_ao_paciente` não grava a linha).
+    """
+    return detentor in (None, DETENTOR_PACIENTE)
+
+
+def detentor_atual_pedido(conn, pedido_id: int) -> Optional[str]:
+    """Quem detém a posse do pedido AGORA — `None` se nunca saiu do cidadão.
+
+    TICKET-J.7 (`core`): a custódia passa a ser a fonte da verdade da posse, no
+    lugar do status. Antes, "quem está com o pedido" era lido do
+    `pedidos_exame.status` (`emitido` = cidadão, `agendado` = laboratório) — um
+    proxy que só funcionava porque transferir mudava o estado. Com o martelo do
+    §11a, transferir não mexe em estado nenhum: um pedido `emitido` tanto pode
+    estar na mão do cidadão quanto na bancada do laboratório, e a única coisa
+    que sabe a diferença é esta cadeia.
+
+    Devolve o `para` do ÚLTIMO registro de custódia de nível-pedido
+    (`item_id IS NULL`) — mesmo critério de `_assert_dispensador_dono_pedido`,
+    que compara contra este mesmo valor. Para o cidadão, esse valor é o PAPEL
+    (`'paciente'`), não o CPF; use `posse_do_cidadao()` para interpretá-lo.
+    """
+    row = conn.execute(
+        "SELECT para FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id IS NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (pedido_id,),
+    ).fetchone()
+    return row["para"] if row else None
+
+
 def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
     # Dono = prestador na CUSTÓDIA ATUAL do pedido inteiro (item_id IS NULL),
     #   pós-'agendar'. NÃO "qualquer custódia histórica" (correção do P1(b) da
@@ -843,14 +885,29 @@ def agendar_pedido_exame(
 # custódia de exame: só `agendar` (papel prescritor/admin) e a chave de
 # circulação (que o operador do laboratório precisava digitar).
 #
-# Transição: emitido → agendado. No vocabulário do exame `agendado` É "sob
-# custódia do prestador, aguardando coleta" (states_exame.py + §7 do CLAUDE.md,
-# cadeia `prescritor → paciente → prestador_exame`), do mesmo modo que
-# `em_custodia` é o estado da receita retida no balcão. Itens pendentes →
-# agendado; custódia de nível-pedido (item_id IS NULL): paciente → <cnpj>.
+# TICKET-J.7 (`core`, martelo do Fabiano em 15/08 — DESPACHO-ENG-011 §4 + §11a)
+# ----------------------------------------------------------------------------
+# ANTES este endpoint fazia DUAS coisas: entregava a posse E movia os itens
+# `pendente → agendado`, emitindo `pedido_agendado` — **sem criar agendamento
+# nenhum**. O comentário original assumia a confluência ("`agendado` É 'sob
+# custódia do prestador'"), e era exatamente aí que estava o defeito: a fila do
+# laboratório não distinguia "chegou, esperando marcar" de "já marcado para
+# quinta às 8h". O mesmo princípio que o endpoint invocava para emitir DOIS
+# eventos — posse e estado são fatos distintos — é o que ele violava ao fundi-los.
 #
-# Classe `module` — extensão do módulo de exames; nenhum estado novo, nenhuma
-# transição nova, nenhum evento novo no vocabulário.
+# AGORA é ato de custódia e nada mais:
+#   · custódia de nível-pedido (item_id IS NULL): paciente → <cnpj>
+#   · UM evento: `custodia_transferida`
+#   · itens NÃO são tocados: continuam `pendente`
+#   · o pedido permanece `emitido`
+#
+# Quem promove a `agendado` é o laboratório, criando agendamento com
+# data/hora/unidade (`POST /agendamentos`) — ou coletando direto
+# (`pendente → coletado`, aresta acrescentada em states_exame.py).
+#
+# "Onde está o pedido?" passa a ser pergunta para a CUSTÓDIA, não para o status
+# (ver `detentor_atual_pedido`). A fila do laboratório já lia custódia; a
+# carteira do cidadão passou a ler também.
 
 class TransferirLaboratorioIn(BaseModel):
     cnpj_laboratorio: str
@@ -866,10 +923,12 @@ def transferir_laboratorio(
     """
     Cidadão entrega a posse do pedido de exame ao laboratório que escolheu.
 
-    - Pedido deve estar em 'emitido' (posse do cidadão)
-    - Itens 'pendente' → 'agendado'
+    TICKET-J.7 — ato de POSSE, só isso:
+
+    - Cidadão deve deter a custódia (não basta o status ser 'emitido')
+    - Itens NÃO mudam de estado: continuam 'pendente'
     - Custódia: paciente → prestador_exame (nível pedido)
-    - Ledger: `custodia_transferida` (posse) + `pedido_agendado` (estado)
+    - Ledger: `custodia_transferida` — e mais nada
     """
     agora = datetime.utcnow().isoformat()
 
@@ -893,28 +952,37 @@ def transferir_laboratorio(
                 status_code=422,
                 detail=f"Pedido '{protocolo}' está em estado terminal ({pedido['status']}).",
             )
-        # Só circula o pedido que está em posse do cidadão. 'agendado' já está
-        # com um laboratório — mesmo 409 da receita fora de 'transferida_paciente'.
-        if pedido["status"] != "emitido":
+        # TICKET-J.7 — o guard passou de STATUS para CUSTÓDIA.
+        #
+        # Antes bastava `status == 'emitido'`, porque transferir movia o pedido
+        # para `agendado` e o próprio estado impedia a segunda transferência.
+        # Agora o pedido permanece `emitido` na mão do laboratório: o status
+        # deixou de saber a resposta. Sem esta troca, o cidadão poderia entregar
+        # o MESMO pedido a um segundo CNPJ enquanto o primeiro ainda o detém —
+        # dupla posse ativa, o R2 na camada de custódia (§3 do CLAUDE.md).
+        detentor = detentor_atual_pedido(conn, pedido["id"])
+        if not posse_do_cidadao(detentor):
             raise HTTPException(
                 status_code=409,
-                detail=f"Pedido não está sob sua custódia (status: {pedido['status']})",
+                detail=(
+                    "Pedido não está sob sua custódia — a posse está com "
+                    f"'{detentor}'."
+                ),
             )
 
-        itens_transferir = [
-            i for i in _get_itens(conn, pedido["id"]) if i["status_item"] == "pendente"
+        itens_ativos = [
+            i for i in _get_itens(conn, pedido["id"])
+            if not eh_terminal_item_exame(i["status_item"])
         ]
-        if not itens_transferir:
+        if not itens_ativos:
             raise HTTPException(
                 status_code=422,
-                detail="Nenhum item 'pendente' disponível para transferir.",
+                detail="Nenhum item ativo disponível para transferir.",
             )
 
-        for item in itens_transferir:
-            conn.execute(
-                "UPDATE pedido_exame_itens SET status_item = 'agendado' WHERE id = ?",
-                (item["id"],),
-            )
+        # Os itens NÃO são tocados (martelo §11a: "itens continuam pendente").
+        # Quem os promove a `agendado` é o laboratório, criando agendamento —
+        # ou coletando direto.
 
         conn.execute(
             """
@@ -936,12 +1004,13 @@ def transferir_laboratorio(
         novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
 
         instance_id = get_instance_id_conn(conn)
-        # DOIS eventos em sequência, como o fluxo físico da prescrição (§2):
-        # posse e estado são fatos distintos. `custodia_transferida` é
-        # obrigatório em toda retenção (§2, invariante de retenção); e
-        # `pedido_agendado` é o evento nomeado da transição emitido → agendado,
-        # o mesmo que o caminho `/agendar` emite — o ledger não fica com uma
-        # mudança de estado sem evento que a nomeie.
+        # TICKET-J.7 — UM evento, porque houve UM fato: a posse mudou de mão.
+        #
+        # O `pedido_agendado` que saía daqui nomeava uma transição de estado que
+        # não deveria ter acontecido — e pior, anunciava um agendamento que não
+        # existia em `agendamentos` (`data_agendamento: None` era a confissão).
+        # O ledger não fica com mudança de estado sem evento porque não há mais
+        # mudança de estado: o pedido segue `emitido`, os itens seguem `pendente`.
         registrar_evento_ledger(
             conn,
             objeto_tipo="pedido_exame",
@@ -956,20 +1025,9 @@ def transferir_laboratorio(
                 "nivel":    "pedido",
                 "motivo":   "transferencia_laboratorio",
                 "origem":   "cidadao_app",
-            },
-        )
-        registrar_evento_ledger(
-            conn,
-            objeto_tipo="pedido_exame",
-            objeto_id=pedido["id"],
-            tipo_evento="pedido_agendado",
-            instance_id=instance_id,
-            payload={
-                "cnpj_prestador":   cnpj,
-                "nome_prestador":   payload.nome_laboratorio,
-                "data_agendamento": None,   # data quem marca é o laboratório
-                "itens_agendados":  len(itens_transferir),
-                "via":              "transferencia_custodia_cidadao",
+                # Quantos itens ativos foram junto com a posse. NÃO é transição
+                # de estado — é o tamanho do que mudou de mão.
+                "itens":    len(itens_ativos),
             },
         )
 
@@ -977,7 +1035,7 @@ def transferir_laboratorio(
             "ok":                 True,
             "protocolo":          protocolo,
             "status":             novo_status,
-            "itens_transferidos": len(itens_transferir),
+            "itens_transferidos": len(itens_ativos),
             "cnpj_laboratorio":   cnpj,
         }
 
@@ -1028,10 +1086,18 @@ def coletar_item_exame(
                 status_code=404, detail=f"Item {item_id} não encontrado no pedido '{protocolo}'."
             )
 
-        if item["status_item"] != "agendado":
+        # TICKET-J.7 — `pendente` também coleta: é a "coleta direta" do martelo
+        # (§11a, verbatim: "criando agendamento com data/hora/unidade — ou
+        # realizando direto"). O laboratório que já está com o material na mão
+        # não precisa inventar um agendamento retroativo para registrar o fato.
+        # Continua valendo o contrato: só estes dois estados coletam.
+        if item["status_item"] not in ("pendente", "agendado"):
             raise HTTPException(
                 status_code=422,
-                detail=f"Coleta requer item em 'agendado'. Status atual: '{item['status_item']}'.",
+                detail=(
+                    "Coleta requer item em 'pendente' ou 'agendado'. "
+                    f"Status atual: '{item['status_item']}'."
+                ),
             )
 
         conn.execute(
