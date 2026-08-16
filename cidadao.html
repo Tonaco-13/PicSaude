@@ -211,6 +211,22 @@
         .exame-no-lab strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
         .exame-badge-status { font-size:11px; font-weight:700; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:#f1f5f9; color:#475569; letter-spacing:0.3px; }
         .exame-badge-status.no-lab { background:#dbeafe; color:#1d4ed8; }
+        /* ── Selo de agendamento (TICKET-J.11) ─────────────────────────────
+           O compromisso que o laboratório marcou, lido pelo cidadão sem que
+           nada mude de mão: informação ≠ custódia. Verde de "está marcado",
+           distinto do azul de "está no laboratório" (.exame-no-lab) logo
+           abaixo — os dois convivem no mesmo cartão e dizem coisas diferentes. */
+        .exame-selo-agendamento { display:flex; gap:10px; align-items:flex-start; background:#f0fdf4; border:1px solid #86efac; border-left:4px solid #16a34a; border-radius:6px; padding:10px 14px; margin-top:12px; font-size:13px; color:#166534; line-height:1.5; }
+        .exame-selo-agendamento strong { display:block; font-size:14px; color:#14532d; }
+        .exame-selo-onde { color:#15803d; }
+        .exame-selo-remarcado { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; background:#fef9c3; color:#854d0e; padding:2px 7px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+        /* ── "Ver rastreabilidade" (TICKET-J.11 · Adendo §11b) ──────────────
+           A MESMA lente do portal, aberta por cartão. Nada de login extra:
+           os /public/* são neutros e anônimos por construção. */
+        .rastro-area { margin-top:12px; border-top:1px dashed #e2e8f0; padding-top:10px; }
+        .btn-rastro { background:none; border:1px solid #cbd5e1; border-radius:6px; padding:5px 12px; font-size:12px; font-weight:600; color:#334155; cursor:pointer; }
+        .btn-rastro:hover { background:#f1f5f9; border-color:#94a3b8; }
+        .rastro-vazio { font-size:12px; color:#64748b; margin-top:8px; }
         /* ── Toast ──────────────────────────────────────────────────────── */
         #picsaude-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#0f172a; color:white; padding:10px 20px; border-radius:8px; font-size:13px; font-weight:500; box-shadow:0 4px 16px rgba(0,0,0,.25); opacity:0; pointer-events:none; z-index:9999; transition:opacity .25s, transform .25s; max-width:90vw; text-align:center; }
         #picsaude-toast.show    { opacity:1; transform:translateX(-50%) translateY(0); }
@@ -234,6 +250,7 @@
         /* ─────────────────────────────────────────────────────────────── */
     </style>
   <script src="config.js"></script>
+  <script src="lente.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -769,6 +786,7 @@
                         <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
                             <button class="btn-outline btn-small" style="margin:0;" onclick="baixarPdfAtestado('${at.protocolo}')">📄 Baixar PDF</button>
                         </div>
+                        ${_botaoRastreabilidade(at.protocolo)}
                     </div>`;
             }).join('');
         }
@@ -845,6 +863,7 @@
                             <button class="btn-outline btn-small" style="margin:0;" onclick="baixarPdfLaudo('${laudo.protocolo}')">📄 Baixar PDF</button>
                             ${acaoHtml}
                         </div>
+                        ${_botaoRastreabilidade(laudo.protocolo)}
                     </div>`;
             }).join('');
         }
@@ -911,6 +930,80 @@
         function _rotuloStatusExame(pedido, emPosse) {
             if (!emPosse && pedido.status === 'emitido') return 'No laboratório';
             return STATUS_EXAME_LABEL[pedido.status] || pedido.status;
+        }
+
+        // ── TICKET-J.11 — selo do compromisso ─────────────────────────────
+        //
+        // O que o cidadão quer saber depois de entregar o exame é "quando?".
+        // Antes do J.7 a tela não tinha como responder: transferir marcava o
+        // pedido como `agendado` sem agendamento nenhum, então "Agendado" era
+        // um rótulo sem data. Agora `agendado` significa que existe um
+        // compromisso com data/hora/unidade — e é ele que o selo mostra.
+        //
+        // Qual agendamento é "o corrente" NÃO se decide aqui: vem resolvido do
+        // backend em `pedido.agendamento` (`agendamento_atual_do_pedido`), que
+        // já filtra terminais e devolve o vigente depois de uma remarcação.
+        // Reimplementar a escolha na tela é como reimplementar posse a partir
+        // do status — a lição que o J.7 cobrou.
+
+        function _dataHoraAgendamento(iso) {
+            if (!iso) return '—';
+            const d = new Date(String(iso).length <= 10 ? iso + 'T12:00:00' : iso);
+            if (isNaN(d.getTime())) return String(iso);
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const hh  = String(d.getHours()).padStart(2, '0');
+            const mm  = String(d.getMinutes()).padStart(2, '0');
+            return `${dia}/${mes} ${hh}:${mm}`;
+        }
+
+        function _seloAgendamento(ag) {
+            if (!ag) return '';
+            const esc  = (s) => LenteAuditoria.esc(s);
+            const onde = ag.local_texto || ag.unidade_id || '';
+            return `
+                        <div class="exame-selo-agendamento">
+                            <span aria-hidden="true">📅</span>
+                            <div>
+                                <strong>Agendado: ${esc(_dataHoraAgendamento(ag.data_hora))}</strong>
+                                ${onde ? `<span class="exame-selo-onde">${esc(onde)}</span>` : ''}
+                                ${ag.remarcado ? '<span class="exame-selo-remarcado">remarcado</span>' : ''}
+                            </div>
+                        </div>`;
+        }
+
+        // ── TICKET-J.11 (Adendo §11b) — "ver rastreabilidade" por cartão ───
+        //
+        // A MESMA lente do portal (`lente.js`), agora aberta a partir de um
+        // objeto que já está na mão do cidadão — ele não precisa copiar o
+        // protocolo e ir procurar no index. Sem login adicional: os `/public/*`
+        // são neutros e anônimos por construção (classe `core`, intocados).
+        // Toggle, para o cartão não crescer para sempre.
+
+        function _botaoRastreabilidade(protocolo) {
+            return `
+                        <div class="rastro-area">
+                            <button type="button" class="btn-rastro"
+                                    id="btn-rastro-${protocolo}"
+                                    onclick="verRastreabilidade('${protocolo}')">🔍 Ver rastreabilidade</button>
+                            <div id="rastro-${protocolo}" class="hidden"></div>
+                        </div>`;
+        }
+
+        async function verRastreabilidade(protocolo) {
+            const box = document.getElementById(`rastro-${protocolo}`);
+            if (!box) return;
+            if (!box.classList.contains('hidden')) {      // toggle: fecha
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+            box.classList.remove('hidden');
+            box.innerHTML = '<p class="rastro-vazio">Consultando…</p>';
+            const resultado = await LenteAuditoria.consultar(protocolo, {});
+            box.innerHTML = resultado.achou
+                ? LenteAuditoria.cartaoHtml(resultado)
+                : `<p class="rastro-vazio">${LenteAuditoria.esc(LenteAuditoria.mensagemDeVazio(protocolo, {}))}</p>`;
         }
 
         async function carregarPedidosExame() {
@@ -988,7 +1081,9 @@
                             </div>
                         </div>
                         <ul class="exame-lista">${itensHtml}</ul>
+                        ${_seloAgendamento(pedido.agendamento)}
                         ${acaoHtml}
+                        ${_botaoRastreabilidade(pedido.protocolo)}
                     </div>`;
             }).join('');
         }
@@ -1217,6 +1312,7 @@
                             <button onclick="confirmarDevolucaoMedico('${r.protocolo}')" class="btn-action btn-small" style="flex:1; background:#dc2626;">Confirmar Devolução</button>
                         </div>
                     </div>
+                    ${_botaoRastreabilidade(r.protocolo)}
                 </div>
             `).join('');
         }
@@ -1248,6 +1344,7 @@
                             ${STATUS_LABEL[r.status] || r.status}
                         </span>
                     </div>
+                    ${_botaoRastreabilidade(r.protocolo)}
                 </div>
             `).join('');
         }

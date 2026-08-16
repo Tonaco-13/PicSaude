@@ -22,6 +22,10 @@ from app.routers.pedidos_exame import (  # TICKET-J.7 — posse do exame vem da 
     detentor_atual_pedido,
     posse_do_cidadao,
 )
+from app.routers.agendamentos import (  # TICKET-J.11 — selo do compromisso vigente no cartão
+    agendamento_atual_do_pedido,
+    resumo_agendamento_para_cartao,
+)
 from app.domain.states_exame import ESTADOS_TERMINAIS_PEDIDO_EXAME
 from app.instance import get_instance_id_conn
 from app.utils.helpers import normalize_cnpj, normalize_cpf
@@ -462,6 +466,14 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
     status: depois do J.7 o pedido entregue permanece `emitido`, e só a cadeia
     de custódia sabe se ele ainda está com o cidadão. A tela lê este campo em
     vez de comparar status — ver `cidadao.html::renderizarPedidosExame`.
+
+    TICKET-J.11 — cada pedido leva também `agendamento`: o compromisso VIGENTE
+    que o laboratório marcou (ou `None`). Leitura pura — zero escrita, zero
+    evento, zero transição de custódia: informação ≠ custódia, e o pedido segue
+    com o `prestador_exame` enquanto o cidadão lê a data. Vem por aqui, e não
+    por uma chamada por cartão a `GET /pedidos-exame/{p}/agendamentos`, para
+    que a carteira não faça N+1 requisições e para que "qual é o agendamento
+    corrente" tenha UMA resposta, no backend (`agendamento_atual_do_pedido`).
     """
     cpf = usuario["sub"]
 
@@ -500,6 +512,12 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
             # TICKET-J.7 — posse vem da CUSTÓDIA, não do status. `None` = nunca
             # saiu do cidadão (a emissão não grava linha de nível-pedido).
             detentor = detentor_atual_pedido(conn, row["id"])
+            # TICKET-J.11 — o selo do compromisso. Leitura pura: nenhuma
+            # transição de custódia, nenhum evento. Informação ≠ custódia — o
+            # pedido segue com o `prestador_exame` enquanto o cidadão lê a data.
+            agendamento = resumo_agendamento_para_cartao(
+                agendamento_atual_do_pedido(conn, row["id"])
+            )
             pedidos.append({
                 "protocolo":      row["protocolo"],
                 "status":         row["status"],
@@ -510,6 +528,7 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
                 "prescritor_nome": row["prescritor_nome"],
                 "detentor":          detentor or DETENTOR_PACIENTE,
                 "sob_minha_custodia": posse_do_cidadao(detentor),
+                "agendamento":       agendamento,     # TICKET-J.11 — None se não há compromisso vigente
                 "itens": [dict(i) for i in itens],
             })
 

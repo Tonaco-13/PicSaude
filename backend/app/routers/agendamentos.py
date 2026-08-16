@@ -291,6 +291,57 @@ def _serializar_agendamento(conn, ag: dict) -> dict:
     }
 
 
+def agendamento_atual_do_pedido(conn, pedido_id: int) -> Optional[dict]:
+    """O compromisso VIGENTE de um pedido — `None` quando não há nenhum.
+
+    TICKET-J.11 (`module`, Adendo §10 do ENG-011). Fonte única do predicado
+    "qual agendamento este pedido tem AGORA", à moda do `detentor_atual_pedido`
+    do J.7: quem precisar da resposta pergunta aqui, em vez de reimplementar a
+    escolha e divergir em silêncio.
+
+    Vigente = **não-terminal** (`criado` ou `confirmado`). Remarcar é derivação
+    (§7 do CLAUDE.md): o anterior vai a `cancelado` e nasce um novo com
+    `origem_agendamento_id` — logo, filtrar terminais já devolve o corrente, e
+    o histórico completo continua no ledger, que é onde ele deve ficar.
+
+    O `ORDER BY` desempata pelo mais recente por segurança: se um dia dois
+    ativos coexistirem, esta função devolve o último — nunca um antigo. (A
+    unicidade em si não é invariante declarado do agendamento; agendamento não
+    tem custódia, e o compromisso duplicado não é dupla posse.)
+    """
+    rows = conn.execute(
+        """
+        SELECT * FROM agendamentos
+         WHERE pedido_id = ?
+         ORDER BY criado_em DESC, id DESC
+        """,
+        (pedido_id,),
+    ).fetchall()
+    for r in rows:
+        if r["status"] not in ESTADOS_TERMINAIS_AGENDAMENTO:
+            return dict(r)
+    return None
+
+
+def resumo_agendamento_para_cartao(ag: Optional[dict]) -> Optional[dict]:
+    """Projeção mínima do agendamento vigente para o cartão do cidadão (J.11).
+
+    Só o que o selo mostra — data/hora, onde e em que estado. Nada de
+    `criado_por`, `observacao` ou id interno: a carteira é leitura do cidadão
+    sobre o próprio compromisso, não a ficha operacional do laboratório.
+    """
+    if not ag:
+        return None
+    return {
+        "protocolo":   ag["protocolo"],
+        "status":      ag["status"],
+        "data_hora":   ag["data_hora"],
+        "unidade_id":  ag["unidade_id"],
+        "local_texto": ag["local_texto"],
+        "remarcado":   ag["origem_agendamento_id"] is not None,
+    }
+
+
 # ---------------------------------------------------------------------------
 # POST /agendamentos — criar
 # ---------------------------------------------------------------------------
