@@ -471,6 +471,23 @@ encerrado · cancelado · encerrado_fisico
 
 Custódia: `prescritor → paciente → prestador_exame → paciente`
 
+**TICKET-J.7 (`core`, martelo do Fabiano 2026-08-15) — custódia é posse; agenda é compromisso.**
+Entregar o pedido ao laboratório (`POST /pedidos-exame/{p}/transferir-laboratorio`) é **ato de
+custódia e nada mais**: emite `custodia_transferida`, e só. Os itens permanecem `pendente` e o
+pedido permanece `emitido`. Quem promove um item a `agendado` é o laboratório, criando o objeto
+agendamento com data/hora/unidade (`POST /agendamentos`) — **ou coletando direto**
+(`pendente → coletado`).
+
+> **Corolário vinculante:** `pedidos_exame.status` **não responde** "onde está o pedido".
+> Um pedido `emitido` tanto pode estar com o cidadão quanto na bancada do laboratório. Quem
+> responde é `pedido_exame_custodia` (helpers `detentor_atual_pedido` / `posse_do_cidadao` em
+> `routers/pedidos_exame.py`). Todo caminho que precise saber de posse — guard de transferência,
+> fila do prestador, carteira do cidadão — consulta a custódia. Ler posse do status é o defeito
+> que este ticket fechou, e reintroduzi-lo devolve a dupla posse pela porta dos fundos (§3).
+
+Arestas acrescentadas (nenhum estado novo): `pendente → coletado` (item) e `emitido → coletado`
+(pedido), ambas em `domain/states_exame.py`.
+
 > Arquitetura completa em `docs/ARQUITETURA_EXAMES.md`
 
 ### Estados do módulo de Agendamento (Ticket 28 — arquitetura / Ticket 29 — implementação)

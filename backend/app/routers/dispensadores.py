@@ -212,7 +212,14 @@ def fila(
 # `em_analise`. Sair da fila é privilégio de estado TERMINAL — ver
 # `_ESTADOS_PEDIDO_FIM_FILA` abaixo.
 
-_ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"agendado", "coletado", "em_analise"})
+# TICKET-J.7 — `pendente` entrou aqui, e não é detalhe: é o que mantém a fila
+# funcionando depois que transferir deixou de mover o item para `agendado`.
+# O pedido recém-entregue chega com todos os itens `pendente`, e é justamente
+# nesse estado que há MAIS trabalho a fazer (marcar hora ou coletar direto).
+# Sem esta linha, o pedido apareceria na fila com zero itens acionáveis — e a
+# tela do laboratório, que esconde pedido sem nada a fazer, o descartaria por
+# completo. Verdade que a demo mostraria como "o exame sumiu".
+_ESTADOS_ITEM_ACIONAVEL_LAB = frozenset({"pendente", "agendado", "coletado", "em_analise"})
 
 # Pedido some da fila quando atinge estado terminal — a custódia histórica
 # continua gravada, mas a fila é de trabalho pendente (critério §4.5 do ticket).
