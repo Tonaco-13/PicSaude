@@ -10,6 +10,13 @@
 # preDeployCommand não — daí a diferença.
 #
 # Roda com WORKDIR=/app (Dockerfile), onde ficam alembic.ini e seed_demo.py.
+#
+# ⚠️ NÃO criar arquivo aqui esperando encontrá-lo no serviço (DESPACHO-ENG-011 §5).
+# O pre-deploy do Render roda numa instância SEPARADA e efêmera: "Changes you make
+# to the filesystem are not reflected in the deployed service" (render.com/docs/deploys),
+# e "You can't access persistent disks during a service's build command or pre-deploy
+# command" (render.com/docs/disks). Por isso o SQLite de referência CNES da demo é
+# garantido no BOOT da aplicação — ver `app/cnes_demo.py`.
 set -e
 
 echo "[predeploy] alembic upgrade head"
