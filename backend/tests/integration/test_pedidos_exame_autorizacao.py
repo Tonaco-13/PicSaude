@@ -363,9 +363,14 @@ def test_disp_coletar_cnpj_agendado_2xx_cnpj_diferente_403(client, seed_usuario,
 def test_disp_caso5_custodia_atual_nao_historica(client, outer_conn, seed_usuario, seed_paciente):
     """§8.1: custódia X (histórica) seguida de Y (atual) → Y 2xx, X 403.
 
-    A custódia atual é a de maior id (ORDER BY id DESC). O fluxo de endpoints do
+    A custódia atual é a ATIVA (`encerrada_em IS NULL`). O fluxo de endpoints do
     MVP não reexpõe re-transferência de prestador; simulamos a linha histórica
     com um 2º INSERT pedido-nível direto (CNPJ já normalizado, como o agendar grava).
+
+    J.10-CORE: "a atual é a de maior id" virou "a atual é a ativa", e a
+    simulação passou a fechar a anterior antes de abrir a nova — que é o que o
+    choke-point faz. Um INSERT solto seria dupla posse ativa, recusada pelo
+    banco: o teste agora exercita a forma real da transferência.
     """
     token_a = obter_token_prescritor(client, seed_usuario)
     proto = _criar_pedido(client, token_a)
@@ -373,13 +378,18 @@ def test_disp_caso5_custodia_atual_nao_historica(client, outer_conn, seed_usuari
     assert _agendar(client, token_a, proto, _CNPJ_A).status_code == 201
 
     pedido_id = _pedido_id(outer_conn, proto)
-    # Y entra como custódia pedido-nível mais recente (id maior).
+    # Y entra como custódia pedido-nível ATIVA; X passa a ser histórica.
     with outer_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE pedido_exame_custodia SET encerrada_em = %s "
+            "WHERE pedido_id = %s AND item_id IS NULL AND encerrada_em IS NULL",
+            (datetime.utcnow(), pedido_id),
+        )
         cur.execute(
             """
             INSERT INTO pedido_exame_custodia
-              (pedido_id, item_id, de, para, transferido_em, dados_json)
-            VALUES (%s, NULL, 'paciente', %s, %s, %s)
+              (pedido_id, item_id, de, para, transferido_em, encerrada_em, dados_json)
+            VALUES (%s, NULL, 'paciente', %s, %s, NULL, %s)
             """,
             (
                 pedido_id,

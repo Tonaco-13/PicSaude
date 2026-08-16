@@ -381,37 +381,17 @@ def criar_pedido_exame(
         entregue_carteira = False
 
         if payload.enviar_ao_paciente and paciente_existia:
-            conn.execute(
-                """
-                INSERT INTO pedido_exame_custodia
-                  (pedido_id, item_id, de, para, transferido_em, dados_json)
-                VALUES (?, NULL, 'prescritor', 'paciente', ?, ?)
-                """,
-                (
-                    pedido_id,
-                    agora,
-                    json.dumps(
-                        {
-                            "de": "prescritor", "de_id": cns,
-                            "para": "paciente", "para_id": cpf,
-                            "motivo": "entrega_carteira_digital",
-                            "via": "emissao_direta",
-                        },
-                        ensure_ascii=False,
-                    ),
-                ),
-            )
-            registrar_evento_ledger(
-                conn,
-                objeto_tipo="pedido_exame",
-                objeto_id=pedido_id,
-                tipo_evento="custodia_transferida",
+            # J.10-CORE: pelo choke-point. Aqui não há posse anterior a fechar
+            # (o pedido acaba de nascer), mas passar por fora seria abrir a
+            # exceção pela qual a próxima escrita passa também.
+            transferir_posse_exame(
+                conn, pedido_id, None,
+                "prescritor", cns,
+                DETENTOR_PACIENTE, cpf,
+                DETENTOR_PACIENTE,          # coluna `para`: o PAPEL, para o cidadão
+                "entrega_carteira_digital", agora,
                 instance_id=instance_id,
-                payload={
-                    "de": "prescritor", "de_id": cns,
-                    "para": "paciente", "para_id": cpf,
-                    "via": "emissao_direta",
-                },
+                extra_payload={"via": "emissao_direta"},
             )
             entregue_carteira = True
 
@@ -620,42 +600,168 @@ def detentor_atual_pedido(conn, pedido_id: int) -> Optional[str]:
     estar na mão do cidadão quanto na bancada do laboratório, e a única coisa
     que sabe a diferença é esta cadeia.
 
-    Devolve o `para` do ÚLTIMO registro de custódia de nível-pedido
-    (`item_id IS NULL`) — mesmo critério de `_assert_dispensador_dono_pedido`,
-    que compara contra este mesmo valor. Para o cidadão, esse valor é o PAPEL
-    (`'paciente'`), não o CPF; use `posse_do_cidadao()` para interpretá-lo.
+    J.10-CORE: devolve o `para` da custódia ATIVA de nível-pedido
+    (`item_id IS NULL AND encerrada_em IS NULL`). Era "a última linha"
+    (`ORDER BY id DESC LIMIT 1`) — leitura derivada que o formato de ledger
+    obrigava e que nenhum índice podia garantir. Agora a posse é um fato
+    explícito no banco, e o índice único parcial prova que só existe uma.
+
+    O `ORDER BY id DESC LIMIT 1` fica como cinto e suspensório: com o índice
+    instalado a linha é única por construção, mas a função não depende disso
+    para responder — se um banco anterior à migração for lido por engano, ela
+    devolve a mais recente em vez de uma qualquer.
+
+    Para o cidadão, esse valor é o PAPEL (`'paciente'`), não o CPF; use
+    `posse_do_cidadao()` para interpretá-lo.
     """
     row = conn.execute(
         "SELECT para FROM pedido_exame_custodia "
-        "WHERE pedido_id = ? AND item_id IS NULL "
+        "WHERE pedido_id = ? AND item_id IS NULL AND encerrada_em IS NULL "
         "ORDER BY id DESC LIMIT 1",
         (pedido_id,),
     ).fetchone()
     return row["para"] if row else None
 
 
-def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
-    # Dono = prestador na CUSTÓDIA ATUAL do pedido inteiro (item_id IS NULL),
-    #   pós-'agendar'. NÃO "qualquer custódia histórica" (correção do P1(b) da
-    #   CODEX rodada 1): um prestador que já foi custodiante e perdeu a custódia
-    #   não pode continuar passando. Por isso ORDER BY id DESC LIMIT 1.
-    # Comparação direta (opção A, §8.4): o 'agendar' agora grava o CNPJ já
-    #   normalizado, então não normalizamos o lado lido. Guard len==14 é
-    #   defensivo: ident não-CNPJ (ex.: admin já fez bypass; mas paranoia)
-    #   nunca casa, e a custódia 'paciente' (carteira) também não casa.
+def dispensador_detem_pedido(conn, pedido_id: int, ident_cnpj: str) -> bool:
+    """Este CNPJ detém a posse do pedido inteiro AGORA?
+
+    Fonte ÚNICA do predicado (J.10-CORE). Antes existiam duas cópias — aqui e
+    em `laudos.py::_dispensador_detem_pedido` —, cada uma com a sua leitura de
+    "última linha". Duas cópias de um predicado de posse é o mesmo risco que a
+    dupla posse: divergem em silêncio e cada tela passa a acreditar numa
+    verdade diferente. `laudos.py` importa esta.
+
+    NÃO é "qualquer custódia histórica" (correção do P1(b) da CODEX rodada 1):
+    quem já foi custodiante e perdeu a posse não continua operando.
+
+    Guard de 14 dígitos, defensivo: ident não-CNPJ nunca casa por acidente — e
+    a custódia do cidadão guarda o PAPEL (`'paciente'`), não o CPF.
+    Comparação direta (opção A, §8.4): a escrita já normaliza o CNPJ.
+    """
     if len(ident_cnpj) != 14:
-        _assert_or_403(False, codigo="nao_e_dono_do_pedido_exame",
-                       mensagem="Pedido de exame sob responsabilidade de outro prestador.")
-    atual = conn.execute(
-        "SELECT para FROM pedido_exame_custodia "
-        "WHERE pedido_id = ? AND item_id IS NULL "
-        "ORDER BY id DESC LIMIT 1",
-        (pedido_id,),
-    ).fetchone()
+        return False
+    return detentor_atual_pedido(conn, pedido_id) == ident_cnpj
+
+
+def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
     _assert_or_403(
-        atual is not None and atual["para"] == ident_cnpj,
+        dispensador_detem_pedido(conn, pedido_id, ident_cnpj),
         codigo="nao_e_dono_do_pedido_exame",
         mensagem="Pedido de exame sob responsabilidade de outro prestador.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Choke-point de posse do exame (J.10-CORE) — espelho do COER-2 na receita
+# ---------------------------------------------------------------------------
+
+# Rótulo CANÔNICO por caminho. Texto livre do usuário vai em `extra_payload` e
+# nunca sobrescreve o motivo — mesma disciplina do `custodia.py` (§3 do CLAUDE.md).
+MOTIVOS_CUSTODIA_EXAME = frozenset({
+    "entrega_carteira_digital",   # emissão com `enviar_ao_paciente`
+    "agendamento_prestador",      # POST /pedidos-exame/{p}/agendar
+    "transferencia_laboratorio",  # ato do cidadão (J.7)
+})
+
+
+def _fechar_custodia_exame_ativa(conn, pedido_id: int, item_id: Optional[int],
+                                 agora: str) -> None:
+    """Fecha a posse ativa desta granularidade, se houver. Idempotente."""
+    if item_id is None:
+        conn.execute(
+            "UPDATE pedido_exame_custodia SET encerrada_em = ? "
+            "WHERE pedido_id = ? AND item_id IS NULL AND encerrada_em IS NULL",
+            (agora, pedido_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE pedido_exame_custodia SET encerrada_em = ? "
+            "WHERE pedido_id = ? AND item_id = ? AND encerrada_em IS NULL",
+            (agora, pedido_id, item_id),
+        )
+
+
+def transferir_posse_exame(
+    conn, pedido_id: int, item_id: Optional[int],
+    de: str, de_id: Optional[str],
+    para: str, para_id: Optional[str],
+    detentor: str,
+    motivo: str, agora: str,
+    *, instance_id: str,
+    extra_payload: Optional[dict] = None,
+) -> None:
+    """Choke-point de transição de posse do PEDIDO DE EXAME (J.10-CORE).
+
+    Ponto de passagem ÚNICO e obrigatório para toda mudança de detentor em
+    `pedido_exame_custodia`. Faz, na MESMA transação e nesta ordem:
+
+      1. Fecha a posse ativa anterior desta granularidade (qualquer detentor);
+      2. Abre a nova no nome de `para`;
+      3. Emite `custodia_transferida` no ledger.
+
+    Por que existe: antes, cada caminho de produto dava o seu `INSERT` e a posse
+    era "a última linha". Enquanto ninguém fechava nada, não havia como um
+    índice único provar que a posse é exclusiva — o R2 na camada de custódia
+    ficava por conta da convenção. Roteando tudo por aqui, "fechou a anterior"
+    deixa de ser fé e vira invariante, e a constraint
+    `uq_custodia_exame_ativa_*` prova que cada caminho fechou.
+
+    POR QUE `detentor` É PARÂMETRO SEPARADO DE `para`/`para_id`
+    -----------------------------------------------------------
+    A coluna `pedido_exame_custodia.para` é assimétrica por herança: guarda o
+    **papel** quando quem detém é o cidadão (`'paciente'`) e o **CNPJ** quando é
+    o prestador. Já o ledger quer o par semântico (`para='prestador_exame'` +
+    `para_id=<cnpj>`). Um único argumento não serve aos dois — e conflatá-los é
+    exatamente o bug que o gate de navegador pegou no J.7 (o guard comparava o
+    detentor com o CPF do JWT e recusava o dono legítimo com 409).
+
+    Então: `detentor` é o valor da COLUNA — a chave por onde
+    `detentor_atual_pedido` responde "quem detém agora" —, e `para`/`para_id`
+    são o par do ledger. Explícito de propósito: a assimetria é real e caro
+    esquecê-la; escondê-la atrás de uma regra implícita ("papel se cidadão,
+    senão id") só adiaria a próxima vez.
+
+    Granularidade: opera SÓ no nível de `item_id` recebido. A reconciliação
+    CROSS-granularidade (nível-pedido obsoleto × nível-item ativo) é
+    responsabilidade do caminho que a criar — hoje nenhum cria, porque só
+    existe transferência de pedido inteiro; o J.10 (`module`) a introduz.
+    """
+    if motivo not in MOTIVOS_CUSTODIA_EXAME:
+        raise ValueError(
+            f"motivo de custódia '{motivo}' não é canônico. "
+            f"Conhecidos: {sorted(MOTIVOS_CUSTODIA_EXAME)}"
+        )
+
+    _fechar_custodia_exame_ativa(conn, pedido_id, item_id, agora)
+
+    dados: dict = {
+        "de": de, "de_id": de_id,
+        "para": para, "para_id": para_id,
+        "nivel": "item" if item_id is not None else "pedido",
+        "motivo": motivo,
+    }
+    if extra_payload:
+        # `motivo` canônico por último: detalhe livre nunca o sobrescreve.
+        dados = {**extra_payload, **dados}
+
+    conn.execute(
+        """
+        INSERT INTO pedido_exame_custodia
+          (pedido_id, item_id, de, para, transferido_em, encerrada_em, dados_json)
+        VALUES (?, ?, ?, ?, ?, NULL, ?)
+        """,
+        (pedido_id, item_id, de, detentor, agora,
+         json.dumps(dados, ensure_ascii=False)),
+    )
+
+    registrar_evento_ledger(
+        conn,
+        objeto_tipo="pedido_exame",
+        objeto_id=pedido_id,
+        tipo_evento="custodia_transferida",
+        instance_id=instance_id,
+        payload=dados,
     )
 
 
@@ -834,25 +940,25 @@ def agendar_pedido_exame(
         # contra um valor já canônico. AgendarIn permanece sem validator.
         cnpj_prestador_norm = normalize_cnpj(payload.cnpj_prestador)
 
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json)
-            VALUES (?, NULL, 'paciente', ?, ?, ?)
-            """,
-            (
-                pedido["id"],
-                cnpj_prestador_norm,
-                agora,
-                json.dumps({
-                    "nome_prestador":   payload.nome_prestador,
-                    "data_agendamento": payload.data_agendamento,
-                }, ensure_ascii=False),
-            ),
+        instance_id = get_instance_id_conn(conn)
+        # J.10-CORE: pelo choke-point — fecha a posse do cidadão e abre a do
+        # prestador. Antes o `INSERT` cru deixava as duas linhas vivas, e a
+        # posse era "a última"; agora só uma fica ativa, e o índice prova.
+        transferir_posse_exame(
+            conn, pedido["id"], None,
+            DETENTOR_PACIENTE, None,
+            "prestador_exame", cnpj_prestador_norm,
+            cnpj_prestador_norm,        # coluna `para`: o CNPJ, para o prestador
+            "agendamento_prestador", agora,
+            instance_id=instance_id,
+            extra_payload={
+                "nome_prestador":   payload.nome_prestador,
+                "data_agendamento": payload.data_agendamento,
+            },
         )
 
         novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
 
-        instance_id = get_instance_id_conn(conn)
         registrar_evento_ledger(
             conn,
             objeto_tipo="pedido_exame",
@@ -984,25 +1090,6 @@ def transferir_laboratorio(
         # Quem os promove a `agendado` é o laboratório, criando agendamento —
         # ou coletando direto.
 
-        conn.execute(
-            """
-            INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json)
-            VALUES (?, NULL, 'paciente', ?, ?, ?)
-            """,
-            (
-                pedido["id"],
-                cnpj,
-                agora,
-                json.dumps({
-                    "nome_laboratorio": payload.nome_laboratorio,
-                    "motivo":           "transferencia_laboratorio",
-                    "origem":           "cidadao_app",
-                }, ensure_ascii=False),
-            ),
-        )
-
-        novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
-
         instance_id = get_instance_id_conn(conn)
         # TICKET-J.7 — UM evento, porque houve UM fato: a posse mudou de mão.
         #
@@ -1011,25 +1098,27 @@ def transferir_laboratorio(
         # existia em `agendamentos` (`data_agendamento: None` era a confissão).
         # O ledger não fica com mudança de estado sem evento porque não há mais
         # mudança de estado: o pedido segue `emitido`, os itens seguem `pendente`.
-        registrar_evento_ledger(
-            conn,
-            objeto_tipo="pedido_exame",
-            objeto_id=pedido["id"],
-            tipo_evento="custodia_transferida",
+        #
+        # J.10-CORE — o INSERT cru e este evento viraram uma chamada só: o
+        # choke-point fecha a posse do cidadão, abre a do laboratório e emite,
+        # atômico. É o que torna a posse exclusiva provável por índice.
+        transferir_posse_exame(
+            conn, pedido["id"], None,
+            DETENTOR_PACIENTE, ident,
+            "prestador_exame", cnpj,
+            cnpj,                        # coluna `para`: o CNPJ, para o prestador
+            "transferencia_laboratorio", agora,
             instance_id=instance_id,
-            payload={
-                "de":       "paciente",
-                "de_id":    ident,
-                "para":     "prestador_exame",
-                "para_id":  cnpj,
-                "nivel":    "pedido",
-                "motivo":   "transferencia_laboratorio",
-                "origem":   "cidadao_app",
+            extra_payload={
+                "nome_laboratorio": payload.nome_laboratorio,
+                "origem":           "cidadao_app",
                 # Quantos itens ativos foram junto com a posse. NÃO é transição
                 # de estado — é o tamanho do que mudou de mão.
-                "itens":    len(itens_ativos),
+                "itens":            len(itens_ativos),
             },
         )
+
+        novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
 
         return {
             "ok":                 True,

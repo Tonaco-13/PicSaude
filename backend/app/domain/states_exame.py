@@ -188,6 +188,11 @@ EVENTOS_PEDIDO_EXAME: frozenset[str] = frozenset({
     "custodia_transferida",     # qualquer transferência de posse
     "pedido_corrigido",         # derivação por correção
     "pdf_assinado_pades",       # PDF assinado em ICP-Brasil (PAdES-B) via cofre
+    # J.10-CORE (migração `d4b8c1e07f36`): normalização do ledger de custódia
+    # para o modelo de posse atual. Emitido PELA MIGRAÇÃO, nunca no caminho
+    # clínico — espelho do `custodia_reconciliada_data_fix` do COER-2 na
+    # prescrição. Significa "linha superada pelo modelo de posse atual".
+    "custodia_reconciliada_data_fix",
 })
 
 # ---------------------------------------------------------------------------

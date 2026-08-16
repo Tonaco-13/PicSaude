@@ -131,6 +131,9 @@ def test_relatorio_segue_custodia_atual_nao_historica(client, outer_conn, seed_u
     `test_pedidos_exame_autorizacao.py::test_disp_caso5`: o fluxo de endpoints do
     MVP não reexpõe re-transferência de prestador (o `agendar` exige item
     'pendente', e após o 1º agendar o item já está 'agendado').
+
+    J.10-CORE: fecha a posse de A antes de abrir a de B — a forma que o
+    choke-point impõe e que a constraint de unicidade agora exige.
     """
     token_p = obter_token_prescritor(client, seed_usuario)
     proto = _criar_pedido_agendado(client, token_p, _CNPJ_A, "TSH")
@@ -139,10 +142,15 @@ def test_relatorio_segue_custodia_atual_nao_historica(client, outer_conn, seed_u
         cur.execute("SELECT id FROM pedidos_exame WHERE protocolo = %s", (proto,))
         pedido_id = cur.fetchone()[0]
         cur.execute(
+            "UPDATE pedido_exame_custodia SET encerrada_em = %s "
+            "WHERE pedido_id = %s AND item_id IS NULL AND encerrada_em IS NULL",
+            (datetime.utcnow(), pedido_id),
+        )
+        cur.execute(
             """
             INSERT INTO pedido_exame_custodia
-              (pedido_id, item_id, de, para, transferido_em, dados_json)
-            VALUES (%s, NULL, %s, %s, %s, %s)
+              (pedido_id, item_id, de, para, transferido_em, encerrada_em, dados_json)
+            VALUES (%s, NULL, %s, %s, %s, NULL, %s)
             """,
             (pedido_id, _CNPJ_A, _CNPJ_B, datetime.utcnow(),
              '{"motivo": "re-transferencia de prestador (teste)"}'),

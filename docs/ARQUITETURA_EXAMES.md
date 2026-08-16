@@ -78,10 +78,31 @@ id                    INTEGER PK
 pedido_id             INTEGER FK → pedidos_exame
 item_id               INTEGER FK → pedido_exame_itens  ← NULL = pedido inteiro
 de                    TEXT NOT NULL             ← papel ou CNPJ
-para                  TEXT NOT NULL
+para                  TEXT NOT NULL             ← PAPEL p/ o cidadão ('paciente'), CNPJ p/ o prestador
 transferido_em        DATETIME
+encerrada_em          DATETIME NULL             ← J.10-CORE: NULL = posse ATIVA
 dados_json            TEXT
+
+ÍNDICE ÚNICO PARCIAL (migração d4b8c1e07f36, nos dois dialetos):
+  no máximo UMA linha com encerrada_em IS NULL por (pedido_id, item_id)
+    PostgreSQL: (pedido_id, item_id) NULLS NOT DISTINCT WHERE encerrada_em IS NULL
+    SQLite:     (pedido_id, COALESCE(item_id, -1))      WHERE encerrada_em IS NULL
 ```
+
+> **Por que a coluna existe (J.10-CORE).** A tabela nasceu como **ledger de
+> transferências**: "quem detém" era a última linha (`ORDER BY id DESC LIMIT 1`).
+> Num ledger append-only não existe *linha ativa* que um índice único possa
+> restringir — logo, a unicidade de posse (o **R2 na camada de custódia**: um
+> objeto não está em dois lugares ao mesmo tempo) era afirmada apenas por
+> convenção de código. A lição do COER-2 e o §9 do CLAUDE.md são explícitos:
+> *invariante afirmado sem constraint de banco não é invariante.* Com
+> `encerrada_em`, a custódia do exame passou a ter a mesma forma da custódia da
+> receita, e a garantia saiu do código para o banco.
+>
+> **Atenção à assimetria da coluna `para`:** ela guarda o PAPEL quando quem detém
+> é o cidadão e o CNPJ quando é o prestador — o CPF só existe em
+> `dados_json.para_id`. Comparar o detentor com o CPF do JWT foi o bug que o gate
+> de navegador pegou no J.7 (409 no dono legítimo). Use `posse_do_cidadao()`.
 
 ---
 
@@ -227,11 +248,30 @@ prescritor  → prescritor        (retorno clínico — opcional)
 
 ### Transições de custódia permitidas
 
-| De | Para | Quando |
-|---|---|---|
-| prescritor | paciente | Emissão digital |
-| paciente | prestador_exame | Agendamento confirmado |
-| prestador_exame | paciente | Resultado disponível |
+| De | Para | Quando | `motivo` canônico |
+|---|---|---|---|
+| prescritor | paciente | Emissão digital (`enviar_ao_paciente`) | `entrega_carteira_digital` |
+| paciente | prestador_exame | Agendamento confirmado | `agendamento_prestador` |
+| paciente | prestador_exame | Cidadão entrega ao laboratório (J.7) | `transferencia_laboratorio` |
+| prestador_exame | paciente | Resultado disponível | *(J.10)* |
+
+### Choke-point de posse (J.10-CORE)
+
+Toda escrita em `pedido_exame_custodia` passa por
+`routers/pedidos_exame.py::transferir_posse_exame`, que **fecha a posse anterior,
+abre a nova e emite `custodia_transferida`** — na mesma transação. Nenhum caminho
+de produto dá `INSERT` à mão; um guard-rail no gate
+(`tests/test_j10_core_chokepoint_exame.py`) recusa o PR que tentar.
+
+Por que importa: enquanto cada caminho inseria por conta própria, "fechou a
+anterior" era fé. Roteando por um ponto único, vira invariante — e a constraint
+de unicidade prova, em silêncio, que todo caminho fechou. É a mesma disciplina de
+`custodia.py::transferir_posse` na receita (COER-2).
+
+O `motivo` é **canônico por caminho** (tabela acima) e vive em
+`MOTIVOS_CUSTODIA_EXAME`; texto livre do usuário vai em `extra_payload` e nunca
+sobrescreve o canônico — senão o histórico perde a capacidade de separar os
+caminhos.
 
 ### Fluxo físico
 
