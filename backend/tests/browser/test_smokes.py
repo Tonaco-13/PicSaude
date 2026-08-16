@@ -278,8 +278,14 @@ class TestAtestadoNaCarteira:
         # suítes que emitem atestados para o mesmo paciente (ex.: a etapa C),
         # e "o botão Baixar PDF" vira ambíguo (strict mode). `.first` resolveria
         # o erro afirmando menos — passaria mesmo se o card do seed sumisse.
+        #
+        # TICKET-J.11: escopar pelo protocolo deixou de bastar. O cartão ganhou
+        # "ver rastreabilidade", que também leva o protocolo no `onclick` — o
+        # seletor casava com dois botões. Nomear a FUNÇÃO (`baixarPdfAtestado`)
+        # mantém a asserção tão específica quanto antes, agora à prova do
+        # próximo botão que o cartão ganhar.
         expect(
-            lista.locator(f'button[onclick*="{_ATESTADO_SEED}"]')
+            lista.locator(f'button[onclick*="baixarPdfAtestado(\'{_ATESTADO_SEED}\')"]')
         ).to_be_visible(timeout=_TIMEOUT_MS)
 
         _sem_erros(erros_de_console, "cidadao.html (atestados)")

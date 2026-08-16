@@ -318,6 +318,7 @@
     }
   </style>
   <script src="config.js"></script>
+  <script src="lente.js"></script>
 </head>
 <body>
 
@@ -502,22 +503,11 @@
       .lente-busca-input:focus { outline:none; border-color:#1d4ed8; background:#fff; }
       .btn-lente-buscar { padding:10px 22px; border-radius:8px; background:#1e3a8a; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
       .btn-lente-buscar:hover { background:#0f766e; }
-      .lente-card { background:#fff; border:1.5px solid #bfdbfe; border-radius:10px; padding:16px 20px; margin-top:12px; }
-      .lente-card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
-      .lente-tipo { font-size:14px; font-weight:700; color:#0f172a; }
-      .lente-badge { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 10px; border-radius:999px; background:#f1f5f9; color:#475569; }
-      .lente-badge.tono-azul    { background:#dbeafe; color:#1e40af; }
-      .lente-badge.tono-verde   { background:#d1fae5; color:#065f46; }
-      .lente-badge.tono-amarelo { background:#fef9c3; color:#854d0e; }
-      .lente-badge.tono-vermelho{ background:#fee2e2; color:#991b1b; }
-      .lente-chave-display { font-family:'Courier New',monospace; font-size:15px; font-weight:700; letter-spacing:2px; color:#1e3a8a; padding:8px 10px; background:#eff6ff; border:1px dashed #93c5fd; border-radius:6px; margin:10px 0; word-break:break-all; }
-      .lente-meta { font-size:12px; color:#64748b; line-height:1.7; }
-      .lente-itens { margin-top:10px; font-size:13px; color:#334155; }
-      .lente-item-row { display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9; }
-      .lente-item-row:last-child { border-bottom:none; }
-      .lente-nota { font-size:11px; color:#1e40af; background:#dbeafe; border-radius:4px; padding:6px 10px; margin-top:12px; }
-      .lente-nota a { color:#1e3a8a; font-weight:700; text-decoration:none; }
-      .lente-nota a:hover { text-decoration:underline; }
+      /* TICKET-J.11 — as regras do CARTÃO da lente (.lente-card, .lente-badge,
+         .lente-chave-display, .lente-meta, .lente-itens, .lente-nota) saíram
+         daqui: viajam com o componente em `lente.js`, que as injeta. Copiá-las
+         de volta recria a duplicação que a extração desfez. Ficam aqui só as
+         regras desta SEÇÃO (moldura, busca e feedback), que são do portal. */
       .lente-feedback { padding:8px 12px; border-radius:7px; font-size:13px; font-weight:600; margin-top:10px; }
       .lente-feedback.ok  { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
       .lente-feedback.err { background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; }
@@ -685,38 +675,11 @@
     (function () {
       'use strict';
 
-      var BACKEND = BACKEND_URL;
-
-      // Tipos de objeto sanitário consultáveis nos endpoints públicos neutros.
-      var LENTE_TIPOS = [
-        { path: 'prescricoes',        nome: 'Receita (prescrição)', icone: '📄', statusKey: 'status_prescricao' },
-        { path: 'exames',             nome: 'Pedido de exame',      icone: '🧪', statusKey: 'status_pedido' },
-        { path: 'atestados',          nome: 'Atestado',             icone: '🩺', statusKey: 'status' },
-        { path: 'laudos',             nome: 'Laudo',                icone: '📋', statusKey: 'status_laudo' },
-        { path: 'encaminhamentos',    nome: 'Encaminhamento',       icone: '↗️', statusKey: 'status_encaminhamento' },
-        { path: 'contrarreferencias', nome: 'Contrarreferência',    icone: '↩️', statusKey: 'status_contrarreferencia' },
-      ];
-
-      function esc(str) {
-        return String(str == null ? '' : str)
-          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;');
-      }
-
-      // Tom do badge por família de estado (contrato de estados, CLAUDE.md §5a/§5b).
-      function tonoDoStatus(status) {
-        var s = String(status || '').toLowerCase();
-        if (/cancel|desmarc|expira|recusad|revogad|indefer/.test(s)) return 'tono-vermelho';
-        if (/aguard|pendente|proposta|rascunho|selecionado/.test(s)) return 'tono-amarelo';
-        if (/confirm|dispens|realizad|assinado|entregue|conclu|vigente|transfer/.test(s)) return 'tono-verde';
-        if (/emit|enviado|custodia|registrado|ativo/.test(s)) return 'tono-azul';
-        return '';
-      }
-
-      function badge(status) {
-        return '<span class="lente-badge ' + tonoDoStatus(status) + '">' + esc(status || '—') + '</span>';
-      }
-
+      // TICKET-J.11 — o render e a leitura da lente vivem em `lente.js`
+      // (componente compartilhado). Esta tela mantém a lente pública
+      // exatamente como era: mesma busca anônima por protocolo/chave, mesmo
+      // cartão. O que mudou é de onde vem o desenho — a carteira do cidadão
+      // abre a MESMA lente por cartão ("ver rastreabilidade") sem duplicá-lo.
       function feedback(tipo, msg) {
         var el = document.getElementById('lente-feedback');
         el.className = 'lente-feedback ' + tipo;
@@ -740,61 +703,6 @@
         el.classList.add('hidden');
       }
 
-      // Cartão neutro para os endpoints /public/* — o payload já nasce neutro
-      // no backend (sem clínica, sem identidade); aqui só apresentamos.
-      function renderPublico(tipo, dados) {
-        var status = dados[tipo.statusKey];
-        var html = '<div class="lente-card">'
-          + '<div class="lente-card-head">'
-          +   '<span class="lente-tipo">' + tipo.icone + ' ' + esc(tipo.nome) + '</span>'
-          +   badge(status)
-          + '</div>'
-          + '<div class="lente-chave-display">' + esc(dados.protocolo) + '</div>'
-          + '<div class="lente-meta">Tipo de emissão: <strong>' + esc(dados.tipo_emissao || '—') + '</strong></div>';
-
-        if (tipo.path === 'atestados') {
-          html += '<div class="lente-meta">Assinado: <strong>' + (dados.assinado ? 'sim' : 'não') + '</strong>'
-            + (dados.vigente === null || dados.vigente === undefined
-               ? ''
-               : ' · Vigente: <strong>' + (dados.vigente ? 'sim' : 'não') + '</strong>')
-            + '</div>';
-        }
-
-        if (Array.isArray(dados.itens) && dados.itens.length) {
-          html += '<div class="lente-itens">';
-          dados.itens.forEach(function (it) {
-            html += '<div class="lente-item-row"><span>Item ' + esc(it.ordem) + '</span>'
-              + badge(it.status_item) + '</div>';
-          });
-          html += '</div>';
-        }
-
-        html += '<div class="lente-nota">Visão neutra de auditoria — existência e estado do objeto, '
-          + 'sem conteúdo clínico nem identificação das partes.</div></div>';
-        mostrarResultado(html);
-      }
-
-      // Cartão neutro para circulação diagnóstica. O endpoint autenticado
-      // retorna paciente/prescritor/exames — a lente NÃO os exibe: auditoria
-      // vê estado, validade e tamanho do conjunto; o restante é operação, e
-      // operação fica no módulo Clínica/Laboratório.
-      function renderCirculacao(circ) {
-        var nItens = Array.isArray(circ.itens) ? circ.itens.length : 0;
-        var validade = circ.validade ? String(circ.validade).slice(0, 10) : '—';
-        var html = '<div class="lente-card">'
-          + '<div class="lente-card-head">'
-          +   '<span class="lente-tipo">🔬 Circulação diagnóstica</span>'
-          +   badge(circ.status)
-          + '</div>'
-          + '<div class="lente-chave-display">' + esc(circ.chave_circulacao) + '</div>'
-          + '<div class="lente-meta">Validade da chave: <strong>' + esc(validade) + '</strong>'
-          + ' · Exames nesta circulação: <strong>' + nItens + '</strong></div>'
-          + '<div class="lente-nota">Visão neutra de auditoria. Detalhes clínicos e operação '
-          + '(proposta, confirmação, realização) no módulo '
-          + '<a href="clinica.html">Clínica/Laboratório →</a></div></div>';
-        mostrarResultado(html);
-      }
-
       window.consultarObjetoSanitario = async function () {
         var input = document.getElementById('lente-input');
         var termo = (input.value || '').trim();
@@ -808,53 +716,18 @@
         limparFeedback();
         mostrarResultado('<p style="font-size:13px;color:#64748b;margin:8px 0 0;">Consultando…</p>');
 
-        // Chave de circulação diagnóstica: hex curto, sem hífen (ex: A3F1C2B4E5D6).
-        // Protocolos (UUID com hífen) caem direto nos endpoints públicos.
-        var chaveCirc = termo.toUpperCase();
-        var pareceCirculacao = /^[0-9A-F]{8,16}$/.test(chaveCirc) && termo.indexOf('-') === -1;
         var token = null;
         try { token = sessionStorage.getItem('picsaude_demo_token'); } catch (_) {}
 
-        // 1) Circulação diagnóstica (autenticada) — só com sessão ativa.
-        if (pareceCirculacao && token) {
-          try {
-            var rc = await fetch(BACKEND + '/circulacao/' + encodeURIComponent(chaveCirc), {
-              headers: { 'Authorization': 'Bearer ' + token },
-            });
-            if (rc.ok) {
-              limparFeedback();
-              renderCirculacao(await rc.json());
-              return;
-            }
-          } catch (_) { /* rede — segue para os públicos */ }
+        var resultado = await LenteAuditoria.consultar(termo, { token: token });
+        if (resultado.achou) {
+          limparFeedback();
+          mostrarResultado(LenteAuditoria.cartaoHtml(resultado));
+          return;
         }
 
-        // 2) Objetos sanitários via endpoints públicos neutros, na ordem.
-        for (var i = 0; i < LENTE_TIPOS.length; i++) {
-          var tipo = LENTE_TIPOS[i];
-          try {
-            var rp = await fetch(BACKEND + '/public/' + tipo.path + '/' + encodeURIComponent(termo));
-            if (rp.ok) {
-              limparFeedback();
-              renderPublico(tipo, await rp.json());
-              return;
-            }
-          } catch (_) { /* rede — tenta o próximo tipo */ }
-        }
-
-        // 3) Nada encontrado — feedback com o próximo passo (R4: nunca calar).
         esconderResultado();
-        if (pareceCirculacao && !token) {
-          feedback('err', 'Formato de chave de circulação diagnóstica, mas nenhum objeto público '
-            + 'respondeu por ela. A circulação diagnóstica detalhada exige um perfil ativo — '
-            + 'entre pelo card da Clínica/Laboratório e consulte lá.');
-        } else if (pareceCirculacao) {
-          feedback('err', 'Nenhuma circulação ou objeto sanitário encontrado com "' + chaveCirc + '". '
-            + 'Confira a digitação ou consulte no módulo de origem.');
-        } else {
-          feedback('err', 'Nenhum objeto sanitário encontrado com este protocolo. '
-            + 'Confira a digitação — o protocolo é o identificador completo do documento.');
-        }
+        feedback('err', LenteAuditoria.mensagemDeVazio(termo, { token: token }));
       };
     })();
   </script>
