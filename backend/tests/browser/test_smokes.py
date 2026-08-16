@@ -23,6 +23,8 @@ import re
 import pytest
 from playwright.sync_api import expect
 
+from tests.browser.conftest import abrir_aba_carteira
+
 # Personas do seed de demo (backend/seed_demo.py).
 _PRESCRITOR = {"sub": "980001112223334", "nome": "Dra. Demo Maria Souza"}
 
@@ -246,6 +248,8 @@ class TestAtestadoNaCarteira:
     def _abrir_carteira(self, page, app_demo):
         _autenticar(page, app_demo, "paciente", "12345678909", "João Demo da Silva")
         page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        # TICKET-J.9 — a carteira passou a ter uma aba por tipo de objeto.
+        abrir_aba_carteira(page, "atestado")
         lista = page.locator("#lista-atestados")
         expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
         return lista

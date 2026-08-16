@@ -31,6 +31,8 @@ import httpx
 import pytest
 from playwright.sync_api import expect, Page
 
+from tests.browser.conftest import abrir_aba_carteira
+
 _TIMEOUT_MS = 15_000
 
 # Personas canônicas do seed de demo.
@@ -218,6 +220,7 @@ def test_c3_atestado_card_tem_hierarquia_visual_propria(page: Page, app_demo, er
     _autenticar(page, app_demo, "paciente", _CPF, _NOME_PACIENTE)
     page.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
 
+    abrir_aba_carteira(page, "atestado")          # TICKET-J.9
     lista = page.locator("#lista-atestados")
     expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
     card = lista.locator(".atestado-card", has_text=proto)
@@ -243,16 +246,20 @@ def test_c3_atestado_card_tem_hierarquia_visual_propria(page: Page, app_demo, er
     assert "20" in titulo_bg and "83" in titulo_bg and "45" in titulo_bg, \
         f"título sem cor verde-900 esperada (rgb(20,83,45)); veio: {titulo_bg}"
 
-    # 🎯 seção Atestados aparece ANTES de Pedidos de Exame no DOM.
-    idx_atestados = page.evaluate(
-        "(() => { const els = Array.from(document.querySelectorAll('[id^=lista-]')); "
-        "return els.findIndex(e => e.id === 'lista-atestados'); })()"
-    )
-    idx_pedidos = page.evaluate(
-        "(() => { const els = Array.from(document.querySelectorAll('[id^=lista-]')); "
-        "return els.findIndex(e => e.id === 'lista-pedidos-exame'); })()"
-    )
-    assert 0 <= idx_atestados < idx_pedidos, \
-        f"ordem incorreta: atestados={idx_atestados}, pedidos-exame={idx_pedidos}"
+    # 🎯 O atestado não se confunde com exame — regra original do F5-C3.
+    #
+    # TICKET-J.9 (2026-08-15) substitui o CRITÉRIO, não a regra. Antes tudo vivia
+    # numa rolagem só e a separação era posicional: "Atestados aparece ANTES de
+    # Pedidos de Exame no DOM". Com uma aba por tipo de objeto, ordem no DOM não
+    # significa mais nada — Atestado é a 3ª aba por decisão do despacho ENG-011
+    # §7 (Receita · Exames · Atestado), e a asserção antiga passaria a medir a
+    # posição da aba, não a hierarquia do documento.
+    #
+    # A separação que o F5-C3 protegia ficou MAIS forte: o atestado tem painel
+    # próprio, e nenhum card de exame o acompanha. É isso que se afirma agora.
+    expect(page.locator("#aba-atestado")).to_be_visible()
+    expect(page.locator("#aba-exames")).to_be_hidden()
+    assert lista.locator(".exame-card").count() == 0, \
+        "card de exame vazou para a aba de atestados — a hierarquia do F5-C3 se perdeu"
 
     _sem_erros(erros_de_console, "cidadao.html (C3)")

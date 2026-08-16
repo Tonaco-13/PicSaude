@@ -23,7 +23,9 @@
         .container { max-width: 650px; margin: 40px auto; padding: 0 16px; }
         .card { background: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 32px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
         
-        h2.section-title { font-size: 18px; color: #1e3a8a; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+        /* TICKET-J.9 — vale para h2 e h3: os títulos das abas são h3 e antes
+           ficavam sem estilo nenhum (a regra só pegava h2). */
+        .section-title { font-size: 18px; color: #1e3a8a; margin-bottom: 24px; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
         
         .form-group { margin-bottom: 20px; width: 100%; }
         .form-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -41,6 +43,16 @@
         .btn-primary:hover { background: #001a4f; }
         .btn-action { background: #16a34a; color: white; }
         .btn-action:hover { background: #007a2e; }
+        /* TICKET-J.9 — abas da carteira: um tipo de objeto por aba. */
+        .abas-carteira-barra { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; }
+        .abas-carteira { display: flex; gap: 4px; flex-wrap: wrap; }
+        .aba-cart { display: inline-flex; align-items: center; gap: 7px; padding: 11px 18px; border: none; background: transparent; border-bottom: 3px solid transparent; margin-bottom: -2px; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; white-space: nowrap; border-radius: 6px 6px 0 0; width: auto; }
+        .aba-cart:hover { background: #f1f5f9; color: #1e3a8a; }
+        .aba-cart.ativa { color: #1e3a8a; border-bottom-color: #1e3a8a; background: #f8fafc; }
+        .aba-cart:focus-visible { outline: 2px solid #1e3a8a; outline-offset: -2px; }
+        .aba-cart-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: #e2e8f0; color: #475569; font-size: 11px; font-weight: 700; }
+        .aba-cart.ativa .aba-cart-count { background: #1e3a8a; color: #fff; }
+
         .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #475569; transition: all 0.3s ease; }
         .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
         .btn-small { padding: 8px 16px; font-size: 12px; border-radius: 4px; width: auto; }
@@ -322,35 +334,70 @@
                 <p style="font-size: 14px; color: #475569;">CPF: <span id="user-cpf" style="font-weight: 600; color: #0f172a;">...</span></p>
             </div>
 
+            <!-- Alertas de renovação ficam FORA das abas: valem para a carteira
+                 inteira e o cidadão não deveria precisar caçá-los numa aba. -->
             <div id="alertas-renovacao"></div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
-                <h3 style="font-size: 18px; color: #1e3a8a; font-weight: 600; margin: 0;">Receitas</h3>
+            <!-- ── TICKET-J.9 — abas da carteira ─────────────────────────
+                 Um tipo de objeto por aba: Receita · Exames · Atestado. UI only —
+                 nenhuma rota, estado ou custódia muda. O botão Atualizar fica
+                 aqui, junto das abas, porque `carregarCarteira()` recarrega as
+                 TRÊS de uma vez; pendurá-lo dentro de uma aba faria parecer que
+                 só aquela é atualizada. -->
+            <div class="abas-carteira-barra">
+                <nav class="abas-carteira" role="tablist" aria-label="Tipos de documento">
+                    <button type="button" role="tab" class="aba-cart ativa"
+                            id="aba-btn-receita" aria-controls="aba-receita" aria-selected="true"
+                            onclick="abrirAbaCarteira('receita')">
+                        💊 Receita <span class="aba-cart-count" id="aba-count-receita">0</span>
+                    </button>
+                    <button type="button" role="tab" class="aba-cart"
+                            id="aba-btn-exames" aria-controls="aba-exames" aria-selected="false"
+                            onclick="abrirAbaCarteira('exames')">
+                        🧪 Exames <span class="aba-cart-count" id="aba-count-exames">0</span>
+                    </button>
+                    <button type="button" role="tab" class="aba-cart"
+                            id="aba-btn-atestado" aria-controls="aba-atestado" aria-selected="false"
+                            onclick="abrirAbaCarteira('atestado')">
+                        📄 Atestado <span class="aba-cart-count" id="aba-count-atestado">0</span>
+                    </button>
+                </nav>
                 <button id="btn-refresh" onclick="atualizarCarteiraAnimado()" class="btn-outline btn-small" style="margin: 0; display: flex; align-items: center; gap: 6px; font-weight:bold;">
                     <svg id="refresh-icon" class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.66 5.87"/></svg>
                     <span id="refresh-text">Atualizar</span>
                 </button>
             </div>
 
-            <div id="lista-receitas"></div>
+            <!-- ══════════ ABA 1 — RECEITA ══════════ -->
+            <section class="aba-cart-painel" id="aba-receita" role="tabpanel" aria-labelledby="aba-btn-receita">
+                <h3 class="section-title">Receitas sob sua custódia</h3>
+                <div id="lista-receitas"></div>
 
-            <!-- ── Atestados (TICKET-ATESTADO-CARTEIRA-CIDADAO · F5-C3 sobe acima de exames) ──
-                 Atestado é documento FINAL (assina, entrega ao empregador); exame é
-                 INTERMEDIÁRIO (solicita → agenda → coleta → laudo). O final tem prioridade
-                 visual na carteira. -->
-            <h3 class="section-title" style="margin-top: 48px;">Atestados</h3>
-            <div id="lista-atestados"></div>
+                <h3 class="section-title" style="margin-top: 48px;">Histórico de Prescrições</h3>
+                <div id="lista-historico"></div>
+            </section>
 
-            <!-- ── Pedidos de Exame (Ticket 29) ──────────────────────── -->
-            <h3 class="section-title" style="margin-top: 48px;">Pedidos de Exame Ativos</h3>
-            <div id="lista-pedidos-exame"></div>
+            <!-- ══════════ ABA 2 — EXAMES ══════════ -->
+            <!-- Pedido e laudo são o MESMO percurso visto em dois momentos
+                 (solicita → agenda → coleta → laudo), por isso dividem a aba. -->
+            <section class="aba-cart-painel hidden" id="aba-exames" role="tabpanel" aria-labelledby="aba-btn-exames">
+                <!-- ── Pedidos de Exame (Ticket 29) ──────────────────────── -->
+                <h3 class="section-title">Pedidos de Exame Ativos</h3>
+                <div id="lista-pedidos-exame"></div>
 
-            <!-- ── Laudos / Resultados (Ticket 21) ───────────────────── -->
-            <h3 class="section-title" style="margin-top: 48px;">Laudos / Resultados</h3>
-            <div id="lista-laudos"></div>
+                <!-- ── Laudos / Resultados (Ticket 21) ───────────────────── -->
+                <h3 class="section-title" style="margin-top: 48px;">Laudos / Resultados</h3>
+                <div id="lista-laudos"></div>
+            </section>
 
-            <h3 class="section-title" style="margin-top: 48px;">Histórico de Prescrições</h3>
-            <div id="lista-historico"></div>
+            <!-- ══════════ ABA 3 — ATESTADO ══════════ -->
+            <!-- Atestado é documento FINAL (assina, entrega ao empregador); exame é
+                 INTERMEDIÁRIO. Aba própria justamente porque não pertence a nenhum
+                 dos dois percursos (TICKET-ATESTADO-CARTEIRA-CIDADAO). -->
+            <section class="aba-cart-painel hidden" id="aba-atestado" role="tabpanel" aria-labelledby="aba-btn-atestado">
+                <h3 class="section-title">Atestados</h3>
+                <div id="lista-atestados"></div>
+            </section>
         </div>
 
     </div>
@@ -572,6 +619,44 @@
         }
 
         // ==========================================
+        // TICKET-J.9 — abas da carteira (Receita · Exames · Atestado)
+        // ==========================================
+        // UI only: nenhuma rota, estado ou custódia muda. O poll da carteira
+        // (`_pollCarteira`) e o re-login transparente do J.3 seguem intactos —
+        // ambos operam abaixo desta camada, recarregando as três abas de uma vez.
+        const _ABAS_CARTEIRA = ['receita', 'exames', 'atestado'];
+
+        function abrirAbaCarteira(nome) {
+            if (!_ABAS_CARTEIRA.includes(nome)) return;
+            _ABAS_CARTEIRA.forEach(n => {
+                const painel = document.getElementById('aba-' + n);
+                const botao  = document.getElementById('aba-btn-' + n);
+                if (painel) painel.classList.toggle('hidden', n !== nome);
+                if (botao) {
+                    botao.classList.toggle('ativa', n === nome);
+                    botao.setAttribute('aria-selected', String(n === nome));
+                }
+            });
+        }
+
+        // O contador mostra o que está VIVO, não o histórico: é o que diz ao
+        // cidadão se há algo a fazer sem precisar abrir a aba. Histórico e
+        // laudos já com ciência continuam listados dentro da aba.
+        const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0 };
+
+        function _sincronizarContadoresCarteira() {
+            const pares = [
+                ['aba-count-receita',  _contagemCarteira.receitas],
+                ['aba-count-exames',   _contagemCarteira.pedidos + _contagemCarteira.laudos],
+                ['aba-count-atestado', _contagemCarteira.atestados],
+            ];
+            for (const [id, valor] of pares) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(valor);
+            }
+        }
+
+        // ==========================================
         // Carteira
         // ==========================================
         function atualizarCarteiraAnimado() {
@@ -628,6 +713,8 @@
             try {
                 const dados = await apiFetch('/paciente/atestados');
                 const lista = [...(dados.vigentes || []), ...(dados.historico || [])];
+                _contagemCarteira.atestados = (dados.vigentes || []).length;   // TICKET-J.9
+                _sincronizarContadoresCarteira();
                 if (lista.length === 0) {
                     container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum atestado disponível.</p>';
                     return;
@@ -716,6 +803,8 @@
             try {
                 const dados = await apiFetch('/paciente/laudos');
                 const lista = [...(dados.disponiveis || []), ...(dados.historico || [])];
+                _contagemCarteira.laudos = (dados.disponiveis || []).length;   // TICKET-J.9
+                _sincronizarContadoresCarteira();
                 if (lista.length === 0) {
                     container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum laudo disponível.</p>';
                     return;
@@ -813,6 +902,8 @@
             try {
                 const dados = await apiFetch('/paciente/pedidos-exame');
                 const ativos = [...(dados.posse || []), ...(dados.em_andamento || [])];
+                _contagemCarteira.pedidos = ativos.length;   // TICKET-J.9
+                _sincronizarContadoresCarteira();
                 if (ativos.length === 0) {
                     container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum pedido de exame ativo.</p>';
                     return;
@@ -1031,6 +1122,8 @@
 
         function renderizarPosse(prescricoes) {
             const container = document.getElementById('lista-receitas');
+            _contagemCarteira.receitas = prescricoes.length;   // TICKET-J.9
+            _sincronizarContadoresCarteira();
             if (prescricoes.length === 0) {
                 container.innerHTML = '<div class="card" style="text-align:center; color:#64748b;">Nenhuma prescrição sob sua custódia no momento.</div>';
                 return;
