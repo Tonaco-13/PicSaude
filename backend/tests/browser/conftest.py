@@ -335,3 +335,26 @@ def demo_externa_viva(request, base_url):
     except _httpx.HTTPError as e:
         pytest.skip(f"demo em {base_url} indisponível: {e}")
 
+
+
+# ---------------------------------------------------------------------------
+# TICKET-J.9 — helper das abas da carteira do cidadão
+# ---------------------------------------------------------------------------
+# `cidadao.html` passou a mostrar um tipo de objeto por aba (Receita · Exames ·
+# Atestado). Todo teste que procura um card de exame, laudo ou atestado precisa
+# primeiro abrir a aba dele — antes, tudo vivia na mesma rolagem.
+#
+# Vive aqui, e não copiado em cada arquivo, porque é a MESMA mecânica para os
+# cinco testes que a usam: se o seletor da aba mudar, muda num lugar só.
+
+def abrir_aba_carteira(page, nome: str) -> None:
+    """Ativa uma aba da carteira e espera o painel aparecer.
+
+    `nome` ∈ {"receita", "exames", "atestado"}.
+    """
+    from playwright.sync_api import expect
+
+    botao = page.locator(f"#aba-btn-{nome}")
+    expect(botao).to_be_visible(timeout=15_000)
+    botao.click()
+    expect(page.locator(f"#aba-{nome}")).to_be_visible(timeout=15_000)

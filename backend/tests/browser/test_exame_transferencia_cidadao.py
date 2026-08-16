@@ -28,6 +28,8 @@ import time
 import httpx
 from playwright.sync_api import expect, Page
 
+from tests.browser.conftest import abrir_aba_carteira
+
 _TIMEOUT_MS = 15_000
 
 # Personas canônicas do seed de demo (config.js DEMO.* / seed_demo.py).
@@ -80,6 +82,8 @@ def _emitir_pedido_para_paciente(base_url: str, nome_exame: str) -> str:
 
 
 def _card_do_pedido(page: Page, proto: str):
+    # TICKET-J.9 — pedido de exame vive na aba Exames da carteira.
+    abrir_aba_carteira(page, "exames")
     lista = page.locator("#lista-pedidos-exame")
     expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
     expect(lista).to_contain_text(proto, timeout=_TIMEOUT_MS)
@@ -144,7 +148,7 @@ def test_cidadao_transfere_exame_e_pedido_cai_na_fila_do_laboratorio(
 
         # Clicar na fila abre o pedido — sem digitar protocolo.
         fila.locator(".fila-item", has_text=proto).click()
-        expect(page_lab.locator("#resultado-pedido")).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(page_lab.locator("#pedido-foco")).to_be_visible(timeout=_TIMEOUT_MS)
         expect(page_lab.locator("#detalhes-pedido")).to_contain_text(proto, timeout=_TIMEOUT_MS)
     finally:
         ctx_lab.close()

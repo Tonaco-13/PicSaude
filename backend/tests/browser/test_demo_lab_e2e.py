@@ -35,10 +35,13 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import time
 
 import httpx
 from playwright.sync_api import expect, Page
+
+from tests.browser.conftest import abrir_aba_carteira
 
 _TIMEOUT_MS = 20_000
 
@@ -128,6 +131,7 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
     try:
         pc = ctx_cid.new_page()
         pc.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        abrir_aba_carteira(pc, "exames")          # TICKET-J.9
         lista = pc.locator("#lista-pedidos-exame")
         expect(lista).to_contain_text(proto, timeout=_TIMEOUT_MS)
         card = lista.locator(".exame-card", has_text=proto)
@@ -149,7 +153,11 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
         fila = pl.locator("#fila-lista")
         expect(fila).to_contain_text(proto, timeout=_TIMEOUT_MS)
         fila.locator(".fila-item", has_text=proto).click()
-        expect(pl.locator("#resultado-pedido")).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(pl.locator("#pedido-foco")).to_be_visible(timeout=_TIMEOUT_MS)
+
+        # TICKET-J.8 — abrir um pedido cai na aba do próximo gesto. Sem coleta
+        # feita, é Realização.
+        expect(pl.locator("#aba-btn-realizacao")).to_have_class(re.compile(r"\bativa\b"))
 
         item = pl.locator(f"#item-exame-{item_id}")
 
@@ -157,7 +165,13 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
         item.get_by_role("button", name="Registrar coleta").click()
         expect(item).to_contain_text("Coletado", timeout=_TIMEOUT_MS)
 
-        # 3c. Enviar à bancada (Ticket F).
+        # 3c. Enviar à bancada (Ticket F). TICKET-J.8 — coletar MOVE o exame de
+        # Realização para Bancada: o operador troca de aba porque o trabalho
+        # trocou de etapa. O contador da aba é quem avisa que há material lá.
+        expect(pl.locator("#aba-count-bancada")).to_have_text("1", timeout=_TIMEOUT_MS)
+        pl.locator("#aba-btn-bancada").click()
+        expect(item).to_be_visible(timeout=_TIMEOUT_MS)
+
         pl.once("dialog", lambda d: d.accept("bioquímica"))
         item.get_by_role("button", name="Enviar à bancada").click()
         expect(item).to_contain_text("Na bancada — aguardando laudo", timeout=_TIMEOUT_MS)
@@ -189,6 +203,7 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
         try:
             pc2 = ctx_cid2.new_page()
             pc2.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+            abrir_aba_carteira(pc2, "exames")     # TICKET-J.9 — laudo é resultado de exame
             card_laudo = pc2.locator("#lista-laudos .exame-card", has_text=proto_laudo)
             expect(card_laudo).to_be_visible(timeout=_TIMEOUT_MS)
             pc2.once("dialog", lambda d: d.accept())

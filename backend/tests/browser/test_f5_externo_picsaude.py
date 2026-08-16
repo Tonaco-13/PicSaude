@@ -84,6 +84,8 @@ import httpx
 import pytest
 from playwright.sync_api import expect, Page
 
+from tests.browser.conftest import abrir_aba_carteira
+
 pytestmark = pytest.mark.external
 
 _TIMEOUT_MS = 20_000  # demo pública pode ser mais lenta que o subprocesso local
@@ -613,6 +615,10 @@ def test_circulacao_atestado_single_hop_e_vigente_na_carteira(
     _autenticar(page, base_url, "paciente", _CPF, _NOME_PACIENTE)
     page.goto(f"{base_url}/cidadao.html", wait_until="networkidle")
 
+    # TICKET-J.9 — a carteira passou a ter uma aba por tipo de objeto. Este
+    # arquivo é `external` (opt-in, alvo picsaude.com.br): a linha abaixo só
+    # passa a valer depois que a vitrine redeployar com o J.9.
+    abrir_aba_carteira(page, "atestado")
     lista_atestados = page.locator("#lista-atestados")
     expect(lista_atestados).to_be_visible(timeout=_TIMEOUT_MS)
     # 🎯 card na seção de atestados (não de receitas) — prova de circulação correta.

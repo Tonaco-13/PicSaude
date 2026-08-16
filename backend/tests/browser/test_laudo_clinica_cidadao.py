@@ -35,6 +35,8 @@ import time
 import httpx
 from playwright.sync_api import expect, Page
 
+from tests.browser.conftest import abrir_aba_carteira
+
 _TIMEOUT_MS = 20_000
 
 _CNS = "980001112223334"
@@ -122,7 +124,7 @@ def _abrir_pedido(pg: Page, base_url: str, proto: str) -> None:
     fila = pg.locator("#fila-lista")
     expect(fila).to_contain_text(proto, timeout=_TIMEOUT_MS)
     fila.locator(".fila-item", has_text=proto).click()
-    expect(pg.locator("#resultado-pedido")).to_be_visible(timeout=_TIMEOUT_MS)
+    expect(pg.locator("#pedido-foco")).to_be_visible(timeout=_TIMEOUT_MS)
 
 
 def _preencher_e_liberar(pg: Page, item_id: int, resumo: str, conclusao: str, ref: str) -> None:
@@ -144,7 +146,7 @@ def _abrir_pedido_por_busca(pg: Page, base_url: str, proto: str) -> None:
     pg.goto(f"{base_url}/clinica.html", wait_until="networkidle")
     pg.locator("#busca-protocolo").fill(proto)
     pg.get_by_role("button", name="Buscar").click()
-    expect(pg.locator("#resultado-pedido")).to_be_visible(timeout=_TIMEOUT_MS)
+    expect(pg.locator("#pedido-foco")).to_be_visible(timeout=_TIMEOUT_MS)
     expect(pg.locator("#detalhes-pedido")).to_contain_text(proto, timeout=_TIMEOUT_MS)
 
 
@@ -214,6 +216,7 @@ def test_clinica_produz_laudo_cidadao_recebe_e_da_ciencia(
     try:
         pc = ctx_cid.new_page()
         pc.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
+        abrir_aba_carteira(pc, "exames")          # TICKET-J.9
         lista = pc.locator("#lista-laudos")
         expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
         expect(lista).to_contain_text(proto_laudo, timeout=_TIMEOUT_MS)

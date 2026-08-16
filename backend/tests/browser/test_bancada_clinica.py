@@ -118,7 +118,7 @@ def _abrir_pedido_pela_fila(page: Page, base_url: str, proto: str) -> None:
     expect(fila).to_be_visible(timeout=_TIMEOUT_MS)
     expect(fila).to_contain_text(proto, timeout=_TIMEOUT_MS)
     fila.locator(".fila-item", has_text=proto).click()
-    expect(page.locator("#resultado-pedido")).to_be_visible(timeout=_TIMEOUT_MS)
+    expect(page.locator("#pedido-foco")).to_be_visible(timeout=_TIMEOUT_MS)
 
 
 def _status_do_item(base_url: str, proto: str, item_id: int) -> str:
