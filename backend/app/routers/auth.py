@@ -501,17 +501,41 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
 
         pedidos = []
         for row in rows:
+            # J.10 — posse POR ITEM: depois de uma transferência parcial, parte
+            # dos itens está com um CNPJ e parte com o cidadão. A linha de item
+            # ativa vence; sem linha, vale a posse nível-pedido que cobre o item.
             itens = conn.execute(
                 """
-                SELECT nome_exame, codigo_tuss, quantidade, status_item
-                FROM pedido_exame_itens
-                WHERE pedido_id = ?
+                SELECT i.id, i.nome_exame, i.codigo_tuss, i.quantidade, i.status_item,
+                       (SELECT c2.para FROM pedido_exame_custodia c2
+                         WHERE c2.pedido_id = i.pedido_id
+                           AND c2.item_id = i.id
+                           AND c2.encerrada_em IS NULL
+                         ORDER BY c2.id DESC LIMIT 1) AS detentor_item
+                  FROM pedido_exame_itens i
+                 WHERE i.pedido_id = ?
+                 ORDER BY i.id
                 """,
                 (row["id"],),
             ).fetchall()
             # TICKET-J.7 — posse vem da CUSTÓDIA, não do status. `None` = nunca
             # saiu do cidadão (a emissão não grava linha de nível-pedido).
             detentor = detentor_atual_pedido(conn, row["id"])
+            itens_out = []
+            algum_item_meu = False
+            for i in itens:
+                det_item = i["detentor_item"] if i["detentor_item"] is not None else detentor
+                meu = posse_do_cidadao(det_item)
+                algum_item_meu = algum_item_meu or meu
+                itens_out.append({
+                    "id":                 i["id"],
+                    "nome_exame":         i["nome_exame"],
+                    "codigo_tuss":        i["codigo_tuss"],
+                    "quantidade":         i["quantidade"],
+                    "status_item":        i["status_item"],
+                    "detentor":           det_item or DETENTOR_PACIENTE,
+                    "sob_minha_custodia": meu,
+                })
             # TICKET-J.11 — o selo do compromisso. Leitura pura: nenhuma
             # transição de custódia, nenhum evento. Informação ≠ custódia — o
             # pedido segue com o `prestador_exame` enquanto o cidadão lê a data.
@@ -527,9 +551,12 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
                 "data_validade":  row["data_validade"],
                 "prescritor_nome": row["prescritor_nome"],
                 "detentor":          detentor or DETENTOR_PACIENTE,
-                "sob_minha_custodia": posse_do_cidadao(detentor),
+                # J.10 — no nível do pedido, "sob minha custódia" passa a ser
+                # "detenho o pedido OU ao menos um item": é o que autoriza o
+                # gesto de transferir os itens que seguem com o cidadão.
+                "sob_minha_custodia": posse_do_cidadao(detentor) or algum_item_meu,
                 "agendamento":       agendamento,     # TICKET-J.11 — None se não há compromisso vigente
-                "itens": [dict(i) for i in itens],
+                "itens": itens_out,
             })
 
     _EM_ANDAMENTO = {"coletado", "em_analise", "resultado_disponivel"}
