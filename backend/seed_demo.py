@@ -38,6 +38,11 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.auth.jwt import hash_senha
 from app.cnes_demo import DDL_CNES_DEMO
 from app.database import get_conn
+from app.instance import get_instance_id, get_instance_id_conn
+from app.routers.pedidos_exame import (  # choke-point de posse (CLAUDE.md §7 pós-#168)
+    DETENTOR_PACIENTE,
+    transferir_posse_exame,
+)
 from app.domain.catalogo_seed import aplicar_seed_catalogo
 
 # ---------------------------------------------------------------------------
@@ -107,6 +112,38 @@ CLINICA = dict(
 # TICKET-I.3 — códigos SIGTAP (tabela do SUS) dos exames semeados, pares dos
 # TUSS que já existiam. Vivem aqui, nomeados, e não soltos no meio do INSERT:
 # são dado de catálogo regulatório, não literal de conveniência.
+def _instance_id_do_seed(conn) -> str:
+    """O instance_id que o BOOT vai considerar canônico — nunca um divergente.
+
+    O choke-point emite no ledger e exige um UUID v4 válido, então o seed
+    precisa de um. Mas `get_instance_id_conn()` resolve só pelo BANCO: num
+    banco novo ele CUNHA um valor, sem consultar o arquivo `.instance_id` da
+    instalação. Para um router isso é correto (o boot já semeou o DB); para o
+    seed, que roda ANTES do boot, é veneno — o app sobe em seguida, encontra
+    DB ≠ arquivo e se recusa a subir, por design:
+
+        RuntimeError: DIVERGÊNCIA detectada no instance_id:
+        DB=fa9dc4b9... vs arquivo=1e0dd825...
+        Indica clone, restore parcial ou corrupção.
+
+    (Quem pegou foi o gate de navegador, que semeia e sobe o app na sequência.
+    O guard estava certo; quem estava errado era o seed.)
+
+    Ordem aqui = ordem que o boot usará, para os dois concordarem:
+
+      1. `get_instance_id()` sem sessão — modo *degraded*: honra o override de
+         env e lê o ARQUIVO canônico. É o valor que o boot vai adotar, e ele
+         mesmo insere no DB depois ("DB vazio, arquivo tem valor → INSERT").
+      2. Sem arquivo (first boot de verdade, ex.: CI limpo): aí sim cunhar pelo
+         banco. O boot então recria o arquivo a partir do DB — também
+         convergente.
+    """
+    try:
+        return get_instance_id()
+    except RuntimeError:
+        return get_instance_id_conn(conn)
+
+
 _SIGTAP_HEMOGRAMA = "0202020380"   # Hemograma completo
 _SIGTAP_GLICEMIA  = "0202010473"   # Glicose (dosagem)
 
@@ -462,27 +499,28 @@ def _garantir_pedido_exame_ativo(conn) -> None:
         (pid, "Hemograma completo", "40301107", _SIGTAP_HEMOGRAMA, now),
     )
 
-    # Custódia prescritor → paciente: mesma forma que a emissão digital grava
-    # (pedidos_exame.py:385, enviar_ao_paciente=True). O pedido permanece em
-    # 'emitido' — não há estado 'transferida_paciente' no módulo de exames.
+    # Ledger da emissão. O `custodia_transferida` NÃO entra aqui: quem o emite
+    # é o choke-point, junto com a linha de custódia — um fato, uma escrita.
     conn.execute(
-        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
-        "VALUES (?, NULL, 'prescritor', 'paciente', ?, ?)",
-        (pid, now, json.dumps(
-            {"de_id": PRESCRITOR["cns"], "para_id": PACIENTE["cpf"], "motivo": "emissao"},
-            ensure_ascii=False)),
+        "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
+        "VALUES (?, ?, ?, ?)",
+        (pid, "pedido_emitido",
+         json.dumps({"prescritor": PRESCRITOR["cns"], "prioridade": "rotina"},
+                    ensure_ascii=False), now),
     )
 
-    # Ledger: emissão + transferência de custódia (EVENTOS_PEDIDO_EXAME).
-    for tipo, payload in (
-        ("pedido_emitido", {"prescritor": PRESCRITOR["cns"], "prioridade": "rotina"}),
-        ("custodia_transferida", {"de": "prescritor", "para": "paciente"}),
-    ):
-        conn.execute(
-            "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
-            "VALUES (?, ?, ?, ?)",
-            (pid, tipo, json.dumps(payload, ensure_ascii=False), now),
-        )
+    # Custódia prescritor → paciente PELO CHOKE-POINT (CLAUDE.md §7, pós-#168):
+    # nenhum caminho insere à mão. Aqui não há posse anterior a fechar, mas
+    # passar por fora seria abrir a exceção pela qual a próxima escrita passa.
+    transferir_posse_exame(
+        conn, pid, None,
+        "prescritor", PRESCRITOR["cns"],
+        DETENTOR_PACIENTE, PACIENTE["cpf"],
+        DETENTOR_PACIENTE,               # coluna `para`: o PAPEL, para o cidadão
+        "entrega_carteira_digital", now,
+        instance_id=_instance_id_do_seed(conn),
+        extra_payload={"via": "seed_demo"},
+    )
     print(f"  ✅ exame-demo (ativo): '{proto}' — Hemograma, emitido, em custódia do paciente")
 
 
@@ -557,27 +595,55 @@ def _garantir_laudo_demo(conn) -> None:
          "98 mg/dL (referência: 70-99 mg/dL)", now, now),
     )
 
-    # Elo de origem: prescritor → paciente (na emissão do pedido).
-    # DEMO-EXAME-0001 semeia este par; o 0002 precisa também — a cadeia de
-    # custódia é proveniência desde a emissão, não snapshot intermediário
-    # (parecer Fable 5 §4.2, ratificado). Objeto sem elo de origem é órfão.
-    # "Snapshot" justifica pular ESTADOS da máquina, nunca ELOS de custódia.
+    # Ledger: a emissão vem PRIMEIRO — a ordem dos eventos é a própria cadeia
+    # de proveniência, e os `custodia_transferida` abaixo saem do choke-point
+    # na sequência em que a posse muda de mão.
     conn.execute(
-        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
-        "VALUES (?, NULL, 'prescritor', 'paciente', ?, ?)",
-        (pid, now, json.dumps(
-            {"de_id": PRESCRITOR["cns"], "para_id": PACIENTE["cpf"], "motivo": "emissao"},
-            ensure_ascii=False)),
+        "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
+        "VALUES (?, ?, ?, ?)",
+        (pid, "pedido_emitido",
+         json.dumps({"prescritor": PRESCRITOR["cns"]}, ensure_ascii=False), now),
     )
 
-    # Custódia paciente → laboratório (posse no agendamento/coleta). Mesma forma
-    # do caminho clínico: `para` recebe o CNPJ do prestador (pedidos_exame.py:766).
-    conn.execute(
-        "INSERT INTO pedido_exame_custodia (pedido_id, item_id, de, para, transferido_em, dados_json) "
-        "VALUES (?, NULL, 'paciente', ?, ?, ?)",
-        (pid, CLINICA["cnpj"], now, json.dumps(
-            {"nome_prestador": CLINICA["nome"], "motivo": "agendamento_coleta"},
-            ensure_ascii=False)),
+    # --- Cadeia de custódia, PELO CHOKE-POINT (CLAUDE.md §7, pós-#168) ---
+    #
+    # ERA AQUI O BUG DA VITRINE DE 20/08. Estes dois elos entravam por INSERT à
+    # mão, e o segundo abria uma SEGUNDA custódia de nível-pedido sem fechar a
+    # primeira. Enquanto a posse era "a última linha" isso passava; com o índice
+    # único parcial (`uq_custodia_exame_ativa_pedido_item_pg`, migração
+    # `d4b8c1e07f36`) virou o que sempre foi — dupla posse ativa —, e a PG
+    # recusou:
+    #
+    #     duplicate key value violates unique constraint
+    #     "uq_custodia_exame_ativa_pedido_item_pg"
+    #     Key (pedido_id, item_id)=(2, null) already exists
+    #
+    # O choke-point fecha a anterior + abre a nova + emite `custodia_transferida`,
+    # atômico. A cadeia de proveniência (prescritor → paciente → laboratório)
+    # continua inteira: "snapshot" justifica pular ESTADOS da máquina, nunca ELOS
+    # de custódia (parecer Fable 5 §4.2, ratificado).
+    # Elo de origem: prescritor → paciente (na emissão do pedido).
+    transferir_posse_exame(
+        conn, pid, None,
+        "prescritor", PRESCRITOR["cns"],
+        DETENTOR_PACIENTE, PACIENTE["cpf"],
+        DETENTOR_PACIENTE,               # coluna `para`: o PAPEL, para o cidadão
+        "entrega_carteira_digital", now,
+        instance_id=_instance_id_do_seed(conn),
+        extra_payload={"via": "seed_demo"},
+    )
+
+    # Posse no agendamento/coleta: paciente → laboratório. `para` recebe o CNPJ
+    # do prestador — a coluna é assimétrica por herança (papel para o cidadão,
+    # CNPJ para o prestador); o choke-point recebe os dois separados.
+    transferir_posse_exame(
+        conn, pid, None,
+        DETENTOR_PACIENTE, PACIENTE["cpf"],
+        "prestador_exame", CLINICA["cnpj"],
+        CLINICA["cnpj"],                 # coluna `para`: o CNPJ, para o prestador
+        "agendamento_prestador", now,
+        instance_id=_instance_id_do_seed(conn),
+        extra_payload={"nome_prestador": CLINICA["nome"], "via": "seed_demo"},
     )
 
     # --- Laudo (snapshot: liberado) ---
@@ -615,20 +681,17 @@ def _garantir_laudo_demo(conn) -> None:
             ensure_ascii=False)),
     )
 
-    # Ledger do pedido (EVENTOS_PEDIDO_EXAME). O `custodia_transferida` de
-    # origem (prescritor→paciente) vem ANTES do paciente→laboratório: a ordem
-    # dos eventos é a própria cadeia de proveniência.
-    for tipo, payload in (
-        ("pedido_emitido", {"prescritor": PRESCRITOR["cns"]}),
-        ("custodia_transferida", {"de": "prescritor", "para": "paciente"}),
-        ("custodia_transferida", {"de": "paciente", "para": CLINICA["cnpj"]}),
-        ("resultado_registrado", {"item": "Glicemia de jejum", "conclusao": "alterado"}),
-    ):
-        conn.execute(
-            "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
-            "VALUES (?, ?, ?, ?)",
-            (pid, tipo, json.dumps(payload, ensure_ascii=False), now),
-        )
+    # Fecha o ledger do pedido. Os DOIS `custodia_transferida` saíram daqui:
+    # quem os emite é o choke-point, junto com a linha de custódia — um fato,
+    # uma escrita. Resultado: emitido → custódia → custódia → resultado, que é
+    # a ordem real dos fatos.
+    conn.execute(
+        "INSERT INTO pedido_exame_eventos (pedido_id, tipo_evento, dados_json, criado_em) "
+        "VALUES (?, ?, ?, ?)",
+        (pid, "resultado_registrado",
+         json.dumps({"item": "Glicemia de jejum", "conclusao": "alterado"},
+                    ensure_ascii=False), now),
+    )
 
     # Ledger do laudo (EVENTOS_LAUDO)
     for tipo, payload in (
