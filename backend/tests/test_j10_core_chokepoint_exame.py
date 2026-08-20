@@ -192,3 +192,44 @@ def test_evento_do_data_fix_esta_no_vocabulario():
 
 def test_custodia_transferida_segue_no_vocabulario():
     assert "custodia_transferida" in EVENTOS_PEDIDO_EXAME
+
+# ---------------------------------------------------------------------------
+# 5 — quem MOSTRA e quem FATURA lê posse no nível do item (FIX do J.10)
+# ---------------------------------------------------------------------------
+
+def test_clinicas_le_posse_pelo_predicado_compartilhado():
+    """`clinicas.py` não pode voltar a filtrar só `c.item_id IS NULL`.
+
+    Era o achado da revisão do #170: relatório e faturamento liam apenas a
+    posse de NÍVEL-PEDIDO. Como a transferência parcial fecha essa linha, as
+    duas queries deixavam de casar qualquer coisa — o pedido sumia do relatório
+    e do faturamento da unidade que detém itens dele, enquanto a FILA continuava
+    mostrando o trabalho. Executava e não faturava, em silêncio.
+
+    A guarda é sobre a FONTE ÚNICA: as duas queries têm de derivar de
+    `_SQL_DETENTOR_DO_ITEM`, que é o mesmo predicado de `detentor_atual_item`.
+    Duas cópias divergiriam em silêncio — o defeito que a custódia existe para
+    impedir, um andar acima.
+    """
+    fonte = (_ROUTERS / "clinicas.py").read_text(encoding="utf-8")
+
+    assert "_SQL_DETENTOR_DO_ITEM" in fonte, "clinicas.py perdeu o predicado compartilhado"
+    # As duas queries o interpolam.
+    assert fonte.count("{_SQL_DETENTOR_DO_ITEM}") >= 2, (
+        "alguma query de clinicas.py deixou de usar o predicado de posse por item"
+    )
+
+    # E nenhuma delas voltou a decidir posse por nível-pedido sozinha: o único
+    # `item_id IS NULL` legítimo é o do segundo braço do COALESCE.
+    corpo = fonte.split("_SQL_DETENTOR_DO_ITEM", 1)[1]
+    depois_do_fragmento = corpo.split('"""', 2)[-1]
+    assert "item_id IS NULL" not in depois_do_fragmento, (
+        "clinicas.py voltou a filtrar posse por `item_id IS NULL` fora do "
+        "predicado compartilhado — é o achado do #170 de volta"
+    )
+
+
+class TestAGuardaDeClinicasMorde:
+    def test_filtro_de_nivel_pedido_seria_pego(self):
+        falso = "WHERE c.item_id IS NULL AND c.para = ?"
+        assert "item_id IS NULL" in falso

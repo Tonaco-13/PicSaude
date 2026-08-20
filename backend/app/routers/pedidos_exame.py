@@ -701,6 +701,45 @@ def _assert_dispensador_dono_item(conn, pedido_id: int, item_id: int, ident_cnpj
     )
 
 
+def dispensador_tem_algo_no_pedido(conn, pedido_id: int, ident_cnpj: str) -> bool:
+    """Este CNPJ detém ALGUMA COISA deste pedido — o inteiro ou um item? (J.10)
+
+    Guarda GROSSA, para a ordem anti-leak (#52). Ela separa **parte** de
+    **estranho**, que é uma distinção real e não uma repetição da guarda fina:
+
+      · estranho (não detém nada do pedido) → 403 aqui, e não aprende NADA:
+        nem que o pedido está terminal, nem se aquele id de item existe;
+      · parte (detém o pedido ou algum item) → passa, e daí em diante recebe
+        respostas honestas — inclusive o 404 de um id de item que não existe,
+        que para ela é informação legítima: ela já enxerga os próprios itens.
+
+    A guarda FINA (`_assert_dispensador_dono_item`) continua depois, e é ela
+    que barra a parte que tenta operar o item de outra unidade.
+
+    Convenção da casa, em todos os módulos: **403 de posse precede 422 de
+    estado**. Quem não tem vínculo não recebe informação de estado por via
+    nenhuma — nem pela mensagem, nem pelo código.
+    """
+    if len(ident_cnpj) != 14:
+        return False
+    if detentor_atual_pedido(conn, pedido_id) == ident_cnpj:
+        return True
+    return conn.execute(
+        "SELECT 1 FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id IS NOT NULL "
+        "  AND encerrada_em IS NULL AND para = ? LIMIT 1",
+        (pedido_id, ident_cnpj),
+    ).fetchone() is not None
+
+
+def _assert_dispensador_algo_no_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:
+    _assert_or_403(
+        dispensador_tem_algo_no_pedido(conn, pedido_id, ident_cnpj),
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Pedido de exame sob responsabilidade de outro prestador.",
+    )
+
+
 def pedido_em_modo_item(conn, pedido_id: int) -> bool:
     """O pedido já opera com custódia por item? (J.10 §3.3)
 
@@ -1409,12 +1448,19 @@ def devolver_item_exame(
     """
     agora = datetime.utcnow().isoformat()
 
-    # 404 → 403 → 422 (anti-leak #52). A guarda é do ITEM (J.10): quem detém
-    # só parte de um pedido devolve o que detém.
+    # 404 do PEDIDO → 403 GROSSO → 404 do ITEM → 403 FINO → 422 (anti-leak #52).
+    #
+    # O 403 grosso vem antes do 404 do item de propósito: sem ele, quem não
+    # detém nada deste pedido distingue, pelo código de status, um id de item
+    # que existe de um que não existe — e enumera os itens de um pedido alheio
+    # de fora. Quem É parte passa e recebe o 404 honesto.
     papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel == "dispensador":
+            _assert_dispensador_algo_no_pedido(conn, pedido["id"], ident)
 
         item = conn.execute(
             "SELECT * FROM pedido_exame_itens WHERE id = ? AND pedido_id = ?",
@@ -1543,6 +1589,11 @@ def coletar_item_exame(
         if papel != "admin":
             if papel == "prescritor":
                 _assert_prescritor_dono_pedido(conn, protocolo, ident)
+            elif papel == "dispensador":
+                # Guarda GROSSA antes do estado (anti-leak #52): quem não detém
+                # nada deste pedido não aprende que ele está terminal. O guard
+                # FINO, por item, continua depois do 404 do item.
+                _assert_dispensador_algo_no_pedido(conn, pedido["id"], ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(status_code=422, detail=f"Pedido '{protocolo}' está em estado terminal.")
@@ -1661,6 +1712,10 @@ def enviar_item_a_bancada(
 
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel == "dispensador":
+            # Guarda GROSSA antes do estado (anti-leak #52) — ver coletar_item_exame.
+            _assert_dispensador_algo_no_pedido(conn, pedido["id"], ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
@@ -1843,6 +1898,10 @@ def registrar_resultado_item(
 
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
+
+        if papel == "dispensador":
+            # Guarda GROSSA antes do estado (anti-leak #52) — ver coletar_item_exame.
+            _assert_dispensador_algo_no_pedido(conn, pedido["id"], ident)
 
         if papel != "admin":
             if papel == "prescritor":
