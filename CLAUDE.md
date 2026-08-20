@@ -67,7 +67,7 @@ Vocabulário de eventos conhecido:
 | `decisao_clinica_avaliada` | **Camada 3** — trilha de auditoria do semáforo: sinal + versão da regra por item, gravado na emissão (não-bloqueante; só com a flag `PICSAUDE_DECISAO_CLINICA` ativa e `codigo_cid` presente). Ver `docs/EXPLICABILIDADE_DECISAO_CLINICA.md` §11 |
 | `pdf_assinado_pades` | Geração de PDF com assinatura ICP-Brasil PAdES-B (cofre server-side). Emitido pela prescrição comum (`POST /prescricoes/{proto}/pdf-assinado`) e pelo receituário. Payload: hash do PDF + serial do certificado |
 | `estorno_registrado` | **T2** — reversão de uma dispensação registrada. O estorno é um **objeto sanitário derivado e imutável** (`estornos`, padrão `origem_dispensacao_id`); a `dispensacoes` original **sempre** permanece intocada e o efeito contábil é sempre saldo efetivo = Σ dispensado − Σ estornado. **Muta o item CONDICIONALMENTE** (TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO, 10/08; roteamento ratificado na Opção B pós-CI #152): só no estorno **TOTAL** (Σ estornado == Σ dispensado do item) nos motivos "cidadão recupera" (`desistencia_paciente`, `pagamento_nao_concluido`) o item vai a `devolvido_paciente` (evento `item_devolvido_paciente`) e a custódia volta ao paciente; nos demais casos (estorno parcial, `erro_dispensacao`, ou o catch-all `outro`) o item **não** é mutado (TICKET-B0 preservado — rótulo `dispensado` indelével). Emitido por `POST /dispensacoes/{id}/estornar`. Payload: `estorno_id` + `estorno_protocolo` + `origem_dispensacao_id` + `item_id` + `quantidade_estornada` + `motivo` (enum `MOTIVOS_ESTORNO`). Ver `docs/tickets/TICKET-ESTORNO-OBJETO-DERIVADO.md` e `docs/tickets/TICKET-CORE-ESTORNO-NAO-CHEGA-AO-CIDADAO.md` |
-| `custodia_reconciliada_data_fix` | **COER-2** — data-fix de reconciliação: encerra custódia ATIVA excedente quando um objeto tinha dupla posse (violação de unicidade). Emitido **pela migração** (`c0e2f1a3b4d5`), nunca no caminho clínico. Régua de corte: mantém a mais recente por `(created_at DESC, id DESC)`. Payload: `custodia_id_encerrada` + `custodia_id_mantida` + `detentor_tipo/_id` + `nivel` + `item_id`. Ver `docs/tickets/TICKET-COERENCIA-DEVOLUCOES-2.md` |
+| `custodia_reconciliada_data_fix` | **COER-2** — data-fix de reconciliação: encerra custódia ATIVA excedente quando um objeto tinha dupla posse (violação de unicidade). Emitido **pela migração** (`c0e2f1a3b4d5`), nunca no caminho clínico. Régua de corte: mantém a mais recente por `(created_at DESC, id DESC)`. Payload: `custodia_id_encerrada` + `custodia_id_mantida` + `detentor_tipo/_id` + `nivel` + `item_id`. Ver `docs/tickets/TICKET-COERENCIA-DEVOLUCOES-2.md`. **No ledger do EXAME** (`pedido_exame_eventos`) o mesmo nome é emitido pela migração `d4b8c1e07f36` (J.10-CORE) com sentido próprio: *"linha superada pelo modelo de posse atual"*, não *"anomalia encontrada"* — a cadeia antiga era coerente por construção, e a migração **normaliza**. Distinguível pelo `origem` do payload (`migracao_j10_posse_atual`) |
 
 **Fluxo físico emite DOIS eventos em sequência:**
 1. `prescricao_impressa` — ato de impressão (quem, quando, quantos itens)
@@ -487,6 +487,35 @@ agendamento com data/hora/unidade (`POST /agendamentos`) — **ou coletando dire
 
 Arestas acrescentadas (nenhum estado novo): `pendente → coletado` (item) e `emitido → coletado`
 (pedido), ambas em `domain/states_exame.py`.
+
+**J.10-CORE (migração `d4b8c1e07f36`) — a custódia do exame ganhou posse atual.**
+`pedido_exame_custodia` nasceu como **ledger de transferências**: quem detinha era "a última
+linha". Num ledger append-only não existe linha ativa para um índice único restringir, e a
+unicidade de posse — o **R2 na camada de custódia** (§2a) — vivia só na convenção de código.
+A tabela passou a ter a mesma forma de `prescricao_custodia` (§3):
+
+```
+posse atual  ⇔  encerrada_em IS NULL
+```
+
+- **Invariante de banco:** no máximo UMA custódia ATIVA por `(pedido_id, item_id)`, por índice
+  único parcial **nos dois dialetos** (PG com `NULLS NOT DISTINCT`; SQLite com
+  `COALESCE(item_id, -1)`) — espelho exato do COER-2 na receita.
+- **Choke-point:** toda escrita de posse passa por
+  `routers/pedidos_exame.py::transferir_posse_exame`, que fecha a anterior + abre a nova +
+  emite `custodia_transferida`, atômico. Nenhum caminho de produto faz `INSERT` à mão.
+  `motivo` é canônico por caminho: `entrega_carteira_digital` · `agendamento_prestador` ·
+  `transferencia_laboratorio`; texto livre vai no `extra_payload` e nunca o sobrescreve.
+- **Leitura:** os helpers do J.7 (`detentor_atual_pedido`/`posse_do_cidadao`) foram
+  **absorvidos**, não duplicados — passaram a filtrar por `encerrada_em IS NULL`, e a cópia do
+  predicado que existia em `laudos.py` virou import da fonte única.
+- **`POST /pedidos-exame/{p}/agendar`** abria custódia **sem** emitir `custodia_transferida` —
+  bug pelo §2 ("abrir custódia sem o evento é bug, não feature"), corrigido de carona ao passar
+  pelo choke-point.
+
+> A constraint pega dupla posse de **mesma granularidade**. A **cross-granularidade**
+> (nível-pedido obsoleto + nível-item ativo) é responsabilidade do caminho, como na receita —
+> hoje nenhum caminho a cria; o J.10 (`module`) a introduz e reconcilia.
 
 > Arquitetura completa em `docs/ARQUITETURA_EXAMES.md`
 

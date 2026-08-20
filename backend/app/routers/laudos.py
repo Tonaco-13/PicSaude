@@ -59,6 +59,9 @@ from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
 from app.domain.pdf_laudo import gerar_pdf_laudo
 from app.instance import get_instance_id_conn
+from app.routers.pedidos_exame import (  # J.10-CORE — fonte única do predicado de posse
+    dispensador_detem_pedido,
+)
 from app.domain.states_laudo import (
     ESTADOS_TERMINAIS_LAUDO,
     ESTADOS_TERMINAIS_ITEM_LAUDO,
@@ -307,23 +310,11 @@ def _assert_paciente_dono(conn, protocolo: str, ident: str) -> None:
 # são locais). Não é fonte única e não se pretende fonte única.
 # ---------------------------------------------------------------------------
 
-def _dispensador_detem_pedido(conn, pedido_id: int, ident_cnpj: str) -> bool:
-    """A custódia ATUAL do pedido inteiro é deste CNPJ?
-
-    ATUAL, não "qualquer custódia histórica": quem já foi custodiante e perdeu a
-    posse não continua operando (correção P1(b) que o módulo de exames já sofreu).
-    O guard de 14 dígitos é defensivo — ident não-CNPJ (a custódia do paciente
-    guarda CPF) nunca casa por acidente.
-    """
-    if len(ident_cnpj) != 14:
-        return False
-    row = conn.execute(
-        "SELECT para FROM pedido_exame_custodia "
-        "WHERE pedido_id = ? AND item_id IS NULL "
-        "ORDER BY id DESC LIMIT 1",
-        (pedido_id,),
-    ).fetchone()
-    return row is not None and row["para"] == ident_cnpj
+# J.10-CORE — a cópia local deste predicado morreu aqui. Ela lia "última linha"
+# por conta própria; a posse agora se lê por `encerrada_em IS NULL`, e duas
+# leituras do mesmo predicado em dois arquivos divergiriam em silêncio — o mesmo
+# risco da dupla posse, um andar acima. Fonte única em `pedidos_exame.py`.
+_dispensador_detem_pedido = dispensador_detem_pedido
 
 
 def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> None:

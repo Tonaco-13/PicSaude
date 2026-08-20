@@ -133,10 +133,10 @@ SELECT pe.protocolo               AS protocolo,
          GROUP BY pedido_id
   ) ag ON ag.pedido_id = c.pedido_id
  WHERE c.item_id IS NULL
-   AND c.id = (
-        SELECT MAX(id) FROM pedido_exame_custodia
-         WHERE pedido_id = c.pedido_id AND item_id IS NULL
-   )
+   -- J.10-CORE: posse ATIVA (`encerrada_em IS NULL`) no lugar de "a última
+   -- linha". Mesma resposta, agora garantida por índice único e não por
+   -- convenção de leitura.
+   AND c.encerrada_em IS NULL
    AND c.para = ?
  ORDER BY pe.protocolo, pei.id
 """
@@ -286,10 +286,7 @@ SELECT pei.{coluna}      AS codigo,
   JOIN pedido_exame_custodia c ON c.pedido_id = pei.pedido_id
  WHERE pei.resultado_em IS NOT NULL
    AND c.item_id IS NULL
-   AND c.id = (
-        SELECT MAX(id) FROM pedido_exame_custodia
-         WHERE pedido_id = c.pedido_id AND item_id IS NULL
-   )
+   AND c.encerrada_em IS NULL      -- J.10-CORE: posse ATIVA, não "a última linha"
    AND c.para = ?
 """
 

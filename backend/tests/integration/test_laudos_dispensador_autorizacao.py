@@ -300,6 +300,11 @@ def test_disp_custodia_atual_nao_historica(client, outer_conn):
     Quem já foi custodiante não continua operando. O MVP não reexpõe
     re-transferência entre prestadores, então a linha mais recente entra por
     INSERT direto — mesmo recurso de `test_pedidos_exame_autorizacao.py`.
+
+    J.10-CORE: a simulação passou a FECHAR a posse anterior antes de abrir a
+    nova. Não é concessão à constraint — é a simulação virando fiel: o
+    choke-point faz exatamente isso, e um INSERT solto agora seria dupla posse
+    ativa, que o banco recusa (e com razão).
     """
     proto = _laudo_da_unidade(client, _CNPJ_A)
     pedido_id = _pedido_id_do_laudo(outer_conn, proto)
@@ -309,10 +314,15 @@ def test_disp_custodia_atual_nao_historica(client, outer_conn):
 
     with outer_conn.cursor() as cur:
         cur.execute(
+            "UPDATE pedido_exame_custodia SET encerrada_em = %s "
+            "WHERE pedido_id = %s AND item_id IS NULL AND encerrada_em IS NULL",
+            (datetime.utcnow(), pedido_id),
+        )
+        cur.execute(
             """
             INSERT INTO pedido_exame_custodia
-              (pedido_id, item_id, de, para, transferido_em, dados_json)
-            VALUES (%s, NULL, 'paciente', %s, %s, %s)
+              (pedido_id, item_id, de, para, transferido_em, encerrada_em, dados_json)
+            VALUES (%s, NULL, 'paciente', %s, %s, NULL, %s)
             """,
             (pedido_id, _CNPJ_B, datetime.utcnow(),
              '{"motivo": "re-transferencia historica (teste)"}'),
