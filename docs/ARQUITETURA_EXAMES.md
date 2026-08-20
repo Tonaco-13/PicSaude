@@ -312,6 +312,39 @@ exames entre laboratórios (um veria, e poderia acionar, o que está com outro).
 A carteira do cidadão lista, por item, `detentor` + `sob_minha_custodia` — é o
 que desenha as caixas de seleção por exame.
 
+**O relatório e o faturamento seguem a mesma régua (fix pós-revisão).** As duas
+queries de `clinicas.py` liam só a posse de NÍVEL-PEDIDO (`c.item_id IS NULL`).
+Como a primeira parcial **fecha** essa linha, elas deixavam de casar qualquer
+coisa: o pedido sumia do relatório e do faturamento da unidade que detém itens
+dele — **enquanto a fila continuava mostrando o trabalho**. A unidade executava
+e não faturava, sem que nada acusasse. Passaram a usar `_SQL_DETENTOR_DO_ITEM`,
+o mesmo predicado de `detentor_atual_item` escrito em SQL, o que corrige os dois
+sentidos: a unidade volta a ver o que detém, e deixa de ver o que não detém (o
+`JOIN` antigo trazia TODOS os itens do pedido para quem tivesse a linha de
+pedido — depois da parcial, isso seria vazamento).
+
+**Ordem anti-leak (#52) nos gestos por item.** Nos quatro gestos por item
+(`coletar` · `em-analise` · `resultado` · `devolver`) a autorização é feita em
+DUAS camadas, e elas guardam coisas diferentes:
+
+```
+404 do pedido → 403 GROSSO (sou parte?) → 404 do item → 403 FINO (é meu?) → 422 de estado
+```
+
+- **Grossa** (`dispensador_tem_algo_no_pedido`): detenho o pedido inteiro **ou**
+  algum item dele? Separa **parte** de **estranho**. O estranho para aqui e não
+  aprende nada — nem que o pedido está terminal, nem se aquele id de item
+  existe (senão daria para enumerar os itens de um pedido alheio de fora).
+- **Fina** (`dispensador_detem_item`): este item é meu? Barra a parte que tenta
+  operar o item de outra unidade.
+
+Quem é **parte** passa a grossa e recebe respostas honestas, inclusive o `404`
+de um id que não existe — informação legítima para quem já enxerga os próprios
+itens. É por isso que a grossa não é a fina repetida: com só a fina no topo, um
+custodiante legítimo que errasse o id levaria `403` em vez de `404`.
+
+No `devolver`, a grossa vem antes também do `404` do item, pelo mesmo motivo.
+
 > Desenho completo: `docs/tickets/DESENHO-J10-CUSTODIA-PARCIAL-EXAMES.md`.
 > A base (`encerrada_em` + unicidade + choke-point) veio do PR `core`
 > "custódia de exame ganha posse atual", caminho (b) aprovado no parecer de

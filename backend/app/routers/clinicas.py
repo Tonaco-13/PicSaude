@@ -93,10 +93,26 @@ def _janela_periodo(data_inicio: Optional[str], data_fim: Optional[str]):
 # ---------------------------------------------------------------------------
 # Leitura
 # ---------------------------------------------------------------------------
-# A custódia ATUAL nível-pedido é a de maior id (`item_id IS NULL`) — mesma regra
-# de `_assert_dispensador_dono_pedido`. Um prestador que já custodiou e perdeu a
-# custódia NÃO aparece no próprio relatório: o relatório mostra o que está sob
-# responsabilidade agora, não o que já passou pela bancada.
+# Um prestador que já custodiou e perdeu a custódia NÃO aparece no próprio
+# relatório: o relatório mostra o que está sob responsabilidade agora, não o que
+# já passou pela bancada.
+#
+# J.10 — A UNIDADE DE RESPONSABILIDADE PASSOU A SER O ITEM.
+#
+# Estas duas queries liam só `c.item_id IS NULL` — a posse do PEDIDO inteiro.
+# Funcionava enquanto essa era a única granularidade. Com a transferência
+# parcial, a primeira parcial FECHA a linha de nível-pedido e abre uma por item
+# (§3.3 do DESENHO-J10): a leitura antiga deixava de casar qualquer linha e o
+# pedido sumia inteiro do relatório e do faturamento da unidade que detém itens
+# dele — enquanto a FILA continuava mostrando o trabalho. A unidade executava e
+# não faturava.
+#
+# `_SQL_DETENTOR_DO_ITEM` é o mesmo predicado de
+# `pedidos_exame.py::detentor_atual_item`, escrito em SQL: a linha de ITEM ativa
+# vence; sem linha de item, vale a posse de nível-pedido que o cobre. Resolve os
+# dois lados de uma vez — antes, o `JOIN pedido_exame_itens ON pei.pedido_id =
+# c.pedido_id` trazia TODOS os itens do pedido para quem detivesse a linha de
+# pedido, o que depois da parcial vazaria item de outro prestador.
 #
 # `data_coleta` vem do ledger (`pedido_coletado`) agregada POR PEDIDO: o schema
 # não tem carimbo de coleta por item (`pedido_exame_itens` só guarda
@@ -105,7 +121,31 @@ def _janela_periodo(data_inicio: Optional[str], data_fim: Optional[str]):
 # `item_id` de dentro do `dados_json` — o que exigiria função JSON divergente
 # entre SQLite e PostgreSQL num caminho meramente informativo. Fica registrado
 # como lacuna de schema (ver PR do ENG-008).
-_SQL_ITENS_DO_CNPJ = """
+# Predicado de posse ATUAL no nível do ITEM (J.10). Fonte única das duas
+# queries abaixo — duas cópias divergiriam em silêncio, que é o defeito que a
+# custódia inteira existe para impedir.
+#
+# CUSTO, declarado: são duas subqueries correlacionadas por linha de item, e o
+# `= ?` sobre o resultado não usa índice — a varredura é pelos itens, não pela
+# custódia filtrada por `para`. Preferi a clareza: o predicado fica idêntico ao
+# do domínio (`detentor_atual_item`) e legível por quem audita, num endpoint de
+# relatório sob demanda e escopado por CNPJ. Se o volume exigir, a forma
+# indexável é um `EXISTS` sobre `pedido_exame_custodia` com `para = ?` na ponta
+# e o desempate de granularidade dentro — mesma semântica, leitura pior. Fica
+# registrado como escolha, não como descuido.
+_SQL_DETENTOR_DO_ITEM = """
+        COALESCE(
+          (SELECT c.para FROM pedido_exame_custodia c
+            WHERE c.pedido_id = pei.pedido_id AND c.item_id = pei.id
+              AND c.encerrada_em IS NULL
+            ORDER BY c.id DESC LIMIT 1),
+          (SELECT c.para FROM pedido_exame_custodia c
+            WHERE c.pedido_id = pei.pedido_id AND c.item_id IS NULL
+              AND c.encerrada_em IS NULL
+            ORDER BY c.id DESC LIMIT 1)
+        )"""
+
+_SQL_ITENS_DO_CNPJ = f"""
 SELECT pe.protocolo               AS protocolo,
        pei.id                     AS item_id,
        pei.nome_exame             AS nome_exame,
@@ -116,28 +156,22 @@ SELECT pe.protocolo               AS protocolo,
        pa.nome                    AS paciente_nome,
        col.data_coleta            AS data_coleta,
        ag.data_agendamento        AS data_agendamento
-  FROM pedido_exame_custodia c
-  JOIN pedidos_exame       pe  ON pe.id  = c.pedido_id
-  JOIN pedido_exame_itens  pei ON pei.pedido_id = c.pedido_id
+  FROM pedido_exame_itens  pei
+  JOIN pedidos_exame       pe  ON pe.id  = pei.pedido_id
   LEFT JOIN pacientes      pa  ON pa.id  = pe.paciente_id
   LEFT JOIN (
         SELECT pedido_id, MIN(criado_em) AS data_coleta
           FROM pedido_exame_eventos
          WHERE tipo_evento = 'pedido_coletado'
          GROUP BY pedido_id
-  ) col ON col.pedido_id = c.pedido_id
+  ) col ON col.pedido_id = pei.pedido_id
   LEFT JOIN (
         SELECT pedido_id, MAX(data_hora) AS data_agendamento
           FROM agendamentos
          WHERE status <> 'cancelado'
          GROUP BY pedido_id
-  ) ag ON ag.pedido_id = c.pedido_id
- WHERE c.item_id IS NULL
-   -- J.10-CORE: posse ATIVA (`encerrada_em IS NULL`) no lugar de "a última
-   -- linha". Mesma resposta, agora garantida por índice único e não por
-   -- convenção de leitura.
-   AND c.encerrada_em IS NULL
-   AND c.para = ?
+  ) ag ON ag.pedido_id = pei.pedido_id
+ WHERE {_SQL_DETENTOR_DO_ITEM} = ?
  ORDER BY pe.protocolo, pei.id
 """
 
@@ -279,15 +313,13 @@ def _resolver_criterio(agrupar_por: str) -> tuple[str, str]:
 
 # A coluna entra por f-string porque SQL não parametriza identificador — só
 # valor. É seguro pelo motivo acima (whitelist), e por nenhum outro.
-_SQL_FATURAMENTO_DO_CNPJ = """
-SELECT pei.{coluna}      AS codigo,
+_SQL_FATURAMENTO_DO_CNPJ = f"""
+SELECT pei.{{coluna}}      AS codigo,
        pei.resultado_em  AS resultado_em
   FROM pedido_exame_itens pei
-  JOIN pedido_exame_custodia c ON c.pedido_id = pei.pedido_id
  WHERE pei.resultado_em IS NOT NULL
-   AND c.item_id IS NULL
-   AND c.encerrada_em IS NULL      -- J.10-CORE: posse ATIVA, não "a última linha"
-   AND c.para = ?
+   -- J.10: fatura-se o ITEM que a unidade detém. Ver nota em _SQL_ITENS_DO_CNPJ.
+   AND {_SQL_DETENTOR_DO_ITEM} = ?
 """
 
 
