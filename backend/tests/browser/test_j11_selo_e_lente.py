@@ -246,17 +246,18 @@ def test_remarcacao_troca_a_data_no_cartao(
 
         expect(_cartao_do_exame(pc, app_demo, proto)).to_contain_text("01/09 08:00")
 
-        # Quem remarca aqui é o PRESCRITOR, e desta vez não é limitação de
-        # fixture: `POST /agendamentos/{p}/remarcar` não aceita `dispensador`
-        # (`agendamentos.py`, `require_role("prescritor", "paciente", "admin")`),
-        # embora `POST /agendamentos` aceite. O laboratório pode MARCAR e não
-        # pode REMARCAR — assimetria de RBAC, portanto `core`, portanto fora
-        # deste PR `module`. Reportada ao arquiteto para entrar no micro-ticket
-        # de RBAC assimétrico que já viaja com o J.10. O que este teste trava é
-        # o selo mostrar o compromisso corrente; o ator do remarque é acidental.
+        # Quem remarca é o LABORATÓRIO — o ator real, e agora o autorizado.
+        #
+        # Este teste nasceu com o prescritor aqui, porque
+        # `POST /agendamentos/{p}/remarcar` não aceitava `dispensador` embora
+        # `POST /agendamentos` aceitasse: o laboratório marcava e não podia
+        # remarcar. A assimetria foi reportada daqui e fechada pelo
+        # MICRO-TICKET RBAC (`core`) — ver
+        # `tests/integration/test_rbac_agendamento_prestador.py`. Com o papel
+        # aberto, o smoke passou a exercitar o caminho de verdade.
         r = httpx.post(
             f"{app_demo}/agendamentos/{ag}/remarcar",
-            headers=_h(_tok(app_demo, "prescritor")),
+            headers=_h(_tok(app_demo, "clinica")),
             json={"data_hora": "2026-09-15T14:30:00", "unidade_id": "DEMO-LAB-2"},
             timeout=15.0,
         )

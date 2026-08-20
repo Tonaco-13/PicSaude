@@ -468,8 +468,27 @@ O Agendamento não contém anamnese, evolução, diagnóstico ou prescrição re
 | `tipo_emissao` no objeto principal | ✓ | `novo` ou `remarcacao` |
 | `status` com máquina de estados declarada | ✓ | seção 4 deste documento |
 | Estados terminais explícitos | ✓ | `realizado`, `cancelado`, `nao_compareceu` |
-| RBAC em todos os endpoints | ✓ | `require_role("prescritor","paciente","admin")` |
+| RBAC em todos os endpoints | ✓ | `require_role(...)` com `dispensador` em TODOS — ver nota abaixo |
 | `org_id` + `unidade_id` presentes | ✓ | Obrigatórios em `agendamentos` |
+
+> **MICRO-TICKET RBAC (`core`, 2026-08-19) — o prestador ganhou os dois endpoints
+> que faltavam.** `remarcar` e `nao-compareceu` não aceitavam `dispensador`,
+> embora `POST /agendamentos` sempre o aceitasse: **o laboratório marcava e não
+> podia remarcar**, e quem PRESENCIA a falta não podia registrá-la.
+>
+> Era contradição com este próprio documento, que já atribuía os dois atos ao
+> prestador — §"Transições de estado" (`confirmado → nao_compareceu`: *prestador
+> (após horário)*) e §"Eventos" (`agendamento_nao_compareceu`: *prestador*). O
+> código é que discordava do desenho; o ticket fez o código obedecer.
+>
+> **Ownership inalterado:** `_assert_ag_owner` já cobria o papel por `org_id`
+> (two-hop `prestadores.cnpj → org_id`, fail-closed §D1). Nenhuma linha nova de
+> autorização — mudou QUEM pode disparar, nunca O QUE acontece. `paciente` segue
+> fora de `nao-compareceu`: registrar a própria falta é declaração de parte
+> interessada sobre um fato que o serviço constata.
+>
+> Congelado por valor em `backend/tests/test_rbac_agendamento_congelado.py` — a
+> assimetria sobreviveu meses porque nada a vigiava.
 
 ### Exceções documentadas
 
