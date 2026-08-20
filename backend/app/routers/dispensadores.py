@@ -276,16 +276,15 @@ def fila_exames(
               JOIN pacientes pac   ON pac.id = p.paciente_id
               JOIN prescritores pr ON pr.id = p.prescritor_id
              WHERE p.id IN (
+                       -- J.10-CORE: posse ATIVA, não "a última linha". A
+                       -- subquery de MAX(id) era a leitura derivada que o
+                       -- ledger obrigava; agora a posse é um fato explícito e
+                       -- o índice único garante que só há uma por pedido.
                        SELECT c.pedido_id
                          FROM pedido_exame_custodia c
                         WHERE c.item_id IS NULL
                           AND c.para = ?
-                          AND c.id = (
-                              SELECT MAX(c2.id)
-                                FROM pedido_exame_custodia c2
-                               WHERE c2.pedido_id = c.pedido_id
-                                 AND c2.item_id IS NULL
-                          )
+                          AND c.encerrada_em IS NULL
                    )
              {filtro_status}
              ORDER BY p.data_emissao DESC, p.id DESC
