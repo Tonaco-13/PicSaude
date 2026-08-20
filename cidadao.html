@@ -1028,13 +1028,6 @@
             container.innerHTML = pedidos.map(pedido => {
                 const badgeClass = pedido.prioridade === 'urgentissimo' ? 'urgentissimo'
                                  : pedido.prioridade === 'urgente'       ? 'urgente' : '';
-                const itensHtml = (pedido.itens || []).map(it =>
-                    `<li>${it.nome_exame}${it.quantidade > 1 ? ` ×${it.quantidade}` : ''}</li>`
-                ).join('');
-                const emissao = pedido.data_emissao
-                    ? new Date(pedido.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')
-                    : '';
-
                 // TICKET-J.7 — posse é CUSTÓDIA, não status.
                 //
                 // Antes: `emitido` = comigo. Funcionava só porque transferir
@@ -1048,6 +1041,33 @@
                 const emPosse = pedido.sob_minha_custodia ?? (pedido.status === 'emitido');
                 const statusLabel = _rotuloStatusExame(pedido, emPosse);
 
+                // J.10 — posse POR ITEM (§3.6 do desenho): depois de uma
+                // transferência parcial, parte dos exames segue com o cidadão.
+                // Enquanto há algo com o cidadão, cada item seu ganha caixa de
+                // seleção — "Transferir Custódia" envia os marcados; NENHUM
+                // marcado = tudo o que está com você (o gesto do J.7,
+                // preservado). Item que está com um laboratório mostra o
+                // detentor e fica fora da seleção: não é seu para entregar.
+                const itensHtml = (pedido.itens || []).map(it => {
+                    const qtd = it.quantidade > 1 ? ` ×${it.quantidade}` : '';
+                    if (!emPosse) {
+                        return `<li>${it.nome_exame}${qtd}</li>`;
+                    }
+                    const meu = it.sob_minha_custodia ?? emPosse;
+                    if (meu) {
+                        return `<li><label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" class="chk-exame-item" data-item-id="${it.id}">
+                            <span>${it.nome_exame}${qtd}</span>
+                        </label></li>`;
+                    }
+                    const det = (it.detentor || '').length === 14
+                        ? formatarCNPJ(it.detentor) : (it.detentor || 'outro prestador');
+                    return `<li style="color:#64748b;">🔬 ${it.nome_exame}${qtd} — com ${det}</li>`;
+                }).join('');
+                const emissao = pedido.data_emissao
+                    ? new Date(pedido.data_emissao + 'T12:00:00').toLocaleDateString('pt-BR')
+                    : '';
+
                 const acaoHtml = emPosse ? `
                         <div class="transfer-area" style="margin-top:12px;">
                             <p style="font-weight:600; margin-bottom:12px; font-size:13px; color:#1e3a8a; text-transform:uppercase;">Autorizar Coleta no Laboratório</p>
@@ -1060,6 +1080,7 @@
                             <p style="font-size:11px; color:#64748b; margin-top:8px;">
                                 🔬 Demo: <strong>${DEMO.clinica.nome}</strong> (${formatarCNPJ(DEMO.clinica.cnpj)}) já preenchida —
                                 só clicar em <strong>Transferir Custódia</strong> e o pedido cai na fila do laboratório.
+                                Marque itens acima para transferir só parte do pedido; sem marcação, vai tudo que está com você.
                             </p>
                         </div>` : `
                         <div class="exame-no-lab">
@@ -1097,15 +1118,24 @@
                 showToast('Por favor, informe um CNPJ válido (14 dígitos).', 'error');
                 return;
             }
-            if (!confirm(`Confirma a transferência do pedido de exame ${proto} para o laboratório CNPJ ${cnpj}?`)) return;
+            // J.10 — itens MARCADOS seguem ao CNPJ; nenhum marcado = tudo o que
+            // está com o cidadão (o backend decide o nível: pedido inteiro se
+            // nunca houve parcial, ou os itens do cidadão se o pedido já opera
+            // por item). Itens exibidos sem caixa de seleção estão com outro
+            // prestador e nem chegam a entrar no payload.
+            const card = document.getElementById(`cnpj-lab-${proto}`)?.closest('.exame-card');
+            const marcados = [...(card?.querySelectorAll('.chk-exame-item:checked') || [])]
+                .map(el => Number(el.dataset.itemId));
+            if (!confirm(`Confirma a transferência ${marcados.length ? `de ${marcados.length} item(ns) marcado(s)` : 'do pedido de exame'} ${proto} para o laboratório CNPJ ${cnpj}?`)) return;
 
             try {
-                await apiFetch(`/pedidos-exame/${proto}/transferir-laboratorio`, {
+                const resp = await apiFetch(`/pedidos-exame/${proto}/transferir-laboratorio`, {
                     method: 'POST',
                     body: JSON.stringify({
                         cnpj_laboratorio: cnpj,
                         nome_laboratorio: (typeof DEMO !== 'undefined' && DEMO.clinica &&
                                            DEMO.clinica.cnpj === cnpj) ? DEMO.clinica.nome : null,
+                        ...(marcados.length ? { itens: marcados } : {}),
                     }),
                 });
                 const protoCurto = proto.length > 13 ? proto.slice(0, 13) + '…' : proto;
@@ -1116,10 +1146,16 @@
                 const destino = nomeLab
                     ? `<strong>${nomeLab}</strong> (CNPJ ${cnpjMascarado})`
                     : `CNPJ ${cnpjMascarado}`;
+                // J.10 — na parcial, o que viajou foram os itens marcados; o
+                // resto segue com o cidadão e pode ir a outro laboratório.
+                const msgCorpo = resp && resp.parcial
+                    ? `Os itens marcados do pedido <strong>${protoCurto}</strong> foram enviados para ${destino}. ` +
+                      `Os que ficaram com você continuam na carteira e podem seguir a outro laboratório.`
+                    : `Seu pedido <strong>${protoCurto}</strong> foi enviado para ${destino}. ` +
+                      `O laboratório já pode atendê-lo.`;
                 abrirModalTransferencia(
                     'Pedido de exame transferido',
-                    `Seu pedido <strong>${protoCurto}</strong> foi enviado para ${destino}. ` +
-                    `O laboratório já pode atendê-lo.`,
+                    msgCorpo,
                     { verHistorico: false },
                 );
                 showToast(`Transferência realizada para ${nomeLab || ('CNPJ ' + cnpjMascarado)}.`, 'success');

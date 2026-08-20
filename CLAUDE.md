@@ -506,6 +506,8 @@ posse atual  ⇔  encerrada_em IS NULL
   emite `custodia_transferida`, atômico. Nenhum caminho de produto faz `INSERT` à mão.
   `motivo` é canônico por caminho: `entrega_carteira_digital` · `agendamento_prestador` ·
   `transferencia_laboratorio`; texto livre vai no `extra_payload` e nunca o sobrescreve.
+  **J.10 (`module`) acrescentou:** `transferencia_parcial` · `devolucao_nao_realizavel`
+  (custódia parcial de exames — ver "Custódia parcial (J.10)" em `docs/ARQUITETURA_EXAMES.md`).
 - **Leitura:** os helpers do J.7 (`detentor_atual_pedido`/`posse_do_cidadao`) foram
   **absorvidos**, não duplicados — passaram a filtrar por `encerrada_em IS NULL`, e a cópia do
   predicado que existia em `laudos.py` virou import da fonte única.
