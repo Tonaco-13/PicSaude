@@ -683,8 +683,20 @@ def cancelar_agendamento(
 @router.post("/agendamentos/{protocolo}/nao-compareceu", status_code=200)
 def nao_compareceu(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "dispensador")),
 ):
+    """Registra a falta ao compromisso.
+
+    MICRO-TICKET RBAC (`core`) — `dispensador` acrescentado. Quem PRESENCIA a
+    falta é a recepção do laboratório; exigir que um prescritor registrasse o
+    não-comparecimento de uma coleta que ele não acompanhou era pedir que o
+    sistema fosse alimentado por quem não estava lá. A assimetria era acidente
+    de escrita, não decisão: `POST /agendamentos` já aceitava `dispensador`.
+
+    Ownership inalterado: `_assert_ag_owner` já cobre o papel (vínculo por
+    `org_id`, two-hop `prestadores.cnpj → org_id`, fail-closed §D1). Nenhum
+    prestador alcança agendamento de outra organização.
+    """
     agora = datetime.utcnow().isoformat()
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
@@ -723,18 +735,30 @@ def nao_compareceu(
 def remarcar_agendamento(
     protocolo: str,
     payload: RemarcarIn,
-    usuario=Depends(require_role("prescritor", "paciente", "admin")),
+    usuario=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
 ):
     """
     Cria um novo agendamento derivado (remarcação).
 
     O agendamento anterior é cancelado com motivo 'remarcado'.
     O novo recebe origem_agendamento_id apontando para o anterior.
+
+    MICRO-TICKET RBAC (`core`) — `dispensador` acrescentado. O laboratório
+    MARCAVA (`POST /agendamentos` sempre o aceitou) e não podia REMARCAR: quem
+    precisa mudar a data — equipamento em manutenção, agenda cheia — ficava
+    dependendo de um prescritor para desfazer o que ele próprio marcou. Remarcar
+    é o mesmo ato de agendar, uma segunda vez; separar os dois papéis não
+    protegia nada e travava o caminho real.
+
+    Continua sendo derivação, não edição (§1 do CLAUDE.md): o anterior vai a
+    `cancelado` e nasce um novo com `origem_agendamento_id`. O que muda aqui é
+    QUEM pode disparar, não O QUE acontece.
     """
     agora = datetime.utcnow().isoformat()
     novo_protocolo = str(uuid.uuid4())
-    # §7 — ownership após o 404, antes das regras de estado (409). Sem dispensador
-    # no RBAC; _assert_ag_owner cobre prescritor/paciente.
+    # §7 — ownership após o 404, antes das regras de estado (409).
+    # `_assert_ag_owner` cobre prescritor/paciente/dispensador — este último
+    # por `org_id` (two-hop, fail-closed §D1), nunca por identidade nominal.
     papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
