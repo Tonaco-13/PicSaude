@@ -165,6 +165,17 @@ jobs:
           # Esta linha fica, então, como TRIPWIRE da constraint: o dia em que uma
           # migração futura a derrubar, é aqui que aparece — antes da vitrine.
           python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute('SELECT dcb_normalizada FROM catalogo_substancias GROUP BY dcb_normalizada HAVING COUNT(*) > 1'); d=[r[0] for r in k.fetchall()]; print(f'[smoke] DCBs duplicadas={len(d)}'); raise SystemExit(0 if not d else f'catalogo_substancias com DCB duplicada apos 2 seeds: {d[:5]} — UPSERT por dcb_normalizada nao segurou na PG')"
+          echo "[smoke] objetos-demo na PG — o incidente da vitrine de 20/08"
+          # Os blocos de objetos-demo do seed são best-effort (try/except + rollback
+          # + aviso): uma falha ali NÃO derruba o deploy, por decisão. O efeito
+          # colateral é que o seed sai 0 SEM o objeto — foi assim que a vitrine de
+          # 20/08 ficou sem o laudo-demo (duplicate key em
+          # uq_custodia_exame_ativa_pedido_item_pg, custódia aberta à mão sem fechar
+          # a anterior). Best-effort no DEPLOY é resiliência; no GATE é cegueira.
+          # A guarda em tests/test_seed_objetos_demo.py roda em SQLite; estas duas
+          # linhas conferem os MESMOS invariantes na PG, que é o dialeto onde doeu.
+          python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute(\"SELECT protocolo FROM pedidos_exame WHERE protocolo IN ('DEMO-EXAME-0001','DEMO-EXAME-0002')\"); p=sorted(r[0] for r in k.fetchall()); k.execute(\"SELECT protocolo FROM laudos WHERE protocolo = 'DEMO-LAUDO-0001'\"); l=[r[0] for r in k.fetchall()]; print(f'[smoke] objetos-demo: pedidos={p} laudo={l}'); falta=[x for x in ('DEMO-EXAME-0001','DEMO-EXAME-0002') if x not in p] + ([] if l else ['DEMO-LAUDO-0001']); raise SystemExit(0 if not falta else f'objeto-demo AUSENTE apos o predeploy: {falta} — o bloco best-effort engoliu o erro e o seed saiu 0 sem o objeto (ver seed_demo._garantir_laudo_demo)')"
+          python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute('SELECT pedido_id, COALESCE(item_id,-1), COUNT(*) FROM pedido_exame_custodia WHERE encerrada_em IS NULL GROUP BY 1,2 HAVING COUNT(*) > 1'); d=k.fetchall(); print(f'[smoke] duplas posses ativas={len(d)}'); raise SystemExit(0 if not d else f'DUPLA POSSE ativa apos o seed: {d[:5]} — o R2 na camada de custodia; toda escrita deve passar por transferir_posse_exame')"
 
       - name: Gate do seed do catálogo DCB — DESPACHO-OPS-SEED-CATALOGO-DCB
         # Guarda contra o "seeder órfão": `catalogo_seed.py` (56 DCBs) existia
