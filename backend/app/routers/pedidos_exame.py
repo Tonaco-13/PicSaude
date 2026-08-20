@@ -653,6 +653,85 @@ def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> No
 
 
 # ---------------------------------------------------------------------------
+# Posse por ITEM (J.10) — transferência parcial e devolução granular
+# ---------------------------------------------------------------------------
+
+def detentor_atual_item(conn, pedido_id: int, item_id: int) -> Optional[str]:
+    """Quem detém a posse DESTE item agora (J.10, nível-item).
+
+    Linha de item ATIVA (`item_id = X AND encerrada_em IS NULL`) vence; sem
+    linha de item, o item é coberto pela posse de NÍVEL-PEDIDO
+    (`detentor_atual_pedido`) — o formato de antes da primeira transferência
+    parcial, em que a custódia do pedido inteiro responde por todos os itens.
+
+    A linha de item vence DE PROPÓSITO mesmo que exista linha de pedido ativa:
+    posse cross-granularidade viva não deve existir (§3.3 do DESENHO-J10 — a
+    explosão fecha a nível-pedido antes de abrir as de item), mas se um dia
+    existir, a resposta mais específica é a menos errada.
+    """
+    row = conn.execute(
+        "SELECT para FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id = ? AND encerrada_em IS NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (pedido_id, item_id),
+    ).fetchone()
+    if row:
+        return row["para"]
+    return detentor_atual_pedido(conn, pedido_id)
+
+
+def dispensador_detem_item(conn, pedido_id: int, item_id: int, ident_cnpj: str) -> bool:
+    """Este CNPJ detém a posse DESTE item agora? (J.10)
+
+    Espelho nível-item de `dispensador_detem_pedido`: vale pela linha de item
+    ativa OU pela posse de pedido inteiro que cobre o item. É a guarda dos
+    gestos operacionais por item (coletar/bancada/resultado/devolver) — depois
+    de uma transferência parcial, a unidade só opera o que efetivamente detém.
+    """
+    if len(ident_cnpj) != 14:
+        return False
+    return detentor_atual_item(conn, pedido_id, item_id) == ident_cnpj
+
+
+def _assert_dispensador_dono_item(conn, pedido_id: int, item_id: int, ident_cnpj: str) -> None:
+    _assert_or_403(
+        dispensador_detem_item(conn, pedido_id, item_id, ident_cnpj),
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Item de exame sob responsabilidade de outra unidade.",
+    )
+
+
+def pedido_em_modo_item(conn, pedido_id: int) -> bool:
+    """O pedido já opera com custódia por item? (J.10 §3.3)
+
+    True depois da primeira explosão de granularidade (transferência parcial
+    ou devolução de item sob posse nível-pedido). Uma vez explodido, o pedido
+    NÃO volta a nível-pedido: a posse viva passa a ser uma linha por item, e é
+    a constraint por `(pedido_id, item_id)` que responde sozinha por ele.
+    """
+    return conn.execute(
+        "SELECT 1 FROM pedido_exame_custodia "
+        "WHERE pedido_id = ? AND item_id IS NOT NULL AND encerrada_em IS NULL "
+        "LIMIT 1",
+        (pedido_id,),
+    ).fetchone() is not None
+
+
+def _dissolver_posse_de_pedido_em_itens(conn, pedido_id: int, agora: str) -> None:
+    """Fecha a custódia ATIVA de nível-pedido — a posse passa a viver por item.
+
+    J.10 §3.3: transferência parcial nunca deixa as duas granularidades vivas.
+    Fechar a nível-pedido e abrir uma linha de item para cada item ativo é o
+    que impede a dupla posse CROSS-granularidade — a que o índice único não
+    pega, porque as chaves diferem (`item_id` NULL vs id). Quem abre as linhas
+    de item é o caminho, logo em seguida, pelo choke-point (com evento); este
+    fechamento é a metade que não tem o que abrir — o mesmo papel do bloco de
+    reconciliação de `custodia.py::devolver_item` na receita.
+    """
+    _fechar_custodia_exame_ativa(conn, pedido_id, None, agora)
+
+
+# ---------------------------------------------------------------------------
 # Choke-point de posse do exame (J.10-CORE) — espelho do COER-2 na receita
 # ---------------------------------------------------------------------------
 
@@ -661,7 +740,9 @@ def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> No
 MOTIVOS_CUSTODIA_EXAME = frozenset({
     "entrega_carteira_digital",   # emissão com `enviar_ao_paciente`
     "agendamento_prestador",      # POST /pedidos-exame/{p}/agendar
-    "transferencia_laboratorio",  # ato do cidadão (J.7)
+    "transferencia_laboratorio",  # ato do cidadão (J.7) — pedido inteiro, nível-pedido
+    "transferencia_parcial",      # J.10 — cidadão entrega SÓ alguns itens ao CNPJ
+    "devolucao_nao_realizavel",   # J.10 — laboratório devolve item que não performa
 })
 
 
@@ -741,6 +822,11 @@ def transferir_posse_exame(
         "nivel": "item" if item_id is not None else "pedido",
         "motivo": motivo,
     }
+    if item_id is not None:
+        # J.10: sem o id no payload, eventos de item são indistinguíveis no
+        # ledger (o espelho da receita, `custodia.py::transferir_posse`, o
+        # carrega). Aditivo — payloads de nível-pedido seguem iguais.
+        dados["item_id"] = item_id
     if extra_payload:
         # `motivo` canônico por último: detalhe livre nunca o sobrescreve.
         dados = {**extra_payload, **dados}
@@ -802,9 +888,22 @@ def get_pedido_exame(
         if papel != "admin":
             if papel == "prescritor":
                 _assert_prescritor_dono_pedido(conn, protocolo, ident)
-            elif papel == "dispensador":
-                _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
         itens  = _get_itens(conn, pedido["id"])
+        if papel == "dispensador":
+            # J.10 — anti-vazamento entre prestadores (AC vi, §3.5 do desenho):
+            # quem detém o pedido inteiro vê tudo (retrocompat); quem detém só
+            # parte vê APENAS os itens sob a sua custódia; quem não detém nada
+            # segue levando 403, como sempre.
+            if not dispensador_detem_pedido(conn, pedido["id"], ident):
+                itens = [
+                    i for i in itens
+                    if dispensador_detem_item(conn, pedido["id"], i["id"], ident)
+                ]
+                _assert_or_403(
+                    bool(itens),
+                    codigo="nao_e_dono_do_pedido_exame",
+                    mensagem="Pedido de exame sob responsabilidade de outro prestador.",
+                )
         eventos = [
             dict(r) for r in conn.execute(
                 "SELECT tipo_evento, dados_json, criado_em FROM pedido_exame_eventos "
@@ -1018,6 +1117,10 @@ def agendar_pedido_exame(
 class TransferirLaboratorioIn(BaseModel):
     cnpj_laboratorio: str
     nome_laboratorio: Optional[str] = None
+    # J.10 — ids de `pedido_exame_itens` que seguem ao CNPJ. AUSENTE = tudo o
+    # que o cidadão detém (pedido inteiro, se nunca houve parcial — o gesto do
+    # J.7 preservado; ou todos os seus itens, se o pedido já opera por item).
+    itens: Optional[List[int]] = None
 
 
 @router.post("/{protocolo}/transferir-laboratorio", status_code=201)
@@ -1035,6 +1138,11 @@ def transferir_laboratorio(
     - Itens NÃO mudam de estado: continuam 'pendente'
     - Custódia: paciente → prestador_exame (nível pedido)
     - Ledger: `custodia_transferida` — e mais nada
+
+    TICKET-J.10 — `itens: [id, …]` OPCIONAL no payload: presente, só os itens
+    marcados seguem ao CNPJ (§3.3 do desenho: explosão em nível-item); ausente,
+    o gesto do J.7 — tudo o que o cidadão detém. Em nenhum caminho os itens
+    mudam de estado.
     """
     agora = datetime.utcnow().isoformat()
 
@@ -1058,26 +1166,12 @@ def transferir_laboratorio(
                 status_code=422,
                 detail=f"Pedido '{protocolo}' está em estado terminal ({pedido['status']}).",
             )
-        # TICKET-J.7 — o guard passou de STATUS para CUSTÓDIA.
-        #
-        # Antes bastava `status == 'emitido'`, porque transferir movia o pedido
-        # para `agendado` e o próprio estado impedia a segunda transferência.
-        # Agora o pedido permanece `emitido` na mão do laboratório: o status
-        # deixou de saber a resposta. Sem esta troca, o cidadão poderia entregar
-        # o MESMO pedido a um segundo CNPJ enquanto o primeiro ainda o detém —
-        # dupla posse ativa, o R2 na camada de custódia (§3 do CLAUDE.md).
-        detentor = detentor_atual_pedido(conn, pedido["id"])
-        if not posse_do_cidadao(detentor):
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Pedido não está sob sua custódia — a posse está com "
-                    f"'{detentor}'."
-                ),
-            )
-
+        # Os itens NÃO são tocados em estado nenhum caminho daqui (martelo §11a:
+        # "itens continuam pendente"). Quem os promove a `agendado` é o
+        # laboratório, criando agendamento — ou coletando direto.
+        todos_itens = _get_itens(conn, pedido["id"])
         itens_ativos = [
-            i for i in _get_itens(conn, pedido["id"])
+            i for i in todos_itens
             if not eh_terminal_item_exame(i["status_item"])
         ]
         if not itens_ativos:
@@ -1086,37 +1180,183 @@ def transferir_laboratorio(
                 detail="Nenhum item ativo disponível para transferir.",
             )
 
-        # Os itens NÃO são tocados (martelo §11a: "itens continuam pendente").
-        # Quem os promove a `agendado` é o laboratório, criando agendamento —
-        # ou coletando direto.
-
         instance_id = get_instance_id_conn(conn)
-        # TICKET-J.7 — UM evento, porque houve UM fato: a posse mudou de mão.
+
+        em_modo_item = pedido_em_modo_item(conn, pedido["id"])
+
+        if payload.itens is None and not em_modo_item:
+            # ── Caminho J.7, intacto (retrocompat): pedido inteiro ──────────
+            #
+            # TICKET-J.7 — o guard passou de STATUS para CUSTÓDIA.
+            #
+            # Antes bastava `status == 'emitido'`, porque transferir movia o
+            # pedido para `agendado` e o próprio estado impedia a segunda
+            # transferência. Agora o pedido permanece `emitido` na mão do
+            # laboratório: o status deixou de saber a resposta. Sem esta troca,
+            # o cidadão poderia entregar o MESMO pedido a um segundo CNPJ
+            # enquanto o primeiro ainda o detém — dupla posse ativa, o R2 na
+            # camada de custódia (§3 do CLAUDE.md).
+            detentor = detentor_atual_pedido(conn, pedido["id"])
+            if not posse_do_cidadao(detentor):
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Pedido não está sob sua custódia — a posse está com "
+                        f"'{detentor}'."
+                    ),
+                )
+
+            # TICKET-J.7 — UM evento, porque houve UM fato: a posse mudou de mão.
+            #
+            # O `pedido_agendado` que saía daqui nomeava uma transição de estado
+            # que não deveria ter acontecido — e pior, anunciava um agendamento
+            # que não existia em `agendamentos` (`data_agendamento: None` era a
+            # confissão). O ledger não fica com mudança de estado sem evento
+            # porque não há mais mudança de estado: o pedido segue `emitido`,
+            # os itens seguem `pendente`.
+            #
+            # J.10-CORE — o INSERT cru e este evento viraram uma chamada só: o
+            # choke-point fecha a posse do cidadão, abre a do laboratório e
+            # emite, atômico. É o que torna a posse exclusiva provável por índice.
+            transferir_posse_exame(
+                conn, pedido["id"], None,
+                DETENTOR_PACIENTE, ident,
+                "prestador_exame", cnpj,
+                cnpj,                    # coluna `para`: o CNPJ, para o prestador
+                "transferencia_laboratorio", agora,
+                instance_id=instance_id,
+                extra_payload={
+                    "nome_laboratorio": payload.nome_laboratorio,
+                    "origem":           "cidadao_app",
+                    # Quantos itens ativos foram junto com a posse. NÃO é
+                    # transição de estado — é o tamanho do que mudou de mão.
+                    "itens":            len(itens_ativos),
+                },
+            )
+
+            novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
+
+            return {
+                "ok":                 True,
+                "protocolo":          protocolo,
+                "status":             novo_status,
+                "parcial":            False,
+                "itens_transferidos": len(itens_ativos),
+                "cnpj_laboratorio":   cnpj,
+            }
+
+        # ── Caminho J.10: transferência PARCIAL (DESENHO-J10 §3.3) ───────────
         #
-        # O `pedido_agendado` que saía daqui nomeava uma transição de estado que
-        # não deveria ter acontecido — e pior, anunciava um agendamento que não
-        # existia em `agendamentos` (`data_agendamento: None` era a confissão).
-        # O ledger não fica com mudança de estado sem evento porque não há mais
-        # mudança de estado: o pedido segue `emitido`, os itens seguem `pendente`.
-        #
-        # J.10-CORE — o INSERT cru e este evento viraram uma chamada só: o
-        # choke-point fecha a posse do cidadão, abre a do laboratório e emite,
-        # atômico. É o que torna a posse exclusiva provável por índice.
-        transferir_posse_exame(
-            conn, pedido["id"], None,
-            DETENTOR_PACIENTE, ident,
-            "prestador_exame", cnpj,
-            cnpj,                        # coluna `para`: o CNPJ, para o prestador
-            "transferencia_laboratorio", agora,
-            instance_id=instance_id,
-            extra_payload={
-                "nome_laboratorio": payload.nome_laboratorio,
-                "origem":           "cidadao_app",
-                # Quantos itens ativos foram junto com a posse. NÃO é transição
-                # de estado — é o tamanho do que mudou de mão.
-                "itens":            len(itens_ativos),
-            },
-        )
+        # O cidadão entrega SÓ alguns itens ao CNPJ. Para a posse nunca viver
+        # nas duas granularidades ao mesmo tempo, a primeira parcial EXPLODE o
+        # nível-pedido em nível-item: fecha a linha de pedido e abre uma linha
+        # por item ativo — os escolhidos ao CNPJ, os demais ao cidadão. Depois
+        # disso o pedido opera só em nível-item (`pedido_em_modo_item`), e é a
+        # constraint por (pedido_id, item_id) que responde por ele sozinha.
+        posse_por_item = {
+            i["id"]: detentor_atual_item(conn, pedido["id"], i["id"])
+            for i in itens_ativos
+        }
+
+        if payload.itens is None:
+            # "Nenhum marcado = todos" (§3.6): pedido já explodido, gesto do
+            # J.7 reinterpretado no nível que o pedido opera — tudo o que está
+            # com o cidadão segue ao CNPJ.
+            escolhidos = [
+                i["id"] for i in itens_ativos
+                if posse_do_cidadao(posse_por_item[i["id"]])
+            ]
+            if not escolhidos:
+                com_outro = next(
+                    (p for p in posse_por_item.values() if p), DETENTOR_PACIENTE
+                )
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Nenhum item ativo está sob sua custódia — a posse está "
+                        f"com '{com_outro}'."
+                    ),
+                )
+        else:
+            if not payload.itens:
+                raise HTTPException(
+                    status_code=422,
+                    detail="'itens' não pode ser vazio — omita o campo para transferir tudo.",
+                )
+            if len(set(payload.itens)) != len(payload.itens):
+                raise HTTPException(status_code=422, detail="'itens' contém ids duplicados.")
+
+            item_por_id = {i["id"]: i for i in todos_itens}
+            for item_id in payload.itens:
+                item_alvo = item_por_id.get(item_id)
+                if item_alvo is None:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Item {item_id} não encontrado no pedido '{protocolo}'.",
+                    )
+                if eh_terminal_item_exame(item_alvo["status_item"]):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"Item {item_id} está em estado terminal "
+                            f"({item_alvo['status_item']}) — não circula mais."
+                        ),
+                    )
+                detentor_item = posse_por_item[item_id]
+                if not posse_do_cidadao(detentor_item):
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"Item {item_id} não está sob sua custódia — a posse "
+                            f"está com '{detentor_item}'."
+                        ),
+                    )
+            escolhidos = list(payload.itens)
+
+        escolhidos_set = set(escolhidos)
+        if not em_modo_item:
+            # Primeira parcial: dissolve a nível-pedido e abre linha por item
+            # para TODOS os ativos — os demais ficam registrados com o cidadão.
+            _dissolver_posse_de_pedido_em_itens(conn, pedido["id"], agora)
+            alvos = itens_ativos
+        else:
+            # Já explodido: só os escolhidos mudam de mão; os demais têm a sua
+            # linha ativa (com outro CNPJ ou com o cidadão) e não são tocados.
+            alvos = [i for i in itens_ativos if i["id"] in escolhidos_set]
+
+        for item in alvos:
+            if item["id"] in escolhidos_set:
+                transferir_posse_exame(
+                    conn, pedido["id"], item["id"],
+                    DETENTOR_PACIENTE, ident,
+                    "prestador_exame", cnpj,
+                    cnpj,                # coluna `para`: o CNPJ, para o prestador
+                    "transferencia_parcial", agora,
+                    instance_id=instance_id,
+                    extra_payload={
+                        "nome_laboratorio": payload.nome_laboratorio,
+                        "origem":           "cidadao_app",
+                        "nome_exame":       item["nome_exame"],
+                    },
+                )
+            else:
+                # Re-expressão de granularidade: o item JÁ estava com o cidadão
+                # (coberto pela linha de pedido); ganha a sua própria linha com
+                # `de == para`. O payload marca a intenção — sem a flag, um
+                # auditor leria "transferiu para si mesmo" onde o que houve foi
+                # "a posse passou a viver por item".
+                transferir_posse_exame(
+                    conn, pedido["id"], item["id"],
+                    DETENTOR_PACIENTE, ident,
+                    DETENTOR_PACIENTE, ident,
+                    DETENTOR_PACIENTE,     # coluna `para`: o PAPEL, para o cidadão
+                    "transferencia_parcial", agora,
+                    instance_id=instance_id,
+                    extra_payload={
+                        "reexpressao_nivel_item": True,
+                        "nome_exame":             item["nome_exame"],
+                    },
+                )
 
         novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
 
@@ -1124,8 +1364,152 @@ def transferir_laboratorio(
             "ok":                 True,
             "protocolo":          protocolo,
             "status":             novo_status,
-            "itens_transferidos": len(itens_ativos),
+            "parcial":            True,
+            "itens_transferidos": len(escolhidos),
+            "itens":              sorted(escolhidos),
             "cnpj_laboratorio":   cnpj,
+        }
+
+
+# ---------------------------------------------------------------------------
+# POST /pedidos-exame/{protocolo}/itens/{item_id}/devolver — J.10 (§3.4)
+# O laboratório devolve ao cidadão o item que não realiza.
+# ----------------------------------------------------------------------------
+
+class DevolverItemExameIn(BaseModel):
+    # Texto livre do operador ("não temos o reagente"). Vai no extra_payload
+    # como `motivo_declarado` — o motivo CANÔNICO da custódia é
+    # `devolucao_nao_realizavel` e detalhe livre nunca o sobrescreve (§3 do
+    # CLAUDE.md, mesma disciplina do choke-point).
+    motivo: str = Field(..., min_length=3, max_length=240)
+
+
+@router.post("/{protocolo}/itens/{item_id}/devolver", status_code=200)
+def devolver_item_exame(
+    protocolo: str,
+    item_id: int,
+    payload: DevolverItemExameIn,
+    usuario=Depends(require_role("dispensador", "admin")),
+):
+    """
+    Laboratório devolve ao cidadão um item que não realiza (J.10 §0.2).
+
+    - Custódia: prestador_exame → paciente, no nível do item
+    - Item PERMANECE 'pendente' — devolução é posse, não clínica (a mesma
+      separação do J.7). O estado `nao_realizado` (reservado v2) NÃO é usado:
+      "esta unidade não performa" vive no motivo da custódia, não num estado
+      terminal que impediria o item de circular a outro CNPJ.
+    - Exige item 'pendente': `agendado` tem objeto agendamento — cancelá-lo
+      (`POST /agendamentos/{id}/cancelar`, caminho existente) é o que devolve
+      o item a 'pendente'; a máquina de estados não tem aresta de volta, e
+      criá-la seria mudança `core` fora deste ticket.
+    - Se a posse era de NÍVEL-PEDIDO, o pedido explode em nível-item (§3.3):
+      este item volta ao cidadão; os demais ativos ficam com a unidade, cada
+      um com a sua linha.
+    """
+    agora = datetime.utcnow().isoformat()
+
+    # 404 → 403 → 422 (anti-leak #52). A guarda é do ITEM (J.10): quem detém
+    # só parte de um pedido devolve o que detém.
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
+    with get_tx() as conn:
+        pedido = _get_pedido_ou_404(conn, protocolo)
+
+        item = conn.execute(
+            "SELECT * FROM pedido_exame_itens WHERE id = ? AND pedido_id = ?",
+            (item_id, pedido["id"]),
+        ).fetchone()
+        if not item:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Item {item_id} não encontrado no pedido '{protocolo}'.",
+            )
+
+        if papel != "admin":
+            _assert_dispensador_dono_item(conn, pedido["id"], item_id, ident)
+
+        if eh_terminal_pedido(pedido["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Pedido '{protocolo}' está em estado terminal ({pedido['status']}).",
+            )
+
+        if item["status_item"] != "pendente":
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Devolução requer item em 'pendente' (está em "
+                    f"'{item['status_item']}'). Item agendado: cancele o "
+                    "agendamento antes — o cancelamento devolve o item a "
+                    "'pendente'."
+                ),
+            )
+
+        # Para o ledger da devolução: o cidadão que recebe de volta.
+        pac_cpf = conn.execute(
+            "SELECT pa.cpf FROM pacientes pa WHERE pa.id = ?",
+            (pedido["paciente_id"],),
+        ).fetchone()["cpf"]
+
+        itens_ativos = [
+            i for i in _get_itens(conn, pedido["id"])
+            if not eh_terminal_item_exame(i["status_item"])
+        ]
+        instance_id = get_instance_id_conn(conn)
+        em_modo_item = pedido_em_modo_item(conn, pedido["id"])
+
+        if not em_modo_item:
+            # Posse era de nível-pedido (desta unidade): explosão §3.3 — este
+            # item volta ao cidadão, os demais ativos são re-expressos em
+            # nível-item no nome da própria unidade.
+            _dissolver_posse_de_pedido_em_itens(conn, pedido["id"], agora)
+            alvos = itens_ativos
+        else:
+            alvos = [it for it in itens_ativos if it["id"] == item_id]
+
+        for it in alvos:
+            if it["id"] == item_id:
+                transferir_posse_exame(
+                    conn, pedido["id"], it["id"],
+                    "prestador_exame", ident,
+                    DETENTOR_PACIENTE, pac_cpf,
+                    DETENTOR_PACIENTE,     # coluna `para`: o PAPEL, para o cidadão
+                    "devolucao_nao_realizavel", agora,
+                    instance_id=instance_id,
+                    extra_payload={
+                        "motivo_declarado": payload.motivo,
+                        "nome_exame":       it["nome_exame"],
+                    },
+                )
+            else:
+                # Re-expressão de granularidade (ver nota no transferir): o
+                # item continua com a unidade; só o nível em que a posse vive
+                # mudou de pedido para item.
+                transferir_posse_exame(
+                    conn, pedido["id"], it["id"],
+                    "prestador_exame", ident,
+                    "prestador_exame", ident,
+                    ident,                 # coluna `para`: o CNPJ, para o prestador
+                    "devolucao_nao_realizavel", agora,
+                    instance_id=instance_id,
+                    extra_payload={
+                        "reexpressao_nivel_item": True,
+                        "nome_exame":             it["nome_exame"],
+                    },
+                )
+
+        # Sem transição de estado e sem evento de estado: o fato é o da
+        # custódia (`custodia_transferida`, motivo `devolucao_nao_realizavel`).
+        novo_status = _recalcular_e_atualizar_status_pedido(conn, pedido["id"], agora)
+
+        return {
+            "protocolo":     protocolo,
+            "item_id":       item_id,
+            "status_item":   "pendente",
+            "status_pedido": novo_status,
+            "detentor":      DETENTOR_PACIENTE,
+            "motivo":        "devolucao_nao_realizavel",
         }
 
 
@@ -1159,8 +1543,6 @@ def coletar_item_exame(
         if papel != "admin":
             if papel == "prescritor":
                 _assert_prescritor_dono_pedido(conn, protocolo, ident)
-            elif papel == "dispensador":
-                _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(status_code=422, detail=f"Pedido '{protocolo}' está em estado terminal.")
@@ -1174,6 +1556,13 @@ def coletar_item_exame(
             raise HTTPException(
                 status_code=404, detail=f"Item {item_id} não encontrado no pedido '{protocolo}'."
             )
+
+        # J.10 — guarda do ITEM, não do pedido: coleta é gesto por item, e quem
+        # detém só parte de um pedido (transferência parcial) coleta o que
+        # detém. Vale pela linha de item ativa OU pela posse de pedido inteiro
+        # que o cobre (`_assert_dispensador_dono_item`).
+        if papel == "dispensador":
+            _assert_dispensador_dono_item(conn, pedido["id"], item_id, ident)
 
         # TICKET-J.7 — `pendente` também coleta: é a "coleta direta" do martelo
         # (§11a, verbatim: "criando agendamento com data/hora/unidade — ou
@@ -1273,9 +1662,6 @@ def enviar_item_a_bancada(
     with get_tx() as conn:
         pedido = _get_pedido_ou_404(conn, protocolo)
 
-        if papel != "admin":
-            _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
-
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
                 status_code=422,
@@ -1292,6 +1678,11 @@ def enviar_item_a_bancada(
                 status_code=404,
                 detail=f"Item {item_id} não encontrado no pedido '{protocolo}'.",
             )
+
+        # J.10 — guarda do ITEM (ver nota em coletar_item_exame): a bancada é
+        # da unidade que detém o item, ainda que o pedido circule por parcial.
+        if papel == "dispensador":
+            _assert_dispensador_dono_item(conn, pedido["id"], item_id, ident)
 
         if item["status_item"] != "coletado":
             raise HTTPException(
@@ -1446,8 +1837,8 @@ def registrar_resultado_item(
     # R1 do arco V2 (DESPACHO-ENG-007): `dispensador` (clínica/lab) passou a
     # registrar resultado. Antes, a clínica coletava e realizava mas dependia de
     # um prescritor para "bater o resultado" — fricção sem justificativa clínica.
-    # A guarda de posse é a MESMA de coletar_item_exame: dono = prestador na
-    # custódia ATUAL do pedido inteiro. Nada de guarda nova.
+    # A guarda de posse segue a de coletar_item_exame — dono = prestador na
+    # custódia ATUAL, no nível do ITEM desde o J.10. Nada de guarda nova.
     papel, ident = _normalizar_identidade_jwt(usuario)
 
     with get_tx() as conn:
@@ -1456,8 +1847,6 @@ def registrar_resultado_item(
         if papel != "admin":
             if papel == "prescritor":
                 _assert_prescritor_dono_pedido(conn, protocolo, ident)
-            elif papel == "dispensador":
-                _assert_dispensador_dono_pedido(conn, pedido["id"], ident)
 
         if eh_terminal_pedido(pedido["status"]):
             raise HTTPException(
@@ -1475,6 +1864,11 @@ def registrar_resultado_item(
                 status_code=404,
                 detail=f"Item {item_id} não encontrado no pedido '{protocolo}'.",
             )
+
+        # J.10 — guarda do ITEM (ver nota em coletar_item_exame): o resultado é
+        # do item que a unidade detém, ainda que o pedido circule por parcial.
+        if papel == "dispensador":
+            _assert_dispensador_dono_item(conn, pedido["id"], item_id, ident)
 
         if item["status_item"] not in ("coletado", "em_analise"):
             raise HTTPException(

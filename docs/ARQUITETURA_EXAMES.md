@@ -252,8 +252,10 @@ prescritor  → prescritor        (retorno clínico — opcional)
 |---|---|---|---|
 | prescritor | paciente | Emissão digital (`enviar_ao_paciente`) | `entrega_carteira_digital` |
 | paciente | prestador_exame | Agendamento confirmado | `agendamento_prestador` |
-| paciente | prestador_exame | Cidadão entrega ao laboratório (J.7) | `transferencia_laboratorio` |
-| prestador_exame | paciente | Resultado disponível | *(J.10)* |
+| paciente | prestador_exame | Cidadão entrega ao laboratório (J.7, pedido inteiro) | `transferencia_laboratorio` |
+| paciente | prestador_exame | Cidadão entrega SÓ alguns itens (J.10) | `transferencia_parcial` |
+| prestador_exame | paciente | Laboratório devolve item que não realiza (J.10) | `devolucao_nao_realizavel` |
+| prestador_exame | paciente | Resultado disponível | *(futuro — `devolucao_pos_resultado`, reservado)* |
 
 ### Choke-point de posse (J.10-CORE)
 
@@ -272,6 +274,48 @@ O `motivo` é **canônico por caminho** (tabela acima) e vive em
 `MOTIVOS_CUSTODIA_EXAME`; texto livre do usuário vai em `extra_payload` e nunca
 sobrescreve o canônico — senão o histórico perde a capacidade de separar os
 caminhos.
+
+### Custódia parcial (J.10 — `module`)
+
+O problema (Fabiano, §0 do desenho): *laboratório que retém o pedido inteiro
+inviabiliza, em outro laboratório, os exames que ele não realiza*. Dois
+mecanismos, ambos por item:
+
+1. **Transferência parcial** — `POST /pedidos-exame/{p}/transferir-laboratorio`
+   ganha `itens: [id, …]` **opcional**. Ausente = tudo o que o cidadão detém
+   (pedido inteiro, se nunca houve parcial — o gesto do J.7 preservado; os
+   itens do cidadão, se o pedido já opera por item).
+2. **Devolução de não-realizável** — `POST /pedidos-exame/{p}/itens/{id}/devolver`
+   (dispensador): custódia `prestador_exame → paciente`, `motivo` declarado
+   obrigatório (texto livre vai no `motivo_declarado` do payload). O item
+   **permanece `pendente`** — devolução é posse, não clínica; o estado
+   `nao_realizado` (reservado v2) não é usado. Exige item `pendente`: item
+   `agendado` tem objeto agendamento, e cancelá-lo (caminho existente) é o que
+   o devolve a `pendente`.
+
+**Explosão de granularidade (§3.3):** a primeira operação por item sob posse
+de nível-pedido **nunca deixa as duas granularidades vivas** — fecha a linha de
+nível-pedido e abre uma linha de item para **cada item ativo** (escolhidos ao
+CNPJ, demais ao cidadão; na devolução, o devolvido ao cidadão, demais à
+unidade). Depois disso o pedido opera só em nível-item, e o índice único por
+`(pedido_id, item_id)` responde sozinho por ele. Linhas que só re-expressam a
+granularidade (`de == para`) vêm marcadas `reexpressao_nivel_item: true`.
+
+**Leitura de posse:** `detentor_atual_item` — linha de item ativa vence; sem
+linha, vale a posse de nível-pedido que cobre o item. Guards de gestos por item
+(coletar/bancada/resultado/devolver) usam `dispensador_detem_item`.
+
+**Anti-vazamento entre prestadores (AC vi):** a fila
+(`GET /dispensadores/fila-exames`) e o `GET /pedidos-exame/{proto}` devolvem
+ao CNPJ **apenas os itens sob a sua custódia** — sem isto, a parcial vazaria
+exames entre laboratórios (um veria, e poderia acionar, o que está com outro).
+A carteira do cidadão lista, por item, `detentor` + `sob_minha_custodia` — é o
+que desenha as caixas de seleção por exame.
+
+> Desenho completo: `docs/tickets/DESENHO-J10-CUSTODIA-PARCIAL-EXAMES.md`.
+> A base (`encerrada_em` + unicidade + choke-point) veio do PR `core`
+> "custódia de exame ganha posse atual", caminho (b) aprovado no parecer de
+> 15/08 §3.
 
 ### Fluxo físico
 
@@ -346,7 +390,8 @@ Campos do hash:
 | POST | `/pedidos-exame/{proto}/itens/{item_id}/coletar` | prestador | Registrar coleta (`pendente|agendado → coletado`) |
 | POST | `/pedidos-exame/{proto}/itens/{item_id}/em-analise` | prestador | **Enviar à bancada** (`coletado → em_analise`), `setor` opcional — Ticket B |
 | POST | `/pedidos-exame/{proto}/itens/{item_id}/resultado` | prestador | Registrar resultado do item (aceita `coletado` ou `em_analise`) |
-| POST | `/pedidos-exame/{proto}/transferir-laboratorio` | paciente | Cidadão entrega a posse ao laboratório escolhido |
+| POST | `/pedidos-exame/{proto}/transferir-laboratorio` | paciente | Cidadão entrega a posse ao laboratório escolhido — `itens: [id,…]` opcional (J.10: parcial) |
+| POST | `/pedidos-exame/{proto}/itens/{item_id}/devolver` | prestador | **Devolução de não-realizável** (J.10): posse do item volta ao cidadão, item segue `pendente` |
 | POST | `/pedidos-exame/{proto}/encerrar` | paciente/prescritor | Ciência e encerramento |
 | GET  | `/paciente/pedidos-exame` | paciente | Carteira: pedidos ativos + histórico |
 
@@ -376,7 +421,7 @@ Ver `docs/ARQUITETURA_LAUDO.md` § "Fluxo bancada".
 | Quantidade | `quantidade_dispensada` | sempre 1 por item (coleta/laudo) |
 | Produto | medicamento (RENAME/DEF) | procedimento (TUSS/SIGTAP) |
 | Campo extra | forma_farmaceutica, unidade | codigo_tuss, indicacao_clinica, prioridade |
-| Devolução parcial | sim (itens independentes) | não (cancelamento por item) |
+| Devolução parcial | sim | sim (J.10: `itens:[…]` opcional + `/devolver` por item) |
 | Resultado | N/A | resultado_resumo + resultado_url |
 
 ---

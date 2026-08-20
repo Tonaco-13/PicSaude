@@ -164,11 +164,18 @@ def test_motivos_canonicos_congelados():
 
     Mesma disciplina do §9 (a migração declara sobre o que agiu): comparar
     contra a lista viva faria o teste concordar com qualquer mudança.
+
+    J.10 (`module`) acrescentou os dois últimos — decisão do desenho §3.2
+    (motivo canônico por caminho), não efeito colateral. O congelamento segue
+    valendo: o próximo motivo que aparecer sem atualizar esta linha fica
+    VERMELHO aqui.
     """
     assert MOTIVOS_CUSTODIA_EXAME == frozenset({
         "entrega_carteira_digital",
         "agendamento_prestador",
         "transferencia_laboratorio",
+        "transferencia_parcial",       # J.10 — cidadão entrega só alguns itens
+        "devolucao_nao_realizavel",    # J.10 — laboratório devolve o que não realiza
     })
 
 

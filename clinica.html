@@ -386,6 +386,15 @@
     .btn-coletar:hover { background: #0891b2; }
     .btn-coletar:disabled { background: #94a3b8; cursor: not-allowed; }
 
+    /* J.10 — devolução de item não-realizável: gesto discreto, não destrutivo */
+    .btn-devolver {
+      padding: 8px 16px; border-radius: 7px; border: 1px solid #cbd5e1; cursor: pointer;
+      background: #fff; color: #64748b; font-size: 12px; font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-devolver:hover { border-color: #dc2626; color: #dc2626; }
+    .btn-devolver:disabled { color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
+
     .laudo-aguardo {
       font-size: 13px; color: #1e3a8a; font-weight: 600;
       background: #f0fdff; padding: 6px 12px; border-radius: 6px;
@@ -2081,9 +2090,17 @@
         // martelo autoriza. Antes do J.7 este ramo só olhava `agendado`, e o
         // item recém-chegado ficaria sem nenhum botão.
         if (item.status_item === 'pendente' || item.status_item === 'agendado') {
+          // J.10 — dois gestos sobre o item que ainda não teve coleta: realizar
+          // ("Registrar coleta") ou recusar ("Não realizamos"). A recusa é
+          // DEVOLUÇÃO DE POSSE ao cidadão (não é estado, não é cancelamento):
+          // o item segue `pendente` e circula a outro CNPJ.
           acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}"
             onclick="registrarColeta(${item.id})">
             Registrar coleta
+          </button>
+          <button class="btn-devolver" id="btn-devolver-${item.id}"
+            onclick="devolverItemExame(${item.id})">
+            Não realizamos este exame
           </button>`;
         } else if (item.status_item === 'coletado') {
           // TICKET-F — dois caminhos legítimos a partir de 'coletado':
@@ -2159,6 +2176,51 @@
       } catch (_) {
         if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
         alert('Falha de rede ao registrar coleta.');
+      }
+    }
+
+    // ─────────────────────────────────────────
+    // DEVOLUÇÃO DE ITEM AO CIDADÃO (J.10 — §3.6 do desenho)
+    // ─────────────────────────────────────────
+    // "Não realizamos este exame": a unidade devolve a posse DO ITEM ao cidadão
+    // (custódia prestador_exame → paciente). O item segue `pendente` — zero
+    // transição de estado — e pode circular a outro laboratório. Se a posse era
+    // do pedido inteiro, o backend explode em nível-item e os demais exames
+    // ficam aqui, cada um com a sua linha de custódia.
+    async function devolverItemExame(itemId) {
+      const motivo = prompt(
+        'Motivo da devolução (obrigatório — entra na trilha de custódia):',
+        'Exame não realizado por esta unidade');
+      if (!motivo || !motivo.trim()) return;
+      if (!confirm('Devolver este exame ao cidadão? Ele poderá levá-lo a outro laboratório.')) return;
+
+      const btn = document.getElementById('btn-devolver-' + itemId);
+      if (btn) { btn.disabled = true; btn.textContent = 'Devolvendo…'; }
+
+      try {
+        const resp = await fetch(
+          BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
+          '/itens/' + itemId + '/devolver',
+          { method: 'POST', headers: authHeaders(), body: JSON.stringify({ motivo: motivo.trim() }) }
+        );
+
+        // Mesmo critério de registrarColeta: 403 é POSSE, não sessão.
+        if (resp.status === 401) { handleUnauthorized(); return; }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          if (btn) { btn.disabled = false; btn.textContent = 'Não realizamos este exame'; }
+          alert('Erro: ' + _extrairMsgErro(err, String(resp.status)));
+          return;
+        }
+
+        // O item devolvido SAI da lista porque sai da custódia da unidade: a
+        // re-carga devolve o conjunto filtrado pela posse (§3.5, anti-vazamento).
+        await buscarPedido();
+        carregarFilaExames();
+      } catch (_) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Não realizamos este exame'; }
+        alert('Falha de rede ao devolver o item.');
       }
     }
 

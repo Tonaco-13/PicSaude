@@ -16,6 +16,7 @@ from app.domain.states import BLOQUEADOS_HARD_DISPENSA
 from app.domain import relatorio_sngpc as sngpc
 from app.domain.pdf_relatorio_sngpc import gerar_pdf_sngpc
 from app.utils.helpers import normalize_cnpj, normalize_nome
+from app.routers.pedidos_exame import detentor_atual_pedido  # J.10 — posse por item/filtro da fila
 
 router = APIRouter(prefix="/dispensadores")
 
@@ -264,9 +265,10 @@ def fila_exames(
         params.append(status)
 
     with get_tx() as conn:
-        # Detentor ATUAL do pedido (item_id IS NULL) = CNPJ do JWT. A subquery
-        # correlacionada pega o ÚLTIMO registro de custódia do pedido — quem
-        # já foi custodiante e perdeu a custódia não aparece.
+        # J.10 — a fila UNIFICA as duas granularidades: o pedido entra se o
+        # CNPJ detém a posse do pedido inteiro OU de ao menos um item (§3.5 do
+        # DESENHO-J10). Posse ATIVA (`encerrada_em IS NULL`), nunca "qualquer
+        # custódia histórica" — quem perdeu a posse não aparece.
         pedidos = conn.execute(
             f"""
             SELECT p.id, p.protocolo, p.status, p.prioridade, p.data_emissao,
@@ -279,11 +281,12 @@ def fila_exames(
                        -- J.10-CORE: posse ATIVA, não "a última linha". A
                        -- subquery de MAX(id) era a leitura derivada que o
                        -- ledger obrigava; agora a posse é um fato explícito e
-                       -- o índice único garante que só há uma por pedido.
+                       -- o índice único garante que só há uma por pedido/item.
+                       -- J.10 (module): sem o filtro `item_id IS NULL` — a
+                       -- transferência parcial faz a posse viver por item.
                        SELECT c.pedido_id
                          FROM pedido_exame_custodia c
-                        WHERE c.item_id IS NULL
-                          AND c.para = ?
+                        WHERE c.para = ?
                           AND c.encerrada_em IS NULL
                    )
              {filtro_status}
@@ -299,16 +302,37 @@ def fila_exames(
             if p["status"] in _ESTADOS_PEDIDO_FIM_FILA:
                 continue
 
+            # J.10 — ANTI-VAZAMENTO entre prestadores (AC vi, §3.5): `itens[]`
+            # traz APENAS os itens sob custódia DESTE CNPJ. Sem isto, a
+            # transferência parcial vazaria exames entre laboratórios — um
+            # CNPJ veria (e poderia acionar) itens que estão com outro. A linha
+            # de item ativa vence; sem linha de item, vale a posse nível-pedido
+            # que cobre o item (o formato de antes da primeira parcial).
+            det_pedido = detentor_atual_pedido(conn, p["id"])
             itens = conn.execute(
                 """
                 SELECT i.id, i.nome_exame, i.codigo_tuss, i.quantidade,
-                       i.status_item, i.resultado_em
+                       i.status_item, i.resultado_em,
+                       (SELECT c2.para FROM pedido_exame_custodia c2
+                         WHERE c2.pedido_id = i.pedido_id
+                           AND c2.item_id = i.id
+                           AND c2.encerrada_em IS NULL
+                         ORDER BY c2.id DESC LIMIT 1) AS detentor_item
                   FROM pedido_exame_itens i
                  WHERE i.pedido_id = ?
                  ORDER BY i.id
                 """,
                 (p["id"],),
             ).fetchall()
+            itens = [
+                it for it in itens
+                if it["detentor_item"] == cnpj_alvo
+                or (it["detentor_item"] is None and det_pedido == cnpj_alvo)
+            ]
+            if not itens:
+                # Nada sob custódia deste CNPJ (ex.: posse viva só em item
+                # terminal) — não é fila desta unidade.
+                continue
 
             itens_out = [
                 {
