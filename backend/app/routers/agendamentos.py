@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
@@ -39,6 +39,9 @@ from app.domain.states_agendamento import (
     eh_terminal,
 )
 from app.domain.states_exame import derivar_status_pedido
+from app.routers.pedidos_exame import (  # ENG-014 — escopo por item vem da FONTE ÚNICA
+    dispensador_detem_item,
+)
 from app.utils.helpers import normalize_cnpj, _assert_or_403, _normalizar_identidade_jwt
 
 router = APIRouter(tags=["agendamentos"])
@@ -56,6 +59,10 @@ class AgendarIn(BaseModel):
     tipo_agendamento:  str = "exame"
     local_texto:       Optional[str] = None
     observacao:        Optional[str] = None
+    # ENG-014 — ids de `pedido_exame_itens` a agendar. AUSENTE = os que o
+    # solicitante DETÉM (não "todos": ver `_itens_a_agendar`). Item alheio é
+    # recusado, listado explicitamente ou não.
+    itens:             Optional[List[int]] = None
 
     @field_validator("org_id", "unidade_id")
     @classmethod
@@ -69,6 +76,17 @@ class AgendarIn(BaseModel):
     def tipo_valido(cls, v: str) -> str:
         if v not in {"exame"}:
             raise ValueError("tipo_agendamento deve ser 'exame' (MVP).")
+        return v
+
+    @field_validator("itens")
+    @classmethod
+    def itens_nao_vazio(cls, v):
+        # Lista vazia é ambígua ("nenhum" ou "todos"?). Omitir o campo é o
+        # gesto de "o que eu detenho" — explícito vence implícito.
+        if v is not None and not v:
+            raise ValueError("'itens' não pode ser vazio — omita o campo para agendar o que você detém.")
+        if v is not None and len(set(v)) != len(v):
+            raise ValueError("'itens' contém ids duplicados.")
         return v
 
 
@@ -89,6 +107,66 @@ class RemarcarIn(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers internos
 # ---------------------------------------------------------------------------
+
+def _itens_a_agendar(conn, pedido_id: int, papel: str, ident: str,
+                     pedidos: Optional[List[int]]) -> list[dict]:
+    """Quais itens este ato promove a `agendado` — respeitando a CUSTÓDIA.
+
+    ENG-014 (guard obrigatório do PR A). Antes, `criar_agendamento` promovia
+    **todos** os itens `pendente` do pedido. Com a custódia parcial (#170) um
+    pedido pode estar em três mãos ao mesmo tempo, e o laboratório que detém 1
+    de 3 agendava os 3 — inclusive os que o cidadão nem entregou. Mesma família
+    do anti-vazamento AC (vi) do J.10, um andar acima: lá a fila MOSTRAVA item
+    alheio; aqui o agendamento MEXIA nele.
+
+    Regra por papel:
+
+      · `dispensador` — o escopo é a POSSE. Sem `itens`, agenda os que detém
+        (o default "todos" é justamente a suposição que a parcial invalidou);
+        com `itens`, cada um é conferido e o alheio vira 403. Não detendo nada,
+        403 — e não um agendamento vazio, que seria um objeto sem fato.
+      · demais papéis (prescritor dono, paciente dono, admin) — inalterados: o
+        vínculo deles é com o PEDIDO, não com a posse de bancada, e o ownership
+        já foi conferido em `_assert_pedido_owner_criar`.
+
+    Devolve só os `pendente` — agendar o que já está `agendado`/`coletado` não
+    é fato novo.
+    """
+    ativos = _itens_ativos_do_pedido(conn, pedido_id)
+    por_id = {i["id"]: i for i in ativos}
+
+    if pedidos is not None:
+        for item_id in pedidos:
+            if item_id not in por_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Item {item_id} não encontrado no pedido.",
+                )
+        escolhidos = [por_id[i] for i in pedidos]
+    else:
+        escolhidos = ativos
+
+    if papel == "dispensador":
+        alheios = [
+            i["id"] for i in escolhidos
+            if not dispensador_detem_item(conn, pedido_id, i["id"], ident)
+        ]
+        if pedidos is not None and alheios:
+            _assert_or_403(
+                False, codigo="nao_e_dono_do_pedido_exame",
+                mensagem=(
+                    f"Item {alheios[0]} está sob custódia de outra unidade — "
+                    "só se agenda o que se detém."
+                ),
+            )
+        escolhidos = [i for i in escolhidos if i["id"] not in set(alheios)]
+        _assert_or_403(
+            bool(escolhidos), codigo="nao_e_dono_do_pedido_exame",
+            mensagem="Nenhum item deste pedido está sob a custódia desta unidade.",
+        )
+
+    return [i for i in escolhidos if i["status_item"] == "pendente"]
+
 
 def _get_agendamento_ou_404(conn, protocolo: str) -> dict:
     row = conn.execute(
@@ -414,14 +492,13 @@ def criar_agendamento(
         )
         ag_id = cur.lastrowid
 
-        # Itens pendente → agendado
-        itens = _itens_ativos_do_pedido(conn, pedido["id"])
-        for item in itens:
-            if item["status_item"] == "pendente":
-                conn.execute(
-                    "UPDATE pedido_exame_itens SET status_item = 'agendado' WHERE id = ?",
-                    (item["id"],),
-                )
+        # Itens pendente → agendado, no ESCOPO da custódia (ENG-014).
+        a_agendar = _itens_a_agendar(conn, pedido["id"], papel, ident, payload.itens)
+        for item in a_agendar:
+            conn.execute(
+                "UPDATE pedido_exame_itens SET status_item = 'agendado' WHERE id = ?",
+                (item["id"],),
+            )
 
         novo_status_pedido = _recalcular_status_pedido(conn, pedido["id"], agora)
 
@@ -432,7 +509,8 @@ def criar_agendamento(
             "org_id":         payload.org_id,
             "unidade_id":     payload.unidade_id,
             "data_hora":      payload.data_hora,
-            "itens_agendados": sum(1 for i in itens if i["status_item"] == "pendente"),
+            "itens_agendados": len(a_agendar),
+            "itens":           sorted(i["id"] for i in a_agendar),
         }, agora,
         instance_id=instance_id,
         ag_context={"protocolo": protocolo, "org_id": payload.org_id, "unidade_id": payload.unidade_id})

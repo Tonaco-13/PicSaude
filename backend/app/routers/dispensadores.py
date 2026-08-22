@@ -17,6 +17,10 @@ from app.domain import relatorio_sngpc as sngpc
 from app.domain.pdf_relatorio_sngpc import gerar_pdf_sngpc
 from app.utils.helpers import normalize_cnpj, normalize_nome
 from app.routers.pedidos_exame import detentor_atual_pedido  # J.10 — posse por item/filtro da fila
+from app.routers.agendamentos import (  # ENG-014 — recepção age a partir da fila
+    agendamento_atual_do_pedido,
+    resumo_agendamento_para_cartao,
+)
 
 router = APIRouter(prefix="/dispensadores")
 
@@ -350,7 +354,19 @@ def fila_exames(
                 for it in itens
             ]
 
+            # ENG-014 — o COMPROMISSO VIGENTE, para a recepção agir do cartão:
+            # sem ele a tela não sabe se oferece "Agendar" ou "Executar
+            # agendado", nem tem o protocolo para chamar `/realizar`. Mesma
+            # projeção do cartão do cidadão (J.11) — `agendamento_atual_do_pedido`
+            # é a fonte única de "qual agendamento vale agora".
+            agendamento_vigente = resumo_agendamento_para_cartao(
+                agendamento_atual_do_pedido(conn, p["id"])
+            )
+
             # Último agendamento do pedido (informativo; não afeta ownership).
+            # Difere do vigente de propósito: este inclui `realizado`, e é o que
+            # alimenta a linha "📅 Agendado:" do cartão desde o GAP-4. Mantido
+            # para não mudar o que a tela já mostrava.
             ult_ag = conn.execute(
                 """
                 SELECT data_hora FROM agendamentos
@@ -369,6 +385,7 @@ def fila_exames(
                 "paciente": {"nome": p["paciente_nome"], "cpf": _cpf_display(p["paciente_cpf"])},
                 "prescritor": {"nome": p["prescritor_nome"]},
                 "data_ultimo_agendamento": ult_ag["data_hora"] if ult_ag else None,
+                "agendamento": agendamento_vigente,     # ENG-014 (None se não há)
                 "itens": itens_out,
             })
 
