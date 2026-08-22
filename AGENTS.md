@@ -384,6 +384,16 @@ Custódia: `prestador_exame → paciente | prescritor`
 Origem: responsável técnico (patologista / bioquímico / médico laboratorista)
 Ciência: opera no nível do laudo inteiro (exceção documentada ao núcleo)
 
+**ENG-014 — abrir o laudo é dar ciência (martelo do Fabiano, 20/08).**
+`POST /laudos/{p}/abrir` emite `laudo_aberto_paciente` (evento novo) e DERIVA a
+ciência do paciente; o evento nomeia a ABERTURA, que é o fato real. Idempotente
+por `laudos.aberto_em` (migração `e7c3a9f21b58`, dois dialetos) — um fato, um
+evento. **Nenhum estado novo, nenhuma aresta nova:** `liberado →
+ciencia_paciente` já existia; o que mudou foi o CAMINHO até ela.
+
+`aberto_em` é **informativo, nunca gatilho**: o faturamento segue ancorado na
+liberação (fato da unidade). Alimenta o selo "Lido em" do Histórico da clínica.
+
 > Arquitetura completa em `docs/ARQUITETURA_LAUDO.md`
 
 ### Farmácia Hospitalar (Ticket 26 — arquitetura / Ticket 27 — implementação)

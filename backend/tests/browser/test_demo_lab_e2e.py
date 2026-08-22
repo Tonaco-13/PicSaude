@@ -206,8 +206,8 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
             abrir_aba_carteira(pc2, "exames")     # TICKET-J.9 — laudo é resultado de exame
             card_laudo = pc2.locator("#lista-laudos .exame-card", has_text=proto_laudo)
             expect(card_laudo).to_be_visible(timeout=_TIMEOUT_MS)
-            pc2.once("dialog", lambda d: d.accept())
-            card_laudo.get_by_role("button", name="Dar ciência").click()
+            # ENG-014 (PR C) — a ciência nasce da ABERTURA (martelo (a)).
+            card_laudo.get_by_role("button", name="Abrir laudo").click()
             expect(pc2.locator("#lista-laudos .exame-card", has_text=proto_laudo)
                    ).to_contain_text("Ciência registrada", timeout=_TIMEOUT_MS)
         finally:

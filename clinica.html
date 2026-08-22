@@ -184,7 +184,10 @@
     .hist-exame { font-size:14px; font-weight:600; color:#0f172a; }
     .hist-meta { font-size:12px; color:#64748b; margin-top:2px; }
     .hist-proto { font-family:'Courier New',monospace; }
-    .hist-data { font-size:12px; color:#475569; white-space:nowrap; }
+    .hist-data { font-size:12px; color:#475569; white-space:nowrap; text-align:right; }
+    /* ENG-014 (PR C) — confirmação rastreada da leitura (§5): sem push, a
+       unidade vê no polling que já roda. Informativo, nunca gatilho. */
+    .hist-lido { font-size:11px; color:#166534; font-weight:600; margin-top:3px; }
     /* ENG-014 — ações da recepção no cartão da fila */
     .fila-acoes { display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0; }
     .btn-fila-acao { flex:1; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; font-size:13px; font-weight:600; cursor:pointer; }
@@ -1736,7 +1739,10 @@
             <div class="hist-exame">${esc(l.protocolo)}</div>
             <div class="hist-meta">${esc(l.paciente_nome || '—')} · pedido <span class="hist-proto">${esc(l.pedido_protocolo || '—')}</span></div>
           </div>
-          <div class="hist-data">${esc(l.status)}</div>
+          <div class="hist-data">
+            ${esc(l.status)}
+            ${l.aberto_em ? `<div class="hist-lido">👁️ Lido em ${formatarData(l.aberto_em)}</div>` : ''}
+          </div>
         </div>`).join('')
         : '<p class="fila-vazia">Nenhum laudo liberado.</p>';
     }

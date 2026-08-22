@@ -833,7 +833,14 @@
             }
         }
 
+        // ENG-014 (PR C) — último conjunto de laudos do backend. `abrirLaudo`
+        // consulta o `aberto_em` DAQUI para não chamar `POST /abrir` de novo:
+        // o endpoint é idempotente, mas evitar a chamada redundante é o mesmo
+        // princípio de "um fato, um evento" aplicado à borda.
+        var _laudosCache = [];
+
         function renderizarLaudos(laudos) {
+            _laudosCache = laudos || [];
             const container = document.getElementById('lista-laudos');
             container.innerHTML = laudos.map(laudo => {
                 const emissao = laudo.data_emissao
@@ -842,12 +849,17 @@
                 const itensHtml = (laudo.itens || []).map(it =>
                     `<li>${it.nome_exame}${it.conclusao ? ` — <span style="color:#475569;">${it.conclusao}</span>` : ''}</li>`
                 ).join('');
-                const podeCiencia = laudo.status === 'liberado' || laudo.status === 'ciencia_prescritor';
-                const acaoHtml = podeCiencia
-                    ? `<button class="btn-outline btn-small" style="margin:0;" onclick="darCienciaLaudo('${laudo.protocolo}')">Dar ciência</button>`
-                    : laudo.status === 'ciencia_paciente'
-                        ? `<span style="font-size:12px; color:#16a34a; font-weight:600;">✓ Ciência registrada</span>`
-                        : `<span style="font-size:12px; color:#64748b;">${laudo.status}</span>`;
+                // ENG-014 (PR C) — martelo (a): ABRIR O LAUDO É DAR CIÊNCIA.
+                //
+                // Não há mais botão "Dar ciência": ele era um clique morto, e
+                // pedir confirmação de algo que o próprio ato de abrir já
+                // significa é atrito sem ganho. A ciência nasce da abertura,
+                // que é o fato real — e o ledger registra a abertura, não uma
+                // "ciência" anunciando fato que não ocorreu.
+                const jaAberto = !!laudo.aberto_em;
+                const acaoHtml = laudo.status === 'ciencia_paciente' || laudo.status === 'encerrado'
+                    ? `<span style="font-size:12px; color:#16a34a; font-weight:600;">✓ Ciência registrada</span>`
+                    : `<span style="font-size:12px; color:#64748b;">${laudo.status}</span>`;
                 return `
                     <div class="exame-card">
                         <div class="exame-card-header">
@@ -860,12 +872,36 @@
                         </div>
                         <ul class="exame-lista">${itensHtml}</ul>
                         <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+                            <button class="btn-outline btn-small" style="margin:0;"
+                                    onclick="abrirLaudo('${laudo.protocolo}')">
+                                ${jaAberto ? '📖 Abrir laudo' : '📖 Abrir laudo'}
+                            </button>
                             <button class="btn-outline btn-small" style="margin:0;" onclick="baixarPdfLaudo('${laudo.protocolo}')">📄 Baixar PDF</button>
                             ${acaoHtml}
                         </div>
                         ${_botaoRastreabilidade(laudo.protocolo)}
                     </div>`;
             }).join('');
+        }
+
+        // ENG-014 (PR C) — a abertura é ATO: escreve no ledger e DERIVA a
+        // ciência (martelo (a), 20/08). Por isso `POST`, nunca `GET`.
+        //
+        // Chamada UMA vez: `laudo.aberto_em` já vem do backend, e o próprio
+        // endpoint é idempotente (a segunda abertura responde 200 e não emite
+        // nada). Os dois lados se protegem — a tela não conta com a sorte, e o
+        // backend não conta com a tela.
+        async function abrirLaudo(protocolo) {
+            const cartao = (_laudosCache || []).find(l => l.protocolo === protocolo);
+            try {
+                if (!cartao || !cartao.aberto_em) {
+                    await apiFetch(`/laudos/${protocolo}/abrir`, { method: 'POST' });
+                    await carregarLaudos();      // status e carimbo mudaram
+                }
+                await baixarPdfLaudo(protocolo);
+            } catch (err) {
+                showToast(`Não foi possível abrir o laudo: ${err.message}`, 'error');
+            }
         }
 
         async function darCienciaLaudo(protocolo) {

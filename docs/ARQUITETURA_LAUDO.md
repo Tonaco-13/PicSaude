@@ -138,7 +138,33 @@ laudo_impresso            ← fluxo físico — ato de impressão
 encerrado_localmente      ← fluxo físico — estado terminal (padrão do núcleo)
 custodia_transferida      ← qualquer transferência de posse
 laudo_corrigido           ← derivação por correção (novo laudo com origem_laudo_id)
+laudo_aberto_paciente     ← cidadão abriu o laudo (ENG-014; carimba laudos.aberto_em)
 ```
+
+### Abertura pelo cidadão — `POST /laudos/{protocolo}/abrir` (ENG-014)
+
+> **Martelo do Fabiano, 20/08: "abrir o laudo = dar ciência".**
+
+O evento nomeia a **abertura**, que é o fato real; a **ciência é consequência
+DERIVADA**, declarada como regra. O ledger fica honesto — *abriu em X → ciência
+derivada da abertura* —, nunca uma "ciência" anunciando fato que não ocorreu
+(a lição do `pedido_agendado` fantasma, J.7).
+
+- **Papel:** `paciente` dono (404 → 403 → 422, anti-leak #52). **Nunca em `GET`**:
+  ato escreve ledger por `POST` explícito.
+- **Idempotente:** a segunda abertura responde 200 e **não emite nada** — um
+  fato, um evento (R2). `laudos.aberto_em` é o carimbo da primeira.
+- **Composição, não duplicação:** em `liberado` deriva `ciencia_paciente`; em
+  `ciencia_prescritor` as duas ciências fecham o laudo (`encerrado`). Em
+  `ciencia_paciente`/`encerrado`, só o fato da leitura.
+- **Máquina de estados: mudança nenhuma.** `liberado → ciencia_paciente` já era
+  aresta válida — isto é um CAMINHO NOVO para uma transição existente.
+- **Não há botão "Dar ciência"** na carteira: ele era clique morto.
+
+**`aberto_em` é informativo, nunca gatilho** (martelo (b)): o faturamento segue
+ancorado na liberação — fato da unidade. A leitura é comportamento do cidadão e
+não move dinheiro. O campo alimenta o selo "Lido em" do Histórico da clínica —
+a confirmação rastreada vive na LEITURA, porque não há push antes do G4A.
 
 ---
 

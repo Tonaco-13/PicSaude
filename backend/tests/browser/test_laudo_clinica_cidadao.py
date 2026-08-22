@@ -225,8 +225,10 @@ def test_clinica_produz_laudo_cidadao_recebe_e_da_ciencia(
         # asserção na lista inteira mediria o vizinho.
         card = lista.locator(".exame-card", has_text=proto_laudo)
         expect(card).to_be_visible(timeout=_TIMEOUT_MS)
-        pc.once("dialog", lambda d: d.accept())
-        card.get_by_role("button", name="Dar ciência").click()
+        # ENG-014 (PR C) — martelo (a): ABRIR o laudo É dar ciência. O botão
+        # "Dar ciência" deixou de existir (era clique morto); o gesto é abrir.
+        expect(card.get_by_role("button", name="Dar ciência")).to_have_count(0)
+        card.get_by_role("button", name="Abrir laudo").click()
 
         card_apos = lista.locator(".exame-card", has_text=proto_laudo)
         expect(card_apos).to_contain_text("Ciência registrada", timeout=_TIMEOUT_MS)
