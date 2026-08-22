@@ -20,6 +20,16 @@ class LaudoItem(Base):
 
     id                = Column(Integer, primary_key=True, autoincrement=True)
     laudo_id          = Column(Integer, ForeignKey("laudos.id"), nullable=False, index=True)
+    # ENG-014 (v2, §2.1) — O ELO DE VERDADE com o item do pedido.
+    #
+    # `nome_exame` é EXIBIÇÃO; este id é a CHAVE. Antes dele, autorizar por item
+    # só era possível casando nome (texto livre) — dois itens homônimos no mesmo
+    # pedido, ou um exame renomeado, mudariam quem pode operar o laudo.
+    #
+    # NULL = legado (nascido antes do elo; a migração `f2d8b41c9e73` não faz
+    # backfill de propósito). Esses laudos operam pela ponte registrada do §2.2.
+    pedido_item_id    = Column(Integer, ForeignKey("pedido_exame_itens.id"),
+                               nullable=True, index=True)
     nome_exame        = Column(String(200), nullable=False)
     codigo_tuss       = Column(String(20), nullable=True)
     resultado_resumo  = Column(Text, nullable=True)

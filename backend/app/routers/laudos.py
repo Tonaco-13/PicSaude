@@ -59,8 +59,10 @@ from app.domain.ledger import registrar_evento_ledger
 from app.domain.outbox import registrar_outbox
 from app.domain.pdf_laudo import gerar_pdf_laudo
 from app.instance import get_instance_id_conn
-from app.routers.pedidos_exame import (  # J.10-CORE — fonte única do predicado de posse
-    dispensador_detem_pedido,
+from app.routers.pedidos_exame import (  # fonte única dos predicados de posse
+    dispensador_detem_item,          # ENG-014 v2 §2.1 — posse do ITEM (o elo)
+    dispensador_detem_pedido,        # J.10-CORE — posse do pedido inteiro
+    dispensador_tem_algo_no_pedido,  # #172 — a "grossa", reusada como PONTE (§2.2)
 )
 from app.domain.states_laudo import (
     ESTADOS_TERMINAIS_LAUDO,
@@ -96,6 +98,10 @@ _VALIDADE_PADRAO_DIAS  = 90
 
 class ItemLaudoIn(BaseModel):
     nome_exame:       str
+    # ENG-014 (v2, §2.1) — elo com o item do pedido. OBRIGATÓRIO quando quem
+    # cria é `dispensador` (a bancada já escolhe da lista, onde os ids existem);
+    # opcional para prescritor/admin, cujo vínculo é clínico e não de posse.
+    pedido_item_id:   Optional[int] = None
     codigo_tuss:      Optional[str] = None
     resultado_resumo: Optional[str] = None
     conclusao:        Optional[str] = None
@@ -326,6 +332,103 @@ def _assert_dispensador_dono_pedido(conn, pedido_id: int, ident_cnpj: str) -> No
     )
 
 
+def _assert_dispensador_criacao_por_item(conn, pedido_id: int, ident_cnpj: str,
+                                         itens: list) -> None:
+    """CRIAÇÃO por dispensador: o elo é OBRIGATÓRIO e cada item tem de ser seu.
+
+    ENG-014 v2 §2.1. Antes, o direito de criar vinha da posse do PEDIDO INTEIRO
+    — e depois da custódia parcial (#170) isso deixava a unidade que detém 2 de
+    5 itens de fora, sem conseguir laudar o que é dela.
+
+    Exigir `pedido_item_id` em TODOS os itens não é burocracia: é o que torna a
+    autorização decidível por CHAVE, e não por `nome_exame` (texto livre — dois
+    homônimos no mesmo pedido, ou um exame renomeado, mudariam o dono do
+    direito). A tela da clínica escolhe da bancada, onde os ids já existem.
+
+    ORDEM (anti-leak #52): **403 de posse precede o 422 do elo**. A guarda
+    grossa (`dispensador_tem_algo_no_pedido`, do #172) vem primeiro: uma unidade
+    ESTRANHA ao pedido leva 403 e não aprende sequer que o endpoint espera
+    `pedido_item_id`. Só quem já é PARTE recebe o 422 que o ensina.
+
+    Foi um teste existente que cobrou isso — a primeira versão punha o 422 na
+    frente e uma unidade alheia passava a receber 422 onde antes recebia 403.
+    """
+    _assert_or_403(
+        dispensador_tem_algo_no_pedido(conn, pedido_id, ident_cnpj),
+        codigo="nao_e_dono_do_pedido_exame",
+        mensagem="Pedido de exame sob responsabilidade de outra unidade.",
+    )
+
+    faltando = [i.nome_exame for i in itens if i.pedido_item_id is None]
+    if faltando:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Laudo de laboratório exige `pedido_item_id` em todos os itens "
+                f"(sem elo: {faltando[:3]}). O elo é a chave da autorização por "
+                "item — o nome do exame é exibição."
+            ),
+        )
+
+    for item in itens:
+        pertence = conn.execute(
+            "SELECT 1 FROM pedido_exame_itens WHERE id = ? AND pedido_id = ?",
+            (item.pedido_item_id, pedido_id),
+        ).fetchone()
+        if not pertence:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Item {item.pedido_item_id} não pertence ao pedido vinculado."
+                ),
+            )
+        _assert_or_403(
+            dispensador_detem_item(conn, pedido_id, item.pedido_item_id, ident_cnpj),
+            codigo="nao_e_dono_do_pedido_exame",
+            mensagem=(
+                f"Item {item.pedido_item_id} está sob custódia de outra unidade — "
+                "só se lauda o que se detém."
+            ),
+        )
+
+
+def _dispensador_opera_laudo(conn, laudo: dict, ident_cnpj: str) -> bool:
+    """OPERAÇÃO de laudo existente: detém o pedido OU um item COM ELO do laudo.
+
+    ENG-014 v2 §2.1 e §2.2. Duas camadas, e a segunda é declarada como PONTE:
+
+      1. **Elo** — se o laudo tem itens com `pedido_item_id`, o direito vem
+         deles: basta deter UM. É a leitura precisa, por chave.
+      2. **Ponte (§2.2)** — se TODOS os itens são legados (`pedido_item_id
+         NULL`, nascidos antes da migração), vale o predicado GROSSA do #172
+         (`dispensador_tem_algo_no_pedido`): quem detém qualquer coisa do
+         pedido opera. Menos preciso, e por isso declarado.
+
+    A ponte é o que fecha o bug que estava aberto: num pedido explodido em
+    nível-item, `dispensador_detem_pedido` devolve False para todos e NENHUMA
+    unidade conseguia operar o laudo. Laudo novo de dispensador nunca cai aqui
+    — o §2.1 exige o elo na criação.
+    """
+    if dispensador_detem_pedido(conn, laudo["pedido_id"], ident_cnpj):
+        return True
+
+    elos = [
+        r["pedido_item_id"] for r in conn.execute(
+            "SELECT pedido_item_id FROM laudo_itens "
+            " WHERE laudo_id = ? AND pedido_item_id IS NOT NULL", (laudo["id"],),
+        ).fetchall()
+    ]
+
+    if elos:
+        return any(
+            dispensador_detem_item(conn, laudo["pedido_id"], eid, ident_cnpj)
+            for eid in elos
+        )
+
+    # Legado puro → ponte do §2.2.
+    return dispensador_tem_algo_no_pedido(conn, laudo["pedido_id"], ident_cnpj)
+
+
 def _assert_dispensador_dono_laudo_via_pedido(conn, laudo: dict, ident_cnpj: str) -> None:
     """Usado nos demais endpoints: o direito é derivado do pedido vinculado.
 
@@ -340,7 +443,7 @@ def _assert_dispensador_dono_laudo_via_pedido(conn, laudo: dict, ident_cnpj: str
             mensagem="Laudo sem pedido vinculado: operação restrita ao prescritor/admin.",
         )
     _assert_or_403(
-        _dispensador_detem_pedido(conn, laudo["pedido_id"], ident_cnpj),
+        _dispensador_opera_laudo(conn, laudo, ident_cnpj),
         codigo="nao_e_dono_do_laudo",
         mensagem="Este laudo pertence a um pedido sob custódia de outra unidade.",
     )
@@ -461,7 +564,7 @@ def criar_laudo(
             # deliberada (doutrina anti-leak #52): uma unidade alheia recebe 403
             # sem aprender de quem é o pedido. Prescritor/admin não passam por aqui.
             if papel == "dispensador":
-                _assert_dispensador_dono_pedido(conn, row["id"], ident)
+                _assert_dispensador_criacao_por_item(conn, row["id"], ident, payload.itens)
 
             _assert_or_403(
                 row["cpf"] == cpf,
@@ -505,12 +608,13 @@ def criar_laudo(
             conn.execute(
                 """
                 INSERT INTO laudo_itens
-                  (laudo_id, nome_exame, codigo_tuss, resultado_resumo,
+                  (laudo_id, pedido_item_id, nome_exame, codigo_tuss, resultado_resumo,
                    conclusao, valor_referencia, resultado_url, status_item, criado_em)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'em_producao', ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'em_producao', ?)
                 """,
-                (laudo_id, item.nome_exame, item.codigo_tuss, item.resultado_resumo,
-                 item.conclusao, item.valor_referencia, item.resultado_url, agora),
+                (laudo_id, item.pedido_item_id, item.nome_exame, item.codigo_tuss,
+                 item.resultado_resumo, item.conclusao, item.valor_referencia,
+                 item.resultado_url, agora),
             )
 
         doc_hash = _calcular_hash(protocolo, cns, cpf, data_emissao, payload.itens)
