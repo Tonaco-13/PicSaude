@@ -70,11 +70,13 @@ def _laudo_liberado(client, tp) -> str:
     assert client.post(f"/pedidos-exame/{proto}/itens/{item_id}/resultado",
                        json={"resultado_resumo": "98 mg/dL"}, headers=hl).status_code in (200, 201)
 
+    # ENG-014 (v2, §2.1): laudo de dispensador exige o elo em todos os itens.
     rl = client.post("/laudos", json={
         "cns_autor": SEED_PRESCRITOR_CNS, "nome_autor": "DRA RT",
         "cpf_paciente": SEED_PACIENTE_CPF, "nome_paciente": SEED_PACIENTE_NOME,
         "pedido_protocolo": proto,
-        "itens": [{"nome_exame": "GLICEMIA", "conclusao": "normal"}],
+        "itens": [{"nome_exame": "GLICEMIA", "conclusao": "normal",
+                   "pedido_item_id": item_id}],
     }, headers=hl)
     assert rl.status_code == 201, rl.text
     lp = rl.json()["protocolo"]

@@ -2604,6 +2604,13 @@
         const val = sel => (el.querySelector(sel) || {}).value || '';
         return {
           item_id:          id,
+          // ENG-014 (v2, §2.1) — O ELO. A bancada sempre soube o id do item do
+          // pedido (`dataset.itemId`); o que faltava era MANDÁ-LO com o nome
+          // que o backend usa para autorizar. Sem ele, o laudo de laboratório
+          // é recusado (422) — e com razão: `nome_exame` é exibição, o id é a
+          // chave. `item_id` continua porque o mesmo objeto alimenta as
+          // chamadas de resultado por item.
+          pedido_item_id:   id,
           nome_exame:       item.nome_exame,
           codigo_tuss:      item.codigo_tuss || null,
           resultado_resumo: val('.laudo-resumo').trim() || null,
@@ -2666,6 +2673,9 @@
               nome_paciente:    paciente.nome,
               pedido_protocolo: pedidoAtual.protocolo,
               itens: itensLaudo.map(i => ({
+                // ENG-014 (v2, §2.1) — o ELO vai junto. É por ele que o backend
+                // autoriza item a item; sem ele o laudo de laboratório é 422.
+                pedido_item_id:   i.pedido_item_id,
                 nome_exame:       i.nome_exame,
                 codigo_tuss:      i.codigo_tuss,
                 resultado_resumo: i.resultado_resumo,

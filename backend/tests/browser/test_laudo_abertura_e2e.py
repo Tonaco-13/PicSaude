@@ -71,11 +71,13 @@ def _laudo_liberado(base_url: str, nome_exame: str) -> str:
                       headers=hl, json={"resultado_resumo": "98 mg/dL"},
                       timeout=15.0).status_code in (200, 201)
 
+    # ENG-014 (v2, §2.1): laudo de dispensador exige o elo em todos os itens.
     rl = httpx.post(f"{base_url}/laudos", headers=hl, json={
         "cns_autor": _CNS, "nome_autor": "Dra. Demo Maria Souza",
         "cpf_paciente": _CPF, "nome_paciente": "João Demo da Silva",
         "pedido_protocolo": proto,
-        "itens": [{"nome_exame": nome_exame, "conclusao": "normal"}]}, timeout=15.0)
+        "itens": [{"nome_exame": nome_exame, "conclusao": "normal",
+                   "pedido_item_id": item_id}]}, timeout=15.0)
     assert rl.status_code == 201, rl.text
     lp = rl.json()["protocolo"]
     assert httpx.post(f"{base_url}/laudos/{lp}/assinar", headers=hl, timeout=15.0).status_code == 200
