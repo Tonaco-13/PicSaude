@@ -880,6 +880,123 @@ def ciencia_paciente(
 
 
 # ---------------------------------------------------------------------------
+# POST /laudos/{protocolo}/abrir — ENG-014 (PR C), §3 do desenho
+# A abertura pelo cidadão é ATO: escreve ledger e DERIVA a ciência.
+# ---------------------------------------------------------------------------
+
+def _iso(valor) -> str | None:
+    """Normaliza o carimbo para ISO-8601 com `T`, venha de onde vier.
+
+    O PostgreSQL devolve `datetime` e o SQLite devolve `str`; e o valor recém
+    escrito é a string ISO que acabamos de gerar. Sem normalizar, a PRIMEIRA
+    abertura respondia `...T17:52:13` e a segunda `... 17:52:13` — mesmo
+    instante, formatos diferentes. Um cliente que comparasse os dois (para
+    decidir se já abriu) concluiria que mudou. Foi o teste de idempotência que
+    pegou.
+    """
+    if valor is None:
+        return None
+    return str(valor).replace(" ", "T")
+
+
+@router.post("/{protocolo}/abrir", status_code=200)
+def abrir_laudo(
+    protocolo: str,
+    usuario=Depends(require_role("paciente", "admin")),
+):
+    """O cidadão abriu o laudo — e abrir é dar ciência (martelo (a), 20/08).
+
+    O EVENTO NOMEIA A ABERTURA, que é o fato que realmente aconteceu; a ciência
+    é consequência DERIVADA, declarada como regra. O ledger fica honesto:
+    "abriu em X → ciência derivada da abertura" — nunca uma "ciência"
+    anunciando fato que não ocorreu (a lição do `pedido_agendado` fantasma).
+
+    NUNCA em `GET`: ato escreve ledger por `POST` explícito. A tela chama uma
+    vez, ao abrir o cartão.
+
+    IDEMPOTENTE: a segunda abertura responde 200 e **não emite nada** — um
+    fato, um evento (espírito R2). O carimbo `laudos.aberto_em` é a marca da
+    primeira.
+
+    MÁQUINA DE ESTADOS: mudança nenhuma. `liberado → ciencia_paciente` já é
+    aresta válida e o endpoint de ciência já compõe as duas ciências — isto
+    aqui é um CAMINHO NOVO para uma transição existente, no mesmo formato do
+    martelo do J.7.
+
+    Estados sem o que abrir (`em_producao`, `assinado`, `cancelado`,
+    `encerrado_fisico`) → 422. Laudo standalone abre igual: a abertura é do
+    cidadão sobre o documento, não depende do pedido.
+    """
+    agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
+    with get_tx() as conn:
+        # 404 → 403 → 422 (anti-leak #52).
+        laudo = _get_laudo_ou_404(conn, protocolo)
+
+        if papel != "admin":
+            _assert_paciente_dono(conn, protocolo, ident)
+
+        _ABRIVEIS = ("liberado", "ciencia_prescritor", "ciencia_paciente", "encerrado")
+        if laudo["status"] not in _ABRIVEIS:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Laudo em '{laudo['status']}' não está disponível para leitura. "
+                    "A abertura vale a partir da liberação."
+                ),
+            )
+
+        # Já aberto: devolve o carimbo e não escreve. A tela pode chamar sem
+        # medo — mas o ledger não ganha um evento por reabertura de cartão.
+        if laudo.get("aberto_em"):
+            return {
+                "protocolo":        protocolo,
+                "status":           laudo["status"],
+                "aberto_em":        _iso(laudo["aberto_em"]),
+                "primeira_abertura": False,
+                "ciencia_derivada": False,
+            }
+
+        conn.execute("UPDATE laudos SET aberto_em = ? WHERE id = ?", (agora, laudo["id"]))
+
+        # A ciência só nasce se há ciência a dar. Em `ciencia_paciente` ou
+        # `encerrado` o cidadão já a deu — a abertura é só o fato da leitura.
+        deriva = laudo["status"] in ("liberado", "ciencia_prescritor")
+        novo_status = laudo["status"]
+
+        instance_id = get_instance_id_conn(conn)
+        _evento(conn, laudo["id"], "laudo_aberto_paciente", {
+            "aberto_em":         agora,
+            "status_na_abertura": laudo["status"],
+            "derivada_ciencia":  deriva,
+        }, agora, protocolo=protocolo, instance_id=instance_id)
+
+        if deriva:
+            # MESMA lógica do `POST /ciencia-paciente` — composição, não
+            # duplicação: `ciencia_prescritor` + esta ciência fecham o laudo.
+            novo_status = "encerrado" if laudo["status"] == "ciencia_prescritor" else "ciencia_paciente"
+            conn.execute("UPDATE laudos SET status = ? WHERE id = ?", (novo_status, laudo["id"]))
+            _evento(conn, laudo["id"], "ciencia_paciente", {
+                "status_anterior": laudo["status"],
+                "status_novo":     novo_status,
+                "origem":          "abertura",   # a ciência foi DERIVADA, e o ledger diz de onde
+            }, agora, protocolo=protocolo, instance_id=instance_id)
+            if novo_status == "encerrado":
+                _evento(conn, laudo["id"], "laudo_encerrado", {
+                    "motivo": "ciencia_completa",
+                }, agora, protocolo=protocolo, instance_id=instance_id)
+
+        return {
+            "protocolo":         protocolo,
+            "status":            novo_status,
+            "aberto_em":         _iso(agora),
+            "primeira_abertura": True,
+            "ciencia_derivada":  deriva,
+        }
+
+
+# ---------------------------------------------------------------------------
 # POST /laudos/{protocolo}/ciencia-prescritor
 # Transição: liberado | ciencia_paciente → ciencia_prescritor | encerrado
 # ---------------------------------------------------------------------------

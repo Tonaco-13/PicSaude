@@ -36,4 +36,9 @@ class Laudo(Base):
     data_emissao      = Column(String(10), nullable=False)    # ISO 8601 date
     data_validade     = Column(String(10), nullable=True)     # NULL para físico
     assinatura_hash   = Column(String(64), nullable=True)     # SHA-256 do documento canônico
+    # ENG-014 (PR C): carimbo da PRIMEIRA abertura pelo cidadão. NULL = nunca
+    # aberto — e é a ausência que distingue "não lido" de "lido". Informativo:
+    # alimenta o selo "Lido em" do Histórico da clínica e NUNCA condiciona
+    # faturamento (martelo (b): o fato financeiro é a liberação, da unidade).
+    aberto_em         = Column(DateTime, nullable=True)
     criado_em         = Column(DateTime, server_default=func.now(), nullable=False)

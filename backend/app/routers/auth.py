@@ -591,6 +591,7 @@ def listar_laudos(usuario=Depends(require_role("paciente"))):
                 l.tipo_emissao,
                 l.data_emissao,
                 l.data_validade,
+                l.aberto_em,
                 pr.nome AS autor_nome
             FROM laudos l
             JOIN prescritores pr ON pr.id = l.autor_id
@@ -619,6 +620,9 @@ def listar_laudos(usuario=Depends(require_role("paciente"))):
                 "data_emissao":  row["data_emissao"],
                 "data_validade": row["data_validade"],
                 "autor_nome":    row["autor_nome"],
+                # ENG-014 (PR C): carimbo da 1ª abertura. A tela usa para NÃO
+                # chamar `POST /abrir` de novo — um fato, um evento.
+                "aberto_em":     str(row["aberto_em"]).replace(" ", "T") if row["aberto_em"] else None,
                 "itens":         [dict(i) for i in itens],
             })
 

@@ -549,15 +549,21 @@ def faturamento_exames_pdf(
 # cidadão), então histórico e faturamento não podem discordar sobre o que
 # aconteceu.
 #
-# O selo "Lido em" NÃO entra aqui: depende de `laudos.aberto_em`, que nasce no
-# PR C. Esta aba sobe sem ele e ganha a coluna depois — subir antes é o que
-# permite ao PR C ser pequeno.
+# ENG-014 (PR C) — o selo "Lido em" entrou: `laudos.aberto_em` já existe. É a
+# confirmação rastreada da §5 do desenho, e ela vive na LEITURA porque não há
+# infra de push e não haverá antes do G4A. A unidade vê sem perguntar, no
+# polling que já roda.
+#
+# INFORMATIVO, NUNCA GATILHO (martelo (b), 20/08): o faturamento segue ancorado
+# no resultado/liberação — fato da unidade. A leitura é comportamento do
+# cidadão e não move dinheiro.
 
 _SQL_LAUDOS_DO_CNPJ = f"""
 SELECT DISTINCT
        l.protocolo        AS protocolo,
        l.status           AS status,
        l.data_emissao     AS data_emissao,
+       l.aberto_em        AS aberto_em,
        pe.protocolo       AS pedido_protocolo,
        pa.nome            AS paciente_nome
   FROM laudos l
