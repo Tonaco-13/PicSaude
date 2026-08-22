@@ -129,6 +129,12 @@ EVENTOS_LAUDO: frozenset[str] = frozenset({
     "laudo_expirado",         # validade ultrapassada
     "custodia_transferida",   # qualquer transferência de posse
     "laudo_corrigido",        # derivação por correção (novo laudo com origem_laudo_id)
+    # ENG-014 (PR C) — martelo (a) do Fabiano, 20/08: "abrir o laudo = dar
+    # ciência". O evento nomeia a ABERTURA, que é o fato real; a ciência é
+    # consequência DERIVADA. O ledger fica honesto — "abriu em X → ciência
+    # derivada da abertura" —, nunca uma "ciência" anunciando fato que não
+    # ocorreu (a lição do `pedido_agendado` fantasma do J.7).
+    "laudo_aberto_paciente",  # cidadão abriu o laudo (carimba laudos.aberto_em)
 })
 
 # ---------------------------------------------------------------------------
