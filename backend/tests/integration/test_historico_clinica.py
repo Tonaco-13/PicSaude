@@ -160,11 +160,13 @@ def test_laudo_liberado_entra_no_historico(client, outer_conn, seed_usuario, see
     _concluir(client, proto, ids[0], _LAB_A)
 
     hl = _h(_tok_lab(_LAB_A))
+    # ENG-014 (v2, §2.1): laudo de dispensador exige o elo.
     r = client.post("/laudos", json={
         "cns_autor": SEED_PRESCRITOR_CNS, "nome_autor": "DRA RT",
         "cpf_paciente": SEED_PACIENTE_CPF, "nome_paciente": SEED_PACIENTE_NOME,
         "pedido_protocolo": proto,
-        "itens": [{"nome_exame": _NOMES[0], "conclusao": "normal"}],
+        "itens": [{"nome_exame": _NOMES[0], "conclusao": "normal",
+                   "pedido_item_id": ids[0]}],
     }, headers=hl)
     assert r.status_code == 201, r.text
     lp = r.json()["protocolo"]

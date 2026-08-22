@@ -384,6 +384,15 @@ Custódia: `prestador_exame → paciente | prescritor`
 Origem: responsável técnico (patologista / bioquímico / médico laboratorista)
 Ciência: opera no nível do laudo inteiro (exceção documentada ao núcleo)
 
+**ENG-014 (v2) — posse por item no laudo: o elo `pedido_item_id`.**
+`laudo_itens.pedido_item_id` (migração `f2d8b41c9e73`, dois dialetos, **sem
+backfill**) é a chave da autorização por item — `nome_exame` é exibição.
+Criação por dispensador exige o elo em TODOS os itens, cada um sob custódia
+(`dispensador_detem_item`, fonte única); operação pede o pedido OU um item do
+laudo com elo. **Ponte declarada** para os legados (itens sem elo): o predicado
+grossa `dispensador_tem_algo_no_pedido` do #172, reusado — menos preciso, e é o
+que fecha o caso do pedido explodido. Laudo novo nunca nasce na ponte.
+
 **ENG-014 — abrir o laudo é dar ciência (martelo do Fabiano, 20/08).**
 `POST /laudos/{p}/abrir` emite `laudo_aberto_paciente` (evento novo) e DERIVA a
 ciência do paciente; o evento nomeia a ABERTURA, que é o fato real. Idempotente

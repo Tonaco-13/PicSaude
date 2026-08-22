@@ -141,6 +141,41 @@ laudo_corrigido           ← derivação por correção (novo laudo com origem_
 laudo_aberto_paciente     ← cidadão abriu o laudo (ENG-014; carimba laudos.aberto_em)
 ```
 
+### Posse por item no laudo — o elo `pedido_item_id` (ENG-014 v2)
+
+`laudo_itens.pedido_item_id` (migração `f2d8b41c9e73`, dois dialetos) liga cada
+item do laudo ao item do pedido que ele cobre. **O id é a chave; `nome_exame` é
+exibição.**
+
+Por que existe: antes dele, autorizar por item só seria possível casando
+`nome_exame` — texto livre. Dois itens homônimos no mesmo pedido, ou um exame
+renomeado, mudariam quem pode operar o laudo. É a mesma família de defeito que a
+casa rejeitou no J.7 (posse lida do status), no #168 (predicado duplicado) e no
+#172 (relatório lendo nível-pedido).
+
+**Duas camadas de autorização:**
+
+| Gesto | Regra |
+|---|---|
+| CRIAR (dispensador) | 403 grosso (sou parte do pedido?) → `pedido_item_id` **obrigatório em TODOS os itens** (422) → cada elo pertence ao pedido (422) → cada item sob custódia da unidade (403) |
+| CRIAR (prescritor/admin) | inalterado — o vínculo deles é clínico, não de posse |
+| OPERAR laudo existente | detém o pedido **OU ao menos um item DESTE laudo com elo** |
+
+**A ponte registrada (§2.2 do desenho).** Laudo cujos itens são TODOS legados
+(`pedido_item_id NULL` — a migração **não faz backfill**, de propósito: casar
+nome dentro de uma migração seria o mesmo pecado, e o histórico é fato
+consumado) é operável por quem detém **qualquer coisa** do pedido, pelo
+predicado grossa `dispensador_tem_algo_no_pedido` (do #172, **reusado**). Menos
+preciso — e por isso **declarado**. É ela que fecha o bug que estava aberto: num
+pedido explodido em nível-item, `dispensador_detem_pedido` devolvia `False` para
+todos e **nenhuma unidade** conseguia operar o laudo.
+
+Laudo novo de dispensador **nunca nasce na ponte**: a criação exige o elo.
+Havendo elo, ele **manda** — a ponte não é consultada, para que a frouxidão do
+legado não vaze para o novo.
+
+A ciência continua no nível do **laudo inteiro** (exceção documentada ao núcleo).
+
 ### Abertura pelo cidadão — `POST /laudos/{protocolo}/abrir` (ENG-014)
 
 > **Martelo do Fabiano, 20/08: "abrir o laudo = dar ciência".**

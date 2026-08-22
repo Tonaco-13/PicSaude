@@ -71,14 +71,27 @@ def _pedido_sob_custodia(client, cnpj: str, paciente_cpf=_CPF_PAC) -> str:
     return proto
 
 
+def _item_id_do_pedido(client, cnpj: str, ped: str) -> int:
+    r = client.get(f"/pedidos-exame/{ped}", headers=_headers(_tok(cnpj, "dispensador")))
+    assert r.status_code == 200, r.text
+    return r.json()["itens"][0]["id"]
+
+
 def _laudo_da_unidade(client, cnpj: str, paciente_cpf=_CPF_PAC, **over) -> str:
-    """Laudo produzido pela unidade `cnpj`, em nome do RT."""
+    """Laudo produzido pela unidade `cnpj`, em nome do RT.
+
+    ENG-014 (v2, §2.1): laudo de dispensador exige `pedido_item_id` em TODOS os
+    itens — o elo é a chave da autorização por item, e o nome do exame passou a
+    ser exibição. O helper busca o id do pedido que ele mesmo acabou de pôr sob
+    custódia, que é o que a tela da clínica faz (escolhe da bancada).
+    """
     ped = _pedido_sob_custodia(client, cnpj, paciente_cpf=paciente_cpf)
     payload = {
         "cns_autor": _CNS_RT, "nome_autor": "DRA RESPONSAVEL TECNICA",
         "cpf_paciente": paciente_cpf, "nome_paciente": "PACIENTE",
         "pedido_protocolo": ped,
         "itens": [{"nome_exame": "HEMOGRAMA", "conclusao": "normal",
+                   "pedido_item_id": _item_id_do_pedido(client, cnpj, ped),
                    "resultado_resumo": "Series normais", "valor_referencia": "4.5-11.0"}],
         **over,
     }
