@@ -254,3 +254,31 @@ class TestAGuardaMorde:
         conn.execute("INSERT INTO pedido_exame_custodia VALUES (1, 2, NULL, '2026-08-20')")
         conn.execute("INSERT INTO pedido_exame_custodia VALUES (2, 2, NULL, NULL)")
         assert _duplas_posses(conn) == []
+
+def test_laudo_demo_nasce_com_o_elo(demo_db):
+    """ENG-014 (v2, §2.1) — o laudo-demo NÃO pode nascer legado.
+
+    Sem `pedido_item_id`, ele cai na ponte §2.2 a cada reset — e a ponte existe
+    para o histórico de verdade (laudos anteriores à migração), não para objeto
+    novo. A demo mostra o caminho moderno; o seed tem de exercitá-lo.
+
+    O elo também tem de apontar para um item DO PEDIDO vinculado — um elo que
+    aponta para outro lugar é pior que elo nenhum, porque parece certo.
+    """
+    conn = _conn(demo_db)
+    linhas = conn.execute(
+        "SELECT li.pedido_item_id, l.pedido_id, pei.pedido_id AS dono "
+        "  FROM laudo_itens li "
+        "  JOIN laudos l ON l.id = li.laudo_id "
+        "  LEFT JOIN pedido_exame_itens pei ON pei.id = li.pedido_item_id "
+        " WHERE l.protocolo = ?", (_LAUDO,),
+    ).fetchall()
+
+    assert linhas, "laudo-demo sem itens"
+    for ln in linhas:
+        assert ln["pedido_item_id"] is not None, (
+            "laudo-demo nasceu LEGADO (sem elo) — cai na ponte §2.2 a cada reset"
+        )
+        assert ln["dono"] == ln["pedido_id"], (
+            "o elo aponta para item de OUTRO pedido"
+        )

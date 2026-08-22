@@ -594,6 +594,13 @@ def _garantir_laudo_demo(conn) -> None:
         (pid, "Glicemia de jejum", "40302055", _SIGTAP_GLICEMIA,
          "98 mg/dL (referência: 70-99 mg/dL)", now, now),
     )
+    # ENG-014 (v2, §2.1) — o id deste item é o ELO que o laudo abaixo carrega.
+    # Lido por SELECT, e não por `lastrowid`: o wrapper de PG (`_PgConnection`)
+    # e o SQLite não concordam sobre ele, e o seed roda nos dois.
+    item_pedido_id = conn.execute(
+        "SELECT id FROM pedido_exame_itens WHERE pedido_id = ? ORDER BY id DESC LIMIT 1",
+        (pid,),
+    ).fetchone()["id"]
 
     # Ledger: a emissão vem PRIMEIRO — a ordem dos eventos é a própria cadeia
     # de proveniência, e os `custodia_transferida` abaixo saem do choke-point
@@ -664,10 +671,14 @@ def _garantir_laudo_demo(conn) -> None:
 
     # Item do laudo — conclusao='alterado' (∈ _CONCLUSOES_VALIDAS, laudos.py:73)
     conn.execute(
-        "INSERT INTO laudo_itens (laudo_id, nome_exame, codigo_tuss, resultado_resumo, "
-        "conclusao, valor_referencia, status_item, criado_em) "
-        "VALUES (?, ?, ?, ?, 'alterado', ?, 'concluido', ?)",
-        (lid, "Glicemia de jejum", "40302055",
+        # ENG-014 (v2, §2.1) — COM o elo. Sem ele o laudo-demo nascia LEGADO a
+        # cada reset: operável só pela ponte §2.2, que existe para o histórico
+        # de verdade e não para objeto novo. O seed tem de exercitar o caminho
+        # moderno — é ele que a demo mostra.
+        "INSERT INTO laudo_itens (laudo_id, pedido_item_id, nome_exame, codigo_tuss, "
+        "resultado_resumo, conclusao, valor_referencia, status_item, criado_em) "
+        "VALUES (?, ?, ?, ?, ?, 'alterado', ?, 'concluido', ?)",
+        (lid, item_pedido_id, "Glicemia de jejum", "40302055",
          "98 mg/dL", "70-99 mg/dL", now),
     )
 

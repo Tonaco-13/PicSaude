@@ -176,6 +176,13 @@ jobs:
           # linhas conferem os MESMOS invariantes na PG, que é o dialeto onde doeu.
           python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute(\"SELECT protocolo FROM pedidos_exame WHERE protocolo IN ('DEMO-EXAME-0001','DEMO-EXAME-0002')\"); p=sorted(r[0] for r in k.fetchall()); k.execute(\"SELECT protocolo FROM laudos WHERE protocolo = 'DEMO-LAUDO-0001'\"); l=[r[0] for r in k.fetchall()]; print(f'[smoke] objetos-demo: pedidos={p} laudo={l}'); falta=[x for x in ('DEMO-EXAME-0001','DEMO-EXAME-0002') if x not in p] + ([] if l else ['DEMO-LAUDO-0001']); raise SystemExit(0 if not falta else f'objeto-demo AUSENTE apos o predeploy: {falta} — o bloco best-effort engoliu o erro e o seed saiu 0 sem o objeto (ver seed_demo._garantir_laudo_demo)')"
           python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute('SELECT pedido_id, COALESCE(item_id,-1), COUNT(*) FROM pedido_exame_custodia WHERE encerrada_em IS NULL GROUP BY 1,2 HAVING COUNT(*) > 1'); d=k.fetchall(); print(f'[smoke] duplas posses ativas={len(d)}'); raise SystemExit(0 if not d else f'DUPLA POSSE ativa apos o seed: {d[:5]} — o R2 na camada de custodia; toda escrita deve passar por transferir_posse_exame')"
+          # ENG-014 (v2) — o laudo-demo tem de nascer COM o elo `pedido_item_id`,
+          # e o elo tem de apontar para item DO PEDIDO vinculado. Sem isso ele
+          # nasce LEGADO a cada reset e cai na ponte §2.2 — que existe para o
+          # histórico de verdade, não para objeto novo. A guarda em SQLite está
+          # em tests/test_seed_objetos_demo.py; esta linha confere na PG, que é
+          # o caminho da vitrine.
+          python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute(\"SELECT li.pedido_item_id, (SELECT pedido_id FROM pedido_exame_itens WHERE id = li.pedido_item_id) = l.pedido_id FROM laudo_itens li JOIN laudos l ON l.id = li.laudo_id WHERE l.protocolo = 'DEMO-LAUDO-0001'\"); r=k.fetchall(); print(f'[smoke] elo do laudo-demo={r}'); ruim=[x for x in r if x[0] is None or not x[1]]; raise SystemExit(0 if r and not ruim else f'laudo-demo SEM elo coerente: {r} — nasceu legado e cai na ponte 2.2 (ver seed_demo._garantir_laudo_demo)')"
 
       - name: Gate do seed do catálogo DCB — DESPACHO-OPS-SEED-CATALOGO-DCB
         # Guarda contra o "seeder órfão": `catalogo_seed.py` (56 DCBs) existia
