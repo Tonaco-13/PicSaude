@@ -534,3 +534,73 @@ def faturamento_exames_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+# ---------------------------------------------------------------------------
+# GET /clinicas/historico — ENG-014, PR B
+# ---------------------------------------------------------------------------
+# O que a unidade JÁ FEZ. É projeção pura, read-only, da MESMA fonte do
+# relatório (`_linhas_do_cnpj` + `_SQL_DETENTOR_DO_ITEM`): sem uma segunda
+# verdade sobre "o que é meu", que divergiria da primeira no dia em que a
+# custódia mudasse de forma — foi exatamente o que aconteceu com o relatório
+# quando a parcial chegou (#172).
+#
+# "Concluído" = tem `resultado_em`. É o mesmo fato que ancora o faturamento
+# (martelo (b) de 20/08: o financeiro é da unidade, não do comportamento do
+# cidadão), então histórico e faturamento não podem discordar sobre o que
+# aconteceu.
+#
+# O selo "Lido em" NÃO entra aqui: depende de `laudos.aberto_em`, que nasce no
+# PR C. Esta aba sobe sem ele e ganha a coluna depois — subir antes é o que
+# permite ao PR C ser pequeno.
+
+_SQL_LAUDOS_DO_CNPJ = f"""
+SELECT DISTINCT
+       l.protocolo        AS protocolo,
+       l.status           AS status,
+       l.data_emissao     AS data_emissao,
+       pe.protocolo       AS pedido_protocolo,
+       pa.nome            AS paciente_nome
+  FROM laudos l
+  JOIN pedidos_exame      pe  ON pe.id  = l.pedido_id
+  JOIN pedido_exame_itens pei ON pei.pedido_id = pe.id
+  LEFT JOIN pacientes     pa  ON pa.id  = l.paciente_id
+ WHERE l.status IN ('liberado', 'ciencia_paciente', 'ciencia_prescritor', 'encerrado')
+   AND {_SQL_DETENTOR_DO_ITEM} = ?
+ ORDER BY l.data_emissao DESC, l.protocolo
+"""
+
+
+@router.get("/historico", summary="Histórico da unidade (itens concluídos + laudos)")
+def historico_da_unidade(
+    usuario=Depends(require_role("dispensador")),
+    data_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    data_fim: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+):
+    """Projeção read-only do que a unidade concluiu. Escopo = CNPJ do JWT.
+
+    Não escreve nada e não deriva estado novo: lê a mesma custódia que a fila e
+    o relatório leem. Um laudo entra se a unidade detém ao menos UM item do
+    pedido que ele cobre — o mesmo critério de posse por item do #172.
+    """
+    cnpj = normalize_cnpj(usuario["sub"])
+    dt_inicio, dt_fim, _ = _janela_periodo(data_inicio, data_fim)
+
+    with get_tx() as conn:
+        linhas = _linhas_do_cnpj(conn, cnpj)
+        laudos = [
+            {k: r[k] for k in r.keys()}
+            for r in conn.execute(_SQL_LAUDOS_DO_CNPJ, (cnpj,)).fetchall()
+        ]
+
+    # Concluído = tem resultado. O item em curso é trabalho, não histórico —
+    # ele vive na fila, e mostrá-lo aqui faria as duas telas competirem.
+    concluidos = _filtrar_periodo(
+        [ln for ln in linhas if ln.get("data_resultado")], dt_inicio, dt_fim
+    )
+
+    return {
+        "cnpj":   cnpj,
+        "itens":  concluidos,
+        "laudos": laudos,
+        "total":  len(concluidos),
+    }
