@@ -178,6 +178,12 @@
     .fila-exames-lista { margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.8; }
     .fila-exame-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
     .fila-ag-info { font-size: 12px; color: #64748b; margin-top: 8px; }
+    /* ENG-014 — ações da recepção no cartão da fila */
+    .fila-acoes { display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0; }
+    .btn-fila-acao { flex:1; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; font-size:13px; font-weight:600; cursor:pointer; }
+    .btn-fila-acao:hover { background:#f1f5f9; border-color:#94a3b8; }
+    .btn-fila-acao.primaria { background:#1e3a8a; border-color:#1e3a8a; color:#fff; }
+    .btn-fila-acao.primaria:hover { background:#1d4ed8; }
     .fila-abrir { font-size: 11px; color: #0e7490; font-weight: 700; white-space: nowrap; }
 
     /* ============================================================ */
@@ -1552,7 +1558,15 @@
       }
     }
 
+    // ENG-014 — última fila recebida do backend. As ações da recepção leem os
+    // itens DAQUI, não do DOM: o payload já vem filtrado pela custódia desta
+    // unidade (anti-vazamento do J.10) e traz `item_id` e `status_item` como o
+    // backend os conhece. Reparsear a tela seria reconstruir, no cliente, um
+    // estado que o servidor já respondeu.
+    var _filaCache = [];
+
     function _renderizarFilaExames(fila) {
+      _filaCache = fila || [];
       const lista = document.getElementById('fila-lista');
       const count = document.getElementById('fila-count');
       // Mesmo precedente do B2 §4.1 (fila de prescrições): o pedido só fica na
@@ -1576,6 +1590,40 @@
           </div>`).join('');
         const agInfo = p.data_ultimo_agendamento
           ? `<div class="fila-ag-info">📅 Agendado: ${formatarData(p.data_ultimo_agendamento)}</div>` : '';
+
+        // ENG-014 — RECEPÇÃO A PARTIR DO CARTÃO (proposta do Fabiano, 20/08).
+        //
+        // O gesto da recepção é decidir o percurso do exame que acabou de
+        // chegar, e até aqui isso exigia abrir o pedido, trocar de aba e só
+        // então agir. As três ações vivem no cartão:
+        //
+        //   · sem compromisso vigente → "Agendar" (marca para depois) ou
+        //     "Executar agora" (coleta direta — o segundo caminho que o martelo
+        //     do J.7 autoriza, para quem já está com o material na mão);
+        //   · com compromisso vigente → "Executar agendado", que é o
+        //     `POST /agendamentos/{p}/realizar` de sempre. Sem janela de
+        //     horário: "a qualquer hora" já é o comportamento do endpoint, e
+        //     inventar uma trava aqui seria a tela legislando sobre o domínio.
+        //
+        // `agendamento` vem do backend (fonte única do "qual vale agora"); a
+        // tela não decide isso. `stopPropagation` porque o cartão inteiro é um
+        // botão que abre o pedido — sem ele, agir dispararia a navegação junto.
+        const ag = p.agendamento;
+        const temPendente = (p.itens || []).some(i => i.status_item === 'pendente');
+        const acoes = ag
+          ? `<button type="button" class="btn-fila-acao primaria"
+                     onclick="event.stopPropagation(); executarAgendadoDaFila('${esc(p.protocolo)}', '${esc(ag.protocolo)}')">
+               ▶️ Executar agendado
+             </button>`
+          : `<button type="button" class="btn-fila-acao"
+                     onclick="event.stopPropagation(); agendarDaFila('${esc(p.protocolo)}')">
+               📅 Agendar
+             </button>
+             ${temPendente ? `<button type="button" class="btn-fila-acao primaria"
+                     onclick="event.stopPropagation(); executarAgoraDaFila('${esc(p.protocolo)}')">
+               ▶️ Executar agora
+             </button>` : ''}`;
+
         return `
           <div class="fila-item" onclick="abrirPedidoDaFila('${esc(p.protocolo)}')"
                role="button" tabindex="0"
@@ -1593,16 +1641,77 @@
             </div>
             <div class="fila-exames-lista">${exames}</div>
             ${agInfo}
+            <div class="fila-acoes">${acoes}</div>
           </div>`;
       }).join('');
     }
 
+    // ── ENG-014 — as três ações da recepção ──────────────────────────
+    //
+    // NENHUMA delas reimplementa regra. Todas abrem o pedido primeiro e depois
+    // DELEGAM para as funções que já existem — `registrarColeta` e
+    // `realizarAgendamento`. Isso não é só evitar duplicação: essas funções
+    // carregam guardas que um atalho novo perderia em silêncio.
+    //
+    //   · `realizarAgendamento` passa pelo gate de contexto CNES (Ticket 46).
+    //     Uma versão própria "mais direta" registraria realização sem unidade
+    //     confirmada — abrindo pela recepção o buraco que o gate fechou.
+    //   · `registrarColeta` trata 403 como POSSE e não como sessão expirada
+    //     (TICKET-I.4), que foi o defeito de deslogar quem abre pedido alheio.
+    //
+    // O que o cartão encurta é o CAMINHO até elas, não as regras.
+    //
+    // Abrir o pedido antes é necessário: as duas leem `pedidoAtual`.
+
+    async function agendarDaFila(protocolo) {
+      await abrirPedidoDaFila(protocolo);
+      abrirAbaLab('agendamento');
+      if (document.getElementById('btn-abrir-form-agendar')) {
+        mostrarFormAgendar();
+        document.getElementById('ag-data-hora')?.focus();
+      }
+    }
+
+    async function executarAgoraDaFila(protocolo) {
+      // Coleta direta: o segundo caminho do martelo do J.7 ("...ou realizando
+      // direto"). Só os itens `pendente` — os demais já andaram no percurso, e
+      // recoletar não é fato novo. A fila já vem filtrada pela custódia desta
+      // unidade (anti-vazamento do J.10), então o que está no cartão é nosso.
+      const card = (_filaCache || []).find(p => p.protocolo === protocolo);
+      const pendentes = (card?.itens || []).filter(i => i.status_item === 'pendente');
+      if (!pendentes.length) {
+        showToast('Nenhum exame pendente de coleta neste pedido.', 'info');
+        return;
+      }
+      if (!confirm(`Registrar a coleta de ${pendentes.length} exame(s) agora, sem agendamento?`)) return;
+
+      await abrirPedidoDaFila(protocolo);
+      for (const it of pendentes) {
+        await registrarColeta(it.item_id);
+      }
+      await carregarFilaExames();
+    }
+
+    async function executarAgendadoDaFila(protocolo, protocoloAg) {
+      // `realizarAgendamento` faz a própria confirmação e o gate CNES — aqui
+      // não se confirma duas vezes nem se repete a regra.
+      await abrirPedidoDaFila(protocolo);
+      abrirAbaLab('agendamento');
+      await realizarAgendamento(protocoloAg);
+      await carregarFilaExames();
+    }
+
     // Clique no card da fila = a mesma busca por protocolo de sempre (fonte
     // única: buscarPedido/renderizarPedido), só que sem digitação.
-    function abrirPedidoDaFila(protocolo) {
+    async function abrirPedidoDaFila(protocolo) {
       const input = document.getElementById('busca-protocolo');
       if (input) input.value = protocolo;
-      buscarPedido();
+      // ENG-014: `async` + `await` porque as ações da recepção agem DEPOIS da
+      // carga (o formulário de agendamento só existe quando
+      // `renderizarAgendamentos()` termina, e `registrarColeta` lê
+      // `pedidoAtual`). Sem isto o await do chamador resolvia na hora e a ação
+      // corria contra uma tela ainda em branco.
+      await buscarPedido();
     }
 
     function _iniciarPollingFila() {
