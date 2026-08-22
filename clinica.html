@@ -178,6 +178,13 @@
     .fila-exames-lista { margin-top: 10px; font-size: 13px; color: #475569; line-height: 1.8; }
     .fila-exame-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 4px 0; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
     .fila-ag-info { font-size: 12px; color: #64748b; margin-top: 8px; }
+    /* ENG-014 (PR B) — linhas do Histórico */
+    .hist-linha { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #f1f5f9; }
+    .hist-linha:last-child { border-bottom:none; }
+    .hist-exame { font-size:14px; font-weight:600; color:#0f172a; }
+    .hist-meta { font-size:12px; color:#64748b; margin-top:2px; }
+    .hist-proto { font-family:'Courier New',monospace; }
+    .hist-data { font-size:12px; color:#475569; white-space:nowrap; }
     /* ENG-014 — ações da recepção no cartão da fila */
     .fila-acoes { display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0; }
     .btn-fila-acao { flex:1; padding:8px 10px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; font-size:13px; font-weight:600; cursor:pointer; }
@@ -812,6 +819,11 @@
                 onclick="abrirAbaLab('bancada')">
           🔬 Bancada <span class="aba-count" id="aba-count-bancada">0</span>
         </button>
+        <button type="button" role="tab" class="aba-lab"
+                id="aba-btn-historico" aria-controls="aba-historico" aria-selected="false"
+                onclick="abrirAbaLab('historico'); carregarHistorico()">
+          📚 Histórico <span class="aba-count" id="aba-count-historico">0</span>
+        </button>
       </nav>
 
       <!-- ══════════════ ABA 1 — RECEPÇÃO ══════════════ -->
@@ -922,6 +934,25 @@
           <div id="feedback-laudo" class="hidden"></div>
           <div id="editor-laudo" class="hidden"></div>
           <div id="painel-laudo" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════ ABA 5 — HISTÓRICO (ENG-014, PR B) ══════════════ -->
+      <!-- O que a unidade JÁ FEZ. Diferente das abas 2-4, esta NÃO depende de
+           um pedido em foco: é a projeção da unidade inteira, como a Recepção.
+           Read-only, mesma fonte do relatório (`/clinicas/historico`). -->
+      <section class="aba-painel hidden" id="aba-historico" role="tabpanel" aria-labelledby="aba-btn-historico">
+        <div class="card">
+          <div class="fila-card-head">
+            <div class="card-titulo" style="border:none;margin:0;padding:0;">📚 Exames concluídos</div>
+            <button type="button" class="fila-refresh" onclick="carregarHistorico(true)">↻ Atualizar</button>
+          </div>
+          <div id="historico-feedback" class="hidden"></div>
+          <div id="historico-itens"><p class="fila-vazia">Carregando histórico…</p></div>
+        </div>
+        <div class="card">
+          <div class="card-titulo">📄 Laudos liberados</div>
+          <div id="historico-laudos"><p class="fila-vazia">—</p></div>
         </div>
       </section>
 
@@ -1162,7 +1193,7 @@
     // retrabalho nesta tela.
     // ═════════════════════════════════════════════════════════════
 
-    const _ABAS_LAB = ['recepcao', 'agendamento', 'realizacao', 'bancada'];
+    const _ABAS_LAB = ['recepcao', 'agendamento', 'realizacao', 'bancada', 'historico'];
 
     // Etapas em que o material JÁ foi coletado — daí para a frente o trabalho é
     // de bancada. Tudo o que não está aqui nem encerrado ainda é Realização.
@@ -1644,6 +1675,70 @@
             <div class="fila-acoes">${acoes}</div>
           </div>`;
       }).join('');
+    }
+
+    // ── ENG-014 (PR B) — Histórico da unidade ────────────────────────
+    //
+    // Projeção read-only do que a unidade JÁ FEZ. A fonte é o backend
+    // (`/clinicas/historico`), que lê a MESMA custódia da fila e do relatório
+    // — a tela não decide "o que é meu", senão haveria duas verdades sobre
+    // posse e elas divergiriam na primeira mudança de forma da custódia (foi o
+    // que aconteceu com o relatório quando a parcial chegou, #172).
+    //
+    // O selo "Lido em" NÃO existe ainda: depende de `laudos.aberto_em`, que
+    // nasce no PR C. Esta aba sobe sem ele — é o que permite ao PR C ser
+    // pequeno.
+
+    async function carregarHistorico(feedbackManual = false) {
+      const alvoItens  = document.getElementById('historico-itens');
+      const alvoLaudos = document.getElementById('historico-laudos');
+      if (!alvoItens || !jwtAccessToken) return;
+      try {
+        const resp = await fetch(BACKEND + '/clinicas/historico', { headers: authHeaders() });
+        // TICKET-J.8 — 401 = sessão; 403 = posse (não desloga)
+        if (resp.status === 401 || resp.status === 403) {
+          await tratarNaoAutorizado(resp, 'historico-feedback'); return;
+        }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          alvoItens.innerHTML = '<p class="fila-vazia">Não foi possível carregar: ' +
+            esc(_extrairMsgErro(err, String(resp.status))) + '</p>';
+          return;
+        }
+        const data = await resp.json();
+        _renderizarHistorico(data);
+        if (feedbackManual) mostrarFeedback('historico-feedback', 'ok', 'Histórico atualizado.');
+      } catch (_) {
+        alvoItens.innerHTML = '<p class="fila-vazia">Sem conexão com o servidor.</p>';
+      }
+    }
+
+    function _renderizarHistorico(data) {
+      const itens  = data.itens  || [];
+      const laudos = data.laudos || [];
+      _definirContador('aba-count-historico', itens.length);
+
+      const alvoItens = document.getElementById('historico-itens');
+      alvoItens.innerHTML = itens.length ? itens.map(i => `
+        <div class="hist-linha">
+          <div>
+            <div class="hist-exame">${esc(i.nome_exame)}</div>
+            <div class="hist-meta">${esc(i.paciente_nome || '—')} · <span class="hist-proto">${esc(i.protocolo)}</span></div>
+          </div>
+          <div class="hist-data">${i.data_resultado ? formatarData(i.data_resultado) : '—'}</div>
+        </div>`).join('')
+        : '<p class="fila-vazia">Nenhum exame concluído no período.</p>';
+
+      const alvoLaudos = document.getElementById('historico-laudos');
+      alvoLaudos.innerHTML = laudos.length ? laudos.map(l => `
+        <div class="hist-linha">
+          <div>
+            <div class="hist-exame">${esc(l.protocolo)}</div>
+            <div class="hist-meta">${esc(l.paciente_nome || '—')} · pedido <span class="hist-proto">${esc(l.pedido_protocolo || '—')}</span></div>
+          </div>
+          <div class="hist-data">${esc(l.status)}</div>
+        </div>`).join('')
+        : '<p class="fila-vazia">Nenhum laudo liberado.</p>';
     }
 
     // ── ENG-014 — as três ações da recepção ──────────────────────────
