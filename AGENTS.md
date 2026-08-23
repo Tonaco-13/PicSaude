@@ -405,6 +405,108 @@ liberação (fato da unidade). Alimenta o selo "Lido em" do Histórico da clíni
 
 > Arquitetura completa em `docs/ARQUITETURA_LAUDO.md`
 
+### Estados do módulo de Encaminhamento / Contrarreferência (E1/E2)
+
+A **terceira circulação**: referência clínica entre o prescritor de ORIGEM e o
+prescritor de DESTINO, com a contrarreferência voltando pelo mesmo caminho.
+`tipo_agregacao_status = "direto"` — o status é transitado explicitamente no
+objeto; os itens carregam especialidade/procedimento/motivo, e a progressão
+independente por item fica para versão futura.
+
+Encaminhamento (`encaminhamentos.status`) — por valor, de `domain/states_encaminhamento.py`:
+```
+emitido · em_regulacao · agendado · atendido · contrarreferido
+encerrado · cancelado · expirado · negado · encerrado_fisico
+```
+
+Item (`encaminhamento_itens.status_item`):
+```
+pendente · em_andamento · concluido · cancelado · encerrado_fisico
+```
+
+Terminais — encaminhamento: `encerrado` · `cancelado` · `expirado` · `negado` ·
+`encerrado_fisico`. Item: `concluido` · `cancelado` · `encerrado_fisico`.
+
+> `em_regulacao` **existe na máquina e não tem endpoint**: é o lugar reservado
+> para a regulação, exibido como badge honesto na linha do tempo ("aqui a
+> regulação se encaixaria"). Estado declarado sem engine fingida — quando a
+> regulação real chegar, ela ocupa um lugar que já estava guardado.
+
+#### Custódia — posse é do cidadão; agenda é compromisso
+
+Cadeia: `prescritor origem → cidadão → prescritor destino → cidadão`.
+
+| Gesto | Quem | Efeito na posse | `motivo` canônico |
+|---|---|---|---|
+| emitir (digital) | origem | **abre no cidadão** | `emissao_digital` |
+| **entregar** | **cidadão** | cidadão → destino | `apresentacao_cidadao` |
+| agendar | destino | **nenhum** — agenda é compromisso | — |
+| atender | destino | destino → **cidadão** | `atendimento_realizado` |
+| contrarreferir | destino | objeto DERIVADO nasce com custódia PRÓPRIA | `contrarreferencia_registrada` |
+
+**O gesto `entregar` é do CIDADÃO** (adendo §1a do `DESENHO-ENCAMINHAMENTO-UX.md`,
+martelo do Fabiano em 23/08): espelho exato do `transferir-farmacia` da receita e
+do `transferir-laboratorio` do exame. É o cidadão que leva o documento ao
+destino, e é o gesto dele que move a posse.
+
+**`agendar` não escreve custódia** — J.7 aplicado ao terceiro objeto. Marcar
+hora é compromisso, não entrega; ler posse do ato de agendar é o mesmo defeito
+que o martelo do J.7 matou no exame, e reintroduzi-lo devolve a dupla posse pela
+porta dos fundos (§3). Quem responde "onde está o encaminhamento" é
+`encaminhamento_custodia`, nunca `encaminhamentos.status`.
+
+> **Estado da implementação (23/08):** `emitir` e `atender` já operam assim. O
+> `entregar` e a retirada da escrita de custódia do `agendar` são entrega do
+> PR 2 do ENG-016 — a regra acima é a que vale, e o teste
+> `test_cada_gesto_deixa_exatamente_uma_posse_ativa` (na `main` desde o #185) é
+> o juiz de que o invariante não muda quando a escrita mudar de gesto.
+
+**Invariante de banco (#185, espelho exato do #168/COER-2):** no máximo UMA
+custódia ATIVA (`encerrada_em IS NULL`) por `(encaminhamento_id, item_id)` — e o
+mesmo em `(contrarreferencia_id, item_id)`. Índice único parcial nos dois
+dialetos (migração `a1c9e4d70b26`): PG com `NULLS NOT DISTINCT`, SQLite com
+`COALESCE(item_id, -1)`. As duas tabelas operam hoje só em nível-objeto
+(`item_id` sempre NULL) — sem a cláusula do PG, dois `(obj, NULL)` não
+colidiriam e o índice não guardaria nada.
+
+#### Contrarreferência — objeto derivado, monolítico, com custódia própria
+
+`contrarreferencias` nasce de `POST /encaminhamentos/{p}/contrarreferir`, com
+`origem_encaminhamento_id` **NOT NULL** (§1: derivação, nunca edição do
+anterior). Status próprio: `registrada`. É **monolítica** — não tem tabela de
+itens, como o atestado — e tem **custódia própria**
+(`contrarreferencia_custodia`, "Fork 3"): o retorno clínico viaja de volta à
+origem como objeto, não como campo do encaminhamento.
+
+Ledger **duplo** no ato: `contrarreferencia_registrada` entra no ledger do
+objeto derivado **e** no ledger do encaminhamento-pai, e o pai transita
+`atendido → contrarreferido`.
+
+#### Vocabulário de eventos
+
+`encaminhamento_eventos` — emitidos pelo código: `encaminhamento_emitido` ·
+`encaminhamento_impresso` · `encaminhamento_agendado` ·
+`encaminhamento_atendido` · `encaminhamento_encerrado` ·
+`encaminhamento_cancelado` · `encaminhamento_negado` · `custodia_transferida` ·
+`contrarreferencia_registrada`.
+
+`contrarreferencia_eventos` — `contrarreferencia_registrada`.
+
+> **Duas divergências entre o declarado e o emitido, registradas como fato:**
+> `EVENTOS_ENCAMINHAMENTO` declara `encaminhamento_em_regulacao`, que **nenhum
+> caminho emite** (coerente com o badge sem engine, acima), e **não declara**
+> `contrarreferencia_registrada`, que o código emite no ledger do
+> encaminhamento. Nenhuma das duas é bug de execução — são a lista e o código
+> ainda não conversando. Fechar a diferença é decisão do arquiteto.
+
+**Ciência de ciclo é EXPLÍCITA** (`encerrar`, pela origem) — divergência
+deliberada do laudo, onde abrir é dar ciência (ENG-014). Aqui o fato é a origem
+declarar-se ciente do retorno e FECHAR o ciclo; cada objeto nomeia o seu fato.
+
+**Auto-encaminhamento é bloqueado na emissão** (origem ≠ destino).
+
+> Desenho de UX da onda em `docs/tickets/DESENHO-ENCAMINHAMENTO-UX.md`
+
 ### Farmácia Hospitalar (Ticket 26 — arquitetura / Ticket 27 — implementação)
 
 Classificação: **subdomínio operacional da dispensação** — não é novo objeto sanitário, não é novo papel RBAC.
