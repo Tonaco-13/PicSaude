@@ -39,8 +39,9 @@ from app.domain.states_agendamento import (
     eh_terminal,
 )
 from app.domain.states_exame import derivar_status_pedido
-from app.routers.pedidos_exame import (  # ENG-014 — escopo por item vem da FONTE ÚNICA
-    dispensador_detem_item,
+from app.routers.pedidos_exame import (  # escopo de posse vem da FONTE ÚNICA
+    dispensador_detem_item,          # ENG-014 — posse do ITEM
+    dispensador_tem_algo_no_pedido,  # #172 — "sou parte deste pedido?"
 )
 from app.utils.helpers import normalize_cnpj, _assert_or_403, _normalizar_identidade_jwt
 
@@ -552,12 +553,29 @@ def listar_agendamentos_pedido(
     protocolo_pedido: str,
     usuario=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
 ):
-    """Lista todos os agendamentos (incluindo cancelados) de um pedido de exame."""
+    """Lista todos os agendamentos (incluindo cancelados) de um pedido de exame.
+
+    MICRO-TICKET RBAC (`core`, ENG-015 §3) — `dispensador` passou a LISTAR.
+
+    O papel já estava no `require_role`; o ownership é que o recusava sempre
+    ("Prestador não lista agendamentos por pedido"). O laboratório MARCA
+    (`POST /agendamentos`), REMARCA e REGISTRA FALTA (#171) — e não conseguia
+    ver o que ele mesmo marcou. A tela precisava explicar ao operador que a
+    lista não era para ele; era o aviso confuso que este ticket mata.
+
+    Era a mesma família de acidente do #171: papel esquecido numa decisão de
+    ownership, não decisão registrada — e a ÚLTIMA da família.
+
+    ESCOPO DE POSSE, como o `GET /pedidos-exame/{proto}`: aquele devolve 403
+    quando a unidade não detém NADA e filtra os itens quando detém parte. O
+    agendamento é do PEDIDO — não tem granularidade de item —, então não há o
+    que filtrar: ou a unidade é parte, e vê a agenda, ou não é, e leva 403.
+    Predicado da FONTE ÚNICA (`dispensador_tem_algo_no_pedido`, do #172).
+    """
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         pedido = _get_pedido_por_protocolo(conn, protocolo_pedido)
         if papel != "admin":
-            # §D4 — listagem é sobre o PEDIDO; dispensador não tem vínculo de org aqui.
             if papel == "prescritor":
                 _assert_or_403(ident == _cns_prescritor_de_pedido(conn, pedido["id"]),
                                codigo="nao_e_dono_do_pedido",
@@ -566,9 +584,12 @@ def listar_agendamentos_pedido(
                 _assert_or_403(ident == _cpf_paciente_de_pedido(conn, pedido["id"]),
                                codigo="nao_e_dono_do_pedido",
                                mensagem="Este pedido pertence a outro paciente.")
-            else:  # dispensador → 403
-                _assert_or_403(False, codigo="nao_e_dono_do_pedido",
-                               mensagem="Prestador não lista agendamentos por pedido.")
+            else:  # dispensador — posse ATUAL, nunca histórica
+                _assert_or_403(
+                    dispensador_tem_algo_no_pedido(conn, pedido["id"], ident),
+                    codigo="nao_e_dono_do_pedido",
+                    mensagem="Pedido de exame sob responsabilidade de outro prestador.",
+                )
         rows = conn.execute(
             """
             SELECT * FROM agendamentos
