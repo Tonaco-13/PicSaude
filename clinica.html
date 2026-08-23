@@ -194,6 +194,25 @@
     .btn-fila-acao:hover { background:#f1f5f9; border-color:#94a3b8; }
     .btn-fila-acao.primaria { background:#1e3a8a; border-color:#1e3a8a; color:#fff; }
     .btn-fila-acao.primaria:hover { background:#1d4ed8; }
+    /* A recusa é decisão legítima, não erro: sóbria, sem vermelho de alarme —
+       só ganha a cor no hover, como a devolução por item (J.10). */
+    /* ENG-015 §3 — linhas da agenda da unidade */
+    .agenda-linha { display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:10px 12px; border:1px solid #e2e8f0; border-left:3px solid #1e3a8a; border-radius:7px; margin-bottom:8px; background:#fff; }
+    .agenda-quando { font-size:13px; color:#0f172a; min-width:180px; }
+    .agenda-onde { color:#475569; margin-left:8px; }
+    .agenda-remarcado { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; background:#fef9c3; color:#854d0e; padding:2px 7px; border-radius:999px; margin-left:6px; }
+    .agenda-quem { display:flex; flex-direction:column; gap:2px; flex:1; min-width:200px; }
+    .agenda-paciente { font-size:13px; font-weight:600; color:#0f172a; }
+    .agenda-exames { font-size:12px; color:#475569; }
+    .agenda-proto { font-size:11px; font-family:monospace; color:#94a3b8; }
+    .btn-agenda-abrir { padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#1e3a8a; font-size:12px; font-weight:600; cursor:pointer; }
+    .btn-agenda-abrir:hover { background:#f1f5f9; border-color:#1e3a8a; }
+    /* ENG-015 §3 — "Registrar falta" antes da hora marcada não é fato: é
+       adivinhação. Desabilitado até `data_hora` + margem; a trava é de UX e o
+       domínio segue permissivo (o endpoint aceita sempre). */
+    .btn-falta:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-fila-acao.recusa { color:#64748b; }
+    .btn-fila-acao.recusa:hover { border-color:#dc2626; color:#dc2626; background:#fff; }
     .fila-abrir { font-size: 11px; color: #0e7490; font-weight: 700; white-space: nowrap; }
 
     /* ============================================================ */
@@ -410,6 +429,16 @@
     }
     .btn-devolver:hover { border-color: #dc2626; color: #dc2626; }
     .btn-devolver:disabled { color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
+
+    /* ENG-015 §2 — "Agendar" por item, na Recepção. Discreto como a recusa: as
+       três decisões pesam igual, e só "Executar agora" é o caminho quente. */
+    .btn-agendar-item {
+      padding: 8px 16px; border-radius: 7px; border: 1px solid #cbd5e1; cursor: pointer;
+      background: #fff; color: #334155; font-size: 12px; font-weight: 600;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-agendar-item:hover { border-color: #1e3a8a; color: #1e3a8a; }
+    .btn-agendar-item:disabled { color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
 
     .laudo-aguardo {
       font-size: 13px; color: #1e3a8a; font-weight: 600;
@@ -891,14 +920,55 @@
           <div id="detalhes-pedido"></div>
         </div>
 
+        <!-- ── ENG-015 §2 — O QUE EU DECIDO ─────────────────────────────
+             A pergunta da Recepção é "o que chegou — o que eu decido?", e a
+             resposta são os itens `pendente` sob custódia desta unidade. As
+             três decisões vivem aqui, POR ITEM: a unidade pode realizar dois
+             exames do pedido e não realizar o terceiro, e uma decisão só para
+             o pedido inteiro não saberia dizer isso.
+
+             "Não realizamos" ESTAVA na Realização e mudou de aba (demanda do
+             Fabiano, §2): recusar não é etapa de execução, é triagem — quem
+             recusa não vai coletar. A Realização ficou com um gesto só,
+             "Registrar coleta", que é o que o nome dela promete. -->
+        <div class="card hidden" id="card-decisoes">
+          <div class="card-titulo">O que eu decido</div>
+          <div id="lista-recepcao"></div>
+        </div>
+
       </section>
       <!-- /aba-recepcao -->
 
       <!-- ══════════════ ABA 2 — AGENDAMENTO ══════════════ -->
       <section class="aba-painel hidden" id="aba-agendamento" role="tabpanel" aria-labelledby="aba-btn-agendamento">
+        <!-- ── ENG-015 §3 — A AGENDA DESTA UNIDADE ──────────────────────
+             A pergunta da aba é "o que está marcado?", e até aqui ela só tinha
+             resposta DEPOIS de abrir um pedido: sem foco, a aba inteira dizia
+             "nenhum pedido em foco". Quem chega de manhã querendo ver o dia
+             não tem um protocolo na mão — tem uma agenda.
+
+             AGREGADA NO FRONT, dos compromissos vigentes que a fila já traz
+             (`agendamento_vigente`, ENG-014). O mesmo desenho do §4 na carteira
+             do cidadão, e pela mesma razão: um endpoint próprio seria uma
+             SEGUNDA fonte para "qual é o compromisso corrente", e duas fontes
+             divergem em silêncio.
+
+             ESCOPO: a fila vem filtrada pela CUSTÓDIA desta unidade
+             (anti-vazamento do J.10), que é o "ou equivalente" do guardrail
+             §6b — e é o escopo CERTO aqui, não uma economia. Filtrar por
+             `org_id` mostraria compromissos de pedidos que já saíram desta
+             unidade; o #181 acabou de estabelecer o contrário (ex-custodiante
+             perde a agenda). Posse decide quem vê, como em todo o resto do
+             módulo. -->
+        <div class="card" id="card-agenda-unidade">
+          <div class="card-titulo">Agenda desta unidade</div>
+          <div id="lista-agenda-unidade"></div>
+        </div>
+
         <div class="aba-vazia sem-pedido hidden" id="vazio-agendamento">
           Nenhum pedido em foco.<br>
-          Abra um pedido pela <strong>Recepção</strong> para marcar, confirmar ou remarcar a coleta.
+          Abra um compromisso na agenda acima — ou um pedido pela
+          <strong>Recepção</strong> — para marcar, remarcar ou registrar falta.
         </div>
         <div class="card" id="card-agendamento">
           <div class="card-titulo">Agendamento</div>
@@ -1218,6 +1288,16 @@
       return (itens || []).filter(i => _ETAPAS_POS_COLETA.includes(i.status_item));
     }
 
+    // ENG-015 §2 — os itens que ainda esperam DECISÃO desta unidade.
+    //
+    // `pendente` e só. Item `agendado` já foi decidido — o que resta a ele é
+    // executar, remarcar, faltar ou cair; tudo isso é gesto sobre o
+    // COMPROMISSO, e mora na aba Agendamento. Repetir o item aqui faria a
+    // mesma decisão existir em dois lugares com regras diferentes.
+    function _itensDaAbaRecepcao(itens) {
+      return (itens || []).filter(i => i.status_item === 'pendente');
+    }
+
     function abrirAbaLab(nome) {
       if (!_ABAS_LAB.includes(nome)) return;
       abaLabAtiva = nome;
@@ -1268,6 +1348,12 @@
       }
 
       // O card só aparece quando há o que mostrar; o aviso, quando não há.
+      // O card de decisões da Recepção (ENG-015 §2) entra na mesma regra: só
+      // aparece com pedido em foco. Não tem aviso de "nenhum pedido" próprio
+      // porque a Recepção nunca está vazia — a fila e a busca estão sempre lá.
+      const cardDecisoes = document.getElementById('card-decisoes');
+      if (cardDecisoes) cardDecisoes.classList.toggle('hidden', !temPedido);
+
       [['agendamento', 'card-agendamento'],
        ['realizacao',  'card-realizacao'],
        ['bancada',     'card-bancada']].forEach(([aba, cardId]) => {
@@ -1446,6 +1532,12 @@
         document.getElementById('tela-dashboard').classList.remove('hidden');
         carregarFilaExames();   // GAP-4: a fila é a primeira coisa que a bancada vê
         _iniciarPollingFila();
+        // ENG-015 §3 — os estados vazios das abas 2–4 só eram acertados na
+        // primeira busca. Sem pedido em foco, a aba Agendamento abria com um
+        // card "Agendamento" vazio e sem explicação, ao lado da agenda da
+        // unidade que acabou de nascer. Um vazio sem explicação foi
+        // exatamente o que gerou o aviso que o #181 matou.
+        _sincronizarAbas();
         document.getElementById('busca-protocolo')?.focus();
       } else {
         document.getElementById('tela-onboarding').classList.remove('hidden');
@@ -1483,6 +1575,7 @@
       document.getElementById('tela-dashboard').classList.remove('hidden');
       carregarFilaExames();   // GAP-4
       _iniciarPollingFila();
+      _sincronizarAbas();     // ENG-015 §3 — ver nota em `_iniciarSessao`
       document.getElementById('busca-protocolo')?.focus();
     }
 
@@ -1613,6 +1706,7 @@
       const visiveis = (fila || []).filter(p => (p.itens || []).some(i => i.acionavel));
       if (count) count.textContent = visiveis.length;
       _definirContador('aba-count-recepcao', visiveis.length);   // TICKET-J.8
+      renderizarAgendaDaUnidade();   // ENG-015 §3 — mesma carga, outra pergunta
 
       if (!visiveis.length) {
         lista.innerHTML = '<p class="fila-vazia">Nenhum exame aguardando atendimento na bancada.</p>';
@@ -1645,13 +1739,35 @@
         // `agendamento` vem do backend (fonte única do "qual vale agora"); a
         // tela não decide isso. `stopPropagation` porque o cartão inteiro é um
         // botão que abre o pedido — sem ele, agir dispararia a navegação junto.
+        // ENG-015 §2 — A TERCEIRA DECISÃO.
+        //
+        // O ENG-014 trouxe duas ("Agendar" e "Executar agora"): o que fazer
+        // quando a unidade VAI realizar. Faltava a decisão de quem NÃO vai —
+        // e é ela que solta o exame. Sem ela, o operador que não realiza o
+        // exame não tinha gesto nenhum no cartão: abria o pedido, ia à
+        // Realização e devolvia item a item. A recusa é decisão de recepção
+        // como as outras duas, e agora mora com elas.
+        //
+        // Com compromisso vigente, "Não realizamos" é o ATO COMPOSTO: cancela
+        // a agenda E devolve a posse — dois fatos, dois eventos. Cancelar
+        // sozinho deixaria o item livre no papel e preso na prática (a agenda
+        // some e a custódia fica aqui).
         const ag = p.agendamento;
         const temPendente = (p.itens || []).some(i => i.status_item === 'pendente');
+        const temDevolvivel = (p.itens || []).some(
+          i => i.status_item === 'pendente' || i.status_item === 'agendado');
+        const btnNaoRealizamos = temDevolvivel
+          ? `<button type="button" class="btn-fila-acao recusa"
+                     onclick="event.stopPropagation(); naoRealizamosDaFila('${esc(p.protocolo)}')">
+               ↩️ Não realizamos
+             </button>`
+          : '';
         const acoes = ag
           ? `<button type="button" class="btn-fila-acao primaria"
                      onclick="event.stopPropagation(); executarAgendadoDaFila('${esc(p.protocolo)}', '${esc(ag.protocolo)}')">
                ▶️ Executar agendado
-             </button>`
+             </button>
+             ${btnNaoRealizamos}`
           : `<button type="button" class="btn-fila-acao"
                      onclick="event.stopPropagation(); agendarDaFila('${esc(p.protocolo)}')">
                📅 Agendar
@@ -1659,7 +1775,8 @@
              ${temPendente ? `<button type="button" class="btn-fila-acao primaria"
                      onclick="event.stopPropagation(); executarAgoraDaFila('${esc(p.protocolo)}')">
                ▶️ Executar agora
-             </button>` : ''}`;
+             </button>` : ''}
+             ${btnNaoRealizamos}`;
 
         return `
           <div class="fila-item" onclick="abrirPedidoDaFila('${esc(p.protocolo)}')"
@@ -1681,6 +1798,70 @@
             <div class="fila-acoes">${acoes}</div>
           </div>`;
       }).join('');
+    }
+
+    // ── ENG-015 §3 — a agenda da unidade ─────────────────────────────
+    //
+    // Come da MESMA carga da fila. Ordenada pelo mais próximo, porque a
+    // pergunta de quem abre é "o que vem agora?".
+    //
+    // Só o VIGENTE de cada pedido (`agendamento_vigente`, resolvido no
+    // backend): a cadeia de remarcação — AG-001 cancelado → AG-002 ativo —
+    // vive no Histórico, não aqui. Agenda que mostra o compromisso morto ao
+    // lado do vivo obriga o operador a descobrir qual vale, e ele já tem
+    // trabalho.
+    function renderizarAgendaDaUnidade() {
+      const el = document.getElementById('lista-agenda-unidade');
+      if (!el) return;
+
+      const marcados = (_filaCache || [])
+        .filter(p => p.agendamento)
+        .sort((a, b) => _msDe(a.agendamento.data_hora) - _msDe(b.agendamento.data_hora));
+
+      if (!marcados.length) {
+        // EMPTY STATE POR PERGUNTA (§3): "nada marcado" não é "nada chegou".
+        // Pode haver fila cheia e agenda vazia — é o caso de quem só faz
+        // coleta direta. Dizer "nenhum pedido" aqui mandaria o operador
+        // procurar trabalho que está na aba ao lado.
+        const naFila = (_filaCache || []).length;
+        el.innerHTML = naFila
+          ? `<p style="font-size:13px;color:#64748b">Nenhuma coleta marcada nesta unidade.
+             Há <strong>${naFila}</strong> pedido(s) na Recepção aguardando decisão —
+             marcar hora é uma delas.</p>`
+          : `<p style="font-size:13px;color:#64748b">Nenhuma coleta marcada, e nada na fila.</p>`;
+        return;
+      }
+
+      el.innerHTML = marcados.map(p => {
+        const ag = p.agendamento;
+        const exames = (p.itens || []).map(i => i.nome_exame).filter(Boolean).join(' · ');
+        const onde = ag.local_texto || ag.unidade_id || '';
+        return `
+          <div class="agenda-linha" id="agenda-linha-${esc(p.protocolo)}">
+            <div class="agenda-quando">
+              <strong>${esc(formatarData(ag.data_hora))}</strong>
+              ${onde ? `<span class="agenda-onde">${esc(onde)}</span>` : ''}
+              ${ag.remarcado ? '<span class="agenda-remarcado">remarcado</span>' : ''}
+            </div>
+            <div class="agenda-quem">
+              <span class="agenda-paciente">${esc(p.paciente?.nome || '—')}</span>
+              <span class="agenda-exames">${esc(exames || 'exame')}</span>
+              <span class="agenda-proto">${esc(p.protocolo)}</span>
+            </div>
+            <button type="button" class="btn-agenda-abrir"
+                    onclick="abrirCompromisso('${esc(p.protocolo)}')">Abrir →</button>
+          </div>`;
+      }).join('');
+    }
+
+    function _msDe(iso) {
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? Infinity : d.getTime();
+    }
+
+    async function abrirCompromisso(protocolo) {
+      await abrirPedidoDaFila(protocolo);
+      abrirAbaLab('agendamento');
     }
 
     // ── ENG-014 (PR B) — Histórico da unidade ────────────────────────
@@ -1768,7 +1949,23 @@
     // Abrir o pedido antes é necessário: as duas leem `pedidoAtual`.
 
     async function agendarDaFila(protocolo) {
+      _itemAAgendar = null;   // do CARTÃO, o gesto vale para o que a unidade detém
       await abrirPedidoDaFila(protocolo);
+      abrirAbaLab('agendamento');
+      if (document.getElementById('btn-abrir-form-agendar')) {
+        mostrarFormAgendar();
+        document.getElementById('ag-data-hora')?.focus();
+      }
+    }
+
+    // ENG-015 §2 — "Agendar" a partir do item: leva à aba do compromisso com
+    // o item já escolhido. `itens: [id]` é o escopo do ENG-014 (PR A) — sem
+    // ele, marcar promoveria todos os `pendente` que a unidade detém, e quem
+    // clicou num item pediu por um.
+    let _itemAAgendar = null;
+
+    function agendarItemDaRecepcao(itemId) {
+      _itemAAgendar = itemId;
       abrirAbaLab('agendamento');
       if (document.getElementById('btn-abrir-form-agendar')) {
         mostrarFormAgendar();
@@ -1794,6 +1991,125 @@
         await registrarColeta(it.item_id);
       }
       await carregarFilaExames();
+    }
+
+    // ── ENG-015 §2 — "Não realizamos", puro ou COMPOSTO ───────────────
+    //
+    // Um gesto para o operador; UM ou DOIS fatos para o ledger, conforme haja
+    // compromisso marcado:
+    //
+    //   sem agenda  →  devolver (custodia_transferida)
+    //   com agenda  →  cancelar (agendamento_cancelado, com motivo)
+    //                  + devolver (custodia_transferida)
+    //
+    // NUNCA um só evento fundindo os dois. O compromisso que caiu e a posse
+    // que mudou de mãos são fatos diferentes, e o ledger tem de poder
+    // contá-los separados — é o que permite auditar "por que não foi feito"
+    // sem inferir da custódia.
+    //
+    // A ORDEM importa: cancela primeiro. `devolver` exige item `pendente` (a
+    // máquina não tem aresta `agendado → devolvido`, e criá-la seria `core`),
+    // e é o cancelamento que devolve o item a `pendente`.
+    //
+    // SE A SEGUNDA METADE FALHAR, a tela DIZ. O meio do caminho não é estado
+    // corrompido — é "item pendente, ainda com você", que o próprio botão
+    // resolve no clique seguinte, agora como devolução pura. Silenciar seria
+    // deixar o operador achando que soltou o exame que continua na unidade.
+    async function naoRealizamosDaFila(protocolo) {
+      // A fila é a fonte preferida: já vem filtrada pela custódia desta
+      // unidade e traz `item_id` como o backend o conhece. Mas o operador
+      // também chega por BUSCA, e aí o pedido não está no cache — cair fora em
+      // silêncio deixaria o botão morto sem explicar por quê. `pedidoAtual`
+      // serve de fonte alternativa: o `GET /pedidos-exame/{p}` também filtra os
+      // itens pela posse (J.10, anti-vazamento), então o escopo é o mesmo.
+      const card = (_filaCache || []).find(p => p.protocolo === protocolo);
+      const ag = card ? card.agendamento
+                      : (agendamentosAtuais || []).find(
+                          a => !['cancelado','nao_compareceu','realizado'].includes(a.status));
+      const brutos = card ? (card.itens || [])
+                          : ((pedidoAtual && pedidoAtual.itens) || []);
+      const alvos = brutos
+        .filter(i => i.status_item === 'pendente' || i.status_item === 'agendado')
+        .map(i => ({ ...i, item_id: i.item_id ?? i.id }));
+      if (!alvos.length) {
+        showToast('Nenhum exame desta unidade pode ser devolvido neste pedido.', 'info');
+        return;
+      }
+
+      const motivo = prompt(
+        'Por que esta unidade não realiza? (obrigatório — entra na trilha)',
+        'Exame não realizado por esta unidade');
+      if (!motivo || !motivo.trim()) return;
+
+      const aviso = ag
+        ? `Cancelar o agendamento e devolver ${alvos.length} exame(s) ao cidadão?`
+        : `Devolver ${alvos.length} exame(s) ao cidadão? Ele poderá levá-los a outro laboratório.`;
+      if (!confirm(aviso)) return;
+
+      await abrirPedidoDaFila(protocolo);
+
+      // FATO 1 — o compromisso cai (só se existir)
+      if (ag) {
+        const ok = await _cancelarAgendamentoComMotivo(ag.protocolo, motivo.trim());
+        if (!ok) return;   // a mensagem já foi dada; nada foi devolvido
+      }
+
+      // FATO 2 — a posse volta ao cidadão, item a item
+      let devolvidos = 0;
+      for (const it of alvos) {
+        if (await _devolverItem(it.item_id, motivo.trim())) devolvidos++;
+      }
+
+      if (devolvidos === alvos.length) {
+        showToast(ag ? 'Agendamento cancelado e exames devolvidos ao cidadão.'
+                     : 'Exames devolvidos ao cidadão.', 'success');
+      } else {
+        // Honestidade sobre o meio do caminho — ver o comentário acima.
+        alert(
+          `Devolvidos ${devolvidos} de ${alvos.length} exame(s).` +
+          (ag ? ' O agendamento foi cancelado.' : '') +
+          ' Os demais seguem sob custódia desta unidade — tente novamente em "Não realizamos".'
+        );
+      }
+      await buscarPedido();
+      await carregarFilaExames();
+    }
+
+    /** Cancela um compromisso declarando o motivo. `true` se caiu. */
+    async function _cancelarAgendamentoComMotivo(protocoloAg, motivo) {
+      try {
+        const resp = await fetch(
+          BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/cancelar',
+          { method: 'POST', headers: authHeaders(), body: JSON.stringify({ motivo }) }
+        );
+        if (resp.status === 401) { await handleUnauthorized(); return false; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          alert('Não foi possível cancelar o agendamento: ' +
+                _extrairMsgErro(err, String(resp.status)) +
+                '\nNada foi devolvido — o exame segue com esta unidade.');
+          return false;
+        }
+        return true;
+      } catch (_) {
+        alert('Falha de rede ao cancelar o agendamento. Nada foi devolvido.');
+        return false;
+      }
+    }
+
+    /** Devolve UM item ao cidadão. `true` se a posse mudou de mãos. */
+    async function _devolverItem(itemId, motivo) {
+      try {
+        const resp = await fetch(
+          BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
+          '/itens/' + itemId + '/devolver',
+          { method: 'POST', headers: authHeaders(), body: JSON.stringify({ motivo }) }
+        );
+        if (resp.status === 401) { await handleUnauthorized(); return false; }
+        return resp.ok;
+      } catch (_) {
+        return false;
+      }
     }
 
     async function executarAgendadoDaFila(protocolo, protocoloAg) {
@@ -1876,6 +2192,7 @@
         // limpar deixaria o painel do laudo anterior na tela e, pior, o retry
         // reaproveitaria um laudo de outro paciente.
         _limparEstadoLaudo();
+        _itemAAgendar = null;   // escopo de agendamento não atravessa pedidos
 
         pedidoAtual = await resp.json();
         renderizarPedido(pedidoAtual);
@@ -2041,7 +2358,20 @@
           const terminais = ['realizado'];
           const podeConfirmar = ag.status === 'criado';
           const podeCancelar  = !['cancelado','nao_compareceu','realizado'].includes(ag.status);
-          const podeRealizar  = ag.status === 'confirmado';
+          // ENG-015 §3 — "Executar" também em `criado`.
+          //
+          // A máquina permite `criado → realizado` desde o Ticket 29
+          // ("simplificação MVP — não exige confirmação"); era só a tela que
+          // exigia confirmar antes. Quem chegou para a coleta compareceu — ter
+          // de registrar "confirmado" para então registrar "realizado" é
+          // burocracia que a tela inventou e o domínio nunca pediu.
+          const podeRealizar  = ['criado', 'confirmado'].includes(ag.status);
+          const podeRemarcar  = podeCancelar;
+          // "Registrar falta" só depois da hora marcada + margem: antes dela a
+          // falta não é fato, é adivinhação. Validação de UX declarada como
+          // tal — o endpoint continua permissivo, e nenhuma regra de domínio
+          // foi criada aqui.
+          const faltaLiberada = _faltaJaPodeSerRegistrada(ag.data_hora);
 
           html += `
             <div class="ag-bloco" id="ag-bloco-${esc(ag.protocolo)}">
@@ -2064,9 +2394,13 @@
                 </div>` : ''}
               </div>
               ${!terminais.includes(ag.status) ? `<div class="ag-acoes">
+                ${podeRealizar  ? `<button class="btn-realizar"  onclick="realizarAgendamento('${esc(ag.protocolo)}')">▶️ Executar</button>` : ''}
                 ${podeConfirmar ? `<button class="btn-confirmar" onclick="confirmarAgendamento('${esc(ag.protocolo)}')">Confirmar presença</button>` : ''}
-                ${podeRealizar  ? `<button class="btn-realizar"  onclick="realizarAgendamento('${esc(ag.protocolo)}')">Marcar como realizado</button>` : ''}
-                ${podeCancelar  ? `<button class="btn-cancelar-ag" onclick="cancelarAgendamento('${esc(ag.protocolo)}')">Cancelar</button>` : ''}
+                ${podeRemarcar  ? `<button class="btn-confirmar" onclick="remarcarAgendamento('${esc(ag.protocolo)}')">🔁 Remarcar</button>` : ''}
+                ${podeCancelar  ? `<button class="btn-cancelar-ag btn-falta" ${faltaLiberada ? '' : 'disabled'}
+                    title="${faltaLiberada ? 'Registrar não comparecimento' : 'Só depois da hora marcada — antes dela a falta não é fato'}"
+                    onclick="registrarFalta('${esc(ag.protocolo)}')">🚫 Registrar falta</button>` : ''}
+                ${podeCancelar  ? `<button class="btn-cancelar-ag" onclick="naoRealizamosDoCompromisso('${esc(ag.protocolo)}')">↩️ Não realizamos</button>` : ''}
               </div>` : ''}
             </div>
           `;
@@ -2142,6 +2476,7 @@
     function ocultarFormAgendar() {
       document.getElementById('form-agendar').classList.add('hidden');
       document.getElementById('btn-abrir-form-agendar')?.classList.remove('hidden');
+      _itemAAgendar = null;   // desistir do formulário desfaz o escopo
     }
 
     async function criarAgendamento() {
@@ -2177,6 +2512,11 @@
             tipo_agendamento:  'exame',
             local_texto:       local,
             observacao:        obs,
+            // ENG-015 §2 — quem veio de "Agendar" num item pediu por AQUELE
+            // item. Sem o escopo, o backend agendaria todos os `pendente` que
+            // esta unidade detém (ENG-014 PR A) — mais do que foi pedido.
+            // Ausente = o gesto de sempre, "o que eu detenho".
+            ...(_itemAAgendar ? { itens: [_itemAAgendar] } : {}),
           }),
         });
 
@@ -2189,6 +2529,7 @@
           return;
         }
 
+        _itemAAgendar = null;   // o escopo vale para UM ato, não para a sessão
         mostrarFeedback('feedback-agendamento', 'ok', 'Agendamento criado com sucesso.');
         await carregarAgendamentos(pedidoAtual.protocolo);
         // Recarregar pedido para atualizar status dos itens
@@ -2244,6 +2585,89 @@
       }
     }
 
+    // ── ENG-015 §3 — os gestos que faltavam no compromisso ────────────
+
+    /** A falta só é FATO depois da hora marcada (+ margem de tolerância).
+     *
+     * Trava de UX, declarada como tal: o `POST /nao-compareceu` continua
+     * aceitando sempre, e nenhuma regra de domínio nasceu aqui. A tela não
+     * legisla sobre o domínio — ela evita que o operador registre às 8h uma
+     * falta marcada para as 14h.
+     */
+    const _MARGEM_FALTA_MIN = 15;
+
+    function _faltaJaPodeSerRegistrada(dataHoraISO) {
+      const t = _msDe(dataHoraISO);
+      if (!isFinite(t)) return true;   // sem hora legível, não trava o operador
+      return Date.now() >= t + _MARGEM_FALTA_MIN * 60 * 1000;
+    }
+
+    async function registrarFalta(protocoloAg) {
+      if (!confirm('Registrar que o cidadão não compareceu?\n\n' +
+                   'Os exames voltam a "pendente" e permanecem SOB SUA CUSTÓDIA — ' +
+                   'faltar não devolve posse. Para soltar o exame, use "Não realizamos".')) return;
+      try {
+        const resp = await fetch(
+          BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/nao-compareceu',
+          { method: 'POST', headers: authHeaders(), body: '{}' });
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'feedback-agendamento'); return; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
+          return;
+        }
+        mostrarFeedback('feedback-agendamento', 'ok',
+          'Falta registrada. Os exames voltaram à Recepção, ainda sob sua custódia.');
+        await carregarAgendamentos(pedidoAtual.protocolo);
+        await buscarPedido();
+        await carregarFilaExames();
+      } catch (_) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Falha de rede.');
+      }
+    }
+
+    /** Remarcar é DERIVAÇÃO: nasce um compromisso novo apontando para o velho
+     *  (`origem_agendamento_id`), e o anterior vai a `cancelado`. Não existe
+     *  estado "remarcado" — a cadeia mora no ledger e aparece no Histórico,
+     *  nunca na agenda, que mostra só o que vale agora. */
+    async function remarcarAgendamento(protocoloAg) {
+      const nova = prompt('Nova data e hora (AAAA-MM-DD HH:MM):', '');
+      if (!nova || !nova.trim()) return;
+      const d = new Date(nova.trim().replace(' ', 'T'));
+      if (isNaN(d.getTime())) {
+        mostrarFeedback('feedback-agendamento', 'err',
+          'Data/hora não reconhecida. Use o formato AAAA-MM-DD HH:MM.');
+        return;
+      }
+      try {
+        const resp = await fetch(
+          BACKEND + '/agendamentos/' + encodeURIComponent(protocoloAg) + '/remarcar',
+          { method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ data_hora: d.toISOString() }) });
+        if (resp.status === 401 || resp.status === 403) { await tratarNaoAutorizado(resp, 'feedback-agendamento'); return; }
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          mostrarFeedback('feedback-agendamento', 'err', 'Erro: ' + _extrairMsgErro(err, String(resp.status)));
+          return;
+        }
+        mostrarFeedback('feedback-agendamento', 'ok',
+          'Remarcado. O compromisso anterior foi encerrado e a cadeia ficou no Histórico.');
+        await carregarAgendamentos(pedidoAtual.protocolo);
+        await carregarFilaExames();
+      } catch (_) {
+        mostrarFeedback('feedback-agendamento', 'err', 'Falha de rede.');
+      }
+    }
+
+    /** "Não realizamos" a partir do COMPROMISSO — o mesmo ato composto do §2,
+     *  entrado pela outra porta. Delega ao gesto da Recepção para que exista
+     *  UMA implementação do ato: duas cópias divergiriam, e a que divergisse
+     *  deixaria o item preso. */
+    async function naoRealizamosDoCompromisso(protocoloAg) {
+      if (!pedidoAtual) return;
+      await naoRealizamosDaFila(pedidoAtual.protocolo);
+    }
+
     async function realizarAgendamento(protocoloAg) {
       if (!confirm('Marcar agendamento como realizado? Isso registrará a coleta de todos os itens agendados.')) return;
       // Ticket 46 — Gate leve de contexto CNES
@@ -2279,16 +2703,26 @@
     // ainda não foram coletados vão para a aba Realização; os que já foram, para
     // a Bancada. Um item muda de aba sozinho ao mudar de etapa.
     function renderizarItens(itens) {
+      // ENG-015 §2 — EMPTY STATE POR PERGUNTA. Cada lista responde a uma
+      // pergunta diferente, e "vazio" significa coisa diferente em cada uma:
+      // na Recepção quer dizer "já triei tudo"; na Realização, "não há o que
+      // coletar". Um texto genérico em todas as três diria a mesma coisa três
+      // vezes e nenhuma delas seria a resposta.
+      _pintarItens('lista-recepcao', _itensDaAbaRecepcao(itens),
+                   'Nada a decidir neste pedido — todos os exames sob sua custódia já foram triados.',
+                   'recepcao');
       _pintarItens('lista-realizacao', _itensDaAbaRealizacao(itens),
-                   'Nenhum exame aguardando coleta neste pedido.');
+                   'Nenhum exame aguardando coleta neste pedido.',
+                   'realizacao');
       _pintarItens('lista-bancada', _itensDaAbaBancada(itens),
-                   'Nenhum material na bancada. Registre a coleta na aba Realização.');
+                   'Nenhum material na bancada. Registre a coleta na aba Realização.',
+                   'bancada');
 
       renderizarGatilhoLaudo(itens);   // TICKET-G — o laudo é do pedido
       _sincronizarAbas();
     }
 
-    function _pintarItens(containerId, itens, mensagemVazia) {
+    function _pintarItens(containerId, itens, mensagemVazia, contexto) {
       const el = document.getElementById(containerId);
       if (!el) return;
       if (!itens || itens.length === 0) {
@@ -2296,12 +2730,40 @@
         return;
       }
 
+      // ENG-015 §2 — O MESMO ITEM APARECE EM DUAS LISTAS, e id repetido é
+      // HTML inválido: `getElementById` devolve o primeiro, e o código que
+      // desabilita "Registrar coleta" mexeria no botão da outra aba. A
+      // Realização e a Bancada mantêm o namespace histórico (`item-exame-N`,
+      // `btn-coletar-N`), que testes e helpers já conhecem; a Recepção, que é
+      // nova, ganha o seu. Quem age sobre o item age sobre TODOS os seus
+      // botões — via `data-item`, não via id.
+      const ns = contexto === 'recepcao' ? 'recep-' : '';
       el.innerHTML = itens.map(item => {
         const statusCls = itemStatusClass(item.status_item);
         const tuss = item.codigo_tuss ? `<span><strong>TUSS:</strong> ${esc(item.codigo_tuss)}</span>` : '';
         const sigtap = item.codigo_sigtap ? `<span><strong>SIGTAP:</strong> ${esc(item.codigo_sigtap)}</span>` : '';
 
         let acoesHtml = '';
+        // ENG-015 §2 — AS TRÊS DECISÕES, na aba da triagem.
+        //
+        // O item `pendente` sob custódia é o que espera decisão: agendar para
+        // depois, executar agora (coleta direta do J.7 — UM fato, sem
+        // compromisso inventado) ou recusar. A recusa é DEVOLUÇÃO DE POSSE ao
+        // cidadão (não é estado, não é cancelamento): o item segue `pendente`
+        // e circula a outro CNPJ.
+        if (contexto === 'recepcao') {
+          acoesHtml = `<button class="btn-agendar-item" id="btn-agendar-item-${item.id}"
+            onclick="agendarItemDaRecepcao(${item.id})">
+            📅 Agendar
+          </button>
+          <button class="btn-coletar" id="btn-${ns}coletar-${item.id}" data-coletar="${item.id}"
+            onclick="registrarColeta(${item.id})">
+            ▶️ Executar agora
+          </button>
+          <button class="btn-devolver" id="btn-${ns}devolver-${item.id}" data-devolver="${item.id}"
+            onclick="devolverItemExame(${item.id})">
+            Não realizamos este exame
+          </button>`;
         // TICKET-J.7 — `pendente` também coleta.
         //
         // Entregar a posse ao laboratório deixou de mover o item para
@@ -2309,18 +2771,13 @@
         // marcar hora (aba Agendamento) ou coletar direto, que é o que o
         // martelo autoriza. Antes do J.7 este ramo só olhava `agendado`, e o
         // item recém-chegado ficaria sem nenhum botão.
-        if (item.status_item === 'pendente' || item.status_item === 'agendado') {
-          // J.10 — dois gestos sobre o item que ainda não teve coleta: realizar
-          // ("Registrar coleta") ou recusar ("Não realizamos"). A recusa é
-          // DEVOLUÇÃO DE POSSE ao cidadão (não é estado, não é cancelamento):
-          // o item segue `pendente` e circula a outro CNPJ.
-          acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}"
+        } else if (item.status_item === 'pendente' || item.status_item === 'agendado') {
+          // ENG-015 §2 — a Realização ficou com UM gesto. "Não realizamos"
+          // saiu daqui para a Recepção (demanda do Fabiano): recusar não é
+          // etapa de execução, é triagem — quem recusa não vai coletar.
+          acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}" data-coletar="${item.id}"
             onclick="registrarColeta(${item.id})">
             Registrar coleta
-          </button>
-          <button class="btn-devolver" id="btn-devolver-${item.id}"
-            onclick="devolverItemExame(${item.id})">
-            Não realizamos este exame
           </button>`;
         } else if (item.status_item === 'coletado') {
           // TICKET-F — dois caminhos legítimos a partir de 'coletado':
@@ -2346,7 +2803,7 @@
         }
 
         return `
-          <div class="item-exame ${statusCls}" id="item-exame-${item.id}">
+          <div class="item-exame ${statusCls}" id="item-${ns}exame-${item.id}">
             <div class="item-header">
               <span class="item-nome">${esc(item.nome_exame)}</span>
               ${badgeItem(item.status_item)}
@@ -2365,9 +2822,23 @@
     // REGISTRO DE COLETA
     // ─────────────────────────────────────────
 
+    // ENG-015 §2 — o MESMO item tem botão de coleta em duas abas ("Executar
+    // agora" na Recepção, "Registrar coleta" na Realização). Agir por id
+    // pegaria um só e devolveria a ele o rótulo do outro; agir por `data-` pega
+    // os dois e cada um recupera o SEU texto.
+    function _botoesDoItem(attr, itemId) {
+      return [...document.querySelectorAll(`[data-${attr}="${itemId}"]`)];
+    }
+
+    function _ocuparBotoes(botoes, textoOcupado) {
+      const originais = botoes.map(b => b.textContent);
+      botoes.forEach(b => { b.disabled = true; b.textContent = textoOcupado; });
+      return () => botoes.forEach((b, i) => { b.disabled = false; b.textContent = originais[i]; });
+    }
+
     async function registrarColeta(itemId) {
-      const btn = document.getElementById('btn-coletar-' + itemId);
-      if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+      const botoes = _botoesDoItem('coletar', itemId);
+      const restaurar = _ocuparBotoes(botoes, 'Registrando…');
 
       try {
         const resp = await fetch(
@@ -2385,7 +2856,7 @@
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
+          restaurar();
           alert('Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
@@ -2394,7 +2865,7 @@
         atualizarStatusUI(itemId, data.status_item || 'coletado');
 
       } catch (_) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Registrar coleta'; }
+        restaurar();
         alert('Falha de rede ao registrar coleta.');
       }
     }
@@ -2414,8 +2885,7 @@
       if (!motivo || !motivo.trim()) return;
       if (!confirm('Devolver este exame ao cidadão? Ele poderá levá-lo a outro laboratório.')) return;
 
-      const btn = document.getElementById('btn-devolver-' + itemId);
-      if (btn) { btn.disabled = true; btn.textContent = 'Devolvendo…'; }
+      const restaurar = _ocuparBotoes(_botoesDoItem('devolver', itemId), 'Devolvendo…');
 
       try {
         const resp = await fetch(
@@ -2429,7 +2899,7 @@
 
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
-          if (btn) { btn.disabled = false; btn.textContent = 'Não realizamos este exame'; }
+          restaurar();
           alert('Erro: ' + _extrairMsgErro(err, String(resp.status)));
           return;
         }
@@ -2439,7 +2909,7 @@
         await buscarPedido();
         carregarFilaExames();
       } catch (_) {
-        if (btn) { btn.disabled = false; btn.textContent = 'Não realizamos este exame'; }
+        restaurar();
         alert('Falha de rede ao devolver o item.');
       }
     }
