@@ -26,6 +26,15 @@ backend. O que ela NÃO consegue provar é onde o J.10 mais arrisca:
   · o botão "Não realizamos este exame" tirando o item da tela porque ele
     saiu da custódia — não porque a tela o escondeu por conta própria.
 
+    > **Superseded em 23/08 (ENG-015 §2, martelo do Fabiano):** o botão MUDOU
+    > DE ABA — saiu da Realização e foi para a Recepção, onde vivem as três
+    > decisões da triagem (Agendar · Executar agora · Não realizamos). Recusar
+    > não é etapa de execução: quem recusa não vai coletar. O que este teste
+    > guarda não mudou uma vírgula — o item some da tela porque saiu da
+    > CUSTÓDIA —, só o lugar de onde se clica. O cartão da Recepção tem id
+    > próprio (`item-recep-exame-N`) porque o mesmo item aparece nas duas
+    > listas, e id repetido é HTML inválido.
+
 COMO RODAR
 ----------
     cd backend
@@ -182,17 +191,30 @@ def test_parcial_e_devolucao_pelas_telas(browser, app_demo, erros_de_console):
         fila.locator(".fila-item", has_text=proto).click()
 
         # AC (vi) na tela: o item que ficou com o cidadão NÃO aparece — a
-        # unidade não vê (nem aciona) exame que está com outro.
+        # unidade não vê (nem aciona) exame que está com outro. Vale nas DUAS
+        # listas em que um item `pendente` aparece desde o ENG-015 §2 (a
+        # Recepção decide, a Realização executa): o anti-vazamento não pode
+        # valer só na aba que o teste olhar.
         expect(pl.locator(f"#item-exame-{id_tsh}")).to_have_count(0)
+        expect(pl.locator(f"#item-recep-exame-{id_tsh}")).to_have_count(0)
         item_hemog = pl.locator(f"#item-exame-{id_hemog}")
         expect(item_hemog).to_be_visible(timeout=_TIMEOUT_MS)
         expect(item_hemog).to_contain_text("Pendente")
 
         # §0.2: "o laboratório devolve, por item, o que não performa".
+        #
+        # ENG-015 §2 — a recusa passou a ser gesto de RECEPÇÃO. É a mesma
+        # devolução pura de sempre (`/devolver`, J.10); mudou a aba de onde se
+        # clica, não o que acontece.
+        pl.locator("#aba-btn-recepcao").click()
+        item_hemog_recepcao = pl.locator(f"#item-recep-exame-{id_hemog}")
+        expect(item_hemog_recepcao).to_be_visible(timeout=_TIMEOUT_MS)
         with _responder_dialogos(pl, prompt_text="Não realizamos este exame na unidade"):
-            item_hemog.get_by_role("button", name="Não realizamos este exame").click()
-            # O item sai da lista porque saiu da CUSTÓDIA da unidade (§3.6) —
-            # a re-carga devolve o conjunto filtrado pela posse.
+            item_hemog_recepcao.get_by_role("button", name="Não realizamos este exame").click()
+            # O item sai das DUAS listas porque saiu da CUSTÓDIA da unidade
+            # (§3.6) — a re-carga devolve o conjunto filtrado pela posse.
+            expect(pl.locator(f"#item-recep-exame-{id_hemog}")).to_have_count(
+                0, timeout=_TIMEOUT_MS)
             expect(pl.locator(f"#item-exame-{id_hemog}")).to_have_count(
                 0, timeout=_TIMEOUT_MS)
     finally:
