@@ -23,8 +23,17 @@ O que só aqui se prova:
     `dispensador` é 403 na fixture de integração (fail-closed do §D1, sem
     `prestadores.cnpj → org_id`); no seed da demo a Clínica Demo é prestador de
     verdade. É o ator real do AC, e o J.7 já tinha cobrado essa lição;
-  · **"sem sair da aba"** — o AC é explícito, e as abas do cidadão continuam
-    TRÊS (decisão contra a 4ª aba). Isso é geometria de tela, não contrato;
+  · **"sem sair da aba"** — o AC é explícito: a data aparece no MESMO cartão,
+    sem o cidadão ter de ir procurar noutro lugar. Isso é geometria de tela,
+    não contrato;
+
+    > **Superseded em 23/08 (ENG-015 §4, martelo do Fabiano):** a carteira
+    > ganhou a 4ª aba, *Agendamentos*. O que caiu foi a contagem de abas —
+    > acidente do momento em que o J.11 foi escrito. O que este arquivo guarda
+    > segue de pé, e ficou mais forte: a data continua no cartão (o §4 recusou
+    > explicitamente reduzir o selo a "ver compromisso") e continua chegando lá
+    > **sem** navegação. A aba nova é um segundo lugar para a mesma verdade,
+    > não a mudança de lugar dela.
   · **a extração da lente não quebrou o portal** — o `index.html` é a prova da
     tese para o visitante anônimo. Um refactor que a mudasse passaria em toda
     guarda estática que só olha a `cidadao.html`.
@@ -154,8 +163,9 @@ def test_cidadao_ve_o_agendamento_no_cartao_sem_sair_da_aba(
     """AC do Adendo §10, ponta a ponta e pela tela.
 
     O caminho inteiro numa aba só: o cidadão entrega, o laboratório marca, e a
-    data aparece no MESMO cartão da aba Exames — sem 4ª aba (decisão explícita
-    do Fabiano) e sem o cidadão ter de procurar em outro lugar.
+    data aparece no MESMO cartão da aba Exames, sem ele ter de procurar em
+    outro lugar. Desde o ENG-015 §4 existe também a aba Agendamentos — segundo
+    lugar para a MESMA verdade, nunca a mudança de lugar dela.
     """
     proto = _emitir_ao_paciente(app_demo, f"J11-SELO-{_TS}")
 
@@ -176,11 +186,13 @@ def test_cidadao_ve_o_agendamento_no_cartao_sem_sair_da_aba(
         expect(selo).to_contain_text("Agendado: 01/09 08:00")
         expect(selo).to_contain_text(_UNIDADE)
 
-        # "sem sair da aba": o painel de Exames continua o ativo, e as abas
-        # da carteira continuam TRÊS.
+        # "sem sair da aba": o cartão foi carregado com o painel de Exames já
+        # ativo e a data estava ali — nenhum clique de navegação entre o
+        # `goto` e a leitura do selo (ver `_cartao_do_exame`).
         expect(pc.locator("#aba-exames")).to_be_visible()
-        expect(pc.locator("#aba-btn-atestado")).to_be_visible()
-        expect(pc.locator("[id^='aba-btn-']")).to_have_count(3)
+        # A carteira tem as QUATRO abas declaradas (ENG-015 §4) — a contagem
+        # segue travada para que aba nova entre por decisão, não por descuido.
+        expect(pc.locator("[id^='aba-btn-']")).to_have_count(4)
     finally:
         ctx.close()
 

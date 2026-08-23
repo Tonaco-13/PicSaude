@@ -350,7 +350,7 @@ def demo_externa_viva(request, base_url):
 def abrir_aba_carteira(page, nome: str) -> None:
     """Ativa uma aba da carteira e espera o painel aparecer.
 
-    `nome` ∈ {"receita", "exames", "atestado"}.
+    `nome` ∈ {"receita", "exames", "agendamentos", "atestado"}.
     """
     from playwright.sync_api import expect
 

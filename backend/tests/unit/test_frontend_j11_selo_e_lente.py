@@ -127,9 +127,20 @@ def test_index_preserva_a_lente_publica(ancora):
 # ---------------------------------------------------------------------------
 
 def test_selo_le_o_campo_do_backend():
+    """A regra: o selo desenha a partir de `pedido.agendamento` — o corrente já
+    resolvido no backend por `agendamento_atual_do_pedido`.
+
+    A guarda casava a chamada LITERAL `_seloAgendamento(pedido.agendamento)`.
+    O ENG-015 §4 acrescentou um segundo argumento (o protocolo, para o selo
+    linkar à aba Agendamentos) e a guarda ficou vermelha sem que a regra tivesse
+    mudado — a assinatura era acidente, a FONTE do dado é a regra. Passa a casar
+    o primeiro argumento e a ignorar o resto.
+    """
     html = _fonte(_CIDADAO)
-    assert "_seloAgendamento(pedido.agendamento)" in html, \
-        "o cartão do exame não desenha o selo a partir de `pedido.agendamento`"
+    assert re.search(r"_seloAgendamento\(\s*pedido\.agendamento\b", html), (
+        "o cartão do exame não desenha o selo a partir de `pedido.agendamento` — "
+        "se a tela passou a escolher o compromisso, é o defeito que o J.11 fechou"
+    )
 
 
 def test_selo_mostra_data_hora_e_onde():
