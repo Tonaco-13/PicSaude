@@ -181,6 +181,81 @@ class MotivoIn(BaseModel):
     motivo: Optional[str] = None
 
 
+# ── DOCUMENTO CANÔNICO DO ENCAMINHAMENTO — versionado ─────────────────────
+#
+# A versão ATUAL. Emissão nova sempre usa esta; verificação usa a que estiver
+# GRAVADA no documento.
+VERSAO_DOC_ENCAMINHAMENTO = "2"
+
+# As versões que este código sabe reproduzir, congeladas por valor. Não é
+# decoração: é a lista que um verificador consulta antes de dizer "não confere".
+# Documento com versão fora daqui não é documento adulterado — é documento que
+# ESTE código não sabe verificar, e a diferença importa.
+VERSOES_DOC_ENCAMINHAMENTO: tuple[str, ...] = ("1", "2")
+
+
+def _documento_canonico_encaminhamento(
+    versao: str,
+    *,
+    protocolo: str,
+    cns_origem: str,
+    cns_destino: str,
+    cpf_paciente: str,
+    especialidade_destino: str,
+    cid: Optional[str],
+    justificativa_clinica: str,
+    itens: list[ItemEncaminhamentoIn],
+    finalidade: Optional[str] = None,
+    finalidade_texto: Optional[str] = None,
+) -> dict:
+    """O documento, montado sob a regra da VERSÃO pedida.
+
+    ⚠️ ENG-016 §5 — a v2 acrescenta a FINALIDADE. Não é capricho de
+    versionamento: o §5 manda a confirmação mostrar o documento montado e o hash
+    congelar o que se vê. Finalidade visível no cabeçalho que o médico confirma
+    e ausente do hash faria o hash deixar de congelar o que foi visto — que é a
+    única coisa que ele faz. Hash que não congela o que foi visto é hash que
+    mente.
+
+    A REGRA v1 CONTINUA AQUI, INTACTA, e é isso que torna a compatibilidade
+    versionada uma afirmação verificável em vez de uma promessa. Documento
+    emitido antes é v1 e verifica sob a v1: objeto sanitário emitido é imutável
+    (§1), e recalcular o passado com a regra de hoje é o R1 invertido.
+
+    Quem um dia escrever o verificador chama esta função com a versão GRAVADA no
+    documento — nunca com a versão atual. Ler a versão do código em vez do
+    documento é o defeito que este desenho existe para impedir.
+    """
+    if versao not in VERSOES_DOC_ENCAMINHAMENTO:
+        raise ValueError(
+            f"versão de documento desconhecida: '{versao}'. "
+            f"Conhecidas: {list(VERSOES_DOC_ENCAMINHAMENTO)}"
+        )
+
+    doc = {
+        "protocolo": protocolo,
+        "cns_origem": cns_origem,
+        "cns_destino": cns_destino,
+        "paciente_cpf": cpf_paciente,
+        "especialidade_destino": especialidade_destino,
+        "cid": cid,
+        "justificativa_clinica": justificativa_clinica,
+        "itens": [
+            {
+                "especialidade": item.especialidade,
+                "procedimento": item.procedimento,
+                "motivo": item.motivo,
+            }
+            for item in itens
+        ],
+        "versao_esquema": versao,
+    }
+    if versao == "2":
+        doc["finalidade"] = finalidade
+        doc["finalidade_texto"] = finalidade_texto
+    return doc
+
+
 def _calcular_hash(
     *,
     protocolo: str,
@@ -193,41 +268,28 @@ def _calcular_hash(
     itens: list[ItemEncaminhamentoIn],
     finalidade: Optional[str] = None,
     finalidade_texto: Optional[str] = None,
+    versao: str = VERSAO_DOC_ENCAMINHAMENTO,
 ) -> str:
-    """Hash do documento — o que o prescritor confirma é o que viaja.
+    """SHA-256 do documento canônico, sob a regra da versão pedida.
 
-    ⚠️ ENG-016 §5 — `versao_esquema` SOBE PARA "2" porque a finalidade passa a
-    fazer parte do documento. Não é capricho de versionamento: o §5 manda a
-    confirmação mostrar o DOCUMENTO MONTADO e o hash congelar o que se vê. Se a
-    finalidade aparece no cabeçalho que o médico confirma e fica FORA do hash, o
-    hash deixa de congelar o que foi visto — que é a única coisa que ele faz.
-
-    Documentos emitidos antes seguem sendo v1 e mantêm o hash que têm: objeto
-    sanitário emitido é imutável (§1), e recalcular o passado com a regra de
-    hoje é o R1 invertido. Um verificador futuro precisa escolher a regra PELA
-    VERSÃO gravada — hoje não existe caminho que recalcule, e é por isso que
-    esta mudança não quebra nada; quando existir, é a versão que decide.
+    O default é a versão ATUAL porque quem chama daqui é a EMISSÃO. Verificação
+    passa a versão explicitamente — e não existe hoje nenhum caminho de
+    verificação (há guarda estática afirmando isso em
+    `tests/unit/test_documento_canonico_encaminhamento.py`).
     """
-    doc = {
-        "protocolo": protocolo,
-        "cns_origem": cns_origem,
-        "cns_destino": cns_destino,
-        "paciente_cpf": cpf_paciente,
-        "especialidade_destino": especialidade_destino,
-        "finalidade": finalidade,
-        "finalidade_texto": finalidade_texto,
-        "cid": cid,
-        "justificativa_clinica": justificativa_clinica,
-        "itens": [
-            {
-                "especialidade": item.especialidade,
-                "procedimento": item.procedimento,
-                "motivo": item.motivo,
-            }
-            for item in itens
-        ],
-        "versao_esquema": "2",
-    }
+    doc = _documento_canonico_encaminhamento(
+        versao,
+        protocolo=protocolo,
+        cns_origem=cns_origem,
+        cns_destino=cns_destino,
+        cpf_paciente=cpf_paciente,
+        especialidade_destino=especialidade_destino,
+        cid=cid,
+        justificativa_clinica=justificativa_clinica,
+        itens=itens,
+        finalidade=finalidade,
+        finalidade_texto=finalidade_texto,
+    )
     payload = json.dumps(doc, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
 
