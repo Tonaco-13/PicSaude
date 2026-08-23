@@ -5,7 +5,7 @@ AS REGRAS QUE ESTE ARQUIVO TRAVA
 --------------------------------
 1. **A tela do laboratório tem as 4 abas do percurso** (Recepção · Agendamento ·
    Realização · Bancada) e a carteira do cidadão tem as 3 dela (Receita · Exames
-   · Atestado) — botão, painel e ligação ARIA para cada uma.
+   · Agendamentos · Atestado) — botão, painel e ligação ARIA para cada uma.
 
 2. **Nenhuma aba lê `agendado` como "está com o laboratório".** É a instrução
    explícita do §6: o J.7 pode retirar a transição para `agendado` do ato de
@@ -46,7 +46,10 @@ def _fonte(p: Path) -> str:
 # ---------------------------------------------------------------------------
 
 _ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada"]
-_ABAS_CARTEIRA = ["receita", "exames", "atestado"]
+# ENG-015 §4 acrescentou "agendamentos": a carteira passou a ter QUATRO abas.
+# A lista cresce por decisão registrada — nunca porque alguém achou a guarda
+# chata; tirar uma daqui é tirar a aba da tela sem ninguém notar.
+_ABAS_CARTEIRA = ["receita", "exames", "agendamentos", "atestado"]
 
 
 @pytest.mark.parametrize("aba", _ABAS_LAB)
@@ -73,6 +76,60 @@ def test_uma_aba_comeca_ativa_em_cada_tela():
         assert _fonte(tela).count(f'class="{classe}"') == 1, (
             f"{tela.name}: deve haver exatamente UMA aba ativa na marcação inicial"
         )
+
+
+# ---------------------------------------------------------------------------
+# 1b — as duas decisões registradas da aba Agendamentos (ENG-015 §4)
+# ---------------------------------------------------------------------------
+# Não são detalhes de implementação: são DIVERGÊNCIAS fundamentadas que o
+# arquiteto registrou contra a consulta externa. Divergência que só existe no
+# documento volta na próxima refatoração; travada aqui, volta com o gate
+# vermelho e a conversa acontece.
+
+
+def _corpo_da_funcao(html: str, nome: str) -> str:
+    """Corpo de uma função de topo da tela (indentação de 8 espaços)."""
+    m = re.search(rf"function {nome}\((.*?)\)\s*\{{(.*?)\n        \}}", html, re.S)
+    assert m, f"{nome} sumiu de cidadao.html"
+    return m.group(2)
+
+
+def _rotas_de_agendamento_buscadas(html: str) -> list[str]:
+    """Rotas passadas a `apiFetch` cujo caminho fala de agendamento."""
+    chamadas = re.findall(r"""apiFetch\(\s*[`'"]([^`'"]+)""", html)
+    return [c for c in chamadas if "agendamento" in c]
+
+
+def test_o_selo_do_cartao_mantem_data_e_hora():
+    """§4, decisão do arquiteto contra a consulta externa: o selo NÃO vira um
+    "ver compromisso" mudo.
+
+    A data no cartão é informação de primeira necessidade — reduzir o selo a um
+    link cobraria um clique por ela. E não há risco de divergir do que a aba
+    mostra: as duas superfícies leem o MESMO `pedido.agendamento`, resolvido no
+    backend por `agendamento_atual_do_pedido`.
+    """
+    corpo = _corpo_da_funcao(_fonte(_CIDADAO), "_seloAgendamento")
+    assert "_dataHoraAgendamento(ag.data_hora)" in corpo, (
+        "o selo deixou de mostrar data/hora — é a decisão do §4, não um detalhe visual"
+    )
+
+
+def test_a_aba_agendamentos_agrega_no_front_sem_endpoint_novo():
+    """§4: "agregação no front a partir do `agendamento` que os cartões já
+    carregam — sem endpoint novo".
+
+    Um `/paciente/agendamentos` seria uma SEGUNDA fonte para "qual é o
+    compromisso corrente"; uma chamada por cartão a
+    `/pedidos-exame/{p}/agendamentos` seria N+1 e a mesma segunda fonte. Duas
+    fontes divergem em silêncio — é a lição que o J.7 cobrou quando a posse era
+    lida do status.
+    """
+    intrusas = _rotas_de_agendamento_buscadas(_fonte(_CIDADAO))
+    assert not intrusas, (
+        f"a carteira passou a buscar agendamento por rota própria: {intrusas}. "
+        "O §4 manda agregar de `pedido.agendamento`, que já vem em /paciente/pedidos-exame"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +252,43 @@ class TestAsGuardasMordem:
     def test_403_colapsado_seria_acusado(self):
         falso = "        if (resp.status === 401 || resp.status === 403) { handleUnauthorized(); return; }"
         assert _sitios_que_colapsam_403(falso), "o scanner deixou passar um 403 colapsado"
+
+    def test_selo_mudo_seria_acusado(self):
+        """O selo reduzido a um link — a proposta que o §4 recusou."""
+        falso = (
+            "        function _seloAgendamento(ag, proto) {\n"
+            "            return `<button onclick=\"verCompromisso('${proto}')\">ver compromisso</button>`;\n"
+            "        }"
+        )
+        assert "_dataHoraAgendamento(ag.data_hora)" not in _corpo_da_funcao(falso, "_seloAgendamento"), (
+            "o extrator não enxergaria o selo emudecido"
+        )
+
+    def test_selo_com_data_nao_e_acusado(self):
+        ok = (
+            "        function _seloAgendamento(ag, proto) {\n"
+            "            return `<strong>Agendado: ${_dataHoraAgendamento(ag.data_hora)}</strong>`;\n"
+            "        }"
+        )
+        assert "_dataHoraAgendamento(ag.data_hora)" in _corpo_da_funcao(ok, "_seloAgendamento"), (
+            "falso negativo: o selo mostra a data e a guarda não viu"
+        )
+
+    @pytest.mark.parametrize("rota", [
+        "'/paciente/agendamentos'",
+        "`/pedidos-exame/${proto}/agendamentos`",
+    ])
+    def test_rota_propria_de_agendamento_seria_acusada(self, rota):
+        """Os dois modos de criar a segunda fonte: endpoint novo e N+1."""
+        assert _rotas_de_agendamento_buscadas(f"const r = await apiFetch({rota});"), (
+            "o scanner deixou passar uma busca de agendamento por rota própria"
+        )
+
+    def test_as_rotas_legitimas_da_carteira_nao_sao_acusadas(self):
+        ok = "await apiFetch('/paciente/pedidos-exame'); await apiFetch('/paciente/laudos');"
+        assert not _rotas_de_agendamento_buscadas(ok), (
+            "falso positivo: a carteira busca pedidos, e o agendamento vem de carona"
+        )
 
     def test_403_tratado_a_parte_nao_e_acusado(self):
         ok = (

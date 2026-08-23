@@ -220,6 +220,35 @@
         .exame-selo-agendamento strong { display:block; font-size:14px; color:#14532d; }
         .exame-selo-onde { color:#15803d; }
         .exame-selo-remarcado { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; background:#fef9c3; color:#854d0e; padding:2px 7px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+        /* O selo VIRA BOTÃO (ENG-015 §4): mesma aparência, agora leva à aba
+           Agendamentos. `font:inherit` e `text-align:left` desfazem o que o
+           user-agent impõe a <button> — o cidadão não deve notar a troca de
+           elemento, só que agora dá para clicar. */
+        button.exame-selo-agendamento { width:100%; text-align:left; font:inherit; cursor:pointer; }
+        button.exame-selo-agendamento:hover { background:#dcfce7; border-color:#4ade80; }
+        button.exame-selo-agendamento:focus-visible { outline:2px solid #16a34a; outline-offset:2px; }
+        /* <button> só aceita conteúdo de FRASE — o <div> que embrulhava as
+           linhas do selo virou <span> em bloco. Marcação válida, layout igual. */
+        .exame-selo-corpo { display:block; }
+        .exame-selo-ir { display:block; font-size:11px; color:#15803d; margin-top:4px; text-decoration:underline; }
+        /* ── Aba Agendamentos (ENG-015 §4) ──────────────────────────────────
+           Um compromisso por cartão, ordenados pelo mais próximo. O verde é o
+           MESMO do selo (.exame-selo-agendamento) de propósito: é o mesmo fato
+           visto de dois lugares — o cartão do pedido responde "e o meu exame?",
+           a aba responde "o que eu tenho marcado?". */
+        .compromisso-card { background:#f0fdf4; border:1px solid #86efac; border-left:4px solid #16a34a; border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+        .compromisso-quando { font-size:16px; font-weight:700; color:#14532d; }
+        .compromisso-onde { font-size:13px; color:#15803d; margin-top:2px; }
+        .compromisso-exames { font-size:13px; color:#166534; margin-top:8px; line-height:1.6; }
+        .compromisso-rodape { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-top:10px; border-top:1px dashed #bbf7d0; padding-top:8px; }
+        .compromisso-proto { font-family:monospace; font-size:11px; color:#3f6212; }
+        .compromisso-badge { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:999px; }
+        .btn-ver-pedido { background:none; border:1px solid #86efac; border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600; color:#166534; cursor:pointer; }
+        .btn-ver-pedido:hover { background:#dcfce7; }
+        /* Realce ao chegar pelo link (selo → aba, aba → cartão): o cidadão
+           clicou em UM compromisso e precisa achá-lo na lista de destino. */
+        .cartao-realcado { animation: realce-carteira 2.4s ease-out 1; }
+        @keyframes realce-carteira { 0%,55% { box-shadow:0 0 0 3px #16a34a; } 100% { box-shadow:0 0 0 0 rgba(22,163,74,0); } }
         /* ── "Ver rastreabilidade" (TICKET-J.11 · Adendo §11b) ──────────────
            A MESMA lente do portal, aberta por cartão. Nada de login extra:
            os /public/* são neutros e anônimos por construção. */
@@ -356,10 +385,11 @@
             <div id="alertas-renovacao"></div>
 
             <!-- ── TICKET-J.9 — abas da carteira ─────────────────────────
-                 Um tipo de objeto por aba: Receita · Exames · Atestado. UI only —
+                 Um tipo de objeto por aba: Receita · Exames · Agendamentos ·
+                 Atestado (a 4ª entrou pelo ENG-015 §4). UI only —
                  nenhuma rota, estado ou custódia muda. O botão Atualizar fica
                  aqui, junto das abas, porque `carregarCarteira()` recarrega as
-                 TRÊS de uma vez; pendurá-lo dentro de uma aba faria parecer que
+                 QUATRO de uma vez; pendurá-lo dentro de uma aba faria parecer que
                  só aquela é atualizada. -->
             <div class="abas-carteira-barra">
                 <nav class="abas-carteira" role="tablist" aria-label="Tipos de documento">
@@ -372,6 +402,11 @@
                             id="aba-btn-exames" aria-controls="aba-exames" aria-selected="false"
                             onclick="abrirAbaCarteira('exames')">
                         🧪 Exames <span class="aba-cart-count" id="aba-count-exames">0</span>
+                    </button>
+                    <button type="button" role="tab" class="aba-cart"
+                            id="aba-btn-agendamentos" aria-controls="aba-agendamentos" aria-selected="false"
+                            onclick="abrirAbaCarteira('agendamentos')">
+                        📅 Agendamentos <span class="aba-cart-count" id="aba-count-agendamentos">0</span>
                     </button>
                     <button type="button" role="tab" class="aba-cart"
                             id="aba-btn-atestado" aria-controls="aba-atestado" aria-selected="false"
@@ -407,7 +442,21 @@
                 <div id="lista-laudos"></div>
             </section>
 
-            <!-- ══════════ ABA 3 — ATESTADO ══════════ -->
+            <!-- ══════════ ABA 3 — AGENDAMENTOS ══════════ -->
+            <!-- ENG-015 §4. A pergunta desta aba é "o que eu tenho marcado?" —
+                 e ela não tinha onde ser respondida: o compromisso só existia
+                 como selo dentro do cartão do pedido, então descobrir a próxima
+                 coleta era abrir os pedidos um a um. Agregação NO FRONT a partir
+                 do campo `agendamento` que os cartões já carregam (J.11): sem
+                 endpoint novo, sem segunda fonte para "qual é o corrente" —
+                 quem responde isso segue sendo `agendamento_atual_do_pedido`,
+                 no backend. -->
+            <section class="aba-cart-painel hidden" id="aba-agendamentos" role="tabpanel" aria-labelledby="aba-btn-agendamentos">
+                <h3 class="section-title">Compromissos marcados</h3>
+                <div id="lista-agendamentos"></div>
+            </section>
+
+            <!-- ══════════ ABA 4 — ATESTADO ══════════ -->
             <!-- Atestado é documento FINAL (assina, entrega ao empregador); exame é
                  INTERMEDIÁRIO. Aba própria justamente porque não pertence a nenhum
                  dos dois percursos (TICKET-ATESTADO-CARTEIRA-CIDADAO). -->
@@ -636,12 +685,13 @@
         }
 
         // ==========================================
-        // TICKET-J.9 — abas da carteira (Receita · Exames · Atestado)
+        // TICKET-J.9 — abas da carteira (Receita · Exames · Agendamentos ·
+        // Atestado; a 4ª entrou pelo ENG-015 §4)
         // ==========================================
         // UI only: nenhuma rota, estado ou custódia muda. O poll da carteira
         // (`_pollCarteira`) e o re-login transparente do J.3 seguem intactos —
-        // ambos operam abaixo desta camada, recarregando as três abas de uma vez.
-        const _ABAS_CARTEIRA = ['receita', 'exames', 'atestado'];
+        // ambos operam abaixo desta camada, recarregando todas as abas de uma vez.
+        const _ABAS_CARTEIRA = ['receita', 'exames', 'agendamentos', 'atestado'];
 
         function abrirAbaCarteira(nome) {
             if (!_ABAS_CARTEIRA.includes(nome)) return;
@@ -659,12 +709,16 @@
         // O contador mostra o que está VIVO, não o histórico: é o que diz ao
         // cidadão se há algo a fazer sem precisar abrir a aba. Histórico e
         // laudos já com ciência continuam listados dentro da aba.
-        const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0 };
+        const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0, agendamentos: 0 };
 
         function _sincronizarContadoresCarteira() {
             const pares = [
                 ['aba-count-receita',  _contagemCarteira.receitas],
                 ['aba-count-exames',   _contagemCarteira.pedidos + _contagemCarteira.laudos],
+                // O compromisso é contado NA ABA DELE e não soma em Exames: o
+                // mesmo fato contado duas vezes faria a carteira parecer ter
+                // mais coisa pendente do que tem.
+                ['aba-count-agendamentos', _contagemCarteira.agendamentos],
                 ['aba-count-atestado', _contagemCarteira.atestados],
             ];
             for (const [id, valor] of pares) {
@@ -982,10 +1036,18 @@
         // Reimplementar a escolha na tela é como reimplementar posse a partir
         // do status — a lição que o J.7 cobrou.
 
-        function _dataHoraAgendamento(iso) {
-            if (!iso) return '—';
+        // Uma data, dois formatos, UM parser. O curto vai no selo (o cartão já
+        // está cheio); o longo vai na aba, onde a pergunta é "quando?" e o ano
+        // e o dia da semana são parte da resposta.
+        function _dataAgendamento(iso) {
+            if (!iso) return null;
             const d = new Date(String(iso).length <= 10 ? iso + 'T12:00:00' : iso);
-            if (isNaN(d.getTime())) return String(iso);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function _dataHoraAgendamento(iso) {
+            const d = _dataAgendamento(iso);
+            if (!d) return iso ? String(iso) : '—';
             const dia = String(d.getDate()).padStart(2, '0');
             const mes = String(d.getMonth() + 1).padStart(2, '0');
             const hh  = String(d.getHours()).padStart(2, '0');
@@ -993,19 +1055,141 @@
             return `${dia}/${mes} ${hh}:${mm}`;
         }
 
-        function _seloAgendamento(ag) {
+        function _dataHoraLongaAgendamento(iso) {
+            const d = _dataAgendamento(iso);
+            if (!d) return iso ? String(iso) : '—';
+            const semana = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][d.getDay()];
+            const data = d.toLocaleDateString('pt-BR');
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${semana}, ${data} às ${hh}:${mm}`;
+        }
+
+        // ENG-015 §4 — o selo VIRA BOTÃO e leva à aba Agendamentos.
+        //
+        // O que ele mostra não mudou: **a data/hora fica no cartão**. Reduzi-lo
+        // a "ver compromisso" pouparia pixels e cobraria um clique pela
+        // informação de primeira necessidade — e não há risco de divergir, já
+        // que selo e aba leem o MESMO campo (`pedido.agendamento`), resolvido
+        // no backend.
+        function _seloAgendamento(ag, protocoloPedido) {
             if (!ag) return '';
             const esc  = (s) => LenteAuditoria.esc(s);
             const onde = ag.local_texto || ag.unidade_id || '';
             return `
-                        <div class="exame-selo-agendamento">
+                        <button type="button" class="exame-selo-agendamento"
+                                onclick="verCompromisso('${protocoloPedido}')">
                             <span aria-hidden="true">📅</span>
-                            <div>
+                            <span class="exame-selo-corpo">
                                 <strong>Agendado: ${esc(_dataHoraAgendamento(ag.data_hora))}</strong>
                                 ${onde ? `<span class="exame-selo-onde">${esc(onde)}</span>` : ''}
                                 ${ag.remarcado ? '<span class="exame-selo-remarcado">remarcado</span>' : ''}
-                            </div>
-                        </div>`;
+                                <span class="exame-selo-ir">ver em Agendamentos</span>
+                            </span>
+                        </button>`;
+        }
+
+        // ── ENG-015 §4 — aba Agendamentos ─────────────────────────────────
+        //
+        // AGREGAÇÃO NO FRONT, e de propósito (§4 do desenho): o compromisso
+        // vigente de cada pedido já vem em `pedido.agendamento` desde o J.11.
+        // Um endpoint novo `/paciente/agendamentos` seria uma SEGUNDA fonte
+        // para "qual é o corrente" — e duas fontes divergem em silêncio, que é
+        // exatamente a lição que o J.7 cobrou com a posse lida do status.
+        //
+        // De onde vem a lista: dos pedidos ATIVOS (posse + em_andamento), não
+        // do histórico. `agendamento_atual_do_pedido` filtra os terminais DO
+        // AGENDAMENTO, não os do pedido — um pedido cancelado pode carregar um
+        // agendamento ainda `criado`, e anunciar esse compromisso ao cidadão
+        // seria marcá-lo para uma coleta que não vai acontecer.
+
+        const STATUS_AGENDAMENTO_LABEL = { criado: 'Marcado', confirmado: 'Confirmado' };
+
+        function _compromissosDaCarteira(pedidos) {
+            return (pedidos || [])
+                .filter(p => p.agendamento)
+                .map(p => ({ pedido: p, ag: p.agendamento }))
+                // Mais próximo primeiro — a pergunta é "qual é o meu próximo?".
+                // Data ilegível vai para o fim em vez de embaralhar a ordem.
+                .sort((a, b) => {
+                    const da = _dataAgendamento(a.ag.data_hora);
+                    const db = _dataAgendamento(b.ag.data_hora);
+                    return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
+                });
+        }
+
+        /** Renderiza a aba. `pedidos === null` = a carga FALHOU.
+         *
+         * A distinção não é preciosismo: um vazio que responde "nenhum
+         * compromisso" quando na verdade a lista não carregou é a tela mentindo
+         * — o mesmo defeito que o #181 corrigiu do outro lado do balcão, onde
+         * "nenhum agendamento" escondia um 403 de posse. Vazio responde à
+         * pergunta; erro responde por que não há resposta.
+         */
+        function renderizarAgendamentos(pedidos) {
+            const container = document.getElementById('lista-agendamentos');
+            if (!container) return;
+
+            if (pedidos === null) {
+                _contagemCarteira.agendamentos = 0;
+                container.innerHTML = `<p style="color:#dc2626; font-size:13px;">
+                    Não foi possível carregar seus compromissos agora. Use <strong>Atualizar</strong> para tentar de novo.</p>`;
+                return;
+            }
+
+            const lista = _compromissosDaCarteira(pedidos);
+            _contagemCarteira.agendamentos = lista.length;
+
+            if (lista.length === 0) {
+                container.innerHTML = `<p style="color:#64748b; font-size:13px; line-height:1.6;">
+                    Nenhum compromisso marcado.<br>
+                    Quem marca a data da coleta é o laboratório, depois que você transfere a custódia
+                    do pedido em <strong>Exames</strong>.</p>`;
+                return;
+            }
+
+            const esc = (s) => LenteAuditoria.esc(s);
+            container.innerHTML = lista.map(({ pedido, ag }) => {
+                const onde   = ag.local_texto || ag.unidade_id || '';
+                const exames = (pedido.itens || []).map(i => i.nome_exame).filter(Boolean);
+                const status = STATUS_AGENDAMENTO_LABEL[ag.status] || ag.status;
+                return `
+                    <div class="compromisso-card" id="compromisso-${pedido.protocolo}">
+                        <p class="compromisso-quando">📅 ${esc(_dataHoraLongaAgendamento(ag.data_hora))}</p>
+                        ${onde ? `<p class="compromisso-onde">${esc(onde)}</p>` : ''}
+                        <p class="compromisso-exames">🔬 ${exames.length ? esc(exames.join(' · ')) : 'exame'}</p>
+                        <div class="compromisso-rodape">
+                            <span class="compromisso-proto">${esc(pedido.protocolo)}</span>
+                            <span>
+                                <span class="compromisso-badge">${esc(status)}</span>
+                                ${ag.remarcado ? '<span class="exame-selo-remarcado">remarcado</span>' : ''}
+                                <button type="button" class="btn-ver-pedido"
+                                        onclick="verPedidoDoCompromisso('${pedido.protocolo}')">Ver pedido</button>
+                            </span>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        // As duas pontas do mesmo link. O cidadão clicou em UM compromisso —
+        // abrir a aba de destino e deixá-lo procurar na lista seria devolver
+        // menos do que ele pediu; por isso o destino é realçado.
+        function _abrirERealcar(aba, elementoId) {
+            abrirAbaCarteira(aba);
+            const el = document.getElementById(elementoId);
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.remove('cartao-realcado');
+            void el.offsetWidth;                    // reinicia a animação em cliques seguidos
+            el.classList.add('cartao-realcado');
+        }
+
+        function verCompromisso(protocoloPedido) {
+            _abrirERealcar('agendamentos', `compromisso-${protocoloPedido}`);
+        }
+
+        function verPedidoDoCompromisso(protocoloPedido) {
+            _abrirERealcar('exames', `exame-card-${protocoloPedido}`);
         }
 
         // ── TICKET-J.11 (Adendo §11b) — "ver rastreabilidade" por cartão ───
@@ -1048,6 +1232,10 @@
                 const dados = await apiFetch('/paciente/pedidos-exame');
                 const ativos = [...(dados.posse || []), ...(dados.em_andamento || [])];
                 _contagemCarteira.pedidos = ativos.length;   // TICKET-J.9
+                // ENG-015 §4 — a aba Agendamentos come da MESMA carga. Antes do
+                // `return` do vazio: "nenhum pedido" e "nenhum compromisso" são
+                // respostas diferentes, e a segunda também precisa ser dita.
+                renderizarAgendamentos(ativos);
                 _sincronizarContadoresCarteira();
                 if (ativos.length === 0) {
                     container.innerHTML = '<p style="color:#64748b; font-size:13px;">Nenhum pedido de exame ativo.</p>';
@@ -1056,6 +1244,8 @@
                 renderizarPedidosExame(ativos);
             } catch (err) {
                 container.innerHTML = `<p style="color:#dc2626; font-size:13px;">Erro ao carregar pedidos: ${err.message}</p>`;
+                renderizarAgendamentos(null);   // falhou: a aba diz isso, não "nenhum"
+                _sincronizarContadoresCarteira();
             }
         }
 
@@ -1125,7 +1315,7 @@
                         </div>`;
 
                 return `
-                    <div class="exame-card">
+                    <div class="exame-card" id="exame-card-${pedido.protocolo}">
                         <div class="exame-card-header">
                             <div>
                                 <p style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:4px;">${pedido.protocolo}</p>
@@ -1138,7 +1328,7 @@
                             </div>
                         </div>
                         <ul class="exame-lista">${itensHtml}</ul>
-                        ${_seloAgendamento(pedido.agendamento)}
+                        ${_seloAgendamento(pedido.agendamento, pedido.protocolo)}
                         ${acaoHtml}
                         ${_botaoRastreabilidade(pedido.protocolo)}
                     </div>`;
