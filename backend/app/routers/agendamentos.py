@@ -91,6 +91,34 @@ class AgendarIn(BaseModel):
         return v
 
 
+class CancelarAgendamentoIn(BaseModel):
+    """Por que este compromisso caiu.
+
+    ENG-015 §2 — "`motivo` explícito sempre (capacidade ≠ desistência ≠ erro
+    clínico)". Cancelar sem dizer por quê deixa no ledger um fato mudo: quem
+    audita vê o compromisso morrer e não sabe se faltou reagente, se o cidadão
+    desistiu ou se o pedido estava errado.
+
+    OPCIONAL, e de propósito: o corpo inteiro pode ser omitido. O `/cancelar`
+    já existia sem corpo e é chamado também pelo paciente e pelo prescritor —
+    tornar o motivo obrigatório quebraria clientes que não pediram esta
+    mudança. A tela do laboratório passa a mandar sempre.
+
+    Texto livre, sem enum: o vocabulário de motivos de agenda ainda não está
+    fechado, e inventar um enum agora congelaria um vocabulário por adivinhação
+    (a disciplina do R4 — congela-se o que já se sabe, não o que se supõe).
+    """
+    motivo: Optional[str] = None
+
+    @field_validator("motivo")
+    @classmethod
+    def limpar(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+
 class RemarcarIn(BaseModel):
     data_hora:         str
     org_id:            Optional[str] = None      # se None, mantém o original
@@ -449,20 +477,51 @@ def criar_agendamento(
         if papel != "admin":
             _assert_pedido_owner_criar(conn, pedido, papel, ident, payload.org_id)
 
-        # Verificar se há agendamento ativo para este pedido
+        # UM AGENDAMENTO ATIVO POR PEDIDO — a limitação conhecida do §6.
+        #
+        # A regra é do MVP e permanece: o agendamento é do PEDIDO, sem elo com
+        # os itens, então dois compromissos ativos no mesmo pedido não teriam
+        # como dizer quem cobre o quê. O elo agendamento↔itens é o caminho para
+        # levantá-la — e só quando um caso real pedir, a mesma disciplina do
+        # elo do laudo (chave quando a ambiguidade bater na porta).
+        #
+        # O que muda aqui é a MENSAGEM. Com a custódia parcial (#170) um pedido
+        # se divide entre duas unidades, e a segunda esbarra nesta guarda ao
+        # tentar marcar os itens que ela detém. O texto antigo — "cancele o
+        # atual ou use /remarcar" — dava a ela o conselho ERRADO: o compromisso
+        # ativo é da OUTRA unidade, e cancelar agenda alheia é pior do que não
+        # agendar. Cada caso ganha o seu:
+        #
+        #   · mesma org  → é o seu compromisso: remarque ou cancele;
+        #   · outra org  → a VÁLVULA NATIVA: execute direto (aresta
+        #     `pendente → coletado` do J.7). Coletar sem agendar é ato legítimo
+        #     e completo, não contorno — quem chega e é atendido na hora não
+        #     teve compromisso nenhum.
         ativo = conn.execute(
             """
-            SELECT id FROM agendamentos
+            SELECT id, protocolo, org_id, unidade_id, data_hora FROM agendamentos
              WHERE pedido_id = ? AND status NOT IN ('cancelado', 'nao_compareceu', 'realizado')
             """,
             (pedido["id"],),
         ).fetchone()
         if ativo:
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe um agendamento ativo para este pedido. "
-                       "Cancele o atual antes de criar outro ou use /remarcar.",
-            )
+            mesma_org = bool(ativo["org_id"]) and ativo["org_id"] == payload.org_id
+            if mesma_org:
+                detalhe = (
+                    "Já existe um agendamento ativo para este pedido "
+                    f"({ativo['protocolo']}). Remarque o compromisso existente "
+                    "ou cancele-o antes de criar outro."
+                )
+            else:
+                detalhe = (
+                    "Este pedido já tem um agendamento ativo em OUTRA unidade "
+                    f"({ativo['unidade_id'] or ativo['org_id']}) — o MVP admite "
+                    "um compromisso ativo por pedido. Para os exames que estão "
+                    "sob a sua custódia, execute direto: registre a coleta sem "
+                    "agendar. Se o compromisso precisa mudar de data, a "
+                    "remarcação é da unidade que o marcou."
+                )
+            raise HTTPException(status_code=409, detail=detalhe)
 
         # Verificar pedido em estado agendável
         _ESTADOS_AGENDAVEIS = {"emitido", "agendado"}
@@ -743,8 +802,27 @@ def realizar_agendamento(
 @router.post("/agendamentos/{protocolo}/cancelar", status_code=200)
 def cancelar_agendamento(
     protocolo: str,
+    payload: Optional[CancelarAgendamentoIn] = None,
     usuario=Depends(require_role("prescritor", "paciente", "admin", "dispensador")),
 ):
+    """Cancela o compromisso; os itens `agendado` voltam a `pendente`.
+
+    ENG-015 §2 — o corpo OPCIONAL `{"motivo": "..."}` entra no payload do
+    `agendamento_cancelado`. É a primeira metade do ATO COMPOSTO "Não
+    realizamos" sobre item já agendado: cancelar aqui e devolver a custódia em
+    `POST /pedidos-exame/{p}/itens/{id}/devolver` — **dois fatos, dois
+    eventos**. Nunca um UPDATE que funda os dois: o compromisso que caiu e a
+    posse que mudou de mãos são coisas diferentes, e o ledger tem de poder
+    contá-las separadas.
+
+    A ordem importa e é esta: cancelar PRIMEIRO. `devolver` exige item
+    `pendente` (a máquina não tem aresta `agendado → devolvido`, e criá-la
+    seria `core`), e é o cancelamento que devolve o item a `pendente`.
+
+    Cancelar NÃO devolve posse — quem devolve é o `devolver`. Um cancelamento
+    sozinho deixa o item livre no papel e preso na prática, com a custódia
+    ainda nesta unidade.
+    """
     agora = datetime.utcnow().isoformat()
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
@@ -765,13 +843,18 @@ def cancelar_agendamento(
         novo_status_pedido = _recalcular_status_pedido(conn, ag["pedido_id"], agora)
 
         instance_id = get_instance_id_conn(conn)
+        payload_ev = _montar_payload_evento(ag)
+        motivo = payload.motivo if payload else None
+        if motivo:
+            payload_ev["motivo_declarado"] = motivo
         _gravar_evento_agendamento(conn, ag["id"], "agendamento_cancelado",
-                                   _montar_payload_evento(ag), agora,
+                                   payload_ev, agora,
                                    instance_id=instance_id, ag_context=ag)
         return {
             "protocolo":      protocolo,
             "status":         "cancelado",
             "status_pedido":  novo_status_pedido,
+            "motivo":         motivo,
         }
 
 
