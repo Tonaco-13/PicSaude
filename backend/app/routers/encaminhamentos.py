@@ -24,6 +24,7 @@ from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.pdf_encaminhamento import gerar_pdf_encaminhamento
 from app.domain.states_encaminhamento import (
+    eh_terminal_encaminhamento,
     eh_terminal_item_encaminhamento,
     transicao_valida_encaminhamento,
 )
@@ -277,6 +278,24 @@ def _fechar_custodia_ativa(conn, encaminhamento_id: int, agora: str) -> None:
         """,
         (agora, encaminhamento_id),
     )
+
+
+def _custodia_ativa(conn, encaminhamento_id: int) -> Optional[dict]:
+    """A posse ATUAL — `None` quando não há (ex.: emissão física).
+
+    Fonte única de "onde está o encaminhamento": `encerrada_em IS NULL`, nunca
+    "a última linha" e nunca o status (§1a). O índice único do #185 garante que
+    esta consulta devolve no máximo uma.
+    """
+    row = conn.execute(
+        """
+        SELECT * FROM encaminhamento_custodia
+         WHERE encaminhamento_id = ? AND item_id IS NULL AND encerrada_em IS NULL
+         ORDER BY id DESC LIMIT 1
+        """,
+        (encaminhamento_id,),
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def _abrir_custodia(conn, encaminhamento_id: int, detentor_tipo: str,
@@ -580,21 +599,103 @@ def agendar_encaminhamento(
             "WHERE encaminhamento_id = ? AND status_item = 'pendente'",
             (enc["id"],),
         )
-        _fechar_custodia_ativa(conn, enc["id"], agora)
-        _abrir_custodia(conn, enc["id"], "prescritor", enc["cns_destino"], "agendamento_destino", agora)
-
+        # ENG-016 §1a — AGENDAR NÃO ESCREVE CUSTÓDIA.
+        #
+        # Marcar hora é compromisso; entregar o documento é posse. Antes, este
+        # gesto movia a posse ao destino de carona com a marcação — o padrão
+        # pré-J.7, e pelo mesmo motivo: era o único gesto disponível, então
+        # carregava dois fatos. Quem move a posse agora é o CIDADÃO, em
+        # `POST /encaminhamentos/{p}/entregar` (espelho do transferir-farmácia
+        # e do transferir-laboratório).
+        #
+        # Consequência que é o ponto, não efeito colateral: um encaminhamento
+        # `agendado` pode estar com o cidadão (marcou e ainda não foi) ou com o
+        # destino (já entregou). Quem responde "onde está" é
+        # `encaminhamento_custodia`, nunca o status — ler posse do status é o
+        # defeito que o martelo do J.7 matou no exame.
         instance_id = get_instance_id_conn(conn)
         _evento(conn, enc["id"], "encaminhamento_agendado", {
             "status_anterior": enc["status"],
             "data_agendamento": payload.data_agendamento,
             "local_texto": payload.local_texto,
         }, papel, ident, instance_id=instance_id)
+        return {"protocolo": protocolo, "status": "agendado"}
+
+
+@router.post("/{protocolo}/entregar", status_code=200)
+def entregar_encaminhamento(
+    protocolo: str,
+    usuario=Depends(require_role("paciente", "admin")),
+):
+    """O CIDADÃO entrega o encaminhamento ao prescritor de destino (ENG-016 §1a).
+
+    Espelho exato do `transferir-farmacia` da receita e do
+    `transferir-laboratorio` do exame: é o cidadão que leva o documento, e é o
+    gesto dele que move a posse. Antes deste endpoint, a posse ia ao destino de
+    carona com o `agendar` DELE — o cidadão não tinha gesto nenhum, e o
+    protagonista do percurso era o único sem ato.
+
+    POSSE MUDA, ESTADO NÃO. O encaminhamento continua `emitido` (ou `agendado`,
+    se já houver hora marcada): entregar não é etapa clínica. UM fato, UM evento
+    (`custodia_transferida`) — nada de mover estado de carona, que é o que o
+    J.7 desfez no exame.
+
+    Não há corpo: o destino já está NOMEADO no documento (`cns_destino`,
+    congelado no hash). Aceitar um destino no payload deixaria o cidadão
+    entregar a quem o documento não endereça.
+
+    Ordem dos guards, anti-leak (#52): 404 do objeto → 403 de dono → 422 de
+    posse/estado. Quem não é o paciente do encaminhamento não distingue, pelo
+    status, um protocolo que existe de um que não existe.
+    """
+    agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
+    with get_tx() as conn:
+        enc = _get_encaminhamento_ou_404(conn, protocolo)          # 404
+        if papel != "admin":
+            _assert_paciente(conn, enc, ident)                      # 403
+
+        if eh_terminal_encaminhamento(enc["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Encaminhamento em estado terminal ({enc['status']}) não circula.",
+            )
+
+        atual = _custodia_ativa(conn, enc["id"])
+        if atual is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Este encaminhamento não tem custódia ativa (emissão física não circula).",
+            )
+        if atual["detentor_tipo"] != "paciente":
+            # Mensagem que ENSINA: dizer só "não é seu" mandaria o cidadão
+            # procurar um erro que não é dele.
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Este encaminhamento já está com o profissional de destino — "
+                    "a entrega já foi feita."
+                ),
+            )
+
+        _fechar_custodia_ativa(conn, enc["id"], agora)
+        _abrir_custodia(conn, enc["id"], "prescritor", enc["cns_destino"],
+                        "apresentacao_cidadao", agora)
+
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, enc["id"], "custodia_transferida", {
             "de": "paciente",
+            "de_id": atual["detentor_id"],
             "para": "prescritor_destino",
             "para_id": enc["cns_destino"],
+            "motivo": "apresentacao_cidadao",
         }, papel, ident, instance_id=instance_id)
-        return {"protocolo": protocolo, "status": "agendado"}
+        return {
+            "protocolo": protocolo,
+            "status": enc["status"],          # inalterado: posse ≠ estado
+            "detentor": "prescritor_destino",
+            "cns_destino": enc["cns_destino"],
+        }
 
 
 @router.post("/{protocolo}/atender", status_code=200)

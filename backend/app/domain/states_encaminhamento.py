@@ -106,6 +106,14 @@ EVENTOS_ENCAMINHAMENTO: frozenset[str] = frozenset({
     "encaminhamento_cancelado",
     "encaminhamento_negado",
     "custodia_transferida",
+    # ENG-016 PR 2 (toque `core`, martelo do Fabiano) — o código EMITE este
+    # evento no ledger do encaminhamento desde o E2 (`contrarreferencias.py`
+    # grava nos DOIS ledgers: no derivado e no pai), e a lista não o declarava.
+    # Achado da comissão do bloco §7; a divergência era da lista, não do código.
+    # `encaminhamento_em_regulacao` segue declarado e NÃO emitido de propósito —
+    # é nome RESERVADO para quando a regulação real chegar, na linhagem de
+    # `nao_realizado` e do `estornado` dormente.
+    "contrarreferencia_registrada",
 })
 
 
