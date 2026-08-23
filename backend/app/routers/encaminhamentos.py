@@ -16,7 +16,7 @@ from typing import List, Optional
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator, model_validator, model_validator
 
 from app.auth.dependencies import require_role
 from app.config import BASE_URL
@@ -45,6 +45,25 @@ _TIPOS_EMISSAO_DIGITAL = {"novo", "correcao"}
 _VALIDADE_PADRAO_DIAS = 90
 
 
+# ENG-016 §5 — FINALIDADE ESTRUTURADA (martelo 2 do Fabiano, 23/08).
+#
+# "Para que estou mandando este paciente" é dado OPERACIONAL: é por ele que a
+# regulação futura filtra fila. Enterrado na prosa da justificativa, vira coisa
+# que só um humano lê.
+#
+# A lista vive AQUI e não como CHECK no banco: o vocabulário ainda vai crescer,
+# e mudar CHECK é migração enquanto mudar esta tupla é uma linha. `outra` é o
+# escape honesto — exige texto, porque "outra" sem dizer qual não informa nada.
+FINALIDADES_ENCAMINHAMENTO: tuple[str, ...] = (
+    "avaliacao",
+    "conduta",
+    "exame_complementar",
+    "segunda_opiniao",
+    "seguimento",
+    "outra",
+)
+
+
 class ItemEncaminhamentoIn(BaseModel):
     especialidade: str
     procedimento: Optional[str] = None
@@ -67,6 +86,24 @@ class EncaminhamentoIn(BaseModel):
     especialidade_destino: str
     cid: Optional[str] = None
     justificativa_clinica: str
+    # Opcional no SCHEMA, sempre enviado pela TELA. Encaminhamento emitido antes
+    # desta coluna não tem finalidade e não pode ganhá-la (§1: objeto emitido é
+    # imutável); `None` significa "emitido antes de a finalidade existir", que é
+    # a verdade — e não um valor plausível inventado por backfill.
+    finalidade: Optional[str] = None
+    finalidade_texto: Optional[str] = None
+    # ENG-016 §5 — AUDITORIA DA SUGESTÃO (martelo 3 do Fabiano, 23/08).
+    #
+    # Os CNS que a tela APRESENTOU como sugestão, na ordem em que apareceram.
+    # Se o sistema influencia a escolha do destino, a influência é auditável —
+    # é a mitigação declarada do efeito primeiro-da-lista e da captura de
+    # demanda. Sem isto, "a rede se conhece" seria uma caixa-preta que ninguém
+    # consegue questionar depois.
+    #
+    # A tela manda o que MOSTROU, não o que o backend calcularia agora: a
+    # ordenação pode mudar entre a consulta e a emissão, e o que importa para a
+    # auditoria é o que esteve diante dos olhos de quem decidiu.
+    sugestoes_apresentadas: Optional[List[str]] = None
     data_validade: Optional[str] = None
     tipo_emissao: str = "novo"
     origem_encaminhamento_id: Optional[int] = None
@@ -80,6 +117,27 @@ class EncaminhamentoIn(BaseModel):
                 f"tipo_emissao inválido: '{v}'. Valores aceitos: {sorted(_TIPOS_EMISSAO_DIGITAL)}"
             )
         return v
+
+    @field_validator("finalidade")
+    @classmethod
+    def finalidade_conhecida(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        if v not in FINALIDADES_ENCAMINHAMENTO:
+            raise ValueError(
+                f"finalidade inválida: '{v}'. Valores aceitos: "
+                f"{sorted(FINALIDADES_ENCAMINHAMENTO)}"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def outra_exige_texto(self):
+        # "outra" sem dizer qual não informa nada — seria o campo estruturado
+        # devolvendo o problema que ele existe para resolver.
+        if self.finalidade == "outra" and not (self.finalidade_texto or "").strip():
+            raise ValueError("finalidade 'outra' exige `finalidade_texto`.")
+        return self
 
     @field_validator("especialidade_destino", "justificativa_clinica")
     @classmethod
@@ -133,13 +191,31 @@ def _calcular_hash(
     cid: Optional[str],
     justificativa_clinica: str,
     itens: list[ItemEncaminhamentoIn],
+    finalidade: Optional[str] = None,
+    finalidade_texto: Optional[str] = None,
 ) -> str:
+    """Hash do documento — o que o prescritor confirma é o que viaja.
+
+    ⚠️ ENG-016 §5 — `versao_esquema` SOBE PARA "2" porque a finalidade passa a
+    fazer parte do documento. Não é capricho de versionamento: o §5 manda a
+    confirmação mostrar o DOCUMENTO MONTADO e o hash congelar o que se vê. Se a
+    finalidade aparece no cabeçalho que o médico confirma e fica FORA do hash, o
+    hash deixa de congelar o que foi visto — que é a única coisa que ele faz.
+
+    Documentos emitidos antes seguem sendo v1 e mantêm o hash que têm: objeto
+    sanitário emitido é imutável (§1), e recalcular o passado com a regra de
+    hoje é o R1 invertido. Um verificador futuro precisa escolher a regra PELA
+    VERSÃO gravada — hoje não existe caminho que recalcule, e é por isso que
+    esta mudança não quebra nada; quando existir, é a versão que decide.
+    """
     doc = {
         "protocolo": protocolo,
         "cns_origem": cns_origem,
         "cns_destino": cns_destino,
         "paciente_cpf": cpf_paciente,
         "especialidade_destino": especialidade_destino,
+        "finalidade": finalidade,
+        "finalidade_texto": finalidade_texto,
         "cid": cid,
         "justificativa_clinica": justificativa_clinica,
         "itens": [
@@ -150,7 +226,7 @@ def _calcular_hash(
             }
             for item in itens
         ],
-        "versao_esquema": "1",
+        "versao_esquema": "2",
     }
     payload = json.dumps(doc, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
@@ -386,14 +462,16 @@ def criar_encaminhamento(
             """
             INSERT INTO encaminhamentos
               (protocolo, prescritor_id, paciente_id, cns_destino,
-               especialidade_destino, cid, justificativa_clinica, status,
+               especialidade_destino, finalidade, finalidade_texto,
+               cid, justificativa_clinica, status,
                tipo_emissao, origem_encaminhamento_id, data_emissao,
                data_validade, criado_em)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'emitido', ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'emitido', ?, ?, ?, ?, ?)
             """,
             (
                 protocolo, prescritor_id, paciente_id, cns_destino,
-                payload.especialidade_destino, payload.cid, payload.justificativa_clinica,
+                payload.especialidade_destino, payload.finalidade, payload.finalidade_texto,
+                payload.cid, payload.justificativa_clinica,
                 payload.tipo_emissao, payload.origem_encaminhamento_id,
                 data_emissao, data_validade, agora,
             ),
@@ -419,6 +497,8 @@ def criar_encaminhamento(
             cid=payload.cid,
             justificativa_clinica=payload.justificativa_clinica,
             itens=payload.itens,
+            finalidade=payload.finalidade,
+            finalidade_texto=payload.finalidade_texto,
         )
         conn.execute("UPDATE encaminhamentos SET assinatura_hash = ? WHERE id = ?", (doc_hash, enc_id))
 
@@ -427,7 +507,16 @@ def criar_encaminhamento(
             "tipo_emissao": payload.tipo_emissao,
             "origem_encaminhamento_id": payload.origem_encaminhamento_id,
             "cns_destino": cns_destino,
+            "finalidade": payload.finalidade,
             "itens_count": len(payload.itens),
+            # §5 — a influência do sistema fica no ledger, ao lado da escolha.
+            # `escolheu_sugerido` é derivado aqui e não na tela: quem responde
+            # "a sugestão pegou?" é o registro, não o cliente que a exibiu.
+            "sugestoes_apresentadas": payload.sugestoes_apresentadas,
+            "escolheu_sugerido": (
+                cns_destino in (payload.sugestoes_apresentadas or [])
+                if payload.sugestoes_apresentadas else None
+            ),
         }, papel, ident or cns_origem, instance_id=instance_id)
 
         _abrir_custodia(conn, enc_id, "paciente", cpf, "emissao_digital", agora)
@@ -449,6 +538,80 @@ def criar_encaminhamento(
             "itens_count": len(payload.itens),
             "documento_hash": doc_hash,
         }
+
+
+@router.get("/sugestoes-destino", status_code=200)
+def sugestoes_destino(
+    cpf_paciente: str,
+    especialidade: Optional[str] = None,
+    limite: int = 5,
+    usuario=Depends(require_role("prescritor", "admin")),
+):
+    """Quem já atendeu este paciente — a rede se conhece porque os objetos circularam.
+
+    ENG-016 §5 (martelo 3 do Fabiano). O dado já existe: cada encaminhamento
+    ATENDIDO é a prova de que aquele profissional recebeu aquele paciente e o
+    atendeu. Nada de cadastro novo, nada de índice de reputação — só o ledger
+    lido de trás para frente.
+
+    TRÊS REGRAS QUE FAZEM ESTA SUGESTÃO SER HONESTA (§5):
+
+    1. **Razão declarada.** Cada item traz `razao` e `atendimentos` — a tela
+       mostra POR QUE aquele nome está ali. Sugestão sem razão é palpite com
+       cara de recomendação.
+    2. **Nunca pré-selecionada.** Este endpoint só devolve lista; a escolha do
+       destino é do prescritor, e o formulário não marca nenhuma por padrão.
+    3. **Auditável.** O que a tela apresentar volta em `sugestoes_apresentadas`
+       no `POST /encaminhamentos` e entra no payload de
+       `encaminhamento_emitido`. Se o sistema influencia, a influência fica
+       registrada ao lado da escolha.
+
+    ORDEM: mais atendimentos primeiro, desempate pelo mais recente. Não é
+    ranking de qualidade e o texto da tela não pode sugerir que seja —
+    é "já cuidou deste paciente", nada mais.
+
+    ESCOPO: só o paciente informado. Não existe aqui "os mais usados da rede" —
+    isso seria captura de demanda, e o §5 a nomeia como o risco a mitigar.
+    """
+    cpf = normalize_cpf(cpf_paciente)
+    limite = max(1, min(limite, 20))
+
+    with get_tx() as conn:
+        linhas = conn.execute(
+            """
+            SELECT e.cns_destino,
+                   e.especialidade_destino,
+                   COUNT(*)          AS atendimentos,
+                   MAX(e.data_emissao) AS ultimo
+              FROM encaminhamentos e
+              JOIN pacientes p ON p.id = e.paciente_id
+             WHERE p.cpf = ?
+               AND e.status IN ('atendido', 'contrarreferido', 'encerrado')
+             GROUP BY e.cns_destino, e.especialidade_destino
+             ORDER BY COUNT(*) DESC, MAX(e.data_emissao) DESC
+            """,
+            (cpf,),
+        ).fetchall()
+
+    itens = []
+    for r in linhas:
+        if especialidade and r["especialidade_destino"] != especialidade:
+            continue
+        # O nome do profissional NÃO vem daqui: o encaminhamento guarda o CNS do
+        # destino, e resolver nome exigiria uma leitura que este endpoint não
+        # precisa fazer. A tela resolve o que souber e mostra o CNS quando não
+        # souber — melhor um CNS honesto que um nome adivinhado.
+        itens.append({
+            "cns_destino":   r["cns_destino"],
+            "especialidade": r["especialidade_destino"],
+            "atendimentos":  r["atendimentos"],
+            "ultimo":        r["ultimo"],
+            "razao":         "já atendeu este paciente",
+        })
+        if len(itens) >= limite:
+            break
+
+    return {"cpf_paciente": cpf, "sugestoes": itens}
 
 
 @router.post("/fisica", status_code=201)
