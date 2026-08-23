@@ -208,12 +208,22 @@ def test_nova_busca_devolve_a_recepcao_e_avisa_as_abas_vazias(
 def test_403_de_posse_nao_derruba_a_sessao(
     page: Page, browser, app_demo, erros_de_console
 ):
-    """§1 — 403 é posse, não sessão.
+    """§1 — 403 é posse, não sessão. E a agenda do PRÓPRIO pedido agora abre.
 
-    `GET /pedidos-exame/{p}/agendamentos` recusa o papel `dispensador` por
-    desenho (agendamentos.py §D4). É o 403-de-posse mais fácil de provocar na
-    vitrine. A tela tem de explicar a lacuna e continuar de pé — nada de alerta
-    "Sessão expirada" nem volta à tela de acesso.
+    ENG-015 (PR 1) reescreveu este teste porque a REGRA mudou. Antes,
+    `GET /pedidos-exame/{p}/agendamentos` recusava o papel `dispensador` em
+    bloco — e era esse o "403 mais fácil de provocar na vitrine" que o teste
+    usava, com o pedido que a própria clínica DETINHA. Ou seja: o caso era
+    fácil porque era um defeito.
+
+    Agora o teste cobre as duas metades de verdade:
+
+      1. a unidade que DETÉM vê a agenda do pedido (o que este ticket entrega);
+      2. um 403 de posse REAL — buscar pedido de outra unidade — não derruba a
+         sessão (o que o teste sempre guardou).
+
+    A regra "nenhum 403 vai para `handleUnauthorized`" segue travada também no
+    estático, em `tests/unit/test_frontend_abas_j8_j9.py`.
     """
     proto, _ = _pedido_no_laboratorio(app_demo, f"POSSE-{_TS}", coletar=False)
 
@@ -223,13 +233,32 @@ def test_403_de_posse_nao_derruba_a_sessao(
         alertas: list[str] = []
         pg.on("dialog", lambda d: (alertas.append(d.message), d.dismiss()))
 
+        # ── 1. a agenda do pedido PRÓPRIO abre ──────────────────────────────
         _abrir_da_fila(pg, app_demo, proto)
         pg.locator("#aba-btn-agendamento").click()
 
+        # Sem compromisso ainda: o vazio HONESTO, e não o aviso de vedação que
+        # este ticket matou.
         expect(pg.locator("#conteudo-agendamento")).to_contain_text(
-            "não ao laboratório", timeout=_TIMEOUT_MS)
-        # LER é vedado; MARCAR não é — a aba não pode virar um beco sem saída.
+            "Nenhum agendamento ativo", timeout=_TIMEOUT_MS)
+        expect(pg.locator("#conteudo-agendamento")).not_to_contain_text("não ao laboratório")
         expect(pg.get_by_role("button", name="+ Agendar exame")).to_be_visible()
+
+        # ── 2. 403 de posse REAL não derruba a sessão ───────────────────────
+        # Devolver ao cidadão tira a posse da clínica — daí em diante o pedido
+        # é "de outra unidade" do ponto de vista dela, e buscá-lo dá 403.
+        alheio, item_alheio = _pedido_no_laboratorio(app_demo, f"ALHEIO-{_TS}", coletar=False)
+        rdev = httpx.post(
+            f"{app_demo}/pedidos-exame/{alheio}/itens/{item_alheio}/devolver",
+            headers=_h(_tok(app_demo, "clinica")),
+            json={"motivo": "sai da nossa custodia para o teste"}, timeout=15.0,
+        )
+        assert rdev.status_code == 200, rdev.text
+        # A busca vive na Recepção — voltar à aba antes de usá-la.
+        pg.locator("#aba-btn-recepcao").click()
+        pg.fill("#busca-protocolo", alheio)
+        pg.get_by_role("button", name="Buscar").click()
+        pg.wait_for_timeout(1200)
 
         assert not alertas, f"403 de posse disparou alerta de sessão: {alertas}"
         expect(pg.locator("#tela-dashboard")).to_be_visible()
@@ -237,10 +266,6 @@ def test_403_de_posse_nao_derruba_a_sessao(
     finally:
         ctx.close()
 
-
-# ===========================================================================
-# J.9 — as 3 abas do cidadão
-# ===========================================================================
 
 def test_cidadao_alcanca_os_tres_tipos_de_objeto_nas_abas(
     page: Page, browser, app_demo, erros_de_console

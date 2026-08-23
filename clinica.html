@@ -996,9 +996,12 @@
     // Mude para false antes de publicar em produção.
     const DEV_PRESET_CONTEXT = true;
     let agendamentosAtuais = [];
+    // ENG-015 (PR 1) — distingue "não há compromisso" de "não posso ver".
+    // Empty state por PERGUNTA (§3 do desenho): um vazio sem explicação foi
+    // exatamente o que gerou o aviso confuso que este ticket matou.
+    let _agendaForaDaPosse = false;
     // TICKET-J.8 — a listagem por pedido é vedada ao laboratório (403 de posse,
     // por desenho). Distingue "não há agendamento" de "não posso ver".
-    let _agendamentosOcultosPorPosse = false;
 
     // Ticket 46 — Gate leve de contexto CNES
     let _cnesConfirmadoManual = false;
@@ -1993,13 +1996,19 @@
         // 401 encerra a sessão; o 403 apenas apaga este painel.
         if (resp.status === 401) { handleUnauthorized(); return; }
         if (resp.status === 403) {
-          // TICKET-J.8 — LER a lista é vedado ao laboratório, mas CRIAR não é
-          // (`POST /agendamentos` aceita `dispensador`). Antes o painel virava
-          // um parágrafo morto; com a aba dedicada isso deixaria a Agendamento
-          // permanentemente inútil. Agora o aviso explica a lacuna e o formulário
-          // de marcação continua ali. Nada de RBAC muda — é a mesma API.
+          // ENG-015 (PR 1) — o 403 aqui voltou a significar POSSE, e só.
+          //
+          // Até então o endpoint recusava o laboratório SEMPRE (ownership
+          // negava o papel inteiro), e a tela precisava explicar que "a lista é
+          // do prescritor e do cidadão, não sua" — enquanto o mesmo operador
+          // marcava, remarcava e registrava falta. Era a última assimetria da
+          // família do #171, e o aviso morreu com ela.
+          //
+          // Agora, 403 = esta unidade não é parte deste pedido. Cai no mesmo
+          // tratamento dos demais 403 de posse da tela (não desloga — J.8).
+          await tratarNaoAutorizado(resp, 'feedback-agendamento');
           agendamentosAtuais = [];
-          _agendamentosOcultosPorPosse = true;
+          _agendaForaDaPosse = true;   // o vazio aqui NÃO é "não há agenda"
           renderizarAgendamentos();
           return;
         }
@@ -2007,7 +2016,7 @@
 
         const data = await resp.json();
         agendamentosAtuais = data.agendamentos || data || [];
-        _agendamentosOcultosPorPosse = false;
+        _agendaForaDaPosse = false;
         renderizarAgendamentos();
 
       } catch (_) {
@@ -2062,12 +2071,13 @@
             </div>
           `;
         }
-      } else if (_agendamentosOcultosPorPosse) {
-        // A lista é do prescritor/paciente (agendamentos.py §D4). Dizer isso é
-        // melhor que fingir "nenhum agendamento" — que seria a tela mentindo.
+      } else if (_agendaForaDaPosse) {
+        // Dizer "nenhum agendamento" aqui seria a tela MENTINDO: pode haver
+        // agenda, e o que falta é posse. O 403 agora significa POSSE — não mais
+        // "este papel não lê" (ENG-015 PR 1).
         html = `<p style="font-size:13px;color:#64748b;margin-bottom:12px">
-          A <strong>lista</strong> de agendamentos deste pedido é visível ao prescritor e ao
-          cidadão, não ao laboratório. Marcar a coleta abaixo continua disponível.
+          Este pedido está sob custódia de <strong>outra unidade</strong> — a agenda dele
+          não é visível aqui.
         </p>`;
       } else {
         html = `<p style="font-size:13px;color:#64748b;margin-bottom:12px">

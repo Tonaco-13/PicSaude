@@ -28,6 +28,8 @@ _AGENDAMENTOS = Path(__file__).resolve().parent.parent / "app" / "routers" / "ag
 _RBAC_ESPERADO = {
     ("POST", "/agendamentos"):                         {"prescritor", "paciente", "admin", "dispensador"},
     ("GET",  "/agendamentos/{protocolo}"):             {"prescritor", "paciente", "admin", "dispensador"},
+    # ENG-015 (PR 1) — o papel já estava aqui; o que mudou foi o OWNERSHIP, que
+    # recusava o dispensador sempre. Era a última assimetria da família do #171.
     ("GET",  "/pedidos-exame/{protocolo_pedido}/agendamentos"):
                                                        {"prescritor", "paciente", "admin", "dispensador"},
     ("POST", "/agendamentos/{protocolo}/confirmar"):    {"prescritor", "admin", "dispensador"},
@@ -97,3 +99,28 @@ class TestAGuardaMorde:
         falso = dict(_rbac_do_arquivo())
         falso[("POST", "/agendamentos/{protocolo}/remarcar")] -= {"dispensador"}
         assert falso != _RBAC_ESPERADO
+
+def test_o_dispensador_nao_e_mais_recusado_no_ownership_do_GET():
+    """ENG-015 (PR 1) — a recusa em BLOCO do papel morreu.
+
+    O `require_role` sempre listou `dispensador` neste endpoint; quem o barrava
+    era um `_assert_or_403(False, ...)` no ramo `else`, com a mensagem
+    "Prestador não lista agendamentos por pedido". Enquanto isso o mesmo
+    operador MARCAVA, REMARCAVA e REGISTRAVA FALTA (#171).
+
+    Congelar o `require_role` não pegaria esse caso — a assimetria vivia no
+    ownership, não na lista de papéis. Esta guarda olha onde ela morava.
+    """
+    fonte = _AGENDAMENTOS.read_text(encoding="utf-8")
+
+    # O CONSTRUTO, não a menção: a docstring do endpoint cita a mensagem antiga
+    # para explicar o que morreu, e uma guarda que acusasse a própria explicação
+    # seria ruído — ruído no gate é como se treina a ignorá-lo.
+    assert "_assert_or_403(False" not in fonte, (
+        "recusa em BLOCO por papel voltou a `agendamentos.py` — o dispensador "
+        "era barrado assim no GET, e é o que este ticket desfez"
+    )
+    assert "dispensador_tem_algo_no_pedido" in fonte, (
+        "o GET deixou de escopar por POSSE — sem isso, ou recusa todo mundo ou "
+        "abre para quem não é parte"
+    )
