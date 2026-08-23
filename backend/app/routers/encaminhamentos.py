@@ -540,6 +540,95 @@ def criar_encaminhamento(
         }
 
 
+@router.get("/meus", status_code=200)
+def meus_encaminhamentos(
+    usuario=Depends(require_role("prescritor", "admin")),
+):
+    """Os encaminhamentos do prescritor, separados por CHAPÉU.
+
+    ENG-016 §3 — o mesmo profissional é ORIGEM de uns e DESTINO de outros, e as
+    perguntas são diferentes: "o que eu mandei, e voltou?" contra "o que chegou
+    para mim, e o que eu devo?". Uma lista só obrigaria o operador a separar na
+    cabeça o que o sistema já sabe separar.
+
+    LISTA POR DEVER, SELO POR POSSE — a lei nº 1 do §2, e a razão de haver dois
+    campos por linha:
+
+      · `dever` responde "o que ESTE profissional tem de fazer agora";
+      · `posse` responde "onde o documento ESTÁ fisicamente".
+
+    Os dois divergem de propósito no caso que dá nome à regra: `atendido` é
+    DEVER do destino (ele precisa contrarreferir) com a POSSE no cidadão — o
+    `atender` devolveu o documento. Listar por custódia faria o item sumir da
+    tela exatamente quando vira obrigação.
+
+    Sem paginação: a demanda desta onda é a vitrine, e inventar paginação sem
+    volume real seria complexidade adivinhada. Quando o volume aparecer, entra —
+    com o número que o caso pedir.
+    """
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
+    with get_tx() as conn:
+        linhas = conn.execute(
+            """
+            SELECT e.*, pr.cns AS cns_origem, pa.cpf AS cpf_paciente,
+                   pa.nome AS nome_paciente
+              FROM encaminhamentos e
+              LEFT JOIN prescritores pr ON pr.id = e.prescritor_id
+              LEFT JOIN pacientes    pa ON pa.id = e.paciente_id
+             ORDER BY e.id DESC
+            """
+        ).fetchall()
+
+        origem, destino = [], []
+        for row in linhas:
+            enc = dict(row)
+            eh_origem  = enc.get("cns_origem") == ident
+            eh_destino = enc.get("cns_destino") == ident
+            if not (eh_origem or eh_destino or papel == "admin"):
+                continue
+
+            atual = _custodia_ativa(conn, enc["id"])
+            item = {
+                "protocolo":             enc["protocolo"],
+                "status":                enc["status"],
+                "especialidade_destino": enc["especialidade_destino"],
+                "finalidade":            enc.get("finalidade"),
+                "finalidade_texto":      enc.get("finalidade_texto"),
+                "cid":                   enc.get("cid"),
+                "cns_destino":           enc["cns_destino"],
+                "cns_origem":            enc.get("cns_origem"),
+                "cpf_paciente":          enc.get("cpf_paciente"),
+                "nome_paciente":         enc.get("nome_paciente"),
+                "data_emissao":          enc["data_emissao"],
+                # POSSE — fonte única: custódia ativa, nunca o status (§1a).
+                "posse_tipo":            atual["detentor_tipo"] if atual else None,
+                "posse_id":              atual["detentor_id"] if atual else None,
+            }
+            if eh_origem:
+                origem.append(item)
+            if eh_destino:
+                destino.append({**item, "dever": _dever_do_destino(enc["status"])})
+
+    return {"encaminhados": origem, "recebidos": destino}
+
+
+def _dever_do_destino(status: str) -> str:
+    """O que o DESTINO deve fazer agora — as três gavetas do §3.
+
+    `chegou` (decidir: agendar ou recusar) · `devo_retorno` (atendeu e deve a
+    contrarreferência — o caso em que dever e posse divergem) · `devolvi`
+    (contrarreferiu; acompanha até a origem encerrar) · `sem_dever` (terminal).
+    """
+    if status in ("emitido", "em_regulacao", "agendado"):
+        return "chegou"
+    if status == "atendido":
+        return "devo_retorno"
+    if status == "contrarreferido":
+        return "devolvi"
+    return "sem_dever"
+
+
 @router.get("/sugestoes-destino", status_code=200)
 def sugestoes_destino(
     cpf_paciente: str,
