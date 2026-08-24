@@ -1,0 +1,74 @@
+/* ==========================================================================
+ * submodulos.css — a aparência da barra de pílulas, compartilhada.
+ *
+ * A escala é a que já existia em `prescritor.html` (trilho #f1f5f9, pílula
+ * branca, azul institucional no ativo, maiúsculas com letter-spacing). Foi
+ * PROMOVIDA daquele arquivo para cá, sem redesenho: quem olhava a tela do
+ * prescritor ontem vê a mesma barra hoje, e o cidadão passa a ver a dela.
+ *
+ * O QUE MUDOU EM RELAÇÃO À ORIGINAL, e por quê
+ * --------------------------------------------
+ * `flex-wrap: wrap` e `flex: 1 1 <base>`. A barra do prescritor tinha 3–4
+ * itens e cabia sempre numa linha; a carteira tem SEIS, e em tela estreita a
+ * versão `flex: 1` sem wrap espremeria as pílulas até o texto truncar. Com
+ * wrap elas quebram em duas linhas mantendo o trilho — a barra cresce em
+ * altura, nunca ilegível em largura.
+ * ========================================================================== */
+
+.submod-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 28px;
+}
+
+.submod-btn {
+  /* `1 1 120px`: cresce para ocupar a linha, encolhe até 120px e então quebra.
+     O `flex: 1` original não tinha piso — com seis itens, virava texto cortado
+     em telas estreitas. */
+  flex: 1 1 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.submod-btn:hover { background: #e2e8f0; color: #334155; }
+.submod-btn:focus-visible { outline: 2px solid #1e3a8a; outline-offset: -2px; }
+.submod-btn.ativo {
+  background: #ffffff;
+  color: #1e3a8a;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+.submod-titulo { line-height: 1; }
+
+.submod-contador {
+  min-width: 20px; height: 20px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; background: #e2e8f0; color: #475569;
+  font-size: 11px; font-weight: 700; letter-spacing: 0;
+  flex-shrink: 0;
+}
+.submod-btn.ativo .submod-contador { background: #1e3a8a; color: #fff; }
+
+/* Em tela estreita a barra vira uma coluna: seis pílulas lado a lado num
+   celular seriam seis alvos de toque pequenos demais. */
+@media (max-width: 520px) {
+  .submod-btn { flex: 1 1 100%; justify-content: space-between; padding: 11px 14px; }
+}

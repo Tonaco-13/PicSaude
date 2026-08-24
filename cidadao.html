@@ -44,6 +44,12 @@
         .btn-action { background: #16a34a; color: white; }
         .btn-action:hover { background: #007a2e; }
         /* TICKET-J.9 — abas da carteira: um tipo de objeto por aba. */
+        /* O wrapper que abriga a barra de pílulas + o botão Atualizar. A barra
+           ocupa o espaço; o botão fica ao lado, FORA dela (ver a nota no
+           markup). O CSS da BARRA vive em `submodulos.css`, compartilhado com
+           a tela do prescritor. */
+        .submod-barra { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 4px; }
+        .submod-barra > div:first-child { flex: 1; min-width: 260px; }
         .abas-carteira-barra { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; }
         .abas-carteira { display: flex; gap: 4px; flex-wrap: wrap; }
         .aba-cart { display: inline-flex; align-items: center; gap: 7px; padding: 11px 18px; border: none; background: transparent; border-bottom: 3px solid transparent; margin-bottom: -2px; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; white-space: nowrap; border-radius: 6px 6px 0 0; width: auto; }
@@ -310,6 +316,9 @@
         /* ─────────────────────────────────────────────────────────────── */
     </style>
   <script src="config.js"></script>
+  <!-- Barra de submódulos, compartilhada com prescritor.html. -->
+  <link rel="stylesheet" href="submodulos.css">
+  <script src="submodulos.js"></script>
   <script src="lente.js"></script>
 </head>
 <body>
@@ -422,34 +431,17 @@
                  aqui, junto das abas, porque `carregarCarteira()` recarrega as
                  QUATRO de uma vez; pendurá-lo dentro de uma aba faria parecer que
                  só aquela é atualizada. -->
-            <div class="abas-carteira-barra">
-                <nav class="abas-carteira" role="tablist" aria-label="Tipos de documento">
-                    <button type="button" role="tab" class="aba-cart ativa"
-                            id="aba-btn-receita" aria-controls="aba-receita" aria-selected="true"
-                            onclick="abrirAbaCarteira('receita')">
-                        💊 Receita <span class="aba-cart-count" id="aba-count-receita">0</span>
-                    </button>
-                    <button type="button" role="tab" class="aba-cart"
-                            id="aba-btn-exames" aria-controls="aba-exames" aria-selected="false"
-                            onclick="abrirAbaCarteira('exames')">
-                        🧪 Exames <span class="aba-cart-count" id="aba-count-exames">0</span>
-                    </button>
-                    <button type="button" role="tab" class="aba-cart"
-                            id="aba-btn-agendamentos" aria-controls="aba-agendamentos" aria-selected="false"
-                            onclick="abrirAbaCarteira('agendamentos')">
-                        📅 Agendamentos <span class="aba-cart-count" id="aba-count-agendamentos">0</span>
-                    </button>
-                    <button type="button" role="tab" class="aba-cart"
-                            id="aba-btn-encaminhamentos" aria-controls="aba-encaminhamentos" aria-selected="false"
-                            onclick="abrirAbaCarteira('encaminhamentos')">
-                        🔀 Encaminhamentos <span class="aba-cart-count" id="aba-count-encaminhamentos">0</span>
-                    </button>
-                    <button type="button" role="tab" class="aba-cart"
-                            id="aba-btn-atestado" aria-controls="aba-atestado" aria-selected="false"
-                            onclick="abrirAbaCarteira('atestado')">
-                        📄 Atestado <span class="aba-cart-count" id="aba-count-atestado">0</span>
-                    </button>
-                </nav>
+            <!-- ── Navegação por BARRA DE PÍLULAS (decisão do Fabiano, 24/08) ──
+                 A barra SUBSTITUI as abas como navegação primária, e é a MESMA
+                 da tela do prescritor: mesmo componente, mesmo CSS, mesmo
+                 arquivo. Consistência por construção, não por vigilância.
+
+                 O botão Atualizar continua FORA da grade porque
+                 `carregarCarteira()` recarrega TODOS os submódulos de uma vez;
+                 pendurá-lo dentro de um cartão faria parecer que só aquele é
+                 atualizado (a mesma razão do J.9, quando eram abas). -->
+            <div class="submod-barra">
+                <div id="submod-nav-carteira"></div>
                 <button id="btn-refresh" onclick="atualizarCarteiraAnimado()" class="btn-outline btn-small" style="margin: 0; display: flex; align-items: center; gap: 6px; font-weight:bold;">
                     <svg id="refresh-icon" class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.66 5.87"/></svg>
                     <span id="refresh-text">Atualizar</span>
@@ -457,7 +449,7 @@
             </div>
 
             <!-- ══════════ ABA 1 — RECEITA ══════════ -->
-            <section class="aba-cart-painel" id="aba-receita" role="tabpanel" aria-labelledby="aba-btn-receita">
+            <section class="aba-cart-painel" id="submod-receita" role="tabpanel" aria-labelledby="submod-btn-receita">
                 <h3 class="section-title">Receitas sob sua custódia</h3>
                 <div id="lista-receitas"></div>
 
@@ -468,13 +460,21 @@
             <!-- ══════════ ABA 2 — EXAMES ══════════ -->
             <!-- Pedido e laudo são o MESMO percurso visto em dois momentos
                  (solicita → agenda → coleta → laudo), por isso dividem a aba. -->
-            <section class="aba-cart-painel hidden" id="aba-exames" role="tabpanel" aria-labelledby="aba-btn-exames">
+            <section class="aba-cart-painel hidden" id="submod-exames" role="tabpanel" aria-labelledby="submod-btn-exames">
                 <!-- ── Pedidos de Exame (Ticket 29) ──────────────────────── -->
                 <h3 class="section-title">Pedidos de Exame Ativos</h3>
                 <div id="lista-pedidos-exame"></div>
 
-                <!-- ── Laudos / Resultados (Ticket 21) ───────────────────── -->
-                <h3 class="section-title" style="margin-top: 48px;">Laudos / Resultados</h3>
+            </section>
+
+            <!-- ══════════ LAUDOS ══════════════════════════════════════════
+                 Sai de dentro de Exames e ganha porta própria (decisão do
+                 Fabiano, 24/08). O laudo é o que o cidadão VEIO BUSCAR — estava
+                 uma rolagem abaixo dos pedidos, e a comissão de diagnóstico
+                 (#189, S1+S4) mediu esse atrito. O elo do cartão do exame
+                 continua levando até aqui; mudou a porta, não o que há na casa. -->
+            <section class="aba-cart-painel hidden" id="submod-laudos" role="tabpanel" aria-labelledby="submod-btn-laudos">
+                <h3 class="section-title">Laudos / Resultados</h3>
                 <div id="lista-laudos"></div>
             </section>
 
@@ -487,7 +487,7 @@
                  endpoint novo, sem segunda fonte para "qual é o corrente" —
                  quem responde isso segue sendo `agendamento_atual_do_pedido`,
                  no backend. -->
-            <section class="aba-cart-painel hidden" id="aba-agendamentos" role="tabpanel" aria-labelledby="aba-btn-agendamentos">
+            <section class="aba-cart-painel hidden" id="submod-agendamentos" role="tabpanel" aria-labelledby="submod-btn-agendamentos">
                 <h3 class="section-title">Compromissos marcados</h3>
                 <div id="lista-agendamentos"></div>
             </section>
@@ -501,7 +501,7 @@
                  O percurso é UM só do ponto de vista dele — ida e retorno no
                  mesmo cartão. Partir a contrarreferência noutra lista seria
                  partir em dois o que para ele é uma coisa só. -->
-            <section class="aba-cart-painel hidden" id="aba-encaminhamentos" role="tabpanel" aria-labelledby="aba-btn-encaminhamentos">
+            <section class="aba-cart-painel hidden" id="submod-encaminhamentos" role="tabpanel" aria-labelledby="submod-btn-encaminhamentos">
                 <h3 class="section-title">Encaminhamentos</h3>
                 <div id="lista-encaminhamentos"></div>
 
@@ -513,7 +513,7 @@
             <!-- Atestado é documento FINAL (assina, entrega ao empregador); exame é
                  INTERMEDIÁRIO. Aba própria justamente porque não pertence a nenhum
                  dos dois percursos (TICKET-ATESTADO-CARTEIRA-CIDADAO). -->
-            <section class="aba-cart-painel hidden" id="aba-atestado" role="tabpanel" aria-labelledby="aba-btn-atestado">
+            <section class="aba-cart-painel hidden" id="submod-atestado" role="tabpanel" aria-labelledby="submod-btn-atestado">
                 <h3 class="section-title">Atestados</h3>
                 <div id="lista-atestados"></div>
             </section>
@@ -663,6 +663,10 @@
             document.getElementById('header-controls').classList.remove('hidden');
             document.getElementById('user-cpf').textContent = formatarCPF(sessaoAtual.cpf);
             document.getElementById('user-nome-display').textContent = sessaoAtual.nome;
+            // A grade de cartões é montada UMA vez, ao entrar; os contadores se
+            // atualizam a cada carga. Re-render a cada poll piscaria a
+            // navegação inteira sob o dedo do cidadão.
+            montarSubmodulosCarteira();
             carregarCarteira();
             _iniciarCarteiraPoll();                  // F5-C2: poll começa ao entrar
         }
@@ -744,19 +748,48 @@
         // UI only: nenhuma rota, estado ou custódia muda. O poll da carteira
         // (`_pollCarteira`) e o re-login transparente do J.3 seguem intactos —
         // ambos operam abaixo desta camada, recarregando todas as abas de uma vez.
-        const _ABAS_CARTEIRA = ['receita', 'exames', 'agendamentos', 'encaminhamentos', 'atestado'];
+        // ── Navegação por BARRA DE PÍLULAS (decisão do Fabiano, 24/08) ────
+        //
+        // A MESMA barra da tela do prescritor, desenhada pela MESMA função
+        // (`submodulos.js`) — um arquivo, duas telas. Não é "mesma aparência
+        // mantida por disciplina": é a mesma aparência porque é o mesmo código,
+        // e não existe o estado intermediário em que uma tela andou e a outra
+        // ficou.
+        //
+        // O que MUDOU foi a porta: os painéis, os baldes (posse / em andamento
+        // / histórico) e as sinalizações da ENG-017 (ciência do exame, elo do
+        // laudo) seguem exatamente como estavam.
+        //
+        // SEM ícone e SEM subtítulo — é a fórmula do prescritor, e é o que faz
+        // as duas barras serem literalmente iguais. A "placa da porta" (o que
+        // há atrás de cada uma) vive nos EMPTY STATES de cada seção, que já
+        // explicam o vazio por pergunta. Nada se perde; muda de lugar.
+        //
+        // LAUDOS ganhou porta própria — era uma seção uma rolagem abaixo dos
+        // pedidos, dentro de Exames, e é justamente o que o cidadão veio
+        // buscar (comissão #189, S1+S4).
+        const _SUBMODULOS_CARTEIRA = [
+            { chave: 'receita',         titulo: 'Receitas',        contador: 0 },
+            { chave: 'exames',          titulo: 'Exames',          contador: 0 },
+            { chave: 'agendamentos',    titulo: 'Agendamentos',    contador: 0 },
+            { chave: 'laudos',          titulo: 'Laudos',          contador: 0 },
+            { chave: 'atestado',        titulo: 'Atestados',       contador: 0 },
+            { chave: 'encaminhamentos', titulo: 'Encaminhamentos', contador: 0 },
+        ];
+        const _ABAS_CARTEIRA = _SUBMODULOS_CARTEIRA.map(x => x.chave);
+        let _submoduloAtivo = 'receita';
 
         function abrirAbaCarteira(nome) {
             if (!_ABAS_CARTEIRA.includes(nome)) return;
-            _ABAS_CARTEIRA.forEach(n => {
-                const painel = document.getElementById('aba-' + n);
-                const botao  = document.getElementById('aba-btn-' + n);
-                if (painel) painel.classList.toggle('hidden', n !== nome);
-                if (botao) {
-                    botao.classList.toggle('ativa', n === nome);
-                    botao.setAttribute('aria-selected', String(n === nome));
-                }
-            });
+            _submoduloAtivo = nome;
+            Submodulos.marcarAtivo(_ABAS_CARTEIRA, nome);
+        }
+
+        function montarSubmodulosCarteira() {
+            Submodulos.render('submod-nav-carteira', _SUBMODULOS_CARTEIRA,
+                              abrirAbaCarteira, _submoduloAtivo, 'Documentos da sua carteira');
+            Submodulos.marcarAtivo(_ABAS_CARTEIRA, _submoduloAtivo);
+            _sincronizarContadoresCarteira();
         }
 
         // O contador mostra o que está VIVO, não o histórico: é o que diz ao
@@ -765,20 +798,22 @@
         const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0, agendamentos: 0, encaminhamentos: 0 };
 
         function _sincronizarContadoresCarteira() {
+            // Cada cartão conta o SEU. Enquanto Laudos vivia dentro de Exames,
+            // o contador somava os dois e mudava sem dizer por quê — foi um dos
+            // sintomas do S4 na comissão (#189). Agora cada porta conta o que
+            // há atrás dela.
             const pares = [
-                ['aba-count-receita',  _contagemCarteira.receitas],
-                ['aba-count-exames',   _contagemCarteira.pedidos + _contagemCarteira.laudos],
+                ['receita',         _contagemCarteira.receitas],
+                ['exames',          _contagemCarteira.pedidos],
+                ['laudos',          _contagemCarteira.laudos],
                 // O compromisso é contado NA ABA DELE e não soma em Exames: o
                 // mesmo fato contado duas vezes faria a carteira parecer ter
                 // mais coisa pendente do que tem.
-                ['aba-count-agendamentos', _contagemCarteira.agendamentos],
-                ['aba-count-encaminhamentos', _contagemCarteira.encaminhamentos],
-                ['aba-count-atestado', _contagemCarteira.atestados],
+                ['agendamentos',    _contagemCarteira.agendamentos],
+                ['encaminhamentos', _contagemCarteira.encaminhamentos],
+                ['atestado',        _contagemCarteira.atestados],
             ];
-            for (const [id, valor] of pares) {
-                const el = document.getElementById(id);
-                if (el) el.textContent = String(valor);
-            }
+            for (const [chave, valor] of pares) Submodulos.contador(chave, valor);
         }
 
         // ==========================================
@@ -1411,7 +1446,9 @@
         /** Leva ao laudo, na mesma aba. Não abre nada: quem decide se "abrir é
          *  dar ciência" é o LAUDO (ENG-014), e este gesto é só de navegação. */
         function verLaudoDoPedido(protocoloLaudo) {
-            _abrirERealcar('exames', `laudo-card-${protocoloLaudo}`);
+            // ENG-017 (S1+S4) preservado: o elo continua levando ao laudo —
+            // agora ao submódulo próprio dele. Mudou a porta, não o destino.
+            _abrirERealcar('laudos', `laudo-card-${protocoloLaudo}`);
         }
 
         /** S3 — a ciência do PEDIDO, explícita.
