@@ -203,7 +203,7 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
         try:
             pc2 = ctx_cid2.new_page()
             pc2.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
-            abrir_aba_carteira(pc2, "exames")     # TICKET-J.9 — laudo é resultado de exame
+            abrir_aba_carteira(pc2, "laudos")     # o laudo ganhou porta própria (24/08)
             card_laudo = pc2.locator("#lista-laudos .exame-card", has_text=proto_laudo)
             expect(card_laudo).to_be_visible(timeout=_TIMEOUT_MS)
             # ENG-014 (PR C) — a ciência nasce da ABERTURA (martelo (a)).

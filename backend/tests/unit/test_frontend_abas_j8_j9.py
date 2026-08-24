@@ -36,6 +36,7 @@ import pytest
 _RAIZ = Path(__file__).resolve().parents[3]
 _CLINICA = _RAIZ / "clinica.html"
 _CIDADAO = _RAIZ / "cidadao.html"
+_PRESCRITOR = _RAIZ / "prescritor.html"
 
 
 def _fonte(p: Path) -> str:
@@ -47,10 +48,12 @@ def _fonte(p: Path) -> str:
 # ---------------------------------------------------------------------------
 
 _ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada"]
-# ENG-015 §4 acrescentou "agendamentos": a carteira passou a ter QUATRO abas.
-# A lista cresce por decisão registrada — nunca porque alguém achou a guarda
-# chata; tirar uma daqui é tirar a aba da tela sem ninguém notar.
-_ABAS_CARTEIRA = ["receita", "exames", "agendamentos", "encaminhamentos", "atestado"]
+# A carteira do cidadão trocou a BARRA DE ABAS por CARTÕES-TÍTULO (decisão do
+# Fabiano, 24/08) e ganhou o submódulo LAUDOS, que antes era uma seção dentro de
+# Exames. A lista cresce por decisão registrada — nunca porque alguém achou a
+# guarda chata; tirar uma daqui é tirar a porta da tela sem ninguém notar.
+_SUBMODULOS_CARTEIRA = ["receita", "exames", "agendamentos", "laudos",
+                        "atestado", "encaminhamentos"]
 
 
 @pytest.mark.parametrize("aba", _ABAS_LAB)
@@ -62,21 +65,121 @@ def test_clinica_tem_botao_e_painel_de_cada_aba(aba):
     assert f'aria-labelledby="aba-btn-{aba}"' in html, f"painel {aba} sem ligação ARIA painel→botão"
 
 
-@pytest.mark.parametrize("aba", _ABAS_CARTEIRA)
-def test_cidadao_tem_botao_e_painel_de_cada_aba(aba):
+# ── a carteira: a guarda ACOMPANHA a mudança de estrutura, sem afrouxar ────
+#
+# Os botões deixaram de existir no HTML: são desenhados por `submodulos.js` a
+# partir da declaração `_SUBMODULOS_CARTEIRA`. Uma guarda que continuasse
+# procurando `id="aba-btn-*"` no arquivo ficaria vermelha por motivo errado —
+# ou, pior, seria "consertada" apagando a asserção.
+#
+# A REGRA é a mesma e continua inteira, agora em três pedaços que juntos
+# provam mais do que o original provava:
+#   (a) o PAINEL existe no HTML, com o `aria-labelledby` do botão que o abre;
+#   (b) a CHAVE está declarada — sem declaração não nasce cartão;
+#   (c) o COMPONENTE emite os ids e o ARIA que (a) espera.
+# (b) é ganho novo: pega cartão sem painel e painel sem cartão, que a versão
+# antiga não pegava.
+
+def _declaracao_submodulos(html: str) -> str:
+    m = re.search(r"const _SUBMODULOS_CARTEIRA = \[(.*?)\];", html, re.S)
+    assert m, "a declaração dos submódulos sumiu de cidadao.html"
+    return m.group(1)
+
+
+@pytest.mark.parametrize("aba", _SUBMODULOS_CARTEIRA)
+def test_cidadao_tem_cartao_e_painel_de_cada_submodulo(aba):
     html = _fonte(_CIDADAO)
-    assert f'id="aba-btn-{aba}"' in html, f"falta o botão da aba {aba}"
-    assert f'id="aba-{aba}"' in html, f"falta o painel da aba {aba}"
-    assert f'aria-controls="aba-{aba}"' in html, f"aba {aba} sem ligação ARIA botão→painel"
-    assert f'aria-labelledby="aba-btn-{aba}"' in html, f"painel {aba} sem ligação ARIA painel→botão"
+    assert f'id="submod-{aba}"' in html, f"falta o painel do submódulo {aba}"
+    assert f'aria-labelledby="submod-btn-{aba}"' in html, (
+        f"painel {aba} sem ligação ARIA painel→cartão"
+    )
+    assert f"chave: '{aba}'" in _declaracao_submodulos(html), (
+        f"o submódulo {aba} tem painel e NÃO está declarado — cartão que não "
+        "nasce deixa o painel inalcançável"
+    )
 
 
-def test_uma_aba_comeca_ativa_em_cada_tela():
+def test_todo_submodulo_declarado_tem_painel():
+    """O outro lado: cartão declarado sem painel leva a lugar nenhum."""
+    html = _fonte(_CIDADAO)
+    declarados = re.findall(r"chave: '([a-z]+)'", _declaracao_submodulos(html))
+    assert declarados, "nenhum submódulo declarado"
+    sem_painel = [c for c in declarados if f'id="submod-{c}"' not in html]
+    assert not sem_painel, f"submódulos declarados sem painel: {sem_painel}"
+
+
+def test_o_componente_compartilhado_emite_o_ARIA_que_o_painel_espera():
+    """(c) — o elo entre a declaração e o painel passa pelo componente.
+
+    Se `submodulos.js` deixar de emitir `id="submod-btn-*"`, os painéis ficam
+    com `aria-labelledby` apontando para nada, e nenhuma guarda de HTML veria.
+    """
+    fonte = (_RAIZ / "submodulos.js").read_text(encoding="utf-8")
+    for pedaco in ('id="submod-btn-', 'aria-controls="submod-', 'aria-selected=', 'role="tab"'):
+        assert pedaco in fonte, f"o componente deixou de emitir {pedaco}"
+
+
+# ── UM ARQUIVO, DUAS TELAS (decisão do Fabiano, 24/08) ────────────────────
+#
+# A consistência entre a carteira e a tela do prescritor é por CONSTRUÇÃO: as
+# duas desenham com a mesma função. Estas guardas impedem o caminho de volta —
+# alguém reescrever a barra à mão numa das telas "só para ajustar uma coisa" e
+# recriar as duas cópias que este ticket eliminou.
+
+@pytest.mark.parametrize("tela", [_CIDADAO, _PRESCRITOR])
+def test_as_duas_telas_usam_o_componente_compartilhado(tela):
+    html = _fonte(tela)
+    assert 'src="submodulos.js"' in html, f"{tela.name} não carrega o componente"
+    assert 'href="submodulos.css"' in html, f"{tela.name} não carrega o CSS compartilhado"
+    assert "Submodulos.render(" in html, f"{tela.name} não desenha pelo componente"
+
+
+@pytest.mark.parametrize("tela", [_CIDADAO, _PRESCRITOR])
+def test_nenhuma_tela_reescreve_a_barra_a_mao(tela):
+    """A marcação das pílulas vive NO COMPONENTE. Se voltar para o HTML de uma
+    das telas, as duas cópias renascem — e divergem na primeira mudança."""
+    html = _fonte(tela)
+    assert 'class="submod-btn' not in html, (
+        f"{tela.name} voltou a escrever pílulas à mão — a barra é do componente"
+    )
+
+
+@pytest.mark.parametrize("tela", [_CIDADAO, _PRESCRITOR])
+def test_o_css_da_barra_nao_volta_para_a_tela(tela):
+    """O CSS foi PROMOVIDO para `submodulos.css`. Redefini-lo localmente faria
+    uma tela divergir da outra sem que nenhuma guarda de marcação visse."""
+    html = _fonte(tela)
+    assert ".submod-btn {" not in html and ".submod-nav {" not in html, (
+        f"{tela.name} redefiniu o CSS da barra localmente"
+    )
+
+
+def test_a_barra_quebra_linha_com_seis_itens():
+    """A barra do prescritor tinha 3–4 itens e cabia numa linha; a carteira tem
+    SEIS. Sem `flex-wrap`, seis pílulas em tela estreita espremem até o texto
+    truncar — e o `flex: 1` original não tinha piso."""
+    css = (_RAIZ / "submodulos.css").read_text(encoding="utf-8")
+    assert "flex-wrap: wrap" in css, "a barra não quebra linha — seis itens truncam"
+    assert "flex: 1 1 " in css, "as pílulas voltaram a `flex: 1` sem piso de largura"
+
+
+def test_a_clinica_comeca_com_uma_aba_ativa():
     """Sem aba ativa inicial a tela abre com tudo escondido."""
-    for tela, classe in ((_CLINICA, "aba-lab ativa"), (_CIDADAO, "aba-cart ativa")):
-        assert _fonte(tela).count(f'class="{classe}"') == 1, (
-            f"{tela.name}: deve haver exatamente UMA aba ativa na marcação inicial"
-        )
+    assert _fonte(_CLINICA).count('class="aba-lab ativa"') == 1, (
+        "clinica.html: deve haver exatamente UMA aba ativa na marcação inicial"
+    )
+
+
+def test_a_carteira_comeca_com_um_submodulo_ativo():
+    """O mesmo invariante, no novo lugar: o ativo inicial agora é estado de JS
+    (`_submoduloAtivo`), não classe no HTML — os cartões são desenhados."""
+    html = _fonte(_CIDADAO)
+    m = re.search(r"let _submoduloAtivo = '([a-z]+)'", html)
+    assert m, "cidadao.html não declara o submódulo ativo inicial"
+    assert m.group(1) in _SUBMODULOS_CARTEIRA, (
+        f"o ativo inicial ('{m.group(1)}') não é um submódulo declarado — a "
+        "carteira abriria com todos os painéis escondidos"
+    )
 
 
 # ---------------------------------------------------------------------------

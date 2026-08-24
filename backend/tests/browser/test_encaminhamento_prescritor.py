@@ -77,8 +77,8 @@ def _nova_pagina(ctx) -> tuple[Page, list[str]]:
 
 def _abrir_submodulo(pg: Page, base_url: str):
     pg.goto(f"{base_url}/prescritor.html", wait_until="networkidle")
-    pg.locator("#btn-submod-encaminhamento").click()
-    expect(pg.locator("#form-encaminhamento")).to_be_visible(timeout=_TIMEOUT_MS)
+    pg.locator("#submod-btn-encaminhamento").click()
+    expect(pg.locator("#submod-encaminhamento")).to_be_visible(timeout=_TIMEOUT_MS)
 
 
 def _emitir_pela_api(base_url: str, justificativa: str) -> str:
