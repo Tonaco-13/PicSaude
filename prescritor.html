@@ -1823,7 +1823,10 @@
                 // do destino — e quem o traz é o cidadão (§1a). O botão fica, e
                 // o backend recusa se o percurso não permitir: a tela não
                 // duplica a máquina de estados.
-                return `<button type="button" class="btn-enc" onclick="agendarEncaminhamento('${p}')">📅 Agendar</button>
+                // `agendado` já tem data: o MESMO botão remarca (re-ato). O
+                // rótulo muda para o operador saber o que vai fazer.
+                const jaTemData = item.status === 'agendado';
+                return `<button type="button" class="btn-enc" onclick="agendarEncaminhamento('${p}', ${jaTemData})">${jaTemData ? '🔁 Remarcar' : '📅 Agendar'}</button>
                         <button type="button" class="btn-enc primaria" onclick="atenderEncaminhamento('${p}')">▶️ Atender</button>
                         <button type="button" class="btn-enc" onclick="negarEncaminhamento('${p}')">↩️ Recusar</button>`;
             }
@@ -1853,15 +1856,25 @@
             }
         }
 
-        function agendarEncaminhamento(protocolo) {
-            const quando = prompt('Data e hora da consulta (AAAA-MM-DD HH:MM):', '');
+        function agendarEncaminhamento(protocolo, jaAgendado) {
+            const rotulo = jaAgendado ? 'Nova data e hora da consulta' : 'Data e hora da consulta';
+            const quando = prompt(`${rotulo} (AAAA-MM-DD HH:MM):`, '');
             if (!quando || !quando.trim()) return;
             const d = new Date(quando.trim().replace(' ', 'T'));
             if (isNaN(d.getTime())) { _encMsg('Data/hora não reconhecida.', 'err'); return; }
             // AGENDAR NÃO MOVE POSSE (§1a): marca o compromisso e só. Quem traz o
             // documento é o cidadão, com o gesto dele.
+            //
+            // REMARCAR É O MESMO ATO (mini-desenho de 24/08): a data da visita é
+            // atributo do compromisso, não identidade do encaminhamento — então
+            // não há endpoint separado nem objeto derivado. É a mesma chamada; o
+            // backend responde `remarcacao: true` quando já havia data, e a
+            // mensagem acompanha. Dizer "consulta marcada" numa remarcação
+            // deixaria o operador em dúvida se criou uma segunda.
             _acaoEnc(protocolo, 'agendar', { data_agendamento: d.toISOString() },
-                     'Consulta marcada. O documento chega quando o cidadão o entregar.');
+                     jaAgendado
+                        ? 'Consulta remarcada. A carteira do cidadão já mostra a data nova.'
+                        : 'Consulta marcada. O documento chega quando o cidadão o entregar.');
         }
 
         function atenderEncaminhamento(protocolo) {

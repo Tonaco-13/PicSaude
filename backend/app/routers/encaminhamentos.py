@@ -463,6 +463,33 @@ def _evento(conn, enc_id: int, tipo: str, payload: dict, papel: str, ident: str,
     )
 
 
+def _data_agendada_atual(conn, encaminhamento_id: int) -> Optional[str]:
+    """A data que vale AGORA, lida do ledger — que é onde o fato foi gravado.
+
+    Não há coluna `data_agendamento` em `encaminhamentos`, e este ticket não
+    cria uma: o compromisso vive no ledger desde o E1, a carteira já o lê de lá
+    (`auth.py::listar_encaminhamentos_paciente`), e denormalizar agora abriria
+    uma segunda fonte para um dado que já tem dono.
+
+    O mais RECENTE, não o primeiro: depois de remarcar, é a última que vale.
+    """
+    for ev in conn.execute(
+        """
+        SELECT payload FROM encaminhamento_eventos
+         WHERE encaminhamento_id = ? AND tipo_evento = 'encaminhamento_agendado'
+         ORDER BY id DESC
+        """,
+        (encaminhamento_id,),
+    ).fetchall():
+        try:
+            dados = json.loads(ev["payload"] or "{}")
+        except (TypeError, ValueError):
+            continue
+        if dados.get("data_agendamento"):
+            return dados["data_agendamento"]
+    return None
+
+
 def _validar_transicao(enc: dict, novo_status: str) -> None:
     if not transicao_valida_encaminhamento(enc["status"], novo_status):
         raise HTTPException(
@@ -899,13 +926,48 @@ def agendar_encaminhamento(
     payload: AgendarEncaminhamentoIn,
     usuario=Depends(require_role("prescritor", "admin")),
 ):
+    """Marca — e REMARCA — a data da visita.
+
+    REMARCAÇÃO É RE-ATO, NÃO DERIVAÇÃO (mini-desenho do arquiteto, 24/08;
+    ruling: *a data da visita é atributo do compromisso, não identidade do
+    encaminhamento*).
+
+    A regra da casa — "remarcação = novo objeto derivado" — vale quando o
+    OBJETO É o compromisso: no módulo de Agendamento, AG-001 vira AG-002 com
+    `origem_agendamento_id`, porque o que se remarca é o próprio objeto. Aqui o
+    objeto é o ENCAMINHAMENTO CLÍNICO — quem, por quê, para qual especialidade
+    — e a data é atributo dele. Derivar um encaminhamento inteiro para trocar
+    um horário copiaria conteúdo clínico para mover uma marca de calendário, e
+    encheria a cadeia de derivação de eventos sem conteúdo clínico.
+
+    O QUE NÃO NASCE AQUI: estado novo, aresta nova, evento novo. O ato é
+    **aditivo no ledger e idempotente no estado** — cada chamada grava um
+    `encaminhamento_agendado` com `{data_anterior, data_nova}`, e o status
+    permanece `agendado`. Sem self-loop na máquina: a transição só é validada
+    quando o estado REALMENTE muda.
+
+    GUARDAS: re-agendar só em `agendado`. Em `atendido` a visita já aconteceu —
+    remarcar o passado não é remarcar, é reescrever; nos terminais, idem.
+    Papéis: o DESTINO (quem marcou, remarca — a lógica do #171) e `admin`.
+    Remarcação pelo cidadão fica registrada como futuro.
+    """
     agora = datetime.utcnow().isoformat()
     papel, ident = _normalizar_identidade_jwt(usuario)
     with get_tx() as conn:
         enc = _get_encaminhamento_ou_404(conn, protocolo)
         if papel != "admin":
             _assert_destino(enc, ident)
-        _validar_transicao(enc, "agendado")
+
+        # RE-ATO: já está `agendado` → só a data muda. Validar transição aqui
+        # exigiria uma aresta `agendado → agendado` na máquina, e self-loop é
+        # exatamente o tipo de coisa que se acrescenta "só desta vez" e depois
+        # ninguém sabe mais o que a máquina promete.
+        remarcando = enc["status"] == "agendado"
+        if remarcando:
+            data_anterior = _data_agendada_atual(conn, enc["id"])
+        else:
+            data_anterior = None
+            _validar_transicao(enc, "agendado")
 
         conn.execute("UPDATE encaminhamentos SET status = 'agendado' WHERE id = ?", (enc["id"],))
         conn.execute(
@@ -928,12 +990,25 @@ def agendar_encaminhamento(
         # `encaminhamento_custodia`, nunca o status — ler posse do status é o
         # defeito que o martelo do J.7 matou no exame.
         instance_id = get_instance_id_conn(conn)
+        # O MESMO evento, com o payload dizendo o que mudou. Vocabulário
+        # intacto (`EVENTOS_ENCAMINHAMENTO` congelado): quem lê a trilha vê a
+        # cadeia de remarcações por `data_anterior → data_nova`, sem precisar
+        # de um nome de evento novo para descobrir que houve remarcação.
         _evento(conn, enc["id"], "encaminhamento_agendado", {
             "status_anterior": enc["status"],
             "data_agendamento": payload.data_agendamento,
             "local_texto": payload.local_texto,
+            "remarcacao": remarcando,
+            "data_anterior": data_anterior,
+            "data_nova": payload.data_agendamento,
         }, papel, ident, instance_id=instance_id)
-        return {"protocolo": protocolo, "status": "agendado"}
+        return {
+            "protocolo": protocolo,
+            "status": "agendado",
+            "remarcacao": remarcando,
+            "data_anterior": data_anterior,
+            "data_agendamento": payload.data_agendamento,
+        }
 
 
 @router.post("/{protocolo}/entregar", status_code=200)
