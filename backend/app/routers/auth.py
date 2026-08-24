@@ -556,6 +556,9 @@ def listar_pedidos_exame(usuario=Depends(require_role("paciente"))):
                 # gesto de transferir os itens que seguem com o cidadão.
                 "sob_minha_custodia": posse_do_cidadao(detentor) or algum_item_meu,
                 "agendamento":       agendamento,     # TICKET-J.11 — None se não há compromisso vigente
+                # ENG-017 (S1+S4) — o elo exame → laudo. O percurso é UM só
+                # para o cidadão; a carteira tinha duas listas e nenhuma ponte.
+                "laudo":             _laudo_do_pedido(conn, row["id"]),
                 "itens": itens_out,
             })
 
@@ -623,6 +626,16 @@ def listar_laudos(usuario=Depends(require_role("paciente"))):
                 # ENG-014 (PR C): carimbo da 1ª abertura. A tela usa para NÃO
                 # chamar `POST /abrir` de novo — um fato, um evento.
                 "aberto_em":     str(row["aberto_em"]).replace(" ", "T") if row["aberto_em"] else None,
+                # ENG-017 (S1+S4 / R2-lite) — O RECEBIMENTO, que já era fato e
+                # não era mostrado. `liberar` cria a custódia
+                # `prestador → paciente`: existe o instante em que o laudo
+                # chegou às mãos do cidadão, e a carteira nunca o exibiu.
+                # É o handoff — exatamente o que a Regra Zero manda tornar
+                # visível.
+                "recebido_em":       _recebido_em_laudo(conn, row["id"]),
+                # O elo de volta: o laudo sabe de que pedido nasceu. Sem ele o
+                # cidadão tem duas listas e nenhuma ponte entre elas.
+                "pedido_protocolo":  _pedido_do_laudo(conn, row["id"]),
                 "itens":         [dict(i) for i in itens],
             })
 
@@ -635,6 +648,60 @@ def listar_laudos(usuario=Depends(require_role("paciente"))):
         "disponiveis": [l for l in laudos if l["status"] in _DISPONIVEIS],
         "historico":   [l for l in laudos if l["status"] in _TERMINAIS_LAUDO],
     }
+
+
+def _recebido_em_laudo(conn, laudo_id: int) -> Optional[str]:
+    """Quando o laudo chegou às mãos do cidadão (custódia `→ paciente`).
+
+    ENG-017. O fato já existia — `liberar` grava a linha — e nunca foi
+    mostrado. `None` significa "ainda não liberado", que é a verdade, não
+    ausência de dado.
+    """
+    row = conn.execute(
+        """
+        SELECT transferido_em FROM laudo_custodia
+         WHERE laudo_id = ? AND item_id IS NULL AND para = 'paciente'
+         ORDER BY id DESC LIMIT 1
+        """,
+        (laudo_id,),
+    ).fetchone()
+    return str(row["transferido_em"]).replace(" ", "T") if row else None
+
+
+def _pedido_do_laudo(conn, laudo_id: int) -> Optional[str]:
+    """Protocolo do pedido de exame que originou este laudo — o elo de volta."""
+    row = conn.execute(
+        """
+        SELECT pe.protocolo
+          FROM laudos l JOIN pedidos_exame pe ON pe.id = l.pedido_id
+         WHERE l.id = ?
+        """,
+        (laudo_id,),
+    ).fetchone()
+    return row["protocolo"] if row else None
+
+
+def _laudo_do_pedido(conn, pedido_id: int) -> Optional[dict]:
+    """O laudo VIGENTE de um pedido, para o cartão do exame apontar.
+
+    ENG-017 (S1+S4). O cartão dizia "Resultado disponível" e citava a seção
+    *Laudos / Resultados* pelo NOME, sem levar até ela — o cidadão tinha de ler
+    a frase, memorizar o nome e rolar a página. Aqui nasce o elo.
+
+    Só o LIBERADO em diante: laudo `em_producao` ou `assinado` ainda não é do
+    cidadão (a custódia não passou), e anunciá-lo prometeria o que ele não pode
+    abrir.
+    """
+    row = conn.execute(
+        """
+        SELECT protocolo, status FROM laudos
+         WHERE pedido_id = ?
+           AND status IN ('liberado', 'ciencia_paciente', 'ciencia_prescritor', 'encerrado')
+         ORDER BY id DESC LIMIT 1
+        """,
+        (pedido_id,),
+    ).fetchone()
+    return {"protocolo": row["protocolo"], "status": row["status"]} if row else None
 
 
 # ---------------------------------------------------------------------------

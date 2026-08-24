@@ -267,6 +267,19 @@
         .btn-entregar-enc { background:#7e22ce; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; }
         .btn-entregar-enc:hover { background:#6b21a8; }
         .btn-entregar-enc:disabled { background:#c4b5fd; cursor:not-allowed; }
+        /* ── ENG-017 (S1+S4, S3) — o fecho do percurso no cartão do exame ──
+           O laudo deixa de ser citado por nome e passa a ser um link; a ciência
+           do pedido ganha a porta que nunca teve. */
+        .exame-fecho { background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:12px 14px; margin-top:12px; }
+        .exame-fecho-linha { font-size:13px; color:#1e3a8a; line-height:1.6; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .exame-fecho-nota { font-size:11px; color:#64748b; margin-top:6px; line-height:1.5; }
+        .btn-ver-laudo { background:#fff; border:1px solid #93c5fd; border-radius:6px; padding:4px 12px; font-size:12px; font-weight:600; color:#1d4ed8; cursor:pointer; }
+        .btn-ver-laudo:hover { background:#dbeafe; }
+        .btn-ciencia-exame { margin-top:10px; background:#1e3a8a; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; }
+        .btn-ciencia-exame:hover { background:#1d4ed8; }
+        .btn-ciencia-exame:disabled { background:#94a3b8; cursor:not-allowed; }
+        /* O RECEBIMENTO — o handoff que já era fato e não era mostrado. */
+        .laudo-recebido { font-size:12px; color:#166534; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:6px 10px; display:inline-block; margin-top:8px; }
         /* ── "Ver rastreabilidade" (TICKET-J.11 · Adendo §11b) ──────────────
            A MESMA lente do portal, aberta por cartão. Nada de login extra:
            os /public/* são neutros e anônimos por construção. */
@@ -1099,8 +1112,23 @@
                 const acaoHtml = laudo.status === 'ciencia_paciente' || laudo.status === 'encerrado'
                     ? `<span style="font-size:12px; color:#16a34a; font-weight:600;">✓ Ciência registrada</span>`
                     : `<span style="font-size:12px; color:#64748b;">${laudo.status}</span>`;
+                // ENG-017 (R2-lite) — O RECEBIMENTO, VISÍVEL.
+                //
+                // `liberar` cria a custódia `prestador → paciente`: existe o
+                // instante em que o laudo CHEGOU ÀS MÃOS do cidadão, e a
+                // carteira nunca o mostrou — exibia status e "ciência
+                // registrada", nunca "chegou em dd/mm". É o handoff, que é
+                // justamente o que a Regra Zero manda tornar visível.
+                //
+                // Distinto de "Liberado em", que é a data do documento: um é o
+                // ato do laboratório, o outro é a chegada. Dois fatos.
+                const recebido = laudo.recebido_em
+                    ? new Date(laudo.recebido_em).toLocaleString('pt-BR',
+                        { day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit' })
+                    : null;
                 return `
-                    <div class="exame-card">
+                    <div class="exame-card" id="laudo-card-${laudo.protocolo}">
                         <div class="exame-card-header">
                             <div>
                                 <p style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:4px;">${laudo.protocolo}</p>
@@ -1109,6 +1137,7 @@
                             </div>
                             <span class="exame-badge-prioridade">laudo</span>
                         </div>
+                        ${recebido ? `<div class="laudo-recebido">📬 Chegou a você em ${recebido}</div>` : ''}
                         <ul class="exame-lista">${itensHtml}</ul>
                         <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
                             <button class="btn-outline btn-small" style="margin:0;"
@@ -1377,6 +1406,41 @@
             _abrirERealcar('exames', `exame-card-${protocoloPedido}`);
         }
 
+        // ── ENG-017 — do exame ao laudo, e a ciência do pedido ────────────
+
+        /** Leva ao laudo, na mesma aba. Não abre nada: quem decide se "abrir é
+         *  dar ciência" é o LAUDO (ENG-014), e este gesto é só de navegação. */
+        function verLaudoDoPedido(protocoloLaudo) {
+            _abrirERealcar('exames', `laudo-card-${protocoloLaudo}`);
+        }
+
+        /** S3 — a ciência do PEDIDO, explícita.
+         *
+         *  `resultado_disponivel` e `encerrado` não são o mesmo estado: o
+         *  primeiro é "laudo pronto, aguarda ciência"; o segundo é "ciência
+         *  registrada, ciclo completo". A tela nunca ofereceu a passagem — todo
+         *  pedido da vitrine parava no primeiro.
+         *
+         *  A confirmação diz o que vai acontecer ANTES de acontecer: encerrar é
+         *  terminal, e declarar ciência sem querer não se desfaz. */
+        async function darCienciaDoPedido(protocolo) {
+            if (!confirm('Confirmar que você tomou ciência do resultado?\n\n' +
+                         'Isso encerra este pedido de exame — o ciclo fica completo. ' +
+                         'O laudo continua na sua carteira, para consultar e baixar quando quiser.')) return;
+            const btn = document.getElementById('btn-ciencia-' + protocolo);
+            if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
+            try {
+                await apiFetch(`/pedidos-exame/${encodeURIComponent(protocolo)}/encerrar`, {
+                    method: 'POST', body: '{}',
+                });
+                showToast('Ciência registrada. Pedido de exame encerrado.', 'success');
+                await carregarPedidosExame();
+            } catch (err) {
+                if (btn) { btn.disabled = false; btn.textContent = '✓ Confirmo ciência do resultado'; }
+                showToast('Não foi possível registrar a ciência: ' + (err.message || 'erro'), 'error');
+            }
+        }
+
         // ── TICKET-J.11 (Adendo §11b) — "ver rastreabilidade" por cartão ───
         //
         // A MESMA lente do portal (`lente.js`), agora aberta a partir de um
@@ -1496,8 +1560,50 @@
                         </div>` : `
                         <div class="exame-no-lab">
                             <strong>Custódia transferida</strong>
-                            O pedido está com o laboratório. Você acompanha o resultado aqui e em <em>Laudos / Resultados</em>.
+                            O pedido está com o laboratório. Você acompanha o resultado por aqui.
                         </div>`;
+
+                // ── ENG-017 (S1+S4 e S3) — o fim do percurso, no cartão ────
+                //
+                // Aqui morava o maior atrito da vitrine, e eram DOIS somados:
+                //
+                //   S1/S4 — o cartão dizia "Resultado disponível" e CITAVA a
+                //   seção "Laudos / Resultados" pelo nome, sem levar até ela.
+                //   O cidadão tinha de ler a frase, memorizar o nome e rolar a
+                //   página. Agora o laudo é um link, e o elo vem do backend
+                //   (`pedido.laudo`), que só o devolve depois de LIBERADO — a
+                //   custódia passou, o documento é dele.
+                //
+                //   S3 — `POST /pedidos-exame/{p}/encerrar` existia, aceitava
+                //   `paciente`, e NENHUMA tela o chamava. O pedido morria em
+                //   `resultado_disponivel`. Não era o repouso do J.1: o J.1
+                //   desenhou repouso AGUARDANDO CIÊNCIA, e a ciência não tinha
+                //   porta. Atrito infinito — o gesto era inalcançável.
+                //
+                // A CIÊNCIA É EXPLÍCITA E NÃO SE DERIVA DE ABRIR O LAUDO
+                // (martelo do Fabiano, 24/08): ciência do laudo é do laudo,
+                // ciência do pedido é do pedido. Dois fatos, dois eventos.
+                // Fundi-los faria abrir um PDF encerrar um pedido de exame — e
+                // ninguém consegue desfazer o que declarou sem querer.
+                const resultadoSaiu = pedido.status === 'resultado_disponivel';
+                const fechamentoHtml = (resultadoSaiu || pedido.laudo) ? `
+                        <div class="exame-fecho">
+                            ${pedido.laudo ? `
+                                <p class="exame-fecho-linha">
+                                    📄 O laudo deste exame já está com você.
+                                    <button type="button" class="btn-ver-laudo"
+                                            onclick="verLaudoDoPedido('${pedido.laudo.protocolo}')">Ver laudo</button>
+                                </p>` : `
+                                <p class="exame-fecho-linha">
+                                    🔬 O resultado saiu. O laudo é liberado pelo laboratório e aparece aqui.
+                                </p>`}
+                            ${resultadoSaiu ? `
+                                <button type="button" class="btn-ciencia-exame" id="btn-ciencia-${pedido.protocolo}"
+                                        onclick="darCienciaDoPedido('${pedido.protocolo}')">
+                                    ✓ Confirmo ciência do resultado
+                                </button>
+                                <p class="exame-fecho-nota">Confirmar encerra este pedido de exame. O laudo continua na sua carteira.</p>` : ''}
+                        </div>` : '';
 
                 return `
                     <div class="exame-card" id="exame-card-${pedido.protocolo}">
@@ -1514,6 +1620,7 @@
                         </div>
                         <ul class="exame-lista">${itensHtml}</ul>
                         ${_seloAgendamento(pedido.agendamento, pedido.protocolo)}
+                        ${fechamentoHtml}
                         ${acaoHtml}
                         ${_botaoRastreabilidade(pedido.protocolo)}
                     </div>`;
