@@ -15,6 +15,7 @@ from app.domain.medicamento import normalizar_unidade
 from app.domain.states import BLOQUEADOS_HARD_DISPENSA
 from app.domain import relatorio_sngpc as sngpc
 from app.domain.pdf_relatorio_sngpc import gerar_pdf_sngpc
+from app.utils.relogio import hoje_utc
 from app.utils.helpers import normalize_cnpj, normalize_nome
 from app.routers.pedidos_exame import detentor_atual_pedido  # J.10 — posse por item/filtro da fila
 from app.routers.agendamentos import (  # ENG-014 — recepção age a partir da fila
@@ -593,7 +594,14 @@ def _janela_periodo(data_inicio: Optional[str], data_fim: Optional[str]):
     di = _parse_dia(data_inicio, "data_inicio")
     df = _parse_dia(data_fim, "data_fim")
     if di is None and df is None:
-        df = date.today()
+        # ENG-017 (A1) — UTC, e não a hora local do processo.
+        #
+        # Os registros são carimbados em UTC (`datetime.utcnow()`); a janela
+        # fechava em meia-noite LOCAL. No fuso −03, tudo criado entre 21h e 24h
+        # caía FORA da janela padrão — e o gate nunca viu, porque o CI roda em
+        # UTC, onde os dois coincidem. Comparar com dado em UTC exige perguntar
+        # a hora em UTC.
+        df = hoje_utc()
         di = df - timedelta(days=30)
     dt_inicio = datetime.combine(di, datetime.min.time()) if di else None
     dt_fim = datetime.combine(df, datetime.max.time().replace(microsecond=0)) if df else None

@@ -37,6 +37,7 @@ from app.domain.pdf_relatorio_exames import (
     gerar_pdf_exames,
     gerar_pdf_faturamento,
 )
+from app.utils.relogio import hoje_utc
 from app.utils.helpers import normalize_cnpj
 
 router = APIRouter(prefix="/clinicas", tags=["clinicas"])
@@ -81,7 +82,14 @@ def _janela_periodo(data_inicio: Optional[str], data_fim: Optional[str]):
     di = _parse_dia(data_inicio, "data_inicio")
     df = _parse_dia(data_fim, "data_fim")
     if di is None and df is None:
-        df = date.today()
+        # ENG-017 (A1) — UTC, e não a hora local do processo.
+        #
+        # Os registros são carimbados em UTC (`datetime.utcnow()`); a janela
+        # fechava em meia-noite LOCAL. No fuso −03, tudo criado entre 21h e 24h
+        # caía FORA da janela padrão — e o gate nunca viu, porque o CI roda em
+        # UTC, onde os dois coincidem. Comparar com dado em UTC exige perguntar
+        # a hora em UTC.
+        df = hoje_utc()
         di = df - timedelta(days=30)
     dt_inicio = datetime.combine(di, datetime.min.time()) if di else None
     dt_fim = datetime.combine(df, datetime.max.time().replace(microsecond=0)) if df else None
