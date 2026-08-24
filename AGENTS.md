@@ -316,6 +316,12 @@ onboarding institucional — implementar quando esse fluxo existir.
 
 ## 7. O modelo é generalizável
 
+> **REGRA ZERO (Fabiano, 2026-08-24):** a movimentação **sem atrito**
+> do objeto sanitário, **ancorada ao CPF (chave)**, é a régua-mestra
+> desta casa. Atrito percebido na circulação é defeito — mesmo que cada
+> peça esteja correta isolada. O núcleo (ledger, custódia, estados)
+> existe para servi-la; a última milha (telas) é onde ela mais se perde.
+
 A arquitetura de custódia não é exclusiva de prescrições.
 Qualquer objeto assistencial futuro deve seguir o mesmo padrão:
 
