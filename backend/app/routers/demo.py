@@ -43,6 +43,17 @@ _PERSONAS: dict[str, dict] = {
         "nome":  "Dra. Demo Maria Souza",
         "identificador_visivel": "CNS 980 0011 1222 3334",
     },
+    # ENG-016 — o DESTINO da terceira circulação. Mesmo papel `prescritor`,
+    # CNS próprio: encaminhar exige origem ≠ destino (auto-encaminhamento é
+    # bloqueado na emissão, §2 lei 8), e com uma persona só a demo morre no
+    # primeiro clique. Mesmo padrão do `dispensador_norte`: a chave do dict é o
+    # que vem no `payload.role`, e o `role` do JWT continua sendo o real.
+    "prescritor_destino": {
+        "role":  "prescritor",
+        "sub":   "980001112223335",
+        "nome":  "Dr. Demo Carlos Andrade",
+        "identificador_visivel": "CNS 980 0011 1222 3335",
+    },
     "dispensador": {
         "role":  "dispensador",
         "sub":   "99999999000191",
@@ -99,7 +110,11 @@ def _papeis_demo_disponiveis() -> list[str]:
     aqui é persona que o seletor de 1 clique não abre, mesmo existindo em
     `_PERSONAS`.
     """
-    base = ["prescritor", "dispensador", "dispensador_norte", "clinica", "paciente"]
+    # ENG-016 —  entra na lista, não só no dict: persona
+    # ausente daqui é persona que o seletor de 1 clique NÃO abre, mesmo
+    # existindo em . A terceira circulação precisa dos dois lados
+    # visíveis na vitrine (AC vi: 403 no meio da demo mata a narrativa).
+    base = ["prescritor", "prescritor_destino", "dispensador", "dispensador_norte", "clinica", "paciente"]
     if PICSAUDE_DEMO_ADMIN:
         base.append("admin")
     return base

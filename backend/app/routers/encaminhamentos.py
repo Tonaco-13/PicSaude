@@ -16,7 +16,7 @@ from typing import List, Optional
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator, model_validator, model_validator
 
 from app.auth.dependencies import require_role
 from app.config import BASE_URL
@@ -24,6 +24,7 @@ from app.database_tx import get_tx
 from app.domain.ledger import registrar_evento_ledger
 from app.domain.pdf_encaminhamento import gerar_pdf_encaminhamento
 from app.domain.states_encaminhamento import (
+    eh_terminal_encaminhamento,
     eh_terminal_item_encaminhamento,
     transicao_valida_encaminhamento,
 )
@@ -42,6 +43,25 @@ router = APIRouter(prefix="/encaminhamentos", tags=["encaminhamentos"])
 _CPF_NAO_IDENTIFICADO = "00000000000"
 _TIPOS_EMISSAO_DIGITAL = {"novo", "correcao"}
 _VALIDADE_PADRAO_DIAS = 90
+
+
+# ENG-016 §5 — FINALIDADE ESTRUTURADA (martelo 2 do Fabiano, 23/08).
+#
+# "Para que estou mandando este paciente" é dado OPERACIONAL: é por ele que a
+# regulação futura filtra fila. Enterrado na prosa da justificativa, vira coisa
+# que só um humano lê.
+#
+# A lista vive AQUI e não como CHECK no banco: o vocabulário ainda vai crescer,
+# e mudar CHECK é migração enquanto mudar esta tupla é uma linha. `outra` é o
+# escape honesto — exige texto, porque "outra" sem dizer qual não informa nada.
+FINALIDADES_ENCAMINHAMENTO: tuple[str, ...] = (
+    "avaliacao",
+    "conduta",
+    "exame_complementar",
+    "segunda_opiniao",
+    "seguimento",
+    "outra",
+)
 
 
 class ItemEncaminhamentoIn(BaseModel):
@@ -66,6 +86,24 @@ class EncaminhamentoIn(BaseModel):
     especialidade_destino: str
     cid: Optional[str] = None
     justificativa_clinica: str
+    # Opcional no SCHEMA, sempre enviado pela TELA. Encaminhamento emitido antes
+    # desta coluna não tem finalidade e não pode ganhá-la (§1: objeto emitido é
+    # imutável); `None` significa "emitido antes de a finalidade existir", que é
+    # a verdade — e não um valor plausível inventado por backfill.
+    finalidade: Optional[str] = None
+    finalidade_texto: Optional[str] = None
+    # ENG-016 §5 — AUDITORIA DA SUGESTÃO (martelo 3 do Fabiano, 23/08).
+    #
+    # Os CNS que a tela APRESENTOU como sugestão, na ordem em que apareceram.
+    # Se o sistema influencia a escolha do destino, a influência é auditável —
+    # é a mitigação declarada do efeito primeiro-da-lista e da captura de
+    # demanda. Sem isto, "a rede se conhece" seria uma caixa-preta que ninguém
+    # consegue questionar depois.
+    #
+    # A tela manda o que MOSTROU, não o que o backend calcularia agora: a
+    # ordenação pode mudar entre a consulta e a emissão, e o que importa para a
+    # auditoria é o que esteve diante dos olhos de quem decidiu.
+    sugestoes_apresentadas: Optional[List[str]] = None
     data_validade: Optional[str] = None
     tipo_emissao: str = "novo"
     origem_encaminhamento_id: Optional[int] = None
@@ -79,6 +117,27 @@ class EncaminhamentoIn(BaseModel):
                 f"tipo_emissao inválido: '{v}'. Valores aceitos: {sorted(_TIPOS_EMISSAO_DIGITAL)}"
             )
         return v
+
+    @field_validator("finalidade")
+    @classmethod
+    def finalidade_conhecida(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        if v not in FINALIDADES_ENCAMINHAMENTO:
+            raise ValueError(
+                f"finalidade inválida: '{v}'. Valores aceitos: "
+                f"{sorted(FINALIDADES_ENCAMINHAMENTO)}"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def outra_exige_texto(self):
+        # "outra" sem dizer qual não informa nada — seria o campo estruturado
+        # devolvendo o problema que ele existe para resolver.
+        if self.finalidade == "outra" and not (self.finalidade_texto or "").strip():
+            raise ValueError("finalidade 'outra' exige `finalidade_texto`.")
+        return self
 
     @field_validator("especialidade_destino", "justificativa_clinica")
     @classmethod
@@ -122,7 +181,21 @@ class MotivoIn(BaseModel):
     motivo: Optional[str] = None
 
 
-def _calcular_hash(
+# ── DOCUMENTO CANÔNICO DO ENCAMINHAMENTO — versionado ─────────────────────
+#
+# A versão ATUAL. Emissão nova sempre usa esta; verificação usa a que estiver
+# GRAVADA no documento.
+VERSAO_DOC_ENCAMINHAMENTO = "2"
+
+# As versões que este código sabe reproduzir, congeladas por valor. Não é
+# decoração: é a lista que um verificador consulta antes de dizer "não confere".
+# Documento com versão fora daqui não é documento adulterado — é documento que
+# ESTE código não sabe verificar, e a diferença importa.
+VERSOES_DOC_ENCAMINHAMENTO: tuple[str, ...] = ("1", "2")
+
+
+def _documento_canonico_encaminhamento(
+    versao: str,
     *,
     protocolo: str,
     cns_origem: str,
@@ -132,7 +205,33 @@ def _calcular_hash(
     cid: Optional[str],
     justificativa_clinica: str,
     itens: list[ItemEncaminhamentoIn],
-) -> str:
+    finalidade: Optional[str] = None,
+    finalidade_texto: Optional[str] = None,
+) -> dict:
+    """O documento, montado sob a regra da VERSÃO pedida.
+
+    ⚠️ ENG-016 §5 — a v2 acrescenta a FINALIDADE. Não é capricho de
+    versionamento: o §5 manda a confirmação mostrar o documento montado e o hash
+    congelar o que se vê. Finalidade visível no cabeçalho que o médico confirma
+    e ausente do hash faria o hash deixar de congelar o que foi visto — que é a
+    única coisa que ele faz. Hash que não congela o que foi visto é hash que
+    mente.
+
+    A REGRA v1 CONTINUA AQUI, INTACTA, e é isso que torna a compatibilidade
+    versionada uma afirmação verificável em vez de uma promessa. Documento
+    emitido antes é v1 e verifica sob a v1: objeto sanitário emitido é imutável
+    (§1), e recalcular o passado com a regra de hoje é o R1 invertido.
+
+    Quem um dia escrever o verificador chama esta função com a versão GRAVADA no
+    documento — nunca com a versão atual. Ler a versão do código em vez do
+    documento é o defeito que este desenho existe para impedir.
+    """
+    if versao not in VERSOES_DOC_ENCAMINHAMENTO:
+        raise ValueError(
+            f"versão de documento desconhecida: '{versao}'. "
+            f"Conhecidas: {list(VERSOES_DOC_ENCAMINHAMENTO)}"
+        )
+
     doc = {
         "protocolo": protocolo,
         "cns_origem": cns_origem,
@@ -149,8 +248,48 @@ def _calcular_hash(
             }
             for item in itens
         ],
-        "versao_esquema": "1",
+        "versao_esquema": versao,
     }
+    if versao == "2":
+        doc["finalidade"] = finalidade
+        doc["finalidade_texto"] = finalidade_texto
+    return doc
+
+
+def _calcular_hash(
+    *,
+    protocolo: str,
+    cns_origem: str,
+    cns_destino: str,
+    cpf_paciente: str,
+    especialidade_destino: str,
+    cid: Optional[str],
+    justificativa_clinica: str,
+    itens: list[ItemEncaminhamentoIn],
+    finalidade: Optional[str] = None,
+    finalidade_texto: Optional[str] = None,
+    versao: str = VERSAO_DOC_ENCAMINHAMENTO,
+) -> str:
+    """SHA-256 do documento canônico, sob a regra da versão pedida.
+
+    O default é a versão ATUAL porque quem chama daqui é a EMISSÃO. Verificação
+    passa a versão explicitamente — e não existe hoje nenhum caminho de
+    verificação (há guarda estática afirmando isso em
+    `tests/unit/test_documento_canonico_encaminhamento.py`).
+    """
+    doc = _documento_canonico_encaminhamento(
+        versao,
+        protocolo=protocolo,
+        cns_origem=cns_origem,
+        cns_destino=cns_destino,
+        cpf_paciente=cpf_paciente,
+        especialidade_destino=especialidade_destino,
+        cid=cid,
+        justificativa_clinica=justificativa_clinica,
+        itens=itens,
+        finalidade=finalidade,
+        finalidade_texto=finalidade_texto,
+    )
     payload = json.dumps(doc, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -279,6 +418,24 @@ def _fechar_custodia_ativa(conn, encaminhamento_id: int, agora: str) -> None:
     )
 
 
+def _custodia_ativa(conn, encaminhamento_id: int) -> Optional[dict]:
+    """A posse ATUAL — `None` quando não há (ex.: emissão física).
+
+    Fonte única de "onde está o encaminhamento": `encerrada_em IS NULL`, nunca
+    "a última linha" e nunca o status (§1a). O índice único do #185 garante que
+    esta consulta devolve no máximo uma.
+    """
+    row = conn.execute(
+        """
+        SELECT * FROM encaminhamento_custodia
+         WHERE encaminhamento_id = ? AND item_id IS NULL AND encerrada_em IS NULL
+         ORDER BY id DESC LIMIT 1
+        """,
+        (encaminhamento_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def _abrir_custodia(conn, encaminhamento_id: int, detentor_tipo: str,
                     detentor_id: str, motivo: str, agora: str) -> None:
     conn.execute(
@@ -367,14 +524,16 @@ def criar_encaminhamento(
             """
             INSERT INTO encaminhamentos
               (protocolo, prescritor_id, paciente_id, cns_destino,
-               especialidade_destino, cid, justificativa_clinica, status,
+               especialidade_destino, finalidade, finalidade_texto,
+               cid, justificativa_clinica, status,
                tipo_emissao, origem_encaminhamento_id, data_emissao,
                data_validade, criado_em)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'emitido', ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'emitido', ?, ?, ?, ?, ?)
             """,
             (
                 protocolo, prescritor_id, paciente_id, cns_destino,
-                payload.especialidade_destino, payload.cid, payload.justificativa_clinica,
+                payload.especialidade_destino, payload.finalidade, payload.finalidade_texto,
+                payload.cid, payload.justificativa_clinica,
                 payload.tipo_emissao, payload.origem_encaminhamento_id,
                 data_emissao, data_validade, agora,
             ),
@@ -400,6 +559,8 @@ def criar_encaminhamento(
             cid=payload.cid,
             justificativa_clinica=payload.justificativa_clinica,
             itens=payload.itens,
+            finalidade=payload.finalidade,
+            finalidade_texto=payload.finalidade_texto,
         )
         conn.execute("UPDATE encaminhamentos SET assinatura_hash = ? WHERE id = ?", (doc_hash, enc_id))
 
@@ -408,7 +569,16 @@ def criar_encaminhamento(
             "tipo_emissao": payload.tipo_emissao,
             "origem_encaminhamento_id": payload.origem_encaminhamento_id,
             "cns_destino": cns_destino,
+            "finalidade": payload.finalidade,
             "itens_count": len(payload.itens),
+            # §5 — a influência do sistema fica no ledger, ao lado da escolha.
+            # `escolheu_sugerido` é derivado aqui e não na tela: quem responde
+            # "a sugestão pegou?" é o registro, não o cliente que a exibiu.
+            "sugestoes_apresentadas": payload.sugestoes_apresentadas,
+            "escolheu_sugerido": (
+                cns_destino in (payload.sugestoes_apresentadas or [])
+                if payload.sugestoes_apresentadas else None
+            ),
         }, papel, ident or cns_origem, instance_id=instance_id)
 
         _abrir_custodia(conn, enc_id, "paciente", cpf, "emissao_digital", agora)
@@ -430,6 +600,169 @@ def criar_encaminhamento(
             "itens_count": len(payload.itens),
             "documento_hash": doc_hash,
         }
+
+
+@router.get("/meus", status_code=200)
+def meus_encaminhamentos(
+    usuario=Depends(require_role("prescritor", "admin")),
+):
+    """Os encaminhamentos do prescritor, separados por CHAPÉU.
+
+    ENG-016 §3 — o mesmo profissional é ORIGEM de uns e DESTINO de outros, e as
+    perguntas são diferentes: "o que eu mandei, e voltou?" contra "o que chegou
+    para mim, e o que eu devo?". Uma lista só obrigaria o operador a separar na
+    cabeça o que o sistema já sabe separar.
+
+    LISTA POR DEVER, SELO POR POSSE — a lei nº 1 do §2, e a razão de haver dois
+    campos por linha:
+
+      · `dever` responde "o que ESTE profissional tem de fazer agora";
+      · `posse` responde "onde o documento ESTÁ fisicamente".
+
+    Os dois divergem de propósito no caso que dá nome à regra: `atendido` é
+    DEVER do destino (ele precisa contrarreferir) com a POSSE no cidadão — o
+    `atender` devolveu o documento. Listar por custódia faria o item sumir da
+    tela exatamente quando vira obrigação.
+
+    Sem paginação: a demanda desta onda é a vitrine, e inventar paginação sem
+    volume real seria complexidade adivinhada. Quando o volume aparecer, entra —
+    com o número que o caso pedir.
+    """
+    papel, ident = _normalizar_identidade_jwt(usuario)
+
+    with get_tx() as conn:
+        linhas = conn.execute(
+            """
+            SELECT e.*, pr.cns AS cns_origem, pa.cpf AS cpf_paciente,
+                   pa.nome AS nome_paciente
+              FROM encaminhamentos e
+              LEFT JOIN prescritores pr ON pr.id = e.prescritor_id
+              LEFT JOIN pacientes    pa ON pa.id = e.paciente_id
+             ORDER BY e.id DESC
+            """
+        ).fetchall()
+
+        origem, destino = [], []
+        for row in linhas:
+            enc = dict(row)
+            eh_origem  = enc.get("cns_origem") == ident
+            eh_destino = enc.get("cns_destino") == ident
+            if not (eh_origem or eh_destino or papel == "admin"):
+                continue
+
+            atual = _custodia_ativa(conn, enc["id"])
+            item = {
+                "protocolo":             enc["protocolo"],
+                "status":                enc["status"],
+                "especialidade_destino": enc["especialidade_destino"],
+                "finalidade":            enc.get("finalidade"),
+                "finalidade_texto":      enc.get("finalidade_texto"),
+                "cid":                   enc.get("cid"),
+                "cns_destino":           enc["cns_destino"],
+                "cns_origem":            enc.get("cns_origem"),
+                "cpf_paciente":          enc.get("cpf_paciente"),
+                "nome_paciente":         enc.get("nome_paciente"),
+                "data_emissao":          enc["data_emissao"],
+                # POSSE — fonte única: custódia ativa, nunca o status (§1a).
+                "posse_tipo":            atual["detentor_tipo"] if atual else None,
+                "posse_id":              atual["detentor_id"] if atual else None,
+            }
+            if eh_origem:
+                origem.append(item)
+            if eh_destino:
+                destino.append({**item, "dever": _dever_do_destino(enc["status"])})
+
+    return {"encaminhados": origem, "recebidos": destino}
+
+
+def _dever_do_destino(status: str) -> str:
+    """O que o DESTINO deve fazer agora — as três gavetas do §3.
+
+    `chegou` (decidir: agendar ou recusar) · `devo_retorno` (atendeu e deve a
+    contrarreferência — o caso em que dever e posse divergem) · `devolvi`
+    (contrarreferiu; acompanha até a origem encerrar) · `sem_dever` (terminal).
+    """
+    if status in ("emitido", "em_regulacao", "agendado"):
+        return "chegou"
+    if status == "atendido":
+        return "devo_retorno"
+    if status == "contrarreferido":
+        return "devolvi"
+    return "sem_dever"
+
+
+@router.get("/sugestoes-destino", status_code=200)
+def sugestoes_destino(
+    cpf_paciente: str,
+    especialidade: Optional[str] = None,
+    limite: int = 5,
+    usuario=Depends(require_role("prescritor", "admin")),
+):
+    """Quem já atendeu este paciente — a rede se conhece porque os objetos circularam.
+
+    ENG-016 §5 (martelo 3 do Fabiano). O dado já existe: cada encaminhamento
+    ATENDIDO é a prova de que aquele profissional recebeu aquele paciente e o
+    atendeu. Nada de cadastro novo, nada de índice de reputação — só o ledger
+    lido de trás para frente.
+
+    TRÊS REGRAS QUE FAZEM ESTA SUGESTÃO SER HONESTA (§5):
+
+    1. **Razão declarada.** Cada item traz `razao` e `atendimentos` — a tela
+       mostra POR QUE aquele nome está ali. Sugestão sem razão é palpite com
+       cara de recomendação.
+    2. **Nunca pré-selecionada.** Este endpoint só devolve lista; a escolha do
+       destino é do prescritor, e o formulário não marca nenhuma por padrão.
+    3. **Auditável.** O que a tela apresentar volta em `sugestoes_apresentadas`
+       no `POST /encaminhamentos` e entra no payload de
+       `encaminhamento_emitido`. Se o sistema influencia, a influência fica
+       registrada ao lado da escolha.
+
+    ORDEM: mais atendimentos primeiro, desempate pelo mais recente. Não é
+    ranking de qualidade e o texto da tela não pode sugerir que seja —
+    é "já cuidou deste paciente", nada mais.
+
+    ESCOPO: só o paciente informado. Não existe aqui "os mais usados da rede" —
+    isso seria captura de demanda, e o §5 a nomeia como o risco a mitigar.
+    """
+    cpf = normalize_cpf(cpf_paciente)
+    limite = max(1, min(limite, 20))
+
+    with get_tx() as conn:
+        linhas = conn.execute(
+            """
+            SELECT e.cns_destino,
+                   e.especialidade_destino,
+                   COUNT(*)          AS atendimentos,
+                   MAX(e.data_emissao) AS ultimo
+              FROM encaminhamentos e
+              JOIN pacientes p ON p.id = e.paciente_id
+             WHERE p.cpf = ?
+               AND e.status IN ('atendido', 'contrarreferido', 'encerrado')
+             GROUP BY e.cns_destino, e.especialidade_destino
+             ORDER BY COUNT(*) DESC, MAX(e.data_emissao) DESC
+            """,
+            (cpf,),
+        ).fetchall()
+
+    itens = []
+    for r in linhas:
+        if especialidade and r["especialidade_destino"] != especialidade:
+            continue
+        # O nome do profissional NÃO vem daqui: o encaminhamento guarda o CNS do
+        # destino, e resolver nome exigiria uma leitura que este endpoint não
+        # precisa fazer. A tela resolve o que souber e mostra o CNS quando não
+        # souber — melhor um CNS honesto que um nome adivinhado.
+        itens.append({
+            "cns_destino":   r["cns_destino"],
+            "especialidade": r["especialidade_destino"],
+            "atendimentos":  r["atendimentos"],
+            "ultimo":        r["ultimo"],
+            "razao":         "já atendeu este paciente",
+        })
+        if len(itens) >= limite:
+            break
+
+    return {"cpf_paciente": cpf, "sugestoes": itens}
 
 
 @router.post("/fisica", status_code=201)
@@ -580,21 +913,103 @@ def agendar_encaminhamento(
             "WHERE encaminhamento_id = ? AND status_item = 'pendente'",
             (enc["id"],),
         )
-        _fechar_custodia_ativa(conn, enc["id"], agora)
-        _abrir_custodia(conn, enc["id"], "prescritor", enc["cns_destino"], "agendamento_destino", agora)
-
+        # ENG-016 §1a — AGENDAR NÃO ESCREVE CUSTÓDIA.
+        #
+        # Marcar hora é compromisso; entregar o documento é posse. Antes, este
+        # gesto movia a posse ao destino de carona com a marcação — o padrão
+        # pré-J.7, e pelo mesmo motivo: era o único gesto disponível, então
+        # carregava dois fatos. Quem move a posse agora é o CIDADÃO, em
+        # `POST /encaminhamentos/{p}/entregar` (espelho do transferir-farmácia
+        # e do transferir-laboratório).
+        #
+        # Consequência que é o ponto, não efeito colateral: um encaminhamento
+        # `agendado` pode estar com o cidadão (marcou e ainda não foi) ou com o
+        # destino (já entregou). Quem responde "onde está" é
+        # `encaminhamento_custodia`, nunca o status — ler posse do status é o
+        # defeito que o martelo do J.7 matou no exame.
         instance_id = get_instance_id_conn(conn)
         _evento(conn, enc["id"], "encaminhamento_agendado", {
             "status_anterior": enc["status"],
             "data_agendamento": payload.data_agendamento,
             "local_texto": payload.local_texto,
         }, papel, ident, instance_id=instance_id)
+        return {"protocolo": protocolo, "status": "agendado"}
+
+
+@router.post("/{protocolo}/entregar", status_code=200)
+def entregar_encaminhamento(
+    protocolo: str,
+    usuario=Depends(require_role("paciente", "admin")),
+):
+    """O CIDADÃO entrega o encaminhamento ao prescritor de destino (ENG-016 §1a).
+
+    Espelho exato do `transferir-farmacia` da receita e do
+    `transferir-laboratorio` do exame: é o cidadão que leva o documento, e é o
+    gesto dele que move a posse. Antes deste endpoint, a posse ia ao destino de
+    carona com o `agendar` DELE — o cidadão não tinha gesto nenhum, e o
+    protagonista do percurso era o único sem ato.
+
+    POSSE MUDA, ESTADO NÃO. O encaminhamento continua `emitido` (ou `agendado`,
+    se já houver hora marcada): entregar não é etapa clínica. UM fato, UM evento
+    (`custodia_transferida`) — nada de mover estado de carona, que é o que o
+    J.7 desfez no exame.
+
+    Não há corpo: o destino já está NOMEADO no documento (`cns_destino`,
+    congelado no hash). Aceitar um destino no payload deixaria o cidadão
+    entregar a quem o documento não endereça.
+
+    Ordem dos guards, anti-leak (#52): 404 do objeto → 403 de dono → 422 de
+    posse/estado. Quem não é o paciente do encaminhamento não distingue, pelo
+    status, um protocolo que existe de um que não existe.
+    """
+    agora = datetime.utcnow().isoformat()
+    papel, ident = _normalizar_identidade_jwt(usuario)
+    with get_tx() as conn:
+        enc = _get_encaminhamento_ou_404(conn, protocolo)          # 404
+        if papel != "admin":
+            _assert_paciente(conn, enc, ident)                      # 403
+
+        if eh_terminal_encaminhamento(enc["status"]):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Encaminhamento em estado terminal ({enc['status']}) não circula.",
+            )
+
+        atual = _custodia_ativa(conn, enc["id"])
+        if atual is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Este encaminhamento não tem custódia ativa (emissão física não circula).",
+            )
+        if atual["detentor_tipo"] != "paciente":
+            # Mensagem que ENSINA: dizer só "não é seu" mandaria o cidadão
+            # procurar um erro que não é dele.
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Este encaminhamento já está com o profissional de destino — "
+                    "a entrega já foi feita."
+                ),
+            )
+
+        _fechar_custodia_ativa(conn, enc["id"], agora)
+        _abrir_custodia(conn, enc["id"], "prescritor", enc["cns_destino"],
+                        "apresentacao_cidadao", agora)
+
+        instance_id = get_instance_id_conn(conn)
         _evento(conn, enc["id"], "custodia_transferida", {
             "de": "paciente",
+            "de_id": atual["detentor_id"],
             "para": "prescritor_destino",
             "para_id": enc["cns_destino"],
+            "motivo": "apresentacao_cidadao",
         }, papel, ident, instance_id=instance_id)
-        return {"protocolo": protocolo, "status": "agendado"}
+        return {
+            "protocolo": protocolo,
+            "status": enc["status"],          # inalterado: posse ≠ estado
+            "detentor": "prescritor_destino",
+            "cns_destino": enc["cns_destino"],
+        }
 
 
 @router.post("/{protocolo}/atender", status_code=200)

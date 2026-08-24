@@ -297,8 +297,49 @@
             color: #1e3a8a;
             box-shadow: 0 1px 4px rgba(0,0,0,0.10);
         }
+
+        /* ── ENG-016 — encaminhamento (a terceira circulação) ──────────── */
+        .enc-abas { display:flex; gap:6px; flex-wrap:wrap; border-bottom:2px solid #e2e8f0; margin-bottom:20px; }
+        .enc-aba { display:inline-flex; align-items:center; gap:7px; padding:10px 16px; border:none; background:transparent; border-bottom:3px solid transparent; margin-bottom:-2px; font-size:14px; font-weight:600; color:#64748b; cursor:pointer; border-radius:6px 6px 0 0; }
+        .enc-aba:hover { background:#f1f5f9; color:#1e3a8a; }
+        .enc-aba.ativa { color:#1e3a8a; border-bottom-color:#1e3a8a; background:#f8fafc; }
+        .enc-aba:focus-visible { outline:2px solid #1e3a8a; outline-offset:-2px; }
+        .enc-count { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:#e2e8f0; color:#475569; font-size:11px; font-weight:700; }
+        .enc-aba.ativa .enc-count { background:#1e3a8a; color:#fff; }
+        .enc-ajuda { font-size:11px; color:#64748b; margin-top:6px; line-height:1.5; }
+        .enc-gaveta-titulo { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#475569; margin:20px 0 10px; }
+        .enc-gaveta-titulo:first-child { margin-top:0; }
+        .enc-vazio { font-size:13px; color:#64748b; line-height:1.6; }
+        /* Cartão de uma linha da lista. DOIS SELOS SEMPRE (§2 lei 2): posse e
+           dever respondem perguntas diferentes e não se substituem. */
+        .enc-card { background:#fff; border:1px solid #e2e8f0; border-left:3px solid #1e3a8a; border-radius:7px; padding:12px 14px; margin-bottom:10px; }
+        .enc-card-topo { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+        .enc-card-pac { font-size:14px; font-weight:600; color:#0f172a; }
+        .enc-card-meta { font-size:12px; color:#64748b; margin-top:2px; }
+        .enc-card-proto { font-family:monospace; font-size:11px; color:#94a3b8; }
+        .enc-selos { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+        .enc-selo { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; letter-spacing:.3px; }
+        .enc-selo-posse { background:#e0f2fe; color:#0369a1; }
+        .enc-selo-dever { background:#fef9c3; color:#854d0e; }
+        .enc-selo-quieto { background:#f1f5f9; color:#64748b; }
+        .enc-card-acoes { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+        .btn-enc { padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; font-size:12px; font-weight:600; cursor:pointer; }
+        .btn-enc:hover { background:#f1f5f9; border-color:#1e3a8a; color:#1e3a8a; }
+        .btn-enc.primaria { background:#1e3a8a; border-color:#1e3a8a; color:#fff; }
+        .btn-enc.primaria:hover { background:#1d4ed8; color:#fff; }
+        /* Sugestão de destino: a RAZÃO fica visível ao lado do nome (§5). */
+        .enc-sugestao-titulo { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#475569; margin:4px 0 8px; }
+        .enc-sugestao { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; border:1px dashed #cbd5e1; border-radius:6px; padding:8px 12px; margin-bottom:8px; }
+        .enc-sugestao-razao { font-size:11px; color:#64748b; }
+        /* O DOCUMENTO MONTADO da confirmação — o que o destino vai ler. */
+        .enc-doc { background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:20px 22px; font-size:13px; line-height:1.7; color:#0f172a; }
+        .enc-doc h4 { font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#475569; margin:16px 0 4px; }
+        .enc-doc h4:first-child { margin-top:0; }
+        .enc-doc-cabecalho { font-size:15px; font-weight:600; color:#0f172a; border-left:3px solid #1e3a8a; padding-left:12px; margin-bottom:14px; }
     </style>
   <script src="config.js"></script>
+  <!-- ENG-016 §5 — catálogos LOCAIS e versionados (nunca consulta externa ao vivo). -->
+  <script src="catalogos-encaminhamento.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -536,6 +577,7 @@
                 <button class="submod-btn ativo" id="btn-submod-receita"  onclick="mostrarSubmodulo('receita')">Receita</button>
                 <button class="submod-btn"        id="btn-submod-exames"  onclick="mostrarSubmodulo('exames')">Exames</button>
                 <button class="submod-btn"        id="btn-submod-atestado" onclick="mostrarSubmodulo('atestado')">Atestado</button>
+                <button class="submod-btn"        id="btn-submod-encaminhamento" onclick="mostrarSubmodulo('encaminhamento')">Encaminhamento</button>
             </nav>
 
             <div id="form-receita" class="no-print">
@@ -904,6 +946,149 @@
             </div>
             <!-- fim ATESTADO ASSISTIDO -->
 
+            <!-- ══════════ ENCAMINHAMENTO — a terceira circulação (ENG-016) ══════════
+                 §3: ABAS POR CHAPÉU. O mesmo profissional é ORIGEM de uns e DESTINO
+                 de outros, e as perguntas são diferentes: "o que eu mandei, e
+                 voltou?" contra "o que chegou, e o que eu devo?".
+
+                 §2 lei 1 — as abas listam por DEVER; os selos mostram POSSE. São
+                 dois campos por linha porque são duas perguntas: `atendido` é
+                 dever do destino com posse no cidadão. -->
+            <div id="form-encaminhamento" class="no-print" style="display:none;">
+                <h2 class="section-title" style="margin-bottom: 8px;">Encaminhamento</h2>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">
+                    Referência para outro profissional, com contrarreferência de volta.
+                    O cidadão leva o documento — e é o gesto dele que move a posse.
+                </p>
+                <div id="enc-status-msg" class="hidden" style="margin-bottom: 16px; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-weight: 500;"></div>
+
+                <nav class="enc-abas" role="tablist" aria-label="Chapéus do encaminhamento">
+                    <button type="button" role="tab" class="enc-aba ativa" id="enc-aba-btn-emitir"
+                            aria-controls="enc-aba-emitir" aria-selected="true"
+                            onclick="abrirAbaEnc('emitir')">✏️ Emitir</button>
+                    <button type="button" role="tab" class="enc-aba" id="enc-aba-btn-encaminhados"
+                            aria-controls="enc-aba-encaminhados" aria-selected="false"
+                            onclick="abrirAbaEnc('encaminhados')">📤 Encaminhados <span class="enc-count" id="enc-count-encaminhados">0</span></button>
+                    <button type="button" role="tab" class="enc-aba" id="enc-aba-btn-recebidos"
+                            aria-controls="enc-aba-recebidos" aria-selected="false"
+                            onclick="abrirAbaEnc('recebidos')">📥 Recebidos <span class="enc-count" id="enc-count-recebidos">0</span></button>
+                </nav>
+
+                <!-- ── ABA: EMITIR (§5) ─────────────────────────────────── -->
+                <section class="enc-painel" id="enc-aba-emitir" role="tabpanel" aria-labelledby="enc-aba-btn-emitir">
+                    <form id="form-enc-main" onsubmit="revisarEncaminhamento(event)">
+                        <div style="background:#fff; padding:24px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:20px;">
+                            <h4 style="margin-bottom:16px; color:#1e3a8a; font-size:15px; text-transform:uppercase;">Paciente</h4>
+                            <div class="grid-3" style="margin-bottom:0;">
+                                <div class="form-group" style="margin:0;"><label class="form-label">Nome Completo <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="enc-pac-nome" class="form-input" required aria-required="true"></div>
+                                <div class="form-group" style="margin:0;"><label class="form-label">CPF <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="enc-pac-cpf" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00" onblur="carregarSugestoesDestino()"></div>
+                                <div class="form-group" style="margin:0;">
+                                    <!-- §5 — FINALIDADE ESTRUTURADA. Dado operacional: é por
+                                         ele que a regulação futura filtra fila. -->
+                                    <label class="form-label">Finalidade <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                    <select id="enc-finalidade" class="form-select" required aria-required="true" onchange="_toggleFinalidadeOutra()"></select>
+                                </div>
+                            </div>
+                            <div class="form-group hidden" id="enc-finalidade-outra-wrap" style="margin:16px 0 0;">
+                                <label class="form-label">Qual finalidade? <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                <input type="text" id="enc-finalidade-texto" class="form-input" placeholder="ex.: parecer pré-operatório">
+                            </div>
+                        </div>
+
+                        <!-- §5 — ESPECIALIDADE PRIMEIRO, PROFISSIONAL DEPOIS.
+                             É a semântica do SUS e a do schema: `especialidade_destino`
+                             é NOT NULL; `cns_destino` é o executor. -->
+                        <div style="background:#fff; padding:24px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:20px;">
+                            <h4 style="margin-bottom:16px; color:#1e3a8a; font-size:15px; text-transform:uppercase;">Destino</h4>
+                            <div class="form-group">
+                                <label class="form-label">Especialidade <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                <input type="text" id="enc-especialidade-busca" class="form-input" placeholder="digite para filtrar…" oninput="filtrarEspecialidades()" autocomplete="off">
+                                <select id="enc-especialidade" class="form-select" required aria-required="true" style="margin-top:8px;" onchange="carregarSugestoesDestino()"></select>
+                                <p class="enc-ajuda">Não achou? Escolha <strong>OUTRA</strong> e descreva no campo que aparece.</p>
+                            </div>
+                            <div class="form-group hidden" id="enc-especialidade-outra-wrap">
+                                <label class="form-label">Qual especialidade? <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                <input type="text" id="enc-especialidade-texto" class="form-input" placeholder="ex.: HEMATOLOGIA PEDIÁTRICA">
+                            </div>
+
+                            <!-- §5 — SUGESTÃO DE DESTINO, com razão declarada e NUNCA
+                                 pré-selecionada. O que for apresentado aqui viaja no
+                                 payload de `encaminhamento_emitido`: se o sistema
+                                 influencia a escolha, a influência é auditável. -->
+                            <div id="enc-sugestoes-wrap" class="hidden">
+                                <p class="enc-sugestao-titulo">Já atenderam este paciente</p>
+                                <div id="enc-sugestoes"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">CNS do profissional de destino <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                <input type="text" id="enc-cns-destino" class="form-input" placeholder="15 dígitos" maxlength="20" required aria-required="true">
+                            </div>
+                        </div>
+
+                        <div style="background:#fff; padding:24px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:20px;">
+                            <h4 style="margin-bottom:16px; color:#1e3a8a; font-size:15px; text-transform:uppercase;">Conteúdo clínico</h4>
+                            <!-- §5 — CID VISUALMENTE OPCIONAL. "CID inventado para
+                                 passar é pior que ausente": ele entra no hash e viaja
+                                 como declaração de quem emitiu. -->
+                            <div class="form-group">
+                                <label class="form-label">CID <span style="font-weight:400; font-size:11px; text-transform:none; letter-spacing:0; color:#94a3b8;">(opcional)</span></label>
+                                <input type="text" id="enc-cid-busca" class="form-input" placeholder="busque por código ou descrição…" oninput="filtrarCid()" autocomplete="off">
+                                <select id="enc-cid" class="form-select" style="margin-top:8px;" onchange="_toggleCidOutro()"></select>
+                                <div class="form-group hidden" id="enc-cid-outro-wrap" style="margin-top:8px;">
+                                    <input type="text" id="enc-cid-texto" class="form-input" placeholder="Código CID-10 (ex.: A09.0)" oninput="this.value=this.value.toUpperCase()">
+                                    <p class="enc-ajuda">Catálogo local parcial. Digitar o código correto é melhor que escolher um parecido.</p>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label">Justificativa clínica <span class="obrigatorio" aria-hidden="true">*</span></label>
+                                <textarea id="enc-justificativa" class="form-input" style="height:96px; resize:vertical;"
+                                          required aria-required="true"
+                                          placeholder="Hipótese, sintomas relevantes e o que você espera do profissional de destino."></textarea>
+                                <!-- O mínimo é validado em JS, não por `minlength`: a validação
+                                     nativa recusa o submit ANTES do `onsubmit`, e o operador ficaria
+                                     com a bolha genérica do navegador em vez da frase que explica
+                                     POR QUE a justificativa é obrigatória. -->
+                                <p class="enc-ajuda">Obrigatória — é o coração do documento. Mínimo de 20 caracteres.</p>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width:100%;">Revisar documento →</button>
+                    </form>
+
+                    <!-- §5 — A CONFIRMAÇÃO MOSTRA O DOCUMENTO MONTADO, não o
+                         formulário. A última coisa que o médico vê é o documento
+                         como o destino vai lê-lo — e é isso que o hash congela. -->
+                    <div id="enc-revisao" class="hidden" style="margin-top:24px;">
+                        <div class="enc-doc" id="enc-doc-corpo"></div>
+                        <p class="enc-ajuda" style="margin-top:10px;">
+                            Confirmar emite o documento acima e o entrega à carteira do cidadão.
+                            O conteúdo é congelado por hash — depois disso, só correção por novo documento derivado.
+                        </p>
+                        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+                            <button type="button" class="btn btn-primary" onclick="emitirEncaminhamento()" id="btn-enc-confirmar">Confirmar e emitir</button>
+                            <button type="button" class="btn btn-outline" onclick="voltarAoFormularioEnc()">← Voltar e editar</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ── ABA: ENCAMINHADOS (sou origem) ───────────────────── -->
+                <section class="enc-painel hidden" id="enc-aba-encaminhados" role="tabpanel" aria-labelledby="enc-aba-btn-encaminhados">
+                    <div id="enc-lista-encaminhados"></div>
+                </section>
+
+                <!-- ── ABA: RECEBIDOS (sou destino) — por DEVER, em três gavetas ── -->
+                <section class="enc-painel hidden" id="enc-aba-recebidos" role="tabpanel" aria-labelledby="enc-aba-btn-recebidos">
+                    <h3 class="enc-gaveta-titulo">Chegou para mim — decidir</h3>
+                    <div id="enc-lista-chegou"></div>
+                    <h3 class="enc-gaveta-titulo">Atendi e devo o retorno</h3>
+                    <div id="enc-lista-devo"></div>
+                    <h3 class="enc-gaveta-titulo">Já devolvi</h3>
+                    <div id="enc-lista-devolvi"></div>
+                </section>
+            </div>
+            <!-- fim ENCAMINHAMENTO -->
+
             <div id="historico-medico-container" class="no-print" style="margin-top: 48px; border-top: 2px solid #e2e8f0; padding-top: 32px;">
                 <h3 class="section-title">Histórico de Emissões</h3>
                 <div id="lista-historico-medico"></div>
@@ -1031,7 +1216,15 @@
                 receita:  'form-receita',
                 exames:   'form-pedido-exame',
                 atestado: 'form-atestado',
+                encaminhamento: 'form-encaminhamento',   // ENG-016 §3
             };
+            // A terceira circulação carrega LISTAS além do formulário: abrir o
+            // submódulo é o momento de buscá-las (o prescritor pode ficar a
+            // sessão inteira sem entrar aqui).
+            if (qual === 'encaminhamento') {
+                _preencherCatalogosEnc();
+                carregarMeusEncaminhamentos();
+            }
             Object.entries(mapa).forEach(([key, id]) => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = (key === qual) ? '' : 'none';
@@ -1258,6 +1451,433 @@
         function formatarConselhosDisplay(arrayConselhos) {
             if (!arrayConselhos || arrayConselhos.length === 0) return "Registro não informado";
             return arrayConselhos.map(c => `${c.tipo}-${c.uf} ${c.numero}`).join(' | ');
+        }
+
+        // ═════════════════════════════════════════════════════════════
+        // ENCAMINHAMENTO — a terceira circulação (ENG-016, §3 e §5)
+        //
+        // Nada de `esc()` global aqui: esta tela não tem um. Escapar é
+        // obrigatório porque nome de paciente e justificativa clínica são texto
+        // livre e vão para `innerHTML` — helper próprio, com nome próprio.
+        // ═════════════════════════════════════════════════════════════
+
+        function _encEsc(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
+        }
+
+        const _ENC_ABAS = ['emitir', 'encaminhados', 'recebidos'];
+        let _encSugestoesApresentadas = [];   // §5 — o que a TELA mostrou
+        let _encRascunho = null;              // documento montado, aguardando confirmação
+
+        function abrirAbaEnc(nome) {
+            if (!_ENC_ABAS.includes(nome)) return;
+            _ENC_ABAS.forEach(n => {
+                const painel = document.getElementById('enc-aba-' + n);
+                const botao  = document.getElementById('enc-aba-btn-' + n);
+                if (painel) painel.classList.toggle('hidden', n !== nome);
+                if (botao) {
+                    botao.classList.toggle('ativa', n === nome);
+                    botao.setAttribute('aria-selected', String(n === nome));
+                }
+            });
+        }
+
+        function _encMsg(texto, tipo) {
+            const el = document.getElementById('enc-status-msg');
+            if (!el) return;
+            el.textContent = texto;
+            el.style.background = tipo === 'err' ? '#fee2e2' : '#dcfce7';
+            el.style.color      = tipo === 'err' ? '#991b1b' : '#166534';
+            el.classList.remove('hidden');
+        }
+
+        // ── Catálogos locais (§5) ─────────────────────────────────────────
+        function _cat() { return window.CATALOGOS_ENCAMINHAMENTO || { especialidades: [], finalidades: [], cid: [] }; }
+
+        function _preencherCatalogosEnc() {
+            const fin = document.getElementById('enc-finalidade');
+            if (fin && !fin.options.length) {
+                fin.innerHTML = '<option value="">— selecione —</option>' +
+                    _cat().finalidades.map(f =>
+                        `<option value="${_encEsc(f.codigo)}">${_encEsc(f.rotulo)}</option>`).join('');
+            }
+            filtrarEspecialidades();
+            filtrarCid();
+        }
+
+        function filtrarEspecialidades() {
+            const termo = (document.getElementById('enc-especialidade-busca')?.value || '').trim().toUpperCase();
+            const sel = document.getElementById('enc-especialidade');
+            if (!sel) return;
+            const atual = sel.value;
+            const lista = _cat().especialidades.filter(e => !termo || e.includes(termo));
+            // "OUTRA" fica SEMPRE no fim e nunca é filtrada: é o escape, e escape
+            // que some quando a busca não acha é escape que não serve.
+            sel.innerHTML = '<option value="">— selecione —</option>' +
+                lista.map(e => `<option value="${_encEsc(e)}">${_encEsc(e)}</option>`).join('') +
+                '<option value="OUTRA">OUTRA (especificar)</option>';
+            if (atual) sel.value = atual;
+            _toggleEspecialidadeOutra();
+        }
+
+        function filtrarCid() {
+            const termo = (document.getElementById('enc-cid-busca')?.value || '').trim().toUpperCase();
+            const sel = document.getElementById('enc-cid');
+            if (!sel) return;
+            const atual = sel.value;
+            const lista = _cat().cid.filter(c =>
+                !termo || c.codigo.includes(termo) || c.descricao.toUpperCase().includes(termo));
+            sel.innerHTML = '<option value="">— sem CID —</option>' +
+                lista.slice(0, 40).map(c =>
+                    `<option value="${_encEsc(c.codigo)}">${_encEsc(c.codigo)} — ${_encEsc(c.descricao)}</option>`).join('') +
+                '<option value="__OUTRO__">Não listado — digitar código</option>';
+            if (atual) sel.value = atual;
+            _toggleCidOutro();
+        }
+
+        function _toggleFinalidadeOutra() {
+            const v = document.getElementById('enc-finalidade')?.value;
+            document.getElementById('enc-finalidade-outra-wrap')?.classList.toggle('hidden', v !== 'outra');
+        }
+
+        function _toggleEspecialidadeOutra() {
+            const v = document.getElementById('enc-especialidade')?.value;
+            document.getElementById('enc-especialidade-outra-wrap')?.classList.toggle('hidden', v !== 'OUTRA');
+        }
+
+        function _toggleCidOutro() {
+            const v = document.getElementById('enc-cid')?.value;
+            document.getElementById('enc-cid-outro-wrap')?.classList.toggle('hidden', v !== '__OUTRO__');
+        }
+
+        // ── Sugestão de destino (§5) ──────────────────────────────────────
+        //
+        // TRÊS REGRAS, e todas as três estão nesta função:
+        //   1. razão declarada — cada linha diz POR QUE aquele nome está ali;
+        //   2. nunca pré-selecionada — o clique é sempre do prescritor;
+        //   3. auditável — o que foi APRESENTADO vai no payload da emissão.
+        async function carregarSugestoesDestino() {
+            const wrap = document.getElementById('enc-sugestoes-wrap');
+            const alvo = document.getElementById('enc-sugestoes');
+            if (!wrap || !alvo) return;
+            const cpf = (document.getElementById('enc-pac-cpf')?.value || '').replace(/\D/g, '');
+            _encSugestoesApresentadas = [];
+            if (cpf.length !== 11) { wrap.classList.add('hidden'); return; }
+
+            const esp = document.getElementById('enc-especialidade')?.value || '';
+            let url = `${BACKEND}/encaminhamentos/sugestoes-destino?cpf_paciente=${encodeURIComponent(cpf)}`;
+            if (esp && esp !== 'OUTRA') url += `&especialidade=${encodeURIComponent(esp)}`;
+
+            try {
+                const resp = await fetch(url, { headers: authHeaders() });
+                if (!resp.ok) { wrap.classList.add('hidden'); return; }
+                const sug = (await resp.json()).sugestoes || [];
+                if (!sug.length) { wrap.classList.add('hidden'); return; }
+
+                _encSugestoesApresentadas = sug.map(x => x.cns_destino);
+                alvo.innerHTML = sug.map(x => `
+                    <div class="enc-sugestao">
+                      <div>
+                        <div style="font-size:13px;font-weight:600;color:#0f172a;">${_encEsc(x.cns_destino)}</div>
+                        <div class="enc-sugestao-razao">${_encEsc(x.razao)} · ${_encEsc(x.especialidade)} · ${x.atendimentos}×</div>
+                      </div>
+                      <button type="button" class="btn-enc" onclick="usarSugestao('${_encEsc(x.cns_destino)}')">Usar este</button>
+                    </div>`).join('');
+                wrap.classList.remove('hidden');
+            } catch (_) {
+                wrap.classList.add('hidden');   // sugestão é conveniência: falhar calado não impede emitir
+            }
+        }
+
+        function usarSugestao(cns) {
+            const el = document.getElementById('enc-cns-destino');
+            if (el) { el.value = cns; el.focus(); }
+        }
+
+        // ── §5: a confirmação mostra o DOCUMENTO, não o formulário ────────
+        function _lerFormularioEnc() {
+            const fin = document.getElementById('enc-finalidade').value;
+            const espSel = document.getElementById('enc-especialidade').value;
+            const esp = espSel === 'OUTRA'
+                ? (document.getElementById('enc-especialidade-texto').value || '').trim().toUpperCase()
+                : espSel;
+            const cidSel = document.getElementById('enc-cid').value;
+            const cid = cidSel === '__OUTRO__'
+                ? (document.getElementById('enc-cid-texto').value || '').trim().toUpperCase()
+                : cidSel;
+            return {
+                nome:  (document.getElementById('enc-pac-nome').value || '').trim(),
+                cpf:   (document.getElementById('enc-pac-cpf').value || '').replace(/\D/g, ''),
+                finalidade: fin,
+                finalidade_texto: fin === 'outra'
+                    ? (document.getElementById('enc-finalidade-texto').value || '').trim() : null,
+                especialidade: esp,
+                cns_destino: (document.getElementById('enc-cns-destino').value || '').replace(/\D/g, ''),
+                cid: cid || null,
+                justificativa: (document.getElementById('enc-justificativa').value || '').trim(),
+            };
+        }
+
+        function _rotuloFinalidade(codigo) {
+            const f = _cat().finalidades.find(x => x.codigo === codigo);
+            return f ? f.rotulo : codigo;
+        }
+
+        function revisarEncaminhamento(ev) {
+            ev.preventDefault();
+            const d = _lerFormularioEnc();
+
+            // Validações que a tela FAZ, e as que ela não finge fazer: comprimento
+            // mínimo e campos obrigatórios, sim; julgar se a justificativa é boa,
+            // não — validação semântica fingida daria falsa segurança.
+            if (!d.nome || d.cpf.length !== 11) { _encMsg('Informe nome e CPF válido do paciente.', 'err'); return; }
+            if (!d.finalidade) { _encMsg('Escolha a finalidade do encaminhamento.', 'err'); return; }
+            if (d.finalidade === 'outra' && !d.finalidade_texto) { _encMsg('Diga qual é a finalidade.', 'err'); return; }
+            if (!d.especialidade) { _encMsg('Escolha a especialidade de destino.', 'err'); return; }
+            if (d.cns_destino.length < 15) { _encMsg('Informe o CNS do profissional de destino (15 dígitos).', 'err'); return; }
+            if (d.justificativa.length < 20) { _encMsg('A justificativa clínica é obrigatória (mínimo de 20 caracteres).', 'err'); return; }
+
+            _encRascunho = d;
+            const finTexto = d.finalidade === 'outra' ? d.finalidade_texto : _rotuloFinalidade(d.finalidade);
+            // O CABEÇALHO É GERADO E FICA FORA DA CAIXA DE TEXTO (§5): dentro
+            // dela viraria texto que o médico pode apagar sem perceber, e o
+            // documento perderia a frase que o define.
+            document.getElementById('enc-doc-corpo').innerHTML = `
+                <p class="enc-doc-cabecalho">Encaminho o(a) paciente <strong>${_encEsc(d.nome)}</strong>
+                   para <strong>${_encEsc(finTexto)}</strong> em <strong>${_encEsc(d.especialidade)}</strong>.</p>
+                <h4>Paciente</h4>
+                <div>${_encEsc(d.nome)} — CPF ${_encEsc(d.cpf)}</div>
+                <h4>Destino</h4>
+                <div>${_encEsc(d.especialidade)} — CNS ${_encEsc(d.cns_destino)}</div>
+                ${d.cid ? `<h4>CID</h4><div>${_encEsc(d.cid)}</div>` : ''}
+                <h4>Justificativa clínica</h4>
+                <div>${_encEsc(d.justificativa)}</div>`;
+            document.getElementById('enc-revisao').classList.remove('hidden');
+            document.getElementById('form-enc-main').style.display = 'none';
+            document.getElementById('enc-revisao').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function voltarAoFormularioEnc() {
+            document.getElementById('enc-revisao').classList.add('hidden');
+            document.getElementById('form-enc-main').style.display = '';
+            _encRascunho = null;
+        }
+
+        async function emitirEncaminhamento() {
+            if (!_encRascunho) return;
+            const d = _encRascunho;
+            const btn = document.getElementById('btn-enc-confirmar');
+            if (btn) { btn.disabled = true; btn.textContent = 'Emitindo…'; }
+            try {
+                const resp = await fetch(BACKEND + '/encaminhamentos', {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({
+                        cns_prescritor: medicoLogado.cns,
+                        nome_prescritor: medicoLogado.nome,
+                        cpf_paciente: d.cpf,
+                        nome_paciente: d.nome,
+                        cns_destino: d.cns_destino,
+                        especialidade_destino: d.especialidade,
+                        finalidade: d.finalidade,
+                        finalidade_texto: d.finalidade_texto,
+                        cid: d.cid,
+                        justificativa_clinica: d.justificativa,
+                        // §5 — a influência do sistema, auditável.
+                        sugestoes_apresentadas: _encSugestoesApresentadas.length
+                            ? _encSugestoesApresentadas : null,
+                        itens: [{ especialidade: d.especialidade }],
+                    }),
+                });
+                if (resp.status === 401) { await handleUnauthorized?.(); return; }
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    _encMsg('Erro ao emitir: ' + _extrairMsgErro(err, String(resp.status)), 'err');
+                    return;
+                }
+                const dados = await resp.json();
+                _encMsg(`Encaminhamento emitido e entregue à carteira de ${d.nome}. Protocolo ${dados.protocolo}.`, 'ok');
+                document.getElementById('form-enc-main').reset();
+                voltarAoFormularioEnc();
+                _preencherCatalogosEnc();
+                await carregarMeusEncaminhamentos();
+                abrirAbaEnc('encaminhados');
+            } catch (_) {
+                _encMsg('Falha de rede ao emitir o encaminhamento.', 'err');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Confirmar e emitir'; }
+            }
+        }
+
+        // ── Listas por chapéu (§3) ────────────────────────────────────────
+        const _ENC_STATUS_ROTULO = {
+            emitido: 'Emitido', em_regulacao: 'Em regulação', agendado: 'Agendado',
+            atendido: 'Atendido', contrarreferido: 'Contrarreferido',
+            encerrado: 'Encerrado', cancelado: 'Cancelado', expirado: 'Expirado',
+            negado: 'Negado', encerrado_fisico: 'Emitido em papel',
+        };
+
+        /** SELO DE POSSE — lê custódia, nunca status (§1a). */
+        function _seloPosse(item) {
+            if (!item.posse_tipo) return '<span class="enc-selo enc-selo-quieto">sem custódia digital</span>';
+            if (item.posse_tipo === 'paciente') return '<span class="enc-selo enc-selo-posse">com o cidadão</span>';
+            const comigo = item.posse_id === medicoLogado.cns;
+            return `<span class="enc-selo enc-selo-posse">${comigo ? 'com você' : 'com o profissional de destino'}</span>`;
+        }
+
+        /** SELO DE DEVER — o que ESTE profissional tem de fazer (§2 lei 2). */
+        const _ENC_DEVER_ROTULO = {
+            chegou: 'aguardando sua decisão',
+            devo_retorno: 'você deve a contrarreferência',
+            devolvi: 'aguardando ciência da origem',
+        };
+
+        function _seloDever(dever) {
+            const t = _ENC_DEVER_ROTULO[dever];
+            return t ? `<span class="enc-selo enc-selo-dever">${t}</span>` : '';
+        }
+
+        function _cardEnc(item, acoesHtml, dever) {
+            return `
+                <div class="enc-card" id="enc-card-${_encEsc(item.protocolo)}">
+                  <div class="enc-card-topo">
+                    <div>
+                      <div class="enc-card-pac">${_encEsc(item.nome_paciente || '—')}</div>
+                      <div class="enc-card-meta">${_encEsc(item.especialidade_destino)}${item.cid ? ' · CID ' + _encEsc(item.cid) : ''}</div>
+                      <div class="enc-card-proto">${_encEsc(item.protocolo)}</div>
+                    </div>
+                    <span class="enc-selo enc-selo-quieto">${_encEsc(_ENC_STATUS_ROTULO[item.status] || item.status)}</span>
+                  </div>
+                  <div class="enc-selos">${_seloPosse(item)}${_seloDever(dever)}</div>
+                  ${acoesHtml ? `<div class="enc-card-acoes">${acoesHtml}</div>` : ''}
+                </div>`;
+        }
+
+        async function carregarMeusEncaminhamentos() {
+            try {
+                const resp = await fetch(BACKEND + '/encaminhamentos/meus', { headers: authHeaders() });
+                if (resp.status === 401) { await handleUnauthorized?.(); return; }
+                if (!resp.ok) { _encMsg('Não foi possível carregar seus encaminhamentos.', 'err'); return; }
+                const dados = await resp.json();
+                _renderizarEncaminhados(dados.encaminhados || []);
+                _renderizarRecebidos(dados.recebidos || []);
+            } catch (_) {
+                _encMsg('Falha de rede ao carregar os encaminhamentos.', 'err');
+            }
+        }
+
+        function _renderizarEncaminhados(lista) {
+            const el = document.getElementById('enc-lista-encaminhados');
+            document.getElementById('enc-count-encaminhados').textContent = String(lista.length);
+            if (!el) return;
+            if (!lista.length) {
+                // EMPTY STATE POR PERGUNTA: aqui o vazio é "não mandei ninguém",
+                // e a resposta útil é dizer por onde se manda.
+                el.innerHTML = `<p class="enc-vazio">Você ainda não encaminhou ninguém.<br>
+                    Use a aba <strong>Emitir</strong> para encaminhar um paciente a outra especialidade.</p>`;
+                return;
+            }
+            el.innerHTML = lista.map(item => {
+                // A origem só age quando o retorno chegou: dar ciência e FECHAR o
+                // ciclo (§2 lei 7 — aqui a ciência é explícita, ao contrário do
+                // laudo, onde abrir é dar ciência).
+                const acoes = item.status === 'contrarreferido'
+                    ? `<button type="button" class="btn-enc primaria" onclick="encerrarEncaminhamento('${_encEsc(item.protocolo)}')">✓ Dar ciência e encerrar</button>`
+                    : '';
+                const dever = item.status === 'contrarreferido' ? null : null;
+                return _cardEnc(item, acoes, dever);
+            }).join('');
+        }
+
+        function _renderizarRecebidos(lista) {
+            document.getElementById('enc-count-recebidos').textContent =
+                String(lista.filter(i => i.dever !== 'sem_dever').length);
+            const gavetas = {
+                chegou:       { el: document.getElementById('enc-lista-chegou'),
+                                vazio: 'Nada chegou para você agora.' },
+                devo_retorno: { el: document.getElementById('enc-lista-devo'),
+                                vazio: 'Você não deve retorno de nenhum atendimento.' },
+                devolvi:      { el: document.getElementById('enc-lista-devolvi'),
+                                vazio: 'Nenhuma contrarreferência sua aguardando ciência.' },
+            };
+            Object.entries(gavetas).forEach(([dever, g]) => {
+                if (!g.el) return;
+                const itens = lista.filter(i => i.dever === dever);
+                if (!itens.length) { g.el.innerHTML = `<p class="enc-vazio">${g.vazio}</p>`; return; }
+                g.el.innerHTML = itens.map(item => _cardEnc(item, _acoesDoDestino(item), dever)).join('');
+            });
+        }
+
+        function _acoesDoDestino(item) {
+            const p = _encEsc(item.protocolo);
+            if (item.dever === 'chegou') {
+                // "Atender" só faz sentido depois que o documento chegou às mãos
+                // do destino — e quem o traz é o cidadão (§1a). O botão fica, e
+                // o backend recusa se o percurso não permitir: a tela não
+                // duplica a máquina de estados.
+                return `<button type="button" class="btn-enc" onclick="agendarEncaminhamento('${p}')">📅 Agendar</button>
+                        <button type="button" class="btn-enc primaria" onclick="atenderEncaminhamento('${p}')">▶️ Atender</button>
+                        <button type="button" class="btn-enc" onclick="negarEncaminhamento('${p}')">↩️ Recusar</button>`;
+            }
+            if (item.dever === 'devo_retorno') {
+                return `<button type="button" class="btn-enc primaria" onclick="contrarreferirEncaminhamento('${p}')">📝 Contrarreferir</button>`;
+            }
+            return '';
+        }
+
+        async function _acaoEnc(protocolo, caminho, corpo, sucesso) {
+            try {
+                const resp = await fetch(
+                    `${BACKEND}/encaminhamentos/${encodeURIComponent(protocolo)}/${caminho}`,
+                    { method: 'POST', headers: authHeaders(), body: JSON.stringify(corpo || {}) });
+                if (resp.status === 401) { await handleUnauthorized?.(); return false; }
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    _encMsg('Erro: ' + _extrairMsgErro(err, String(resp.status)), 'err');
+                    return false;
+                }
+                _encMsg(sucesso, 'ok');
+                await carregarMeusEncaminhamentos();
+                return true;
+            } catch (_) {
+                _encMsg('Falha de rede.', 'err');
+                return false;
+            }
+        }
+
+        function agendarEncaminhamento(protocolo) {
+            const quando = prompt('Data e hora da consulta (AAAA-MM-DD HH:MM):', '');
+            if (!quando || !quando.trim()) return;
+            const d = new Date(quando.trim().replace(' ', 'T'));
+            if (isNaN(d.getTime())) { _encMsg('Data/hora não reconhecida.', 'err'); return; }
+            // AGENDAR NÃO MOVE POSSE (§1a): marca o compromisso e só. Quem traz o
+            // documento é o cidadão, com o gesto dele.
+            _acaoEnc(protocolo, 'agendar', { data_agendamento: d.toISOString() },
+                     'Consulta marcada. O documento chega quando o cidadão o entregar.');
+        }
+
+        function atenderEncaminhamento(protocolo) {
+            if (!confirm('Registrar o atendimento?\n\nO documento volta ao cidadão e você passa a dever a contrarreferência.')) return;
+            _acaoEnc(protocolo, 'atender', {},
+                     'Atendimento registrado. A contrarreferência agora é sua.');
+        }
+
+        function negarEncaminhamento(protocolo) {
+            if (!confirm('Recusar este encaminhamento?')) return;
+            _acaoEnc(protocolo, 'negar', {}, 'Encaminhamento recusado.');
+        }
+
+        function contrarreferirEncaminhamento(protocolo) {
+            const texto = prompt('Contrarreferência — o que a origem precisa saber:', '');
+            if (!texto || !texto.trim()) return;
+            _acaoEnc(protocolo, 'contrarreferir', { conteudo_clinico: texto.trim() },
+                     'Contrarreferência registrada e devolvida à origem.');
+        }
+
+        function encerrarEncaminhamento(protocolo) {
+            if (!confirm('Dar ciência do retorno e encerrar o ciclo?')) return;
+            _acaoEnc(protocolo, 'encerrar', {}, 'Ciclo encerrado.');
         }
 
         function esconderTudo() {
