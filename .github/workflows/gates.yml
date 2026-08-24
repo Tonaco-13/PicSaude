@@ -215,6 +215,47 @@ jobs:
           # o caminho da vitrine.
           python -c "import os, psycopg2; c=psycopg2.connect(os.environ['DATABASE_URL']); k=c.cursor(); k.execute(\"SELECT li.pedido_item_id, (SELECT pedido_id FROM pedido_exame_itens WHERE id = li.pedido_item_id) = l.pedido_id FROM laudo_itens li JOIN laudos l ON l.id = li.laudo_id WHERE l.protocolo = 'DEMO-LAUDO-0001'\"); r=k.fetchall(); print(f'[smoke] elo do laudo-demo={r}'); ruim=[x for x in r if x[0] is None or not x[1]]; raise SystemExit(0 if r and not ruim else f'laudo-demo SEM elo coerente: {r} — nasceu legado e cai na ponte 2.2 (ver seed_demo._garantir_laudo_demo)')"
 
+      # ── PARIDADE DE DEPLOY — "gate verde, deploy cego" (incidente de 24/08) ──
+      #
+      # Todo o resto deste gate serve o REPOSITÓRIO. A vitrine serve a IMAGEM.
+      # Enquanto o Dockerfile copiava lista explícita, asset novo entrava no
+      # repo, passava em tudo — inclusive nos testes de navegador, que abrem as
+      # telas de verdade — e não existia em produção. Três estavam 404 quando o
+      # incidente estourou: `lente.js` (#167), `catalogos-encaminhamento.js`
+      # (#187) e `submodulos.*` (#193). Os dois primeiros falhavam em SILÊNCIO
+      # havia meses; só o terceiro derrubou o login e foi notado.
+      #
+      # `tests/test_paridade_deploy_assets.py` prova a REGRA de graça, lendo o
+      # Dockerfile. Este passo prova o FATO: builda a imagem e confere que os
+      # arquivos ESTÃO lá dentro — pega o que um parser não sabe ler (um
+      # `.dockerignore` novo, mudança de estágio, destino diferente).
+      - name: Gate de paridade de deploy — os assets estão na IMAGEM
+        run: |
+          set -euo pipefail
+          docker build -t picsaude-paridade:ci .
+          echo "— assets referenciados pelas telas —"
+          ASSETS=$(grep -ohE '(src|href)="[^"]+\.(js|css|png|svg|ico)"' *.html \
+                   | sed 's/.*="//;s/"//' | grep -v '^https\?://' | sort -u)
+          echo "$ASSETS"
+          # `while read` em vez de `for a in $ASSETS`: o `for` depende de word
+          # splitting de variável não-aspeada, que é comportamento de bash e não
+          # de todo shell. Ler linha a linha funciona igual em qualquer um — e
+          # esta guarda existe justamente porque uma diferença de ambiente
+          # passou despercebida.
+          FALTA=""
+          while IFS= read -r a; do
+            [ -n "$a" ] || continue
+            if ! docker run --rm --entrypoint sh picsaude-paridade:ci \
+                 -c "test -f /app/frontend/$a"; then
+              FALTA="$FALTA $a"
+            fi
+          done <<< "$ASSETS"
+          if [ -n "$FALTA" ]; then
+            echo "::error::assets 404 na imagem (deploy cego):$FALTA"
+            exit 1
+          fi
+          echo "[paridade] todos os assets referenciados existem em /app/frontend"
+
       - name: Gate do seed do catálogo DCB — DESPACHO-OPS-SEED-CATALOGO-DCB
         # Guarda contra o "seeder órfão": `catalogo_seed.py` (56 DCBs) existia
         # desde o Ticket 20 mas ninguém o chamava, e a tabela nascia vazia em todo
