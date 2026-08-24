@@ -2087,7 +2087,7 @@ def encerrar_pedido_exame(
 @router.get("/{protocolo}/pdf")
 def get_pdf_pedido_exame(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "admin")),
+    usuario=Depends(require_role("prescritor", "admin", "paciente")),
 ):
     from fastapi.responses import StreamingResponse
     from app.domain.pdf_pedido_exame import gerar_pdf_pedido_exame
@@ -2116,8 +2116,35 @@ def get_pdf_pedido_exame(
         if not row:
             raise HTTPException(status_code=404, detail=f"Pedido '{protocolo}' não encontrado.")
 
-        # §7.3 — owner check só para 'prescritor'; admin passa. Não há
-        # paciente/dispensador no require_role do pdf — não adicionar (§4.4).
+        # §7.3 — owner check só para 'prescritor'; admin passa.
+        #
+        # > **Superseded em 24/08 para o PACIENTE (ENG-017 PR B, `core`, martelo
+        # > do Fabiano).** A regra anterior dizia "não há paciente/dispensador
+        # > no require_role do pdf — não adicionar (§4.4)". A comissão de
+        # > diagnóstico da Regra Zero (#189, S5) mostrou a contradição: o
+        # > cidadão DETÉM A CUSTÓDIA do pedido — está na carteira dele, ancorado
+        # > ao CPF dele — e levava 403 ao pedir o PDF do que carrega. O martelo
+        # > abriu para o `paciente`, com ownership por CPF.
+        # >
+        # > **`dispensador` continua FORA, e isso não foi esquecimento:** o
+        # > pedido é artefato de QUEM EMITIU, e abri-lo ao laboratório daria à
+        # > clínica o documento do prescritor. O que a clínica precisa é de
+        # > comprovante do que ELA executou, sob escopo de posse — é o S5-bis,
+        # > delimitado pelo arquiteto e fora deste PR.
+        if papel == "paciente":
+            # O cidadão só baixa o PRÓPRIO pedido. Papel sem dono deixaria
+            # qualquer paciente autenticado baixar o pedido de qualquer outro.
+            #
+            # Ownership por CPF do DOCUMENTO, não por custódia: o pedido pode
+            # estar no laboratório no momento do download e continua sendo o
+            # documento dele. Custódia responde "onde está"; ownership responde
+            # "de quem é".
+            _assert_or_403(
+                normalize_cpf(ident) == normalize_cpf(row["cpf_paciente"] or ""),
+                codigo="nao_e_dono_do_pedido_exame",
+                mensagem="Este pedido de exame pertence a outro paciente.",
+            )
+
         if papel == "prescritor":
             _assert_or_403(
                 ident == row["cns_prescritor"],
