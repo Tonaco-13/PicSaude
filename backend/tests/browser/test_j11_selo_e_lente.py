@@ -190,9 +190,10 @@ def test_cidadao_ve_o_agendamento_no_cartao_sem_sair_da_aba(
         # ativo e a data estava ali — nenhum clique de navegação entre o
         # `goto` e a leitura do selo (ver `_cartao_do_exame`).
         expect(pc.locator("#aba-exames")).to_be_visible()
-        # A carteira tem as QUATRO abas declaradas (ENG-015 §4) — a contagem
-        # segue travada para que aba nova entre por decisão, não por descuido.
-        expect(pc.locator("[id^='aba-btn-']")).to_have_count(4)
+        # A carteira tem as CINCO abas declaradas (ENG-015 §4 + ENG-016 §4) — a
+        # contagem segue travada para que aba nova entre por decisão, não por
+        # descuido. Cada aumento aqui corresponde a um martelo registrado.
+        expect(pc.locator("[id^='aba-btn-']")).to_have_count(5)
     finally:
         ctx.close()
 

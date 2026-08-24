@@ -249,6 +249,24 @@
            clicou em UM compromisso e precisa achá-lo na lista de destino. */
         .cartao-realcado { animation: realce-carteira 2.4s ease-out 1; }
         @keyframes realce-carteira { 0%,55% { box-shadow:0 0 0 3px #16a34a; } 100% { box-shadow:0 0 0 0 rgba(22,163,74,0); } }
+        /* ── ENG-016 §4 — encaminhamentos na carteira ────────────────────
+           Roxo, distinto do verde do compromisso e do azul do laboratório: são
+           três percursos e o cidadão precisa distingui-los de relance. */
+        .enc-cid-card { background:#faf5ff; border:1px solid #d8b4fe; border-left:4px solid #7e22ce; border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+        .enc-cid-topo { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+        .enc-cid-titulo { font-size:15px; font-weight:700; color:#581c87; }
+        .enc-cid-meta { font-size:12px; color:#6b21a8; margin-top:2px; }
+        .enc-cid-proto { font-family:monospace; font-size:11px; color:#a78bfa; margin-top:4px; }
+        .enc-cid-badge { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:3px 9px; border-radius:999px; background:#f3e8ff; color:#6b21a8; }
+        /* O selo da CONSULTA — data do compromisso, nunca timestamp de custódia. */
+        .enc-cid-consulta { background:#fff; border:1px dashed #c4b5fd; border-radius:6px; padding:8px 12px; margin-top:10px; font-size:13px; color:#4c1d95; }
+        .enc-cid-instrucao { font-size:13px; color:#581c87; margin-top:10px; line-height:1.6; }
+        .enc-cid-retorno { background:#fff; border:1px solid #c4b5fd; border-radius:6px; padding:10px 14px; margin-top:10px; font-size:13px; color:#4c1d95; line-height:1.6; }
+        .enc-cid-retorno strong { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+        .enc-cid-acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+        .btn-entregar-enc { background:#7e22ce; color:#fff; border:none; border-radius:7px; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; }
+        .btn-entregar-enc:hover { background:#6b21a8; }
+        .btn-entregar-enc:disabled { background:#c4b5fd; cursor:not-allowed; }
         /* ── "Ver rastreabilidade" (TICKET-J.11 · Adendo §11b) ──────────────
            A MESMA lente do portal, aberta por cartão. Nada de login extra:
            os /public/* são neutros e anônimos por construção. */
@@ -409,6 +427,11 @@
                         📅 Agendamentos <span class="aba-cart-count" id="aba-count-agendamentos">0</span>
                     </button>
                     <button type="button" role="tab" class="aba-cart"
+                            id="aba-btn-encaminhamentos" aria-controls="aba-encaminhamentos" aria-selected="false"
+                            onclick="abrirAbaCarteira('encaminhamentos')">
+                        🔀 Encaminhamentos <span class="aba-cart-count" id="aba-count-encaminhamentos">0</span>
+                    </button>
+                    <button type="button" role="tab" class="aba-cart"
                             id="aba-btn-atestado" aria-controls="aba-atestado" aria-selected="false"
                             onclick="abrirAbaCarteira('atestado')">
                         📄 Atestado <span class="aba-cart-count" id="aba-count-atestado">0</span>
@@ -456,7 +479,24 @@
                 <div id="lista-agendamentos"></div>
             </section>
 
-            <!-- ══════════ ABA 4 — ATESTADO ══════════ -->
+            <!-- ══════════ ABA 4 — ENCAMINHAMENTOS ══════════ -->
+            <!-- ENG-016 §4. A terceira circulação vista pelo cidadão: ele é o
+                 CARTEIRO CLÍNICO — leva o documento ao especialista e o traz de
+                 volta. Por isso o gesto de ENTREGAR mora aqui, e não na tela de
+                 quem recebe: quem leva é ele.
+
+                 O percurso é UM só do ponto de vista dele — ida e retorno no
+                 mesmo cartão. Partir a contrarreferência noutra lista seria
+                 partir em dois o que para ele é uma coisa só. -->
+            <section class="aba-cart-painel hidden" id="aba-encaminhamentos" role="tabpanel" aria-labelledby="aba-btn-encaminhamentos">
+                <h3 class="section-title">Encaminhamentos</h3>
+                <div id="lista-encaminhamentos"></div>
+
+                <h3 class="section-title" style="margin-top: 48px;">Histórico</h3>
+                <div id="lista-encaminhamentos-historico"></div>
+            </section>
+
+            <!-- ══════════ ABA 5 — ATESTADO ══════════ -->
             <!-- Atestado é documento FINAL (assina, entrega ao empregador); exame é
                  INTERMEDIÁRIO. Aba própria justamente porque não pertence a nenhum
                  dos dois percursos (TICKET-ATESTADO-CARTEIRA-CIDADAO). -->
@@ -691,7 +731,7 @@
         // UI only: nenhuma rota, estado ou custódia muda. O poll da carteira
         // (`_pollCarteira`) e o re-login transparente do J.3 seguem intactos —
         // ambos operam abaixo desta camada, recarregando todas as abas de uma vez.
-        const _ABAS_CARTEIRA = ['receita', 'exames', 'agendamentos', 'atestado'];
+        const _ABAS_CARTEIRA = ['receita', 'exames', 'agendamentos', 'encaminhamentos', 'atestado'];
 
         function abrirAbaCarteira(nome) {
             if (!_ABAS_CARTEIRA.includes(nome)) return;
@@ -709,7 +749,7 @@
         // O contador mostra o que está VIVO, não o histórico: é o que diz ao
         // cidadão se há algo a fazer sem precisar abrir a aba. Histórico e
         // laudos já com ciência continuam listados dentro da aba.
-        const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0, agendamentos: 0 };
+        const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0, agendamentos: 0, encaminhamentos: 0 };
 
         function _sincronizarContadoresCarteira() {
             const pares = [
@@ -719,6 +759,7 @@
                 // mesmo fato contado duas vezes faria a carteira parecer ter
                 // mais coisa pendente do que tem.
                 ['aba-count-agendamentos', _contagemCarteira.agendamentos],
+                ['aba-count-encaminhamentos', _contagemCarteira.encaminhamentos],
                 ['aba-count-atestado', _contagemCarteira.atestados],
             ];
             for (const [id, valor] of pares) {
@@ -770,6 +811,150 @@
             carregarPedidosExame();
             carregarLaudos();
             carregarAtestados();
+            carregarEncaminhamentos();   // ENG-016 §4
+        }
+
+        // ==========================================
+        // ENCAMINHAMENTOS — o cidadão como carteiro clínico (ENG-016 §4)
+        // ==========================================
+        //
+        // A carteira já mostra receita, exame e atestado. O encaminhamento é o
+        // terceiro percurso e o único em que o cidadão faz DUAS viagens: leva o
+        // documento ao especialista e traz o retorno de volta. Por isso o gesto
+        // de ENTREGAR mora aqui — quem leva é ele (§1a).
+
+        const _ENC_STATUS_CID = {
+            emitido:         'Com você',
+            em_regulacao:    'Em regulação',
+            agendado:        'Consulta marcada',
+            atendido:        'Atendido',
+            contrarreferido: 'Retorno recebido',
+            encerrado:       'Ciclo encerrado',
+            cancelado:       'Cancelado',
+            expirado:        'Expirado',
+            negado:          'Recusado',
+        };
+
+        /** Data/hora da CONSULTA — nunca o timestamp da custódia (§2 lei 4).
+         *  Dois fatos, dois campos: mostrar um pelo outro mandaria o cidadão no
+         *  dia errado, e o erro seria invisível porque a data existe. */
+        function _dataConsulta(iso) {
+            if (!iso) return null;
+            const d = new Date(String(iso).length <= 10 ? iso + 'T12:00:00' : iso);
+            if (isNaN(d.getTime())) return String(iso);
+            const semana = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][d.getDay()];
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${semana}, ${d.toLocaleDateString('pt-BR')} às ${hh}:${mm}`;
+        }
+
+        async function carregarEncaminhamentos() {
+            const container = document.getElementById('lista-encaminhamentos');
+            const hist = document.getElementById('lista-encaminhamentos-historico');
+            if (!container) return;
+            try {
+                const dados = await apiFetch('/paciente/encaminhamentos');
+                const ativos = dados.ativos || [];
+                _contagemCarteira.encaminhamentos = ativos.length;
+                _sincronizarContadoresCarteira();
+                container.innerHTML = ativos.length
+                    ? ativos.map(_cartaoEncaminhamento).join('')
+                    : `<p style="color:#64748b; font-size:13px; line-height:1.6;">
+                         Nenhum encaminhamento ativo.<br>
+                         Quando um profissional encaminhar você a um especialista, ele aparece aqui —
+                         e é você quem leva o documento.</p>`;
+                if (hist) {
+                    const h = dados.historico || [];
+                    hist.innerHTML = h.length
+                        ? h.map(_cartaoEncaminhamento).join('')
+                        : '<p style="color:#64748b; font-size:13px;">Nenhum encaminhamento encerrado.</p>';
+                }
+            } catch (err) {
+                // Vazio ≠ erro: dizer "nenhum encaminhamento" quando a carga
+                // falhou é a tela mentindo (lição do #181).
+                _contagemCarteira.encaminhamentos = 0;
+                _sincronizarContadoresCarteira();
+                container.innerHTML = `<p style="color:#dc2626; font-size:13px;">
+                    Não foi possível carregar seus encaminhamentos agora. Use <strong>Atualizar</strong> para tentar de novo.</p>`;
+            }
+        }
+
+        function _cartaoEncaminhamento(enc) {
+            const esc = (v) => LenteAuditoria.esc(v);
+            const comigo = enc.posse_tipo === 'paciente';
+            const destino = enc.especialidade_destino || 'especialista';
+            const consulta = _dataConsulta(enc.data_consulta);
+
+            // A INSTRUÇÃO, no lugar do jargão. "Com você — leve ao especialista"
+            // responde a pergunta que o cidadão tem; "emitido" não responde
+            // nada. Quem decide o texto é a POSSE, não o status (§1a).
+            let instrucao;
+            if (enc.status === 'contrarreferido' || enc.contrarreferencia) {
+                instrucao = `<strong>Voltou para você.</strong> Leve o retorno ao profissional que encaminhou${enc.prescritor_nome ? ' — ' + esc(enc.prescritor_nome) : ''}.`;
+            } else if (enc.status === 'encerrado') {
+                instrucao = 'Percurso concluído — o profissional de origem já deu ciência do retorno.';
+            } else if (enc.status === 'negado') {
+                instrucao = 'O profissional de destino recusou este encaminhamento. Procure quem o emitiu para reencaminhar.';
+            } else if (comigo) {
+                instrucao = `<strong>Com você.</strong> Leve ao profissional de ${esc(destino)}${consulta ? '' : ' — a data da consulta ainda será marcada'}.`;
+            } else {
+                instrucao = `<strong>Entregue.</strong> O documento está com o profissional de ${esc(destino)}.`;
+            }
+
+            // O gesto de ENTREGAR só aparece quando a posse é do cidadão — e é a
+            // POSSE que decide, não o estado: um encaminhamento `agendado` pode
+            // estar com ele (marcaram e ainda não foi) ou já entregue.
+            const podeEntregar = comigo && !['encerrado', 'cancelado', 'expirado', 'negado'].includes(enc.status);
+
+            return `
+                <div class="enc-cid-card" id="enc-cid-${esc(enc.protocolo)}">
+                    <div class="enc-cid-topo">
+                        <div>
+                            <p class="enc-cid-titulo">${esc(destino)}</p>
+                            <p class="enc-cid-meta">${enc.prescritor_nome ? 'Encaminhado por ' + esc(enc.prescritor_nome) : 'Encaminhamento'}${enc.cid ? ' · CID ' + esc(enc.cid) : ''}</p>
+                            <p class="enc-cid-proto">${esc(enc.protocolo)}</p>
+                        </div>
+                        <span class="enc-cid-badge">${esc(_ENC_STATUS_CID[enc.status] || enc.status)}</span>
+                    </div>
+                    ${consulta ? `<div class="enc-cid-consulta">📅 Consulta: <strong>${esc(consulta)}</strong></div>` : ''}
+                    <p class="enc-cid-instrucao">${instrucao}</p>
+                    ${enc.contrarreferencia ? `
+                        <div class="enc-cid-retorno">
+                            <strong>Retorno do especialista</strong>
+                            ${esc(enc.contrarreferencia.conteudo_clinico)}
+                        </div>` : ''}
+                    ${podeEntregar ? `
+                        <div class="enc-cid-acoes">
+                            <button type="button" class="btn-entregar-enc" id="btn-entregar-${esc(enc.protocolo)}"
+                                    onclick="entregarEncaminhamento('${esc(enc.protocolo)}')">
+                                Entregar ao profissional
+                            </button>
+                        </div>` : ''}
+                    ${_botaoRastreabilidade(enc.protocolo)}
+                </div>`;
+        }
+
+        /** O gesto do §1a — espelho do transferir-farmácia e do -laboratório.
+         *
+         *  POSSE MUDA, ESTADO NÃO: entregar não é etapa clínica. Sem CNPJ nem
+         *  destino a informar — o profissional já está NOMEADO no documento, e
+         *  aceitar um destino aqui deixaria o cidadão entregar a quem o
+         *  documento não endereça. */
+        async function entregarEncaminhamento(protocolo) {
+            if (!confirm('Confirmar a entrega do encaminhamento ao profissional de destino?\n\n' +
+                         'A partir daí o documento fica com ele até o atendimento.')) return;
+            const btn = document.getElementById('btn-entregar-' + protocolo);
+            if (btn) { btn.disabled = true; btn.textContent = 'Entregando…'; }
+            try {
+                await apiFetch(`/encaminhamentos/${encodeURIComponent(protocolo)}/entregar`, {
+                    method: 'POST', body: '{}',
+                });
+                showToast('Encaminhamento entregue ao profissional.', 'success');
+                await carregarEncaminhamentos();
+            } catch (err) {
+                if (btn) { btn.disabled = false; btn.textContent = 'Entregar ao profissional'; }
+                showToast('Não foi possível entregar: ' + (err.message || 'erro'), 'error');
+            }
         }
 
         // ==========================================

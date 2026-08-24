@@ -737,3 +737,124 @@ def listar_atestados(usuario=Depends(require_role("paciente"))):
         "vigentes":  [a for a in atestados if _vigente(a)],
         "historico": [a for a in atestados if not _vigente(a)],
     }
+
+
+# ---------------------------------------------------------------------------
+# GET /paciente/encaminhamentos — a terceira circulação na carteira (ENG-016 §4)
+# ---------------------------------------------------------------------------
+
+@router.get("/paciente/encaminhamentos")
+def listar_encaminhamentos_paciente(usuario=Depends(require_role("paciente"))):
+    """Os encaminhamentos do cidadão, com POSSE e DATA DA CONSULTA.
+
+    ENG-016 §4. Ownership vem do TOKEN (`usuario["sub"]`), nunca de CPF na URL —
+    mesmo molde de `/paciente/laudos` e `/paciente/atestados`.
+
+    DOIS FATOS, DOIS CAMPOS (§2 lei 4). O selo do cidadão mostra a data da
+    CONSULTA, nunca o timestamp da custódia:
+
+      · `data_consulta` — quando o laboratório/profissional marcou o
+        atendimento. Vem do LEDGER (`encaminhamento_agendado`), que é onde o
+        fato foi registrado; não há coluna, e inventar uma denormalização para
+        exibir seria criar uma segunda fonte para um dado que já tem dono.
+      · `posse_desde` — quando o documento mudou de mãos. Outra pergunta, outro
+        campo. Mostrar um no lugar do outro faria a carteira dizer ao cidadão
+        que a consulta é hoje porque a custódia mudou hoje.
+
+    POSSE VEM DA CUSTÓDIA, nunca do status (§1a): um encaminhamento `agendado`
+    tanto pode estar com o cidadão (marcaram e ele ainda não foi) quanto com o
+    destino (já entregou). É `posse_tipo` que diz, e é ele que decide se o botão
+    "Entregar" aparece.
+
+    A CONTRARREFERÊNCIA vem junto quando existe: do ponto de vista do cidadão o
+    percurso é um só — ele levou e o retorno voltou —, e obrigá-lo a procurar o
+    retorno noutra lista seria partir em dois o que para ele é uma coisa só.
+    """
+    cpf = normalize_cpf(usuario["sub"])
+
+    with get_tx() as conn:
+        rows = conn.execute(
+            """
+            SELECT e.id, e.protocolo, e.status, e.especialidade_destino,
+                   e.finalidade, e.finalidade_texto, e.cid, e.cns_destino,
+                   e.data_emissao, e.data_validade,
+                   pr.nome AS prescritor_nome
+              FROM encaminhamentos e
+              LEFT JOIN prescritores pr ON pr.id = e.prescritor_id
+              JOIN pacientes pa ON pa.id = e.paciente_id
+             WHERE pa.cpf = ?
+               AND e.tipo_emissao != 'fisico'
+             ORDER BY e.id DESC
+            """,
+            (cpf,),
+        ).fetchall()
+
+        saida = []
+        for row in rows:
+            enc = dict(row)
+
+            custodia = conn.execute(
+                """
+                SELECT detentor_tipo, detentor_id, transferida_em
+                  FROM encaminhamento_custodia
+                 WHERE encaminhamento_id = ? AND item_id IS NULL
+                   AND encerrada_em IS NULL
+                 ORDER BY id DESC LIMIT 1
+                """,
+                (enc["id"],),
+            ).fetchone()
+
+            # A data da consulta vive no ledger — o fato foi registrado lá.
+            data_consulta = None
+            for ev in conn.execute(
+                """
+                SELECT payload FROM encaminhamento_eventos
+                 WHERE encaminhamento_id = ? AND tipo_evento = 'encaminhamento_agendado'
+                 ORDER BY id DESC
+                """,
+                (enc["id"],),
+            ).fetchall():
+                try:
+                    dados = json.loads(ev["payload"] or "{}")
+                except (TypeError, ValueError):
+                    continue
+                if dados.get("data_agendamento"):
+                    data_consulta = dados["data_agendamento"]
+                    break
+
+            cr = conn.execute(
+                """
+                SELECT protocolo, conteudo_clinico, data_emissao
+                  FROM contrarreferencias
+                 WHERE origem_encaminhamento_id = ?
+                 ORDER BY id DESC LIMIT 1
+                """,
+                (enc["id"],),
+            ).fetchone()
+
+            saida.append({
+                "protocolo":             enc["protocolo"],
+                "status":                enc["status"],
+                "especialidade_destino": enc["especialidade_destino"],
+                "finalidade":            enc.get("finalidade"),
+                "finalidade_texto":      enc.get("finalidade_texto"),
+                "cid":                   enc.get("cid"),
+                "cns_destino":           enc["cns_destino"],
+                "prescritor_nome":       enc.get("prescritor_nome"),
+                "data_emissao":          enc["data_emissao"],
+                "data_validade":         enc["data_validade"],
+                "data_consulta":         data_consulta,
+                "posse_tipo":            custodia["detentor_tipo"] if custodia else None,
+                "posse_desde":           custodia["transferida_em"] if custodia else None,
+                "contrarreferencia": {
+                    "protocolo":        cr["protocolo"],
+                    "conteudo_clinico": cr["conteudo_clinico"],
+                    "data_emissao":     cr["data_emissao"],
+                } if cr else None,
+            })
+
+    terminais = {"encerrado", "cancelado", "expirado", "negado", "encerrado_fisico"}
+    return {
+        "ativos":    [e for e in saida if e["status"] not in terminais],
+        "historico": [e for e in saida if e["status"] in terminais],
+    }
