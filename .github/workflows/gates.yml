@@ -58,6 +58,37 @@ jobs:
         working-directory: backend
         run: python -m pytest tests/unit -q
 
+      # ── ENG-017 (A1/A2) — O GATE DEIXA DE SER CEGO AO FUSO ──────────────
+      #
+      # O runner roda em UTC, onde `date.today()` e o dia UTC coincidem. Por
+      # isso o CI NUNCA viu o A1: a janela dos relatórios fechava em meia-noite
+      # LOCAL contra registros carimbados em UTC, e no fuso −03 tudo o que
+      # nascesse entre 21h e 24h caía fora. Um defeito real de produção ficou
+      # invisível por escolha de fuso do runner — e é a SEGUNDA vez que esta
+      # família aparece (a primeira foi o "500 do faturamento por fuso").
+      #
+      # Este passo roda os testes sensíveis a relógio no fuso onde o defeito
+      # aparece. É defesa em profundidade, não a guarda principal: entre 00h e
+      # 21h UTC, Recife e UTC caem no mesmo dia e o passo passaria dos dois
+      # jeitos. A guarda que vale a qualquer hora é a REPRODUÇÃO ARITMÉTICA em
+      # `tests/unit/test_janela_relatorio_utc.py`, que não depende de quando a
+      # suíte roda.
+      #
+      # Fuso do Fabiano de propósito: é onde a vitrine é operada.
+      - name: Gate de fuso — janela de relatório em TZ=America/Recife (ENG-017 A2)
+        working-directory: backend
+        env:
+          TZ: America/Recife
+          DATABASE_URL: postgresql://picsaude:picsaude@localhost:5432/picsaude_test
+        run: |
+          date
+          python -c "from datetime import datetime, timezone; import time; print('local', datetime.now().date(), '| utc', datetime.now(timezone.utc).date())"
+          python -m pytest tests/unit/test_janela_relatorio_utc.py -q
+          python -m pytest tests/integration/test_relatorio_sngpc.py \
+                           tests/integration/test_relatorio_exames_clinica.py \
+                           tests/integration/test_faturamento_exames_clinica.py \
+                           tests/integration/test_historico_clinica.py -q
+
       - name: Gates de integração (PostgreSQL)
         working-directory: backend
         env:
