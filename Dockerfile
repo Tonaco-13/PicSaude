@@ -15,7 +15,26 @@ COPY backend/ .
 # Telas do frontend servidas pela própria casa em modo DEMO (vitrine "uma casa só").
 # Vivem na raiz do repo (fora de backend/); config.js usa window.location.origin,
 # então same-origin "só funciona" sem CORS. PICSAUDE_FRONTEND_DIR aponta o main.py.
-COPY *.html config.js logo-picsaude.png /app/frontend/
+#
+# ⚠️ GLOB, NÃO LISTA EXPLÍCITA — e isto é correção de INCIDENTE, não estilo.
+#
+# A lista era `*.html config.js logo-picsaude.png`. Todo asset novo entrava no
+# repo, passava no gate (que serve o REPO) e sumia na imagem. Três já estavam
+# 404 em produção quando o incidente estourou:
+#
+#   · `lente.js`                    (#167) — "ver rastreabilidade" NUNCA
+#                                     funcionou na vitrine, e ninguém viu;
+#   · `catalogos-encaminhamento.js` (#187) — o formulário de encaminhamento
+#                                     subia com especialidade e CID vazios;
+#   · `submodulos.js` / `.css`      (#193) — derrubaram o init do prescritor,
+#                                     e aí o silêncio virou tela branca.
+#
+# Os dois primeiros eram falhas SILENCIOSAS: degradavam uma função e seguiam.
+# Só o terceiro quebrou alto o bastante para ser notado — e é por isso que a
+# guarda de paridade (`tests/test_paridade_deploy_assets.py` + o passo de CI que
+# builda a imagem) vale mais que este glob: glob conserta hoje, guarda impede
+# amanhã. Espécie registrada: **gate verde, deploy cego**.
+COPY *.html *.js *.css logo-picsaude.png /app/frontend/
 ENV PICSAUDE_FRONTEND_DIR=/app/frontend
 
 # Bases de referência (medicamentos DEF + CID-10) lidas em runtime por app/ai/.
