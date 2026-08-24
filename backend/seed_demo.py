@@ -57,6 +57,22 @@ PRESCRITOR = dict(
     role="prescritor",
 )
 
+# ENG-016 — SEGUNDA PERSONA PRESCRITOR: o DESTINO da terceira circulação.
+#
+# Sem ela a demo de encaminhamento não existe: encaminhar exige origem ≠ destino
+# (auto-encaminhamento é bloqueado na emissão, §2 lei 8), e com um prescritor só
+# o roteiro morre no primeiro clique. É o mesmo motivo da segunda farmácia
+# (DISPENSADOR_NORTE): o ramo da demo precisa de dois lados de verdade.
+#
+# Cardiologia porque é o destino do roteiro da vitrine — a dor torácica que sai
+# da APS. O CNS é da faixa de teste, como o da origem.
+PRESCRITOR_DESTINO = dict(
+    cns="980001112223335",
+    nome="Dr. Demo Carlos Andrade",
+    role="prescritor",
+    especialidade="CARDIOLOGIA",
+)
+
 DISPENSADOR = dict(
     cnpj="99999999000191",
     nome="Farmácia Demo Central",
@@ -786,6 +802,8 @@ def main() -> None:
         # Prescritor
         _garantir_usuario(conn, PRESCRITOR["cns"], PRESCRITOR["nome"], PRESCRITOR["role"])
         _garantir_prescritor(conn, PRESCRITOR["cns"], PRESCRITOR["nome"])
+        # ENG-016 — o destino do encaminhamento. Ver PRESCRITOR_DESTINO.
+        _garantir_prescritor(conn, PRESCRITOR_DESTINO["cns"], PRESCRITOR_DESTINO["nome"])
 
         # Dispensador
         _garantir_usuario(conn, DISPENSADOR["cnpj"], DISPENSADOR["nome"], DISPENSADOR["role"])

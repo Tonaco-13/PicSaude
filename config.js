@@ -47,6 +47,9 @@ const BACKEND_URL = _isFileProtocol
 
 const DEMO = {
     prescritor: { cns: '980001112223334', nome: 'Dra. Demo Maria Souza' },
+    // ENG-016 — o DESTINO da terceira circulação. Fonte única, como as demais:
+    // a tela lê daqui, nunca literal (guard-rail estático no gate).
+    prescritorDestino: { cns: '980001112223335', nome: 'Dr. Demo Carlos Andrade', especialidade: 'CARDIOLOGIA' },
     cidadao:  { cpf:  '12345678909',    nome: 'João Demo da Silva' },
     farmacia: { cnpj: '99999999000191', nome: 'Farmácia Demo Central' },
     clinica:  { cnpj: '11222333000181', nome: 'Clínica Demo' },

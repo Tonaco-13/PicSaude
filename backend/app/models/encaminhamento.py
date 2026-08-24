@@ -22,6 +22,14 @@ class Encaminhamento(Base):
     especialidade_destino      = Column(String(200), nullable=False)
     cid                        = Column(String(20), nullable=True)
     justificativa_clinica      = Column(Text, nullable=False)
+    # ENG-016 §5 — finalidade ESTRUTURADA (migração `b3e7d21a90c4`).
+    # Nullable porque encaminhamento emitido antes dela não a tem e não pode
+    # ganhá-la: objeto sanitário emitido é imutável (§1). O modelo acompanha a
+    # migração porque a fixture SQLite dos testes monta o schema por
+    # `create_all` — migração é a autoridade (§9), mas o modelo não pode
+    # divergir dela, senão o dialeto de desenvolvimento fica com outro schema.
+    finalidade                 = Column(String(60), nullable=True)
+    finalidade_texto           = Column(String(200), nullable=True)
     status                     = Column(String(30), nullable=False, default="emitido")
     tipo_emissao               = Column(String(20), nullable=False, default="novo")
     origem_encaminhamento_id   = Column(Integer, ForeignKey("encaminhamentos.id"), nullable=True)
