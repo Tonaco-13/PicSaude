@@ -222,3 +222,104 @@ def test_sem_sugestao_apresentada_o_campo_e_nulo_nao_falso(client, outer_conn, s
     ev = _payload_emissao(outer_conn, r["protocolo"])
     assert ev["sugestoes_apresentadas"] is None
     assert ev["escolheu_sugerido"] is None
+
+
+# ---------------------------------------------------------------------------
+# 3 — AC da ratificação: o documento VERIFICA sob a sua própria versão
+# ---------------------------------------------------------------------------
+# Condição explícita do ruling (arquiteto, 23/08): "documentos antigos mantêm o
+# hash" tem de ser INVARIANTE EXECUTÁVEL, não afirmação de relatório — a lição
+# do COER-2 aplicada ao documento canônico.
+#
+# Os testes de `tests/unit/test_documento_canonico_encaminhamento.py` provam que
+# as REGRAS não derivaram (hash v1 congelado por valor). Estes provam a volta
+# completa: um documento REALMENTE EMITIDO, com o hash que o backend gravou,
+# recalculado sob a versão dele, confere.
+
+
+def _dados_para_recalcular(outer_conn, proto: str) -> dict:
+    """Reconstrói a entrada do documento a partir do que ficou GRAVADO.
+
+    De propósito a partir do banco, e não da resposta da API: verificar é
+    recomputar do que está persistido — se a verificação partisse do payload
+    que o cliente mandou, ela provaria apenas que o cliente é coerente consigo
+    mesmo.
+    """
+    from app.routers.encaminhamentos import ItemEncaminhamentoIn
+
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT e.id, e.protocolo, pr.cns, e.cns_destino, pa.cpf,
+                   e.especialidade_destino, e.cid, e.justificativa_clinica,
+                   e.finalidade, e.finalidade_texto, e.assinatura_hash
+              FROM encaminhamentos e
+              LEFT JOIN prescritores pr ON pr.id = e.prescritor_id
+              LEFT JOIN pacientes    pa ON pa.id = e.paciente_id
+             WHERE e.protocolo = %s
+            """,
+            (proto,),
+        )
+        r = cur.fetchone()
+        cur.execute(
+            "SELECT especialidade, procedimento, motivo FROM encaminhamento_itens "
+            " WHERE encaminhamento_id = %s ORDER BY id", (r[0],))
+        itens = [
+            ItemEncaminhamentoIn(especialidade=i[0], procedimento=i[1], motivo=i[2])
+            for i in cur.fetchall()
+        ]
+
+    return {
+        "hash_gravado": r[10],
+        "entrada": dict(
+            protocolo=r[1], cns_origem=r[2], cns_destino=r[3], cpf_paciente=r[4],
+            especialidade_destino=r[5], cid=r[6], justificativa_clinica=r[7],
+            finalidade=r[8], finalidade_texto=r[9], itens=itens,
+        ),
+    }
+
+
+def test_documento_v2_verifica_sob_a_regra_v2(client, outer_conn, seed_usuario, seed_paciente):
+    """A volta completa, num documento de verdade: emitir → gravar → recomputar
+    sob a versão dele → confere."""
+    from app.routers.encaminhamentos import _calcular_hash
+
+    tp = obter_token_prescritor(client, seed_usuario)
+    st, r = _emitir(client, tp, finalidade="segunda_opiniao")
+    assert st == 201, r
+
+    d = _dados_para_recalcular(outer_conn, r["protocolo"])
+    assert d["hash_gravado"] == _calcular_hash(**d["entrada"], versao="2"), (
+        "o documento emitido não verifica sob a própria versão — o hash não "
+        "congela o que foi gravado"
+    )
+
+
+def test_documento_v1_verifica_sob_a_regra_v1_e_nao_sob_a_v2(
+    client, outer_conn, seed_usuario, seed_paciente
+):
+    """O documento ANTIGO, construído à mão como o ruling permitiu.
+
+    Não há mais como o backend EMITIR um v1 — a emissão usa sempre a versão
+    atual. Então o v1 é montado aqui a partir de um documento real, tirando a
+    finalidade e hasheando sob a regra v1: é exatamente a forma de um
+    encaminhamento emitido antes desta mudança.
+
+    As duas metades importam. Que ele verifique sob a v1 prova que o passado
+    continua válido. Que ele NÃO verifique sob a v2 prova que a versão é
+    consultada de verdade — um verificador que ignorasse a versão gravada
+    acusaria de adulterado todo documento anterior à mudança.
+    """
+    from app.routers.encaminhamentos import _calcular_hash
+
+    tp = obter_token_prescritor(client, seed_usuario)
+    st, r = _emitir(client, tp)          # sem finalidade: a forma de um v1
+    assert st == 201, r
+    entrada = _dados_para_recalcular(outer_conn, r["protocolo"])["entrada"]
+
+    hash_v1 = _calcular_hash(**entrada, versao="1")
+    assert _calcular_hash(**entrada, versao="1") == hash_v1, "a v1 não é determinística"
+    assert _calcular_hash(**entrada, versao="2") != hash_v1, (
+        "v1 e v2 produzem o mesmo hash — a versão não está sendo consultada, e "
+        "um verificador não teria como distinguir as regras"
+    )
