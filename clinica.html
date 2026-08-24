@@ -203,6 +203,9 @@
     .agenda-remarcado { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; background:#fef9c3; color:#854d0e; padding:2px 7px; border-radius:999px; margin-left:6px; }
     .agenda-quem { display:flex; flex-direction:column; gap:2px; flex:1; min-width:200px; }
     .agenda-paciente { font-size:13px; font-weight:600; color:#0f172a; }
+    /* A CHAVE, legível de relance — é por ela que o objeto sanitário é
+       ancorado (Regra Zero), e é ela que o operador confere no balcão. */
+    .agenda-cpf { font-size:12px; font-family:monospace; color:#334155; }
     .agenda-exames { font-size:12px; color:#475569; }
     .agenda-proto { font-size:11px; font-family:monospace; color:#94a3b8; }
     .btn-agenda-abrir { padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#1e3a8a; font-size:12px; font-weight:600; cursor:pointer; }
@@ -1832,6 +1835,17 @@
         return;
       }
 
+      // ENG-017 (S2) — O CPF, QUE JÁ VINHA E NÃO ERA DESENHADO.
+      //
+      // A Regra Zero ancora o objeto sanitário ao CPF; esta agenda identificava
+      // por NOME. Dois "João da Silva" no mesmo dia eram indistinguíveis, e
+      // conferir a identidade de quem está na frente do balcão custava abrir o
+      // pedido. O backend já mandava `paciente.cpf` na fila
+      // (`dispensadores.py`) — faltava LER.
+      //
+      // A explicação mora aqui, e não na marcação, porque a linha é montada num
+      // template literal: um comentário HTML com crase lá dentro encerra a
+      // string e derruba a tela. Foi o que aconteceu na primeira escrita.
       el.innerHTML = marcados.map(p => {
         const ag = p.agendamento;
         const exames = (p.itens || []).map(i => i.nome_exame).filter(Boolean).join(' · ');
@@ -1845,6 +1859,7 @@
             </div>
             <div class="agenda-quem">
               <span class="agenda-paciente">${esc(p.paciente?.nome || '—')}</span>
+              ${p.paciente?.cpf ? `<span class="agenda-cpf">CPF ${esc(p.paciente.cpf)}</span>` : ''}
               <span class="agenda-exames">${esc(exames || 'exame')}</span>
               <span class="agenda-proto">${esc(p.protocolo)}</span>
             </div>
