@@ -989,7 +989,7 @@ def get_documento(protocolo: str, usuario=Depends(require_role("prescritor", "ad
 @router.get("/{protocolo}/pdf")
 def get_pdf_prescricao(
     protocolo: str,
-    usuario=Depends(require_role("prescritor", "dispensador", "admin")),
+    usuario=Depends(require_role("prescritor", "dispensador", "admin", "paciente")),
 ):
     """
     Gera e retorna o PDF da receita médica no formato institucional PicSaúde.
@@ -1002,7 +1002,23 @@ def get_pdf_prescricao(
     - Badge indicando o tipo: Digital ICP-Brasil / gov.br / Operacional / Física
     - Área de assinatura
 
-    Roles autorizados: prescritor, dispensador, admin.
+    Roles autorizados: prescritor, dispensador, admin, **paciente**.
+
+    ENG-017 PR B (`core`, martelo do Fabiano) — O DONO BAIXA O PAPEL QUE
+    CARREGA. O `paciente` estava fora deste `require_role`, e a comissão de
+    diagnóstico da Regra Zero (#189, S5) apontou a contradição mais direta com
+    a régua: o cidadão DETÉM A CUSTÓDIA da receita — ela está na carteira dele,
+    ancorada ao CPF dele — e levava 403 ao pedir o PDF do que carrega.
+
+    OWNERSHIP, não apenas papel. Acrescentar o papel sem o dono deixaria
+    qualquer paciente autenticado baixar a receita de qualquer outro. O `sub` do
+    token é o CPF; ele tem de bater com o do documento — mesmo molde do ramo
+    `prescritor`, logo abaixo, que confere o CNS.
+
+    Por que ownership por CPF do DOCUMENTO e não por custódia: a receita pode
+    estar na farmácia no momento do download (custódia com o dispensador) e
+    continua sendo o documento DELE. Custódia responde "onde está"; ownership
+    responde "de quem é". O cidadão nunca deixa de ser o paciente da receita.
     """
     with get_tx() as conn:
         row = conn.execute(
@@ -1028,6 +1044,20 @@ def get_pdf_prescricao(
 
         if not row:
             raise HTTPException(status_code=404, detail=f"Prescrição '{protocolo}' não encontrada.")
+
+        # ENG-017 — o CIDADÃO só baixa a PRÓPRIA receita.
+        #
+        # Antes do 403 de outro papel e antes de qualquer conteúdo: o 404 já
+        # passou, e daqui em diante quem não é dono não vê nada (anti-leak #52).
+        if usuario["role"] == "paciente":
+            if normalize_cpf(usuario["sub"]) != normalize_cpf(row["cpf_paciente"] or ""):
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "codigo": "nao_e_dono_da_prescricao",
+                        "mensagem": "Esta receita pertence a outro paciente.",
+                    },
+                )
 
         # V4 (TICKET-5C §4.4) — owner check apenas para role 'prescritor'.
         # Dispensador e admin passam direto (fluxo de balcão / fiscalização).
