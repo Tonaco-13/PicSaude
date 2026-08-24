@@ -180,7 +180,7 @@ class TestSeletorDeConselho:
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
         page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
 
-        page.locator("#btn-submod-atestado").click()
+        page.locator("#submod-btn-atestado").click()
 
         seletor = page.locator("#atestado-conselho")
         expect(seletor).to_be_visible(timeout=_TIMEOUT_MS)
@@ -220,7 +220,7 @@ class TestSeletorDeConselho:
         """
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
         page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
-        page.locator("#btn-submod-atestado").click()
+        page.locator("#submod-btn-atestado").click()
 
         seletor = page.locator("#atestado-conselho")
         expect(seletor.locator("option")).not_to_have_count(1, timeout=_TIMEOUT_MS)
@@ -421,7 +421,7 @@ class TestImpressaoDoRascunho:
         """Preenche o mínimo para a IA Documental devolver ok=True."""
         _autenticar(page, app_demo, "prescritor", _PRESCRITOR["sub"], _PRESCRITOR["nome"])
         page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
-        page.locator("#btn-submod-atestado").click()
+        page.locator("#submod-btn-atestado").click()
 
         page.locator("#atestado-paciente").fill("João Demo da Silva")
         page.locator("#atestado-finalidade").select_option("trabalhistas")

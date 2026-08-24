@@ -257,8 +257,8 @@ def test_c3_atestado_card_tem_hierarquia_visual_propria(page: Page, app_demo, er
     #
     # A separação que o F5-C3 protegia ficou MAIS forte: o atestado tem painel
     # próprio, e nenhum card de exame o acompanha. É isso que se afirma agora.
-    expect(page.locator("#aba-atestado")).to_be_visible()
-    expect(page.locator("#aba-exames")).to_be_hidden()
+    expect(page.locator("#submod-atestado")).to_be_visible()
+    expect(page.locator("#submod-exames")).to_be_hidden()
     assert lista.locator(".exame-card").count() == 0, \
         "card de exame vazou para a aba de atestados — a hierarquia do F5-C3 se perdeu"
 

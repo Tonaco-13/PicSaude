@@ -116,7 +116,7 @@ def test_cidadao_abre_e_clinica_ve_lido_em(page: Page, browser, app_demo, erros_
         pc = ctx_cid.new_page()
         pc.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
         from tests.browser.conftest import abrir_aba_carteira
-        abrir_aba_carteira(pc, "exames")
+        abrir_aba_carteira(pc, "laudos")   # o laudo ganhou porta própria (24/08)
         cartao = pc.locator("#lista-laudos .exame-card", has_text=lp)
         expect(cartao).to_be_visible(timeout=_TIMEOUT_MS)
         # Não há botão de ciência: abrir É dar ciência (martelo (a)).

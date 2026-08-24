@@ -189,11 +189,12 @@ def test_cidadao_ve_o_agendamento_no_cartao_sem_sair_da_aba(
         # "sem sair da aba": o cartão foi carregado com o painel de Exames já
         # ativo e a data estava ali — nenhum clique de navegação entre o
         # `goto` e a leitura do selo (ver `_cartao_do_exame`).
-        expect(pc.locator("#aba-exames")).to_be_visible()
-        # A carteira tem as CINCO abas declaradas (ENG-015 §4 + ENG-016 §4) — a
-        # contagem segue travada para que aba nova entre por decisão, não por
-        # descuido. Cada aumento aqui corresponde a um martelo registrado.
-        expect(pc.locator("[id^='aba-btn-']")).to_have_count(5)
+        expect(pc.locator("#submod-exames")).to_be_visible()
+        # A carteira tem os SEIS submódulos declarados (ENG-015 §4, ENG-016 §4 e
+        # os cartões-título de 24/08, que separaram Laudos de Exames). A
+        # contagem segue travada para que porta nova entre por decisão, não por
+        # descuido — cada aumento corresponde a um martelo registrado.
+        expect(pc.locator("[id^='submod-btn-']")).to_have_count(6)
     finally:
         ctx.close()
 

@@ -41,6 +41,10 @@ _CNPJ_CLINICA = "11222333000181"
 
 _TS = time.strftime("%Y%m%d%H%M%S")
 _ATIVA = re.compile(r"\bativa\b")
+# Os CARTÕES da carteira usam a classe `ativo` (masculino: é um cartão, não uma
+# aba). As abas da clínica seguem com `ativa` — não foram tocadas por este
+# ticket, e por isso as duas constantes convivem.
+_ATIVO_SUBMOD = re.compile(r"\bativo\b")
 
 
 def _tok(base_url: str, role: str) -> str:
@@ -277,49 +281,61 @@ def test_cidadao_alcanca_os_tres_tipos_de_objeto_nas_abas(
         pg.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
         expect(pg.locator("#tela-carteira")).to_be_visible(timeout=_TIMEOUT_MS)
 
+        # A carteira trocou a BARRA DE ABAS pelos CARTÕES-TÍTULO (decisão do
+        # Fabiano, 24/08): os seletores viraram `#submod-*`. A asserção é a
+        # mesma — um painel por vez, com o título certo, e contadores que dizem
+        # a verdade. Nada foi afrouxado; e o conjunto ganhou LAUDOS, que saiu de
+        # dentro de Exames e agora tem porta própria.
+        #
         # Receita abre por padrão: é o objeto mais frequente da carteira.
-        expect(pg.locator("#aba-btn-receita")).to_have_class(_ATIVA)
+        expect(pg.locator("#submod-btn-receita")).to_have_class(_ATIVO_SUBMOD)
 
         esperado = {
             "receita":  "Histórico de Prescrições",
             "exames":   "Pedidos de Exame Ativos",
+            "laudos":   "Laudos / Resultados",
             "atestado": "Atestados",
         }
         for aba, titulo in esperado.items():
-            pg.locator(f"#aba-btn-{aba}").click()
-            painel = pg.locator(f"#aba-{aba}")
+            pg.locator(f"#submod-btn-{aba}").click()
+            painel = pg.locator(f"#submod-{aba}")
             expect(painel).to_be_visible(timeout=_TIMEOUT_MS)
             expect(painel).to_contain_text(titulo)
             for outra in esperado:
                 if outra != aba:
-                    expect(pg.locator(f"#aba-{outra}")).to_be_hidden()
+                    expect(pg.locator(f"#submod-{outra}")).to_be_hidden()
 
         # O seed traz um atestado e um pedido de exame — os contadores dizem a
-        # verdade sobre o que há, sem o cidadão precisar abrir cada aba.
-        expect(pg.locator("#aba-count-atestado")).not_to_have_text("0")
-        expect(pg.locator("#aba-count-exames")).not_to_have_text("0")
+        # verdade sobre o que há, sem o cidadão precisar abrir cada porta.
+        expect(pg.locator("#submod-count-atestado")).not_to_have_text("0")
+        expect(pg.locator("#submod-count-exames")).not_to_have_text("0")
     finally:
         ctx.close()
 
 
 def test_atualizar_serve_as_tres_abas(page: Page, browser, app_demo, erros_de_console):
     """O botão recarrega a carteira inteira (`carregarCarteira`), então vive
-    junto das abas — e não dentro de uma delas, o que faria parecer que só
-    aquela é atualizada."""
+    junto da navegação — e não dentro de um submódulo, o que faria parecer que
+    só aquele é atualizado.
+
+    A regra sobreviveu à troca de abas por CARTÕES-TÍTULO (24/08): o botão
+    continua fora da grade, e a porta escolhida continua sobrevivendo à
+    recarga. Só os seletores mudaram.
+    """
     ctx = _ctx(browser, app_demo, "paciente", _CPF, _NOME_PACIENTE)
     try:
         pg = ctx.new_page()
         pg.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
         expect(pg.locator("#tela-carteira")).to_be_visible(timeout=_TIMEOUT_MS)
 
-        for aba in ("receita", "exames", "atestado"):
-            pg.locator(f"#aba-btn-{aba}").click()
+        for aba in ("receita", "exames", "laudos", "atestado"):
+            pg.locator(f"#submod-btn-{aba}").click()
             expect(pg.locator("#btn-refresh")).to_be_visible()
 
         pg.locator("#btn-refresh").click()
         expect(pg.locator("#refresh-text")).to_have_text("Atualizado!", timeout=_TIMEOUT_MS)
-        # A aba escolhida sobrevive à recarga.
-        expect(pg.locator("#aba-btn-atestado")).to_have_class(_ATIVA)
-        expect(pg.locator("#aba-atestado")).to_be_visible()
+        # A porta escolhida sobrevive à recarga.
+        expect(pg.locator("#submod-btn-atestado")).to_have_class(_ATIVO_SUBMOD)
+        expect(pg.locator("#submod-atestado")).to_be_visible()
     finally:
         ctx.close()

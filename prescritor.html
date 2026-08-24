@@ -269,34 +269,11 @@
         }
 
         /* ── Navegação de submódulos (abas) ────────────────────────────── */
-        .submod-nav {
-            display: flex;
-            gap: 4px;
-            background: #f1f5f9;
-            border-radius: 8px;
-            padding: 4px;
-            margin-bottom: 28px;
-        }
-        .submod-btn {
-            flex: 1;
-            padding: 10px 8px;
-            border: none;
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            background: transparent;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: background 0.15s, color 0.15s;
-        }
-        .submod-btn:hover { background: #e2e8f0; color: #334155; }
-        .submod-btn.ativo {
-            background: #ffffff;
-            color: #1e3a8a;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.10);
-        }
+        /* A barra de submódulos MUDOU DE ARQUIVO, não de aparência: o CSS que
+           vivia aqui foi promovido para `submodulos.css`, compartilhado com a
+           carteira do cidadão (decisão do Fabiano, 24/08 — um arquivo, duas
+           telas). Ganhou `flex-wrap` no caminho, porque a carteira tem seis
+           itens e esta tem quatro; para esta barra, nada muda na prática. */
 
         /* ── ENG-016 — encaminhamento (a terceira circulação) ──────────── */
         .enc-abas { display:flex; gap:6px; flex-wrap:wrap; border-bottom:2px solid #e2e8f0; margin-bottom:20px; }
@@ -340,6 +317,10 @@
   <script src="config.js"></script>
   <!-- ENG-016 §5 — catálogos LOCAIS e versionados (nunca consulta externa ao vivo). -->
   <script src="catalogos-encaminhamento.js"></script>
+  <!-- Barra de submódulos, compartilhada com cidadao.html: um arquivo, duas
+       telas. O CSS local desta barra foi PROMOVIDO para `submodulos.css`. -->
+  <link rel="stylesheet" href="submodulos.css">
+  <script src="submodulos.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -572,15 +553,13 @@
                 <div id="lista-devolvidas"></div>
             </div>
 
-            <!-- ── Navegação de submódulos ──────────────────────────────── -->
-            <nav class="submod-nav no-print" aria-label="Submódulos do prescritor">
-                <button class="submod-btn ativo" id="btn-submod-receita"  onclick="mostrarSubmodulo('receita')">Receita</button>
-                <button class="submod-btn"        id="btn-submod-exames"  onclick="mostrarSubmodulo('exames')">Exames</button>
-                <button class="submod-btn"        id="btn-submod-atestado" onclick="mostrarSubmodulo('atestado')">Atestado</button>
-                <button class="submod-btn"        id="btn-submod-encaminhamento" onclick="mostrarSubmodulo('encaminhamento')">Encaminhamento</button>
-            </nav>
+            <!-- ── Navegação de submódulos ────────────────────────────────
+                 Desenhada por `submodulos.js` — o MESMO componente da carteira
+                 do cidadão. A barra é idêntica porque é o mesmo código, não
+                 porque alguém a mantém parecida. -->
+            <div id="submod-nav-prescritor" class="no-print"></div>
 
-            <div id="form-receita" class="no-print">
+            <div id="submod-receita" class="no-print">
                 <h2 class="section-title" id="titulo-formulario" style="margin-bottom: 8px;">Prescrição Médica — Emissão Documentada</h2>
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Para validade legal conforme Res. CFM 2.299/2021, utilize a emissão digital com assinatura ICP-Brasil.</p>
                 <div id="form-status-msg" class="hidden"></div>
@@ -693,7 +672,7 @@
                  PEDIDO DE EXAME — Ticket 32
                  IA Exames v1 integrada por item (normalização assistida)
                  ============================================================ -->
-            <div id="form-pedido-exame" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
+            <div id="submod-exames" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
                 <h2 class="section-title" style="margin-bottom: 8px;">Pedido de Exame</h2>
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 20px;">Solicitação diagnóstica com normalização assistida por IA. Cada exame é consultado individualmente — sem bloquear a emissão.</p>
                 <div id="pedido-exame-status-msg" class="hidden" style="margin-bottom: 16px; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-weight: 500;"></div>
@@ -761,7 +740,7 @@
                  Paleta: cinza institucional (distinta de verde, azul, roxo)
                  Princípio: a IA não escreve — ela garante que esteja correto.
                  ============================================================ -->
-            <div id="form-atestado" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
+            <div id="submod-atestado" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
                 <h2 class="section-title" style="margin-bottom: 8px;">Atestado Assistido</h2>
                 <p class="ia-doc-intro">
                     Preencha os campos e use a IA Documental para validar a estrutura antes de usar o documento.
@@ -954,7 +933,7 @@
                  §2 lei 1 — as abas listam por DEVER; os selos mostram POSSE. São
                  dois campos por linha porque são duas perguntas: `atendido` é
                  dever do destino com posse no cidadão. -->
-            <div id="form-encaminhamento" class="no-print" style="display:none;">
+            <div id="submod-encaminhamento" class="no-print" style="display:none;">
                 <h2 class="section-title" style="margin-bottom: 8px;">Encaminhamento</h2>
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">
                     Referência para outro profissional, com contrarreferência de volta.
@@ -1211,13 +1190,29 @@
 })();
 
         // ── Navegação de submódulos ──────────────────────────────────────
+        // ── Submódulos: a MESMA barra da carteira do cidadão ──────────────
+        //
+        // Um arquivo, duas telas (decisão do Fabiano, 24/08). A barra que
+        // estava escrita à mão aqui virou `submodulos.js`, e a carteira passou
+        // a usar a mesma. A aparência é idêntica porque é o mesmo código, não
+        // porque alguém a mantém parecida.
+        //
+        // SEM contador: esta barra nunca numerou nada, e inventar números agora
+        // seria mudar a tela do prescritor num ticket que é da carteira.
+        const _SUBMODULOS_PRESCRITOR = [
+            { chave: 'receita',        titulo: 'Receita' },
+            { chave: 'exames',         titulo: 'Exames' },
+            { chave: 'atestado',       titulo: 'Atestado' },
+            { chave: 'encaminhamento', titulo: 'Encaminhamento' },
+        ];
+        const _CHAVES_PRESCRITOR = _SUBMODULOS_PRESCRITOR.map(x => x.chave);
+
+        function montarSubmodulosPrescritor() {
+            Submodulos.render('submod-nav-prescritor', _SUBMODULOS_PRESCRITOR,
+                              mostrarSubmodulo, 'receita', 'Submódulos do prescritor');
+        }
+
         function mostrarSubmodulo(qual) {
-            const mapa = {
-                receita:  'form-receita',
-                exames:   'form-pedido-exame',
-                atestado: 'form-atestado',
-                encaminhamento: 'form-encaminhamento',   // ENG-016 §3
-            };
             // A terceira circulação carrega LISTAS além do formulário: abrir o
             // submódulo é o momento de buscá-las (o prescritor pode ficar a
             // sessão inteira sem entrar aqui).
@@ -1225,11 +1220,23 @@
                 _preencherCatalogosEnc();
                 carregarMeusEncaminhamentos();
             }
-            Object.entries(mapa).forEach(([key, id]) => {
-                const el = document.getElementById(id);
-                if (el) el.style.display = (key === qual) ? '' : 'none';
-                const btn = document.getElementById('btn-submod-' + key);
-                if (btn) btn.classList.toggle('ativo', key === qual);
+            // Os painéis passaram a seguir o contrato do componente
+            // (`submod-<chave>`), para que o `aria-controls` das pílulas aponte
+            // para algo REAL — antes eram `form-*`, e `aria-controls` apontando
+            // para o vazio é acessibilidade de fachada.
+            //
+            // `display` continua sendo o mecanismo AQUI (a carteira usa a
+            // classe `hidden`): estes painéis são formulários com estilo inline
+            // próprio, e trocar o mecanismo agora mexeria no que este ticket
+            // mandou não mexer.
+            _CHAVES_PRESCRITOR.forEach(chave => {
+                const el = document.getElementById('submod-' + chave);
+                if (el) el.style.display = (chave === qual) ? '' : 'none';
+                const btn = document.getElementById('submod-btn-' + chave);
+                if (btn) {
+                    btn.classList.toggle('ativo', chave === qual);
+                    btn.setAttribute('aria-selected', String(chave === qual));
+                }
             });
         }
 
@@ -1965,6 +1972,9 @@
             document.getElementById('prof-cns').textContent = medicoLogado.cns;
             document.getElementById('prof-registro').textContent = formatarConselhosDisplay(medicoLogado.conselhos);
             document.getElementById('header-controls').classList.remove('hidden');
+            // A barra é montada UMA vez, ao entrar. Re-render piscaria a
+            // navegação sob o dedo de quem está prescrevendo.
+            montarSubmodulosPrescritor();
             novaReceita();
             atualizarPainel();
         }

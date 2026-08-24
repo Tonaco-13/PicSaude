@@ -348,13 +348,22 @@ def demo_externa_viva(request, base_url):
 # cinco testes que a usam: se o seletor da aba mudar, muda num lugar só.
 
 def abrir_aba_carteira(page, nome: str) -> None:
-    """Ativa uma aba da carteira e espera o painel aparecer.
+    """Ativa um submódulo da carteira e espera o painel aparecer.
 
-    `nome` ∈ {"receita", "exames", "agendamentos", "atestado"}.
+    `nome` ∈ {"receita", "exames", "agendamentos", "laudos", "atestado",
+              "encaminhamentos"}.
+
+    A barra de ABAS deu lugar aos CARTÕES-TÍTULO (decisão do Fabiano, 24/08) e
+    os seletores mudaram de `#aba-*` para `#submod-*`. O helper acompanha, e a
+    asserção é a MESMA: o botão existe, é clicável, e o painel correspondente
+    aparece. Nenhum `expect` foi afrouxado — mesma disciplina da 4ª aba do J.11.
+
+    O NOME da função permanece: doze arquivos de teste o usam, e renomeá-lo
+    trocaria um diff de conteúdo por um diff de ruído sem provar nada a mais.
     """
     from playwright.sync_api import expect
 
-    botao = page.locator(f"#aba-btn-{nome}")
+    botao = page.locator(f"#submod-btn-{nome}")
     expect(botao).to_be_visible(timeout=15_000)
     botao.click()
-    expect(page.locator(f"#aba-{nome}")).to_be_visible(timeout=15_000)
+    expect(page.locator(f"#submod-{nome}")).to_be_visible(timeout=15_000)

@@ -193,7 +193,7 @@ def test_a_aba_reune_os_compromissos_ordenados_pelo_mais_proximo(
         )
 
         # o contador da aba conta compromissos, não pedidos
-        assert int(pg.locator("#aba-count-agendamentos").inner_text()) >= 2
+        assert int(pg.locator("#submod-count-agendamentos").inner_text()) >= 2
         assert not erros_js, erros_js
     finally:
         ctx.close()
@@ -224,13 +224,13 @@ def test_o_selo_leva_a_aba_e_o_botao_ver_pedido_traz_de_volta(
 
         selo.click()
 
-        expect(pg.locator("#aba-agendamentos")).to_be_visible(timeout=_TIMEOUT_MS)
-        expect(pg.locator("#aba-exames")).to_be_hidden()
+        expect(pg.locator("#submod-agendamentos")).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(pg.locator("#submod-exames")).to_be_hidden()
         destino = pg.locator(f"#compromisso-{proto}")
         expect(destino).to_be_visible(timeout=_TIMEOUT_MS)
 
         destino.get_by_role("button", name="Ver pedido").click()
-        expect(pg.locator("#aba-exames")).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(pg.locator("#submod-exames")).to_be_visible(timeout=_TIMEOUT_MS)
         expect(pg.locator(f"#exame-card-{proto}")).to_be_visible(timeout=_TIMEOUT_MS)
         assert not erros_js, erros_js
     finally:
@@ -274,7 +274,7 @@ def test_sem_compromisso_a_aba_diz_quem_marca(
         painel = pg.locator("#lista-agendamentos")
         expect(painel).to_contain_text("Nenhum compromisso marcado", timeout=_TIMEOUT_MS)
         expect(painel).to_contain_text("laboratório")
-        expect(pg.locator("#aba-count-agendamentos")).to_have_text("0")
+        expect(pg.locator("#submod-count-agendamentos")).to_have_text("0")
         assert not erros_js, erros_js
     finally:
         ctx.close()

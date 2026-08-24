@@ -216,7 +216,7 @@ def test_clinica_produz_laudo_cidadao_recebe_e_da_ciencia(
     try:
         pc = ctx_cid.new_page()
         pc.goto(f"{app_demo}/cidadao.html", wait_until="networkidle")
-        abrir_aba_carteira(pc, "exames")          # TICKET-J.9
+        abrir_aba_carteira(pc, "laudos")          # porta própria do laudo (24/08)
         lista = pc.locator("#lista-laudos")
         expect(lista).to_be_visible(timeout=_TIMEOUT_MS)
         expect(lista).to_contain_text(proto_laudo, timeout=_TIMEOUT_MS)
