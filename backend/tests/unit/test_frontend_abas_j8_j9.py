@@ -5,7 +5,8 @@ AS REGRAS QUE ESTE ARQUIVO TRAVA
 --------------------------------
 1. **A tela do laboratório tem as 4 abas do percurso** (Recepção · Agendamento ·
    Realização · Bancada) e a carteira do cidadão tem as 3 dela (Receita · Exames
-   · Agendamentos · Atestado) — botão, painel e ligação ARIA para cada uma.
+   · Agendamentos · Encaminhamentos · Atestado) — botão, painel e ligação ARIA
+   para cada uma.
 
 2. **Nenhuma aba lê `agendado` como "está com o laboratório".** É a instrução
    explícita do §6: o J.7 pode retirar a transição para `agendado` do ato de
@@ -49,7 +50,7 @@ _ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada"]
 # ENG-015 §4 acrescentou "agendamentos": a carteira passou a ter QUATRO abas.
 # A lista cresce por decisão registrada — nunca porque alguém achou a guarda
 # chata; tirar uma daqui é tirar a aba da tela sem ninguém notar.
-_ABAS_CARTEIRA = ["receita", "exames", "agendamentos", "atestado"]
+_ABAS_CARTEIRA = ["receita", "exames", "agendamentos", "encaminhamentos", "atestado"]
 
 
 @pytest.mark.parametrize("aba", _ABAS_LAB)
