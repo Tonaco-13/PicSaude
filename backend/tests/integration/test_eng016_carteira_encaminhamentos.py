@@ -112,23 +112,20 @@ def test_a_posse_muda_com_o_gesto_do_cidadao_e_o_estado_nao(client, seed_usuario
     assert depois["status"] == antes["status"], "entregar mexeu no estado (§1a)"
 
 
-def test_a_carteira_le_a_marcacao_MAIS_RECENTE_do_ledger(client, outer_conn, seed_usuario, seed_paciente):
+def test_a_carteira_le_a_marcacao_MAIS_RECENTE_do_ledger(client, seed_usuario, seed_paciente):
     """O ledger é append-only; a leitura tem de pegar a que VALE.
 
-    ⚠️ ACHADO, registrado como fato: **o encaminhamento não tem remarcação**.
-    A máquina não admite `agendado → agendado` (`TRANSICOES_ENCAMINHAMENTO`), e
-    não existe `/remarcar` como no objeto Agendamento. Quem quiser mudar a data
-    hoje precisa cancelar e emitir de novo — o que, sendo objeto imutável (§1),
-    é derivação, não edição.
-
-    Escrevi este teste supondo que dava para remarcar, e a máquina recusou
-    (409). O cenário foi refeito para o que EXISTE: o segundo evento é
-    injetado direto no ledger — que é exatamente a forma que um `/remarcar`
-    futuro produziria —, e o que se prova é que a leitura pega o último.
-    Assim a carteira já está certa no dia em que a remarcação nascer.
-
-    (A ausência de remarcação vai para a comissão de diagnóstico como GAP a
-    classificar, não como bug desta entrega.)
+    > **Reescrito em 24/08 — o GAP que este teste documentava foi fechado.**
+    > Na versão original a segunda chamada a `/agendar` era asserida como
+    > **409**: a máquina não admitia `agendado → agendado` e não havia
+    > `/remarcar`. Aquele 409 era o BURACO, não a regra — foi registrado como
+    > achado A3 na comissão de diagnóstico (#189) e fechado pelo ticket da
+    > remarcação, que fez de `agendar` um RE-ATO.
+    >
+    > A regra que este teste sempre guardou — *a carteira mostra a data que
+    > vale, não a primeira* — está intacta e agora é provada com um cenário
+    > REAL: some o segundo evento injetado à mão no ledger, que só existia
+    > porque não havia como remarcar de verdade.
     """
     tp = obter_token_prescritor(client, seed_usuario)
     proto = _emitir(client, tp)
@@ -136,22 +133,13 @@ def test_a_carteira_le_a_marcacao_MAIS_RECENTE_do_ledger(client, outer_conn, see
     assert client.post(f"/encaminhamentos/{proto}/agendar",
                        json={"data_agendamento": "2026-09-01T08:00:00"},
                        headers=_h(td)).status_code == 200
-    # A máquina recusa remarcar hoje — a prova de que o achado é real.
-    assert client.post(f"/encaminhamentos/{proto}/agendar",
-                       json={"data_agendamento": _DATA_CONSULTA},
-                       headers=_h(td)).status_code == 409
+    assert _achar(_carteira(client)["ativos"], proto)["data_consulta"] == "2026-09-01T08:00:00"
 
-    with outer_conn.cursor() as cur:
-        cur.execute("SELECT id FROM encaminhamentos WHERE protocolo = %s", (proto,))
-        enc_id = cur.fetchone()[0]
-        cur.execute(
-            """
-            INSERT INTO encaminhamento_eventos
-              (encaminhamento_id, tipo_evento, ator_tipo, ator_id, payload, created_at)
-            VALUES (%s, 'encaminhamento_agendado', 'prescritor', %s, %s, NOW())
-            """,
-            (enc_id, _CNS_DESTINO, '{"data_agendamento": "%s"}' % _DATA_CONSULTA),
-        )
+    # remarcação de verdade — o re-ato
+    r = client.post(f"/encaminhamentos/{proto}/agendar",
+                    json={"data_agendamento": _DATA_CONSULTA}, headers=_h(td))
+    assert r.status_code == 200, r.text
+    assert r.json()["remarcacao"] is True
 
     item = _achar(_carteira(client)["ativos"], proto)
     assert item["data_consulta"] == _DATA_CONSULTA, (

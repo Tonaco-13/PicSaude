@@ -179,6 +179,51 @@ def test_emitir_pela_tela_entrega_a_carteira_do_cidadao(browser, app_demo):
         ctx.close()
 
 
+def test_remarcar_pela_tela_e_o_mesmo_botao(browser, app_demo):
+    """Remarcação é RE-ATO (mini-desenho de 24/08): mesmo gesto, mesmo
+    endpoint, nenhum objeto novo.
+
+    O que muda na tela é o RÓTULO — "Agendar" vira "Remarcar" quando já há
+    data. Dizer "consulta marcada" numa remarcação deixaria o operador em
+    dúvida se criou uma segunda.
+    """
+    proto = _emitir_pela_api(app_demo, f"remarcar {_TS}")
+    ctx = _ctx_prescritor(browser, app_demo, "prescritor_destino", _CNS_DESTINO,
+                          "Dr. Demo Carlos Andrade")
+    try:
+        pg, erros = _nova_pagina(ctx)
+        _abrir_submodulo(pg, app_demo)
+        pg.click("#enc-aba-btn-recebidos")
+        cartao = pg.locator(f"#enc-card-{proto}")
+        expect(cartao).to_be_visible(timeout=_TIMEOUT_MS)
+
+        # 1ª vez: Agendar
+        expect(cartao.get_by_role("button", name="Agendar")).to_be_visible()
+        pg.once("dialog", lambda d: d.accept("2026-11-03 09:00"))
+        cartao.get_by_role("button", name="Agendar").click()
+        expect(pg.locator("#enc-status-msg")).to_contain_text("Consulta marcada",
+                                                              timeout=_TIMEOUT_MS)
+
+        # 2ª vez: o MESMO botão, agora Remarcar
+        cartao = pg.locator(f"#enc-card-{proto}")
+        expect(cartao.get_by_role("button", name="Remarcar")).to_be_visible(timeout=_TIMEOUT_MS)
+        pg.once("dialog", lambda d: d.accept("2026-11-10 15:30"))
+        cartao.get_by_role("button", name="Remarcar").click()
+        expect(pg.locator("#enc-status-msg")).to_contain_text("remarcada",
+                                                              timeout=_TIMEOUT_MS)
+        assert not erros, erros
+    finally:
+        ctx.close()
+
+    # e o cidadão vê a data NOVA
+    r = httpx.get(f"{app_demo}/paciente/encaminhamentos",
+                  headers=_h(_tok(app_demo, "paciente")), timeout=15.0).json()
+    item = next(x for x in r["ativos"] if x["protocolo"] == proto)
+    assert item["data_consulta"].startswith("2026-11-10"), (
+        f"a carteira ficou na data antiga: {item['data_consulta']}"
+    )
+
+
 # ===========================================================================
 # §3 / §2 lei 1 — abas por chapéu; lista por dever, selo por posse
 # ===========================================================================
