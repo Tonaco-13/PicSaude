@@ -248,9 +248,9 @@ function renderizarBarraChavesDemo(_cfg, opcoes = {}) {
     }
 
     const CHAVES = [
-        { icone: '🩺', tipo: 'CNS',  valor: formatarCNS(DEMO.prescritor.cns), bruto: DEMO.prescritor.cns,  modulo: 'Prescritor' },
-        { icone: '👤', tipo: 'CPF',  valor: formatarCPF(DEMO.cidadao.cpf),    bruto: DEMO.cidadao.cpf,     modulo: 'Cidadão' },
-        { icone: '💊', tipo: 'CNPJ', valor: formatarCNPJ(DEMO.farmacia.cnpj), bruto: DEMO.farmacia.cnpj,   modulo: 'Dispensador' },
+        { icone: '🩺', tipo: 'CNS',  valor: formatarCNS(DEMO.prescritor.cns), bruto: DEMO.prescritor.cns,  modulo: 'Consultório' },
+        { icone: '👤', tipo: 'CPF',  valor: formatarCPF(DEMO.cidadao.cpf),    bruto: DEMO.cidadao.cpf,     modulo: 'Carteira Cidadã' },
+        { icone: '💊', tipo: 'CNPJ', valor: formatarCNPJ(DEMO.farmacia.cnpj), bruto: DEMO.farmacia.cnpj,   modulo: 'Farmácia' },
         { icone: '🏥', tipo: 'CNPJ', valor: formatarCNPJ(DEMO.clinica.cnpj),  bruto: DEMO.clinica.cnpj,    modulo: 'Clínica/Laboratório' },
     ];
 
@@ -379,11 +379,11 @@ function renderizarPainelChavesDemo(_cfg, opcoes = {}) {
     }
 
     const CHAVES = [
-        { icone: '🩺', modulo: 'Prescritor',          chave: 'CNS',
+        { icone: '🩺', modulo: 'Consultório',         chave: 'CNS',
           valor: formatarCNS(DEMO.prescritor.cns),    bruto: DEMO.prescritor.cns },
-        { icone: '👤', modulo: 'Cidadão',             chave: 'CPF',
+        { icone: '👤', modulo: 'Carteira Cidadã',     chave: 'CPF',
           valor: formatarCPF(DEMO.cidadao.cpf),       bruto: DEMO.cidadao.cpf },
-        { icone: '💊', modulo: 'Dispensador',         chave: 'CNPJ',
+        { icone: '💊', modulo: 'Farmácia',            chave: 'CNPJ',
           valor: formatarCNPJ(DEMO.farmacia.cnpj),    bruto: DEMO.farmacia.cnpj },
         { icone: '🏥', modulo: 'Clínica/Laboratório', chave: 'CNPJ',
           valor: formatarCNPJ(DEMO.clinica.cnpj),     bruto: DEMO.clinica.cnpj },

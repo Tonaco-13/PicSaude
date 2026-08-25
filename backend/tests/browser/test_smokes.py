@@ -31,13 +31,17 @@ _PRESCRITOR = {"sub": "980001112223334", "nome": "Dra. Demo Maria Souza"}
 # Protocolo sentinela do atestado semeado (backend/seed_demo.py::_garantir_atestado_demo).
 _ATESTADO_SEED = "DEMO-ATESTADO-0001"
 
-# Cards do portal → módulo de destino. Espelha index.html; o smoke (a) percorre
+# Cards do portal → ESTAÇÃO de destino. Espelha index.html; o smoke (a) percorre
 # todos. `clinica.html` e `validar.html` não passam pelo /demo/login (não têm
 # papel), mas precisam abrir.
+#
+# Os rótulos são de FACHADA (decisão do Fabiano, 25/08): nomeiam o LUGAR aonde
+# se vai. Os ATORES continuam prescritor/dispensador/cidadão no JWT, no RBAC e
+# no domínio inteiro — renomear a porta não renomeia quem entra.
 _CARDS = [
-    ("prescritor.html", "Prescritor"),
-    ("dispensador.html", "Dispensador"),
-    ("cidadao.html", "Cidadão"),
+    ("prescritor.html", "Consultório"),
+    ("dispensador.html", "Farmácia"),
+    ("cidadao.html", "Carteira Cidadã"),
     ("clinica.html", "Clínica / Laboratório"),
     ("validar.html", "Verificar Prescrição"),
 ]
@@ -81,10 +85,19 @@ class TestPortal:
     def test_portal_abre_e_lista_os_cards(self, page, app_demo, erros_de_console):
         page.goto(app_demo, wait_until="networkidle")
 
+        # ⚠️ CASAR PELO SELETOR DO TÍTULO, nunca por substring do cartão.
+        #
+        # `to_contain_text` no `a.card` inteiro varre também o parágrafo — e o
+        # do dispensador diz "no balcão da farmácia". Com o rótulo virando
+        # "Farmácia", a asserção passaria mesmo se o `<h3>` dissesse outra
+        # coisa: o teste continuaria verde guardando nada.
+        #
+        # `to_have_text` no `h3` é igualdade estrita, e é MAIS forte que o que
+        # havia antes — não menos.
         for href, rotulo in _CARDS:
             card = page.locator(f'a.card[href="{href}"]')
             expect(card).to_be_visible(timeout=_TIMEOUT_MS)
-            expect(card).to_contain_text(rotulo)
+            expect(card.locator("h3")).to_have_text(rotulo)
 
         _sem_erros(erros_de_console, "portal (index.html)")
 
