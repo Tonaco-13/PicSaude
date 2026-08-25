@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PicSaúde - Módulo Cidadão v27</title>
+    <title>PicSaúde - Carteira Cidadã v27</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; min-height: 100vh; color: #1e293b; }
@@ -44,6 +44,11 @@
         .btn-action { background: #16a34a; color: white; }
         .btn-action:hover { background: #007a2e; }
         /* TICKET-J.9 — abas da carteira: um tipo de objeto por aba. */
+        /* O cartão do Titular passou a abrigar o "Atualizar" à direita: o
+           espaço em branco não existia e foi criado. `align-items:flex-start`
+           para o botão alinhar pelo topo do bloco de identidade, e `wrap` para
+           que em tela estreita ele desça em vez de espremer o nome. */
+        .titular-card { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
         /* O wrapper que abriga a barra de pílulas + o botão Atualizar. A barra
            ocupa o espaço; o botão fica ao lado, FORA dela (ver a nota no
            markup). O CSS da BARRA vive em `submodulos.css`, compartilhado com
@@ -344,7 +349,7 @@
         </div>
         <div class="header-actions">
             <a href="index.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
-            <span class="module-tag">Módulo Cidadão</span>
+            <span class="module-tag">Carteira Cidadã</span>
             <div id="header-controls" class="hidden" style="display: flex; gap: 12px;">
                 <button onclick="abrirPerfil()" class="btn-outline btn-small" style="color: #1e3a8a; border-color: #cbd5e1;">Meu Cadastro</button>
                 <button onclick="sair()" class="btn-outline btn-small" style="color: #64748b; border-color: transparent;">Sair</button>
@@ -414,10 +419,28 @@
 
         <div id="tela-carteira" class="hidden">
             
-            <div class="card" style="background: #ffffff; border-left: 4px solid #1e3a8a; padding: 24px; margin-bottom: 32px;">
-                <p style="font-size: 12px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; font-weight: 600;">Titular da Conta (Portador)</p>
-                <h3 id="user-nome-display" style="color: #0f172a; margin-bottom: 8px; font-size: 20px;">...</h3>
-                <p style="font-size: 14px; color: #475569;">CPF: <span id="user-cpf" style="font-weight: 600; color: #0f172a;">...</span></p>
+            <!-- O cartão do Titular vira flex space-between para receber o
+                 "Atualizar" (decisão do Fabiano, 25/08). O campo em branco à
+                 direita não existia — foi criado aqui.
+
+                 O botão SAI da barra de submódulos e sobe: `carregarCarteira()`
+                 recarrega TODOS os submódulos de uma vez, e ao lado das pílulas
+                 ele parecia pertencer à pílula ativa. No cabeçalho do titular
+                 ele pertence à CARTEIRA, que é o que ele de fato atualiza — a
+                 mesma razão do J.9, agora resolvida por posição em vez de nota.
+
+                 As pílulas ficam SÓ navegação. E o id `#btn-refresh` fica: dois
+                 E2Es o referenciam, e trocá-lo seria diff de ruído. -->
+            <div class="card titular-card" style="background: #ffffff; border-left: 4px solid #1e3a8a; padding: 24px; margin-bottom: 32px;">
+                <div>
+                    <p style="font-size: 12px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; font-weight: 600;">Titular da Conta (Portador)</p>
+                    <h3 id="user-nome-display" style="color: #0f172a; margin-bottom: 8px; font-size: 20px;">...</h3>
+                    <p style="font-size: 14px; color: #475569;">CPF: <span id="user-cpf" style="font-weight: 600; color: #0f172a;">...</span></p>
+                </div>
+                <button id="btn-refresh" onclick="atualizarCarteiraAnimado()" class="btn-outline btn-small" style="margin: 0; display: flex; align-items: center; gap: 6px; font-weight:bold; flex-shrink: 0;">
+                    <svg id="refresh-icon" class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.66 5.87"/></svg>
+                    <span id="refresh-text">Atualizar</span>
+                </button>
             </div>
 
             <!-- Alertas de renovação ficam FORA das abas: valem para a carteira
@@ -436,17 +459,11 @@
                  da tela do prescritor: mesmo componente, mesmo CSS, mesmo
                  arquivo. Consistência por construção, não por vigilância.
 
-                 O botão Atualizar continua FORA da grade porque
-                 `carregarCarteira()` recarrega TODOS os submódulos de uma vez;
-                 pendurá-lo dentro de um cartão faria parecer que só aquele é
-                 atualizado (a mesma razão do J.9, quando eram abas). -->
-            <div class="submod-barra">
-                <div id="submod-nav-carteira"></div>
-                <button id="btn-refresh" onclick="atualizarCarteiraAnimado()" class="btn-outline btn-small" style="margin: 0; display: flex; align-items: center; gap: 6px; font-weight:bold;">
-                    <svg id="refresh-icon" class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.66 5.87"/></svg>
-                    <span id="refresh-text">Atualizar</span>
-                </button>
-            </div>
+                 O "Atualizar" saiu daqui e subiu para o cabeçalho do Titular
+                 (25/08): ele recarrega a carteira INTEIRA, e ao lado das
+                 pílulas parecia pertencer à pílula ativa. A barra fica SÓ
+                 navegação. -->
+            <div id="submod-nav-carteira"></div>
 
             <!-- ══════════ ABA 1 — RECEITA ══════════ -->
             <section class="aba-cart-painel" id="submod-receita" role="tabpanel" aria-labelledby="submod-btn-receita">
@@ -768,13 +785,16 @@
         // LAUDOS ganhou porta própria — era uma seção uma rolagem abaixo dos
         // pedidos, dentro de Exames, e é justamente o que o cidadão veio
         // buscar (comissão #189, S1+S4).
+        // ORDEM definida em 25/08. A navegação é desenhada A PARTIR desta
+        // lista e os painéis são casados por CHAVE — reordenar aqui é seguro,
+        // e os E2Es apontam `#submod-btn-{chave}`, não posição.
         const _SUBMODULOS_CARTEIRA = [
             { chave: 'receita',         titulo: 'Receitas',        contador: 0 },
             { chave: 'exames',          titulo: 'Exames',          contador: 0 },
-            { chave: 'agendamentos',    titulo: 'Agendamentos',    contador: 0 },
-            { chave: 'laudos',          titulo: 'Laudos',          contador: 0 },
             { chave: 'atestado',        titulo: 'Atestados',       contador: 0 },
             { chave: 'encaminhamentos', titulo: 'Encaminhamentos', contador: 0 },
+            { chave: 'laudos',          titulo: 'Laudos',          contador: 0 },
+            { chave: 'agendamentos',    titulo: 'Agendamentos',    contador: 0 },
         ];
         const _ABAS_CARTEIRA = _SUBMODULOS_CARTEIRA.map(x => x.chave);
         let _submoduloAtivo = 'receita';
