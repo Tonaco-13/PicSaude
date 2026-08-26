@@ -1220,6 +1220,11 @@
                 if (!cartao || !cartao.aberto_em) {
                     await apiFetch(`/laudos/${protocolo}/abrir`, { method: 'POST' });
                     await carregarLaudos();      // status e carimbo mudaram
+                    // MARTELO 26/08 — abrir o laudo ENCERRA o pedido de exame
+                    // quando não resta exame por ler. O cartão do pedido muda
+                    // junto: sem isto, ele seguiria oferecendo a ciência de um
+                    // ciclo que o backend já fechou.
+                    await carregarPedidosExame();
                 }
                 await baixarPdfLaudo(protocolo);
             } catch (err) {
@@ -1637,11 +1642,22 @@
                 //   desenhou repouso AGUARDANDO CIÊNCIA, e a ciência não tinha
                 //   porta. Atrito infinito — o gesto era inalcançável.
                 //
-                // A CIÊNCIA É EXPLÍCITA E NÃO SE DERIVA DE ABRIR O LAUDO
-                // (martelo do Fabiano, 24/08): ciência do laudo é do laudo,
-                // ciência do pedido é do pedido. Dois fatos, dois eventos.
-                // Fundi-los faria abrir um PDF encerrar um pedido de exame — e
-                // ninguém consegue desfazer o que declarou sem querer.
+                // ABRIR O LAUDO DÁ CIÊNCIA DO PEDIDO (martelo do Fabiano,
+                // 26/08) — SUPERA o martelo de 24/08, que separava os dois
+                // fatos ("ciência do laudo é do laudo, ciência do pedido é do
+                // pedido"). O arquiteto percorreu a vitrine e decidiu o
+                // contrário: "o exame anda sozinho para o Histórico assim que o
+                // cidadão abre".
+                //
+                // O fecho é do BACKEND, no mesmo `with get_tx()` da abertura
+                // (`laudos.py::_encerrar_pedido_se_a_abertura_completa_a_ciencia`),
+                // e só quando NÃO RESTA exame por ler — num pedido repartido
+                // entre laboratórios, o último a ser aberto fecha tudo.
+                //
+                // O botão abaixo CONTINUA existindo, e não é resíduo: há pedido
+                // sem laudo nenhum, e há quem prefira declarar em vez de abrir.
+                // Ele some sozinho quando o backend já fechou o ciclo, porque
+                // `resultadoSaiu` deixa de valer.
                 const resultadoSaiu = pedido.status === 'resultado_disponivel';
                 const fechamentoHtml = (resultadoSaiu || pedido.laudo) ? `
                         <div class="exame-fecho">
