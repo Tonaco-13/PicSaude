@@ -5,8 +5,9 @@
 # em todo PR e não deve pagar o download do Playwright + Chromium por um PR que
 # só toca o ledger. Só o workflow gates-browser.yml instala este arquivo.
 #
-# Escolha de ferramenta: playwright-python. O repo é Python PURO — não há
-# package.json nem node_modules. pytest-playwright roda dentro do pytest que já
-# existe. Puppeteer/Cypress introduziriam uma toolchain Node inteira no projeto.
+# Escolha de ferramenta: playwright-python. A aplicação é Python — não há
+# node_modules nem dependência de Node no gate (o package.json da raiz é só um
+# atalho para subir o preview local). pytest-playwright roda dentro do pytest que
+# já existe. Puppeteer/Cypress introduziriam uma toolchain Node inteira no projeto.
 # ─────────────────────────────────────────────────────────────────────────────
 pytest-playwright>=0.5,<1
