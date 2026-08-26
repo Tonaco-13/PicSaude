@@ -350,6 +350,38 @@ encerrado · cancelado · encerrado_fisico
 
 Custódia: `prescritor → paciente → prestador_exame → paciente`
 
+**MARTELO DO FABIANO, 26/08 (`core`) — abrir o laudo dá ciência do PEDIDO.**
+**SUPERA o martelo de 24/08**, que separava os dois fatos ("ciência do laudo é do laudo,
+ciência do pedido é do pedido; fundi-los faria abrir um PDF encerrar um pedido de exame").
+O arquiteto percorreu a vitrine e decidiu o contrário: *"o exame anda sozinho para o
+Histórico assim que o cidadão abre"*.
+
+A regra, com a precisão que o pedido repartido exige:
+
+> O pedido vai a `encerrado` quando **todo item que ainda aguarda ciência está coberto por
+> um laudo que o cidadão JÁ ABRIU**.
+
+- O fecho é do backend, no **mesmo** `with get_tx()` da abertura
+  (`laudos.py::_encerrar_pedido_se_a_abertura_completa_a_ciencia`): ou os dois fatos entram,
+  ou nenhum. Regra de produto não mora no navegador.
+- Num pedido dividido entre laboratórios (J.10), abrir o laudo do primeiro **não fecha nada**;
+  ao abrir o último, tudo fecha junto — inclusive os itens dos laudos abertos antes.
+- **Item com resultado e sem laudo segura o pedido aberto**: resultado que ninguém laudou não
+  é ciência de ninguém.
+- O ledger do pedido registra `pedido_encerrado` com `origem: "abertura_laudo"` +
+  `laudo_protocolo` — a ciência é DERIVADA, e o evento não finge gesto próprio (mesma
+  disciplina do `origem: "abertura"` no ledger do laudo).
+- **`POST /pedidos-exame/{proto}/encerrar` continua existindo**: há pedido sem laudo nenhum,
+  e há o caminho do prescritor. Não se remove porta.
+
+> **Fronteira do fecho atômico (declarada, não decidida pelo martelo):** fechar *item* sem
+> fechar o *pedido* exigiria vocabulário que o ledger do exame não tem — só existe
+> `pedido_encerrado` ("ciência registrada"), e emiti-lo com o pedido aberto anunciaria fato
+> que não ocorreu (a lição do `pedido_agendado` fantasma). Por isso o fecho é tudo-ou-nada.
+> Querer o fecho item a item é evento novo — decisão `core` do arquiteto.
+
+Guarda executável: `tests/integration/test_abertura_laudo_encerra_pedido.py`.
+
 > Arquitetura completa em `docs/ARQUITETURA_EXAMES.md`
 
 ### Estados do módulo de Agendamento (Ticket 28 — arquitetura / Ticket 29 — implementação)
