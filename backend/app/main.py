@@ -282,4 +282,36 @@ _frontend_dir = resolve_frontend_dir(
 if _frontend_dir is not None:
     from fastapi.staticfiles import StaticFiles
 
-    app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
+    # ── ENG-018 (flip-readiness) — HTML e assets de entrada NÃO se cacheiam ──
+    #
+    # A família do "o fix subiu e o usuário ainda vê o bug". Aconteceu de
+    # verdade: depois do #196, o cache do próprio Fabiano guardou a era dos 404
+    # e ele continuou vendo a vitrine quebrada por um tempo depois da cura.
+    #
+    # Num repositório público, com visitantes chegando de link, isso é pior:
+    # cada um carrega a versão que pegou no primeiro acesso, e um deles vai
+    # relatar um defeito que já não existe — o que custa a confiança que a
+    # vitrine existe para construir.
+    #
+    # `no-cache` (e NÃO `no-store`): o navegador PODE guardar, mas tem de
+    # revalidar antes de usar. Com ETag, a revalidação devolve 304 e o custo é
+    # um round-trip vazio — quem não mudou não baixa de novo.
+    #
+    # Vale para HTML **e** para os `.js`/`.css` de entrada, porque eles não têm
+    # hash no nome: `submodulos.js` é sempre `submodulos.js`. Assets versionados
+    # por nome poderiam ser cacheados agressivamente — não há nenhum hoje, e
+    # inventar o esquema agora seria resolver problema que não temos.
+    _SEM_CACHE = (".html", ".js", ".css")
+
+    class _EstaticoSemCacheNaEntrada(StaticFiles):
+        async def get_response(self, path: str, scope):
+            resposta = await super().get_response(path, scope)
+            if path.endswith(_SEM_CACHE) or path in ("", "."):
+                resposta.headers["Cache-Control"] = "no-cache, must-revalidate"
+            return resposta
+
+    app.mount(
+        "/",
+        _EstaticoSemCacheNaEntrada(directory=str(_frontend_dir), html=True),
+        name="frontend",
+    )
