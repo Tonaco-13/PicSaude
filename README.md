@@ -136,11 +136,12 @@ cadastro, sem nuvem.
 
 ```bash
 git clone https://github.com/Tonaco-13/PicSaude.git
-cd PicSaude/backend
+cd PicSaude
 
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt          # o requirements.txt fica na RAIZ
 
+cd backend
 PICSAUDE_DEMO_MODE=true alembic upgrade head     # cria o schema
 PICSAUDE_DEMO_MODE=true python3 seed_demo.py     # popula as personas
 PICSAUDE_DEMO_MODE=true uvicorn app.main:app --app-dir .
@@ -157,10 +158,26 @@ balcão → volte à carteira e abra a rastreabilidade do objeto.
 Pré-requisitos: Python 3.10+. PostgreSQL 15+ só em produção; a demo usa SQLite
 sem configuração.
 
+### Rodar os testes
+
+O `requirements.txt` traz só o que a aplicação precisa para **rodar**. As
+ferramentas de teste são instaladas à parte — é a mesma separação que o CI faz,
+e evita que quem só quer ver o sistema funcionando baixe o Playwright inteiro.
+
 ```bash
+pip install pytest                          # unidade e integração
 cd backend && pytest tests/unit -q          # 592
-pytest tests/browser -q                     # 139 (precisa de Playwright)
+
+pip install -r ../requirements-browser.txt  # navegador (Playwright)
+python3 -m playwright install chromium      # ~8 min na primeira vez
+pytest tests/browser -q                     # 139
 ```
+
+### Prefere Docker?
+
+O caminho de contêiner, voltado a operadores institucionais, está em
+[`README_instalacao.md`](README_instalacao.md) — `docker compose` com
+PostgreSQL, healthcheck e volume persistente.
 
 ### Para extensionistas da UFPE
 
