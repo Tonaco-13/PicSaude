@@ -1,48 +1,138 @@
 # PicSaúde
 
+**Infraestrutura de circulação sem atrito de objetos sanitários com custódia cidadã.**
+
 [![Licença: AGPL v3](https://img.shields.io/badge/Licença-AGPL_v3-blue.svg)](LICENSE)
-[![Testes](https://img.shields.io/badge/testes-1267%20passando-brightgreen.svg)](#)
+[![Testes](https://img.shields.io/badge/gate-1360%20testes-brightgreen.svg)](#os-números-deste-repositório)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Demo pública](https://img.shields.io/badge/demo-picsaude.com.br-1e3a8a.svg)](https://picsaude.com.br)
 
-Sistema brasileiro de prescrição digital com assinatura ICP-Brasil PAdES-B, motor regulatório RDC 1.000/2025 e ledger de auditoria imutável.
-
-> **Status:** backend funcional (1267 testes passando). Modo demo público (`PICSAUDE_DEMO_MODE`) implementado — veja Quick Start abaixo. Deploy em URL pública em preparação. Roadmap em `docs/PLANO-PRODUCAO-V2.md`.
-
----
-
-## Por que existe
-
-A RDC 1.000/2025 da Anvisa exige prescrição digital com assinatura qualificada para receituários no Brasil. A MP 2.200-2/2001 estabelece a ICP-Brasil como infraestrutura de assinatura digital com validade jurídica. O SUS — maior sistema universal de saúde do mundo — precisa de uma alternativa livre, auditável e soberana aos softwares proprietários de prescrição que dominam o mercado privado.
-
-O PicSaúde existe para resolver isso. Software livre, conformidade regulatória derivada da norma, arquitetura desenhada para auditoria.
-
-## O que faz
-
-Fluxo principal:
-
-```
-Prescritor emite ──► Motor regulatório valida ──► PDF gerado ──► Assinatura PAdES-B
-                                                                       │
-                                                                       ▼
-            Ledger de auditoria ◄── Dispensação ◄── Paciente ◄── Custódia transferida
-```
-
-> **GIF do fluxo completo:** será adicionado após o deploy do demo público.
-
-Funcionalidades implementadas:
-
-- 6 tipos de receituário (RDC 1.000/2025)
-- Catálogo de substâncias com alertas (info, warning, critical)
-- Geração de PDF institucional (ReportLab)
-- Assinatura digital PAdES-B com pyHanko
-- Cofre AES-256-GCM para certificados `.pfx`
-- Ledger de auditoria imutável e cadeia de custódia explícita
-- Modo demo público com sessões pré-semeadas (`PICSAUDE_DEMO_MODE`) — isolado do banco de produção, reset horário
-- 1267 testes (unitários + integração + E2E)
+Receita, exame, laudo, atestado e encaminhamento como **objetos rastreáveis**:
+imutáveis depois de emitidos, com **cadeia de custódia explícita** e **ledger
+append-only**. O cidadão carrega os próprios documentos e é ele quem os
+entrega — não um intermediário agindo em nome dele.
 
 ---
 
-## Quick Start (5 min)
+## A tese: Care Rails
+
+O Pix não digitalizou o dinheiro. Ele criou **trilhos** — um protocolo público
+onde qualquer instituição pluga, o valor se move em segundos e a posse é
+inequívoca a cada instante. O que mudou não foi a interface: foi a **camada de
+transporte** ter virado infraestrutura comum.
+
+A saúde brasileira ainda não tem isso. Tem documentos que circulam como anexo
+de e-mail, papel na mochila e PDF sem dono. Cada instituição guarda a sua
+verdade, e o cidadão — que é quem atravessa todas elas — é o único sem cópia
+confiável.
+
+**O PicSaúde propõe os trilhos equivalentes para o cuidado:** um objeto
+sanitário que se move entre instituições sem perder identidade, com posse
+verificável a cada passo e trilha auditável do começo ao fim.
+
+> A formulação completa da tese está no artigo submetido ao **CBEB 2026**
+> (Congresso Brasileiro de Engenharia Biomédica). O link entra aqui quando
+> publicado.
+
+---
+
+## A prova: três circulações completas
+
+A tese não é slide. São **três percursos inteiros**, cada um com objeto,
+custódia, ledger e telas — do consultório à mão do cidadão e de volta.
+
+### 1 · Receita → farmácia
+
+```
+prescritor emite ─► carteira do cidadão ─► cidadão apresenta na farmácia
+                                                      │
+        ledger ◄── dispensação (total ou parcial) ◄────┘
+                          │
+                          └─► estorno = objeto DERIVADO; a dispensação original nunca muda
+```
+
+Dispensação parcial não invalida a receita. Item não pago volta a `pendente` e
+segue dispensável em outra farmácia — porque **a receita é do cidadão**, não do
+balcão.
+
+### 2 · Exame → laudo → ciência
+
+```
+prescritor solicita ─► cidadão entrega ao laboratório ─► coleta ─► bancada
+                                                                     │
+cidadão dá ciência ◄── laudo liberado (custódia → cidadão) ◄──────────┘
+```
+
+Agendar é **compromisso**; entregar é **posse**. Um pedido `agendado` tanto pode
+estar com o cidadão quanto no laboratório — quem responde *"onde está"* é a
+custódia, nunca o estado.
+
+### 3 · Encaminhamento ⇄ contrarreferência
+
+```
+origem emite ─► cidadão leva ao especialista ─► atendimento
+                                                    │
+origem dá ciência e encerra ◄── contrarreferência ◄──┘
+```
+
+O cidadão é o **carteiro clínico**: faz as duas viagens, e é o gesto dele que
+move a posse nas duas pontas. A contrarreferência é objeto **derivado**, com
+custódia própria.
+
+**[Ver as três circulações rodando →](https://picsaude.com.br)** — demo pública,
+dados fictícios, reset horário.
+
+---
+
+## O núcleo
+
+Tudo acima é a mesma máquina, aplicada **oito vezes**. O contrato que todo objeto
+sanitário cumpre está em **[`docs/NUCLEO_SANITARIO.md`](docs/NUCLEO_SANITARIO.md)**:
+
+| Contrato | O que exige |
+|---|---|
+| **Objeto principal** | protocolo UUID, imutável após emissão; correção e renovação são objetos **derivados** |
+| **Itens** | granularidade própria, com estado por item |
+| **Máquina de estados** | transições declaradas em `domain/states_*.py`; nada de estado ad hoc |
+| **Custódia** | quem detém, desde quando, por qual motivo — explícito, nunca inferido |
+| **Ledger** | append-only; `UPDATE`/`DELETE` recusados **pelo banco** |
+| **Documento canônico + hash** | SHA-256 do que o profissional confirmou — versionado, com a regra antiga preservada |
+| **PDF institucional** | layout comum a todos os objetos |
+| **QR + validação pública** | verificação anônima, sem vazar conteúdo clínico |
+| **Emissão física** | caminho paralelo declarado, sem custódia digital |
+
+Objetos implementados, cada um com máquina de estados própria em
+`backend/app/domain/states*.py`: **prescrição · pedido de exame · laudo ·
+atestado · agendamento · circulação diagnóstica · encaminhamento ·
+contrarreferência**.
+
+### Invariantes provados pelo banco, nos dois dialetos
+
+Convenção de código não é invariante. O que a casa afirma como garantido, o
+banco recusa — em **PostgreSQL e SQLite**, por migração e com teste em cada um:
+
+- **posse única**: no máximo **uma** custódia ativa por objeto. Um documento em
+  dois lugares ao mesmo tempo é alarme, não erro cosmético;
+- **ledger imutável**: *triggers* que recusam `UPDATE` e `DELETE` — **16** (oito
+  ledgers × dois), conferidos no gate;
+- **unicidade de identificadores** nos relatórios regulatórios: duplicidade é
+  tratada como sinal de fraude, com guarda no gate e no *nightly*.
+
+### A Regra Zero
+
+Primeira linha da constituição do projeto ([`CLAUDE.md`](CLAUDE.md) §7):
+
+> A movimentação **sem atrito** do objeto sanitário, **ancorada ao CPF (chave)**,
+> é a régua-mestra desta casa. Atrito percebido na circulação é defeito — mesmo
+> que cada peça esteja correta isolada. O núcleo existe para servi-la; a última
+> milha (telas) é onde ela mais se perde.
+
+---
+
+## Rode local em 5 minutos
+
+A demo pública é vitrine. **O que vale é rodar na sua máquina** — sem conta, sem
+cadastro, sem nuvem.
 
 ```bash
 git clone https://github.com/Tonaco-13/PicSaude.git
@@ -51,77 +141,128 @@ cd PicSaude/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 1) Criar e popular o banco demo (3 personas pré-semeadas)
-PICSAUDE_DEMO_MODE=true python3 scripts/reset_demo_db.py
-
-# 2) Subir o backend em modo demo
-PICSAUDE_DEMO_MODE=true uvicorn app.main:app --reload --app-dir .
+PICSAUDE_DEMO_MODE=true alembic upgrade head     # cria o schema
+PICSAUDE_DEMO_MODE=true python3 seed_demo.py     # popula as personas
+PICSAUDE_DEMO_MODE=true uvicorn app.main:app --app-dir .
 ```
 
-Abra `http://localhost:8000` no navegador — a tela inicial mostra o seletor de personas com banner amarelo **MODO DEMO**. O endpoint `/docs` continua disponível para explorar a API (Swagger).
+Abra `http://localhost:8000`. O portal mostra **quatro estações** —
+Consultório · Carteira Cidadã · Farmácia · Laboratório — e um clique entra em
+cada uma, sem senha.
 
-Para rodar os testes:
+**Roteiro sugerido (≈3 minutos):** emita uma receita no Consultório → abra a
+Carteira Cidadã e veja o documento chegar → transfira à Farmácia → dispense no
+balcão → volte à carteira e abra a rastreabilidade do objeto.
+
+Pré-requisitos: Python 3.10+. PostgreSQL 15+ só em produção; a demo usa SQLite
+sem configuração.
 
 ```bash
-cd backend && pytest -q
+cd backend && pytest tests/unit -q          # 592
+pytest tests/browser -q                     # 139 (precisa de Playwright)
 ```
 
-Pré-requisitos: Python 3.10+. Em produção, PostgreSQL 15+. Em demo, SQLite (sem configuração adicional).
+### Para extensionistas da UFPE
 
-### O que você verá no demo
+Projeto de extensão do CTG/UFPE. Comece por
+[`CONTRIBUTING-EXTENSAO.md`](CONTRIBUTING-EXTENSAO.md) — mapa do repositório,
+primeiros tickets (`good-first-issue`), a convenção de nomes pt-BR/en e o
+roteiro de homologação manual.
 
-- Banner amarelo no topo de todas as páginas: **MODO DEMO** com horário do próximo reset
-- 3 cards de persona na tela inicial: **Prescritor** (Dra. Demo Maria Souza), **Dispensador** (Farmácia Demo Central), **Cidadão** (João Demo da Silva) — login real fica desabilitado em demo
-- Marca d'água "DEMO" diagonal em todas as receitas PDF geradas (impede uso fraudulento)
-- Banco demo é arquivo separado (`data/pix_saude_demo.db`) — fisicamente isolado do banco de produção
-- Reset horário automático: a cada hora cheia o estado do demo volta ao inicial (cron entra na Etapa 8/deploy)
+---
 
-### Para extensionistas UFPE
+## Conformidade
 
-Este projeto também é projeto de extensão do CTG/UFPE. Se você está chegando agora pela equipe de extensão, leia [`CONTRIBUTING-EXTENSAO.md`](CONTRIBUTING-EXTENSAO.md) primeiro — tem mapa do repo, primeiros tickets sugeridos (`good-first-issue`), explicação da convenção de naming híbrido pt-BR / en, e o roteiro de homologação manual para validar o demo.
+| Norma | O que significa aqui |
+|---|---|
+| **RDC 1.000/2025 (Anvisa)** | motor de classificação regulatória com os 6 tipos de receituário; catálogo de substâncias com alertas |
+| **CFM 2.299/2021** | assinatura digital qualificada para validade legal da prescrição |
+| **MP 2.200-2/2001** | ICP-Brasil como infraestrutura de assinatura — PAdES-B via pyHanko, cofre AES-256-GCM para os certificados |
+| **LGPD** | ver [`DATA-PROTECTION.md`](DATA-PROTECTION.md) |
+
+### Ética — uma restrição de desenho, não uma promessa
+
+**Dados de pacientes nunca são monetizados.** Isso não está só no
+[`ETHICS.md`](ETHICS.md): está em
+`backend/tests/test_guardrail_sem_monetizacao.py`, um teste que roda no gate.
+
+A diferença importa. Promessa em documento envelhece; guarda executável falha o
+build de quem tentar.
+
+---
+
+## Os números deste repositório
+
+Contagem única, verificável, sem arredondamento para cima:
+
+| Suíte | Testes | Como conferir |
+|---|---|---|
+| unidade (sem banco) | **592** | `pytest tests/unit -q` |
+| integração (PostgreSQL) | **629** | `pytest tests/integration --ignore=tests/integration/test_concorrencia.py -q` |
+| navegador (Playwright, ponta a ponta) | **139** | `pytest tests/browser -q` |
+| **total no gate** | **1.360** | os três acima, em todo PR |
+
+O repositório contém outros testes fora do gate principal (suítes históricas em
+`backend/tests/*.py`, parcialmente cobertas por passos específicos do CI). **O
+badge conta o que o gate roda e aprova** — não o que o `--collect-only` soma.
+
+O gate também executa: imutabilidade do ledger nos dois dialetos · *reset* do
+banco demo em PostgreSQL · *smoke* de predeploy (migração + seed idempotente) ·
+seed do catálogo DCB · **paridade de deploy** (builda a imagem e confere que
+todo asset referenciado pelas telas existe dentro dela).
 
 ---
 
 ## Arquitetura em um parágrafo
 
-O PicSaúde trata cada prescrição como **objeto sanitário imutável**: uma vez emitida, nunca é editada — correções e renovações geram novos objetos derivados que apontam para o anterior. Toda ação relevante (emissão, impressão, transferência de custódia, dispensação, assinatura) gera evento append-only no **ledger de auditoria**, com hash, timestamp, ator e identificador de instância. A **cadeia de custódia** é rastreada explicitamente de prescritor → paciente → dispensador, com transições válidas declaradas no domínio. Detalhes completos em [`CLAUDE.md`](CLAUDE.md) (princípios arquiteturais) e em [`docs/`](docs/) (especificações por módulo).
+Cada prescrição é um **objeto sanitário imutável**: emitida, nunca editada —
+correções e renovações geram objetos derivados que apontam para o anterior. Toda
+ação relevante gera evento **append-only** no ledger, com hash, timestamp, ator e
+identificador de instância. A **cadeia de custódia** é rastreada explicitamente,
+com transições válidas declaradas no domínio. Princípios completos em
+[`CLAUDE.md`](CLAUDE.md); contrato do núcleo em
+[`docs/NUCLEO_SANITARIO.md`](docs/NUCLEO_SANITARIO.md); especificações por módulo
+em [`docs/`](docs/).
 
-## Stack técnica
+## Stack
 
-- **Backend:** Python 3.10+, FastAPI, SQLAlchemy, Alembic
-- **Banco:** PostgreSQL 15+ (produção), SQLite (demo)
-- **Assinatura digital:** pyHanko 0.34.1 (PAdES-B com ICP-Brasil)
-- **PDF:** ReportLab
-- **Criptografia:** `cryptography` (PKCS#12, AES-256-GCM)
-- **Testes:** pytest (146 passando)
+**Backend:** Python 3.10+ · FastAPI · SQLAlchemy · Alembic
+**Banco:** PostgreSQL 15+ (produção) · SQLite (demo e desenvolvimento)
+**Assinatura:** pyHanko (PAdES-B, ICP-Brasil) · `cryptography` (PKCS#12, AES-256-GCM)
+**PDF:** ReportLab
+**Testes:** pytest · Playwright
 
 ---
 
-## Como contribuir
+## Contribuir
 
-Contribuições são bem-vindas. Leia [`CONTRIBUTING.md`](CONTRIBUTING.md) primeiro — guia curto, ler antes do primeiro café. Todo contribuidor assina o Termo de Contribuição ([`CONTRIBUTOR-LICENSE.md`](CONTRIBUTOR-LICENSE.md)) antes do primeiro PR.
+Leia [`CONTRIBUTING.md`](CONTRIBUTING.md) — guia curto. Todo contribuidor assina
+o [Termo de Contribuição](CONTRIBUTOR-LICENSE.md) antes do primeiro PR.
 
-Issues marcadas com `good-first-issue` são pontos de entrada para quem está começando. Áreas core (ledger, custódia, assinatura digital) exigem revisão arquitetural — não são para primeiro PR.
+Issues `good-first-issue` são a porta de entrada. Áreas de núcleo — ledger,
+custódia, máquina de estados, assinatura — exigem revisão arquitetural e não são
+para o primeiro PR.
 
 ## Licença
 
-Distribuído sob a **GNU Affero General Public License v3.0** ([`LICENSE`](LICENSE)). Toda derivação que interaja com usuários via rede deve disponibilizar o código-fonte sob a mesma licença.
+**GNU AGPL-3.0** ([`LICENSE`](LICENSE)). Toda derivação que interaja com usuários
+via rede deve disponibilizar o código-fonte sob a mesma licença.
 
-Licenciamento comercial alternativo (código fechado) está disponível mediante contrato — veja [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md).
-
-O uso do software está sujeito à [Política de Proteção de Dados](DATA-PROTECTION.md) e ao [Disclaimer de Responsabilidade](DISCLAIMER.md).
+Licenciamento comercial alternativo (código fechado) disponível mediante
+contrato — [`COMMERCIAL-LICENSE.md`](COMMERCIAL-LICENSE.md). Uso sujeito à
+[Política de Proteção de Dados](DATA-PROTECTION.md) e ao
+[Disclaimer](DISCLAIMER.md).
 
 ## Propriedade intelectual
 
-- **Registro de Programa de Computador:** INPI BR 51 2026 002267-3 (RPI 2883, 07/04/2026)
-- **Marca PicSaúde — classe 9 (software):** pedido INPI 943014573, depositado em 12/03/2026
-- **Marca PicSaúde — classe 44 (serviços médicos):** pedido INPI 943014883, depositado em 12/03/2026
+- **Programa de computador:** INPI BR 51 2026 002267-3 (RPI 2883, 07/04/2026)
+- **Marca PicSaúde, classe 9** (software): INPI 943014573, depositada em 12/03/2026
+- **Marca PicSaúde, classe 44** (serviços médicos): INPI 943014883, depositada em 12/03/2026
 - **Titular:** Fabiano Tonaco Borges
 
-## Equipe
+## Contato
 
-- **Coordenador:** Fabiano Tonaco Borges (`fabianotonaco@gmail.com`)
-- **Contribuidores:** veja `CONTRIBUTORS.md` (criado quando o primeiro PR for merged)
+Fabiano Tonaco Borges — [`fabiano.borges@ufpe.br`](mailto:fabiano.borges@ufpe.br)
 
 ---
 
