@@ -197,16 +197,23 @@ def test_o_cidadao_encerra_o_proprio_pedido(client, seed_usuario, seed_paciente)
     assert _carteira_pedido(client, proto)["status"] == "encerrado"
 
 
-def test_a_ciencia_do_PEDIDO_nao_se_deriva_de_abrir_o_LAUDO(
+def test_a_ciencia_do_PEDIDO_deriva_de_abrir_o_LAUDO(
     client, seed_usuario, seed_paciente
 ):
-    """MARTELO DO FABIANO (24/08), executável.
+    """MARTELO DO FABIANO (26/08), executável — **SUPERA o martelo de 24/08**.
 
-    Ciência do laudo é do laudo (ENG-014: abrir é dar ciência); ciência do
-    pedido é do pedido. Fundi-los faria abrir um PDF encerrar um pedido de
-    exame — e ninguém desfaz o que declarou sem querer.
+    Este teste guardava o oposto: até 24/08 a regra era "ciência do laudo é do
+    laudo, ciência do pedido é do pedido; fundi-los faria abrir um PDF encerrar
+    um pedido de exame". Em 26/08, depois de percorrer a vitrine, o arquiteto
+    decidiu o contrário: *"o exame anda sozinho para o Histórico assim que o
+    cidadão abre"*.
 
-    Este teste falha se alguém "simplificar" derivando um do outro.
+    O teste NÃO foi apagado — foi virado, e a inversão fica registrada aqui. Um
+    martelo superado é história do projeto, não lixo: quem ler amanhã precisa
+    saber que a regra já foi a outra, e por quê.
+
+    A regra completa (com o pedido repartido) e as suas fronteiras vivem em
+    `test_abertura_laudo_encerra_pedido.py`.
     """
     _seed_prestador(client, "org-lab", _CNPJ_LAB)
     tp = obter_token_prescritor(client, seed_usuario)
@@ -217,13 +224,10 @@ def test_a_ciencia_do_PEDIDO_nao_se_deriva_de_abrir_o_LAUDO(
 
     laudo = _carteira_laudo(client, lp)
     assert laudo["aberto_em"], "abrir o laudo não registrou a abertura"
-    assert _carteira_pedido(client, proto)["status"] == "resultado_disponivel", (
-        "abrir o LAUDO encerrou o PEDIDO — dois fatos viraram um (martelo do "
-        "Fabiano, 24/08)"
+    assert _carteira_pedido(client, proto)["status"] == "encerrado", (
+        "abrir o LAUDO não encerrou o PEDIDO — o cidadão leu e o exame não foi "
+        "para o Histórico (martelo do Fabiano, 26/08)"
     )
-
-    client.post(f"/pedidos-exame/{proto}/encerrar", json={}, headers=_h(_tok_pac()))
-    assert _carteira_pedido(client, proto)["status"] == "encerrado"
 
 
 def test_encerrar_pedido_nao_tira_o_laudo_da_carteira(client, seed_usuario, seed_paciente):
