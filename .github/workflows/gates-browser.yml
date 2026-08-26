@@ -14,9 +14,11 @@ name: gates-browser
 # ele confere a ORDEM do código, não o RESULTADO na tela.
 #
 # POR QUE PLAYWRIGHT-PYTHON
-# O repo é Python puro: sem package.json, sem node_modules. pytest-playwright
-# roda dentro do pytest que já existe e traz o próprio Chromium (não depende de
-# Chrome no runner). Puppeteer/Cypress trariam uma toolchain Node inteira.
+# A aplicação é Python: não há node_modules nem dependência de Node no gate.
+# (Há um package.json na raiz, mas é só um atalho de conveniência para subir o
+# preview local — nada no CI o lê.) pytest-playwright roda dentro do pytest que
+# já existe e traz o próprio Chromium (não depende de Chrome no runner).
+# Puppeteer/Cypress trariam uma toolchain Node inteira.
 #
 # O banco demo do smoke nasce na fixture (tests/browser/conftest.py), pela mesma
 # receita que reconstrói o demo de verdade: PICSAUDE_DEMO_MODE=true + alembic
