@@ -972,6 +972,36 @@ def get_pedido_exame(
             (pedido["id"], *_terminais),
         ).fetchone()
 
+        # ENG-019 (PR 1) — cobertura por item: este item JÁ está num laudo?
+        #
+        # `laudo_protocolo`, acima, reporta o laudo VIGENTE (não-terminal) do
+        # pedido. Não serve para saber se um ITEM pode ainda ser laudado: quando
+        # o laudo chega a `encerrado` — as duas ciências —, aquele campo volta a
+        # NULL, e o item pode continuar em `resultado_disponivel`, porque a
+        # ciência do PEDIDO é outro gesto. A tela precisa da cobertura, não da
+        # vigência.
+        #
+        # Antes isto não fazia falta: o gatilho "Produzir laudo" media itens em
+        # `em_analise`, e laudar TIRA o item de lá — o botão sumia por efeito
+        # colateral. Ao passar a aceitar `resultado_disponivel` (percurso E2, que
+        # nunca REPOUSA na bancada), o efeito colateral acaba e o motivo tem de
+        # ser dito: é este campo.
+        #
+        # Só leitura, derivado do elo `laudo_itens.pedido_item_id` — nenhum
+        # estado, evento ou custódia é tocado. Laudo `cancelado` não cobre nada
+        # (nenhum endpoint o produz hoje; a exclusão é para não travar o item se
+        # um dia produzir).
+        laudados = {
+            r["pedido_item_id"] for r in conn.execute(
+                "SELECT li.pedido_item_id FROM laudo_itens li "
+                " JOIN laudos l ON l.id = li.laudo_id "
+                " WHERE l.pedido_id = ? AND li.pedido_item_id IS NOT NULL "
+                "   AND l.status != 'cancelado'",
+                (pedido["id"],),
+            ).fetchall()
+        }
+        itens = [{**i, "laudado": i["id"] in laudados} for i in itens]
+
         return {
             **pedido,
             "paciente_nome":   pac["nome"] if pac else None,
