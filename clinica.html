@@ -2971,34 +2971,55 @@
       }
     }
 
-    function _itensNaBancada(itens) {
-      return (itens || []).filter(i => i.status_item === 'em_analise');
+    // ENG-019 (PR 1, opção a) — o que ainda pode ser laudado.
+    //
+    // Antes media REPOUSO na bancada (`em_analise`), e por isso o percurso E2
+    // — coletar e ler na hora — encerrava sem laudo: o `/resultado` colapsa
+    // `coletado → em_analise → resultado_disponivel` num só ato (os dois eventos
+    // vão ao ledger), então o item PASSA pela análise sem parar nela, e um
+    // filtro por repouso não o encontra nunca. Sem laudo não há artefato, nem
+    // selo "Lido em", nem âncora de faturamento (ENG-014(b)).
+    //
+    // O portão nunca foi do backend: `laudos.py` exige `pedido_item_id`,
+    // pertencimento e POSSE — jamais `em_analise`. (Guarda executável em
+    // tests/integration/test_e2_laudo_apos_resultado.py.)
+    //
+    // `laudado` vem do backend e é o que faz o botão sumir agora. Antes ele
+    // sumia por efeito colateral — laudar tirava o item de `em_analise`. Aceitando
+    // também `resultado_disponivel`, o efeito colateral some e o motivo precisa
+    // ser dito, senão o botão reapareceria sobre item já laudado e produziria um
+    // SEGUNDO laudo.
+    function _itensLaudaveis(itens) {
+      return (itens || []).filter(
+        i => (i.status_item === 'em_analise' || i.status_item === 'resultado_disponivel')
+             && !i.laudado);
     }
 
     function renderizarGatilhoLaudo(itens) {
       const el = document.getElementById('acoes-laudo');
       if (!el) return;
-      const naBancada = _itensNaBancada(itens);
+      const laudaveis = _itensLaudaveis(itens);
 
-      // O gatilho só existe quando há material na bancada. Não é cosmético: é o
-      // mesmo critério que o backend exige (o laudo cobre o que está em análise),
-      // e é o que impede laudo duplicado — feito o ciclo, os itens saem de
-      // `em_analise` e o botão desaparece sozinho.
-      if (!naBancada.length) { el.innerHTML = ''; return; }
+      // O gatilho existe enquanto houver item laudável — em análise OU já com
+      // resultado, desde que ainda não coberto por laudo. Quem impede a
+      // duplicação é `laudado` (campo do backend), não mais o efeito colateral
+      // da transição de estado. Ver a nota em `_itensLaudaveis`.
+      if (!laudaveis.length) { el.innerHTML = ''; return; }
 
       const editorAberto = !document.getElementById('editor-laudo').classList.contains('hidden');
       el.innerHTML = `
         <button class="btn-laudo" id="btn-produzir-laudo"
           onclick="abrirEditorLaudo()" ${editorAberto ? 'disabled' : ''}>
-          🔬 Produzir laudo (${naBancada.length} ${naBancada.length === 1 ? 'exame' : 'exames'})
+          🔬 Produzir laudo (${laudaveis.length} ${laudaveis.length === 1 ? 'exame' : 'exames'})
         </button>`;
     }
 
     function abrirEditorLaudo() {
-      const naBancada = _itensNaBancada(pedidoAtual && pedidoAtual.itens);
-      if (!naBancada.length) {
+      const laudaveis = _itensLaudaveis(pedidoAtual && pedidoAtual.itens);
+      if (!laudaveis.length) {
         mostrarFeedback('feedback-laudo', 'err',
-          'Nenhum exame na bancada. Envie ao menos um item à bancada antes de laudar.');
+          'Nenhum exame a laudar: os itens deste pedido já estão cobertos por um ' +
+          'laudo, ou ainda não foram coletados.');
         return;
       }
 
@@ -3008,7 +3029,7 @@
       const rtCns  = (typeof DEMO !== 'undefined' && DEMO.prescritor) ? DEMO.prescritor.cns  : '';
       const rtNome = (typeof DEMO !== 'undefined' && DEMO.prescritor) ? DEMO.prescritor.nome : '';
 
-      const camposItens = naBancada.map(item => `
+      const camposItens = laudaveis.map(item => `
         <div class="laudo-item" data-item-id="${item.id}">
           <div class="laudo-item-nome">${esc(item.nome_exame)}
             ${item.codigo_tuss ? `<span class="laudo-tuss">TUSS ${esc(item.codigo_tuss)}</span>` : ''}
@@ -3099,6 +3120,8 @@
         const val = sel => (el.querySelector(sel) || {}).value || '';
         return {
           item_id:          id,
+          // ENG-019 — a etapa 4 precisa saber se o item JÁ fechou (percurso E2).
+          status_item:      item.status_item,
           // ENG-014 (v2, §2.1) — O ELO. A bancada sempre soube o id do item do
           // pedido (`dataset.itemId`); o que faltava era MANDÁ-LO com o nome
           // que o backend usa para autorizar. Sem ele, o laudo de laboratório
@@ -3209,8 +3232,14 @@
         // O laudo é o artefato; o item guarda o ponteiro. Feita no frontend para
         // não acoplar os dois objetos no backend (decisão do ticket). Falha aqui
         // deixa item em `em_analise` — o botão reaparece e o retry conclui.
+        //
+        // ENG-019 — no percurso E2 o item já chega aqui em `resultado_disponivel`
+        // (foi lido na hora). Reenviá-lo levaria 422: o endpoint só aceita
+        // `coletado` ou `em_analise`. Fechar o que já está fechado é no-op, não
+        // erro — pular é o que torna a etapa idempotente.
         const falhas = [];
         for (const it of itensLaudo) {
+          if (it.status_item === 'resultado_disponivel') continue;
           const r = await fetch(
             BACKEND + '/pedidos-exame/' + encodeURIComponent(pedidoAtual.protocolo) +
             '/itens/' + it.item_id + '/resultado',
