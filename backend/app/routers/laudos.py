@@ -1003,6 +1003,94 @@ def _iso(valor) -> str | None:
     return str(valor).replace(" ", "T")
 
 
+def _encerrar_pedido_se_a_abertura_completa_a_ciencia(
+    conn, laudo, laudo_protocolo: str, instance_id
+) -> dict | None:
+    """MARTELO DO FABIANO, 26/08 (`core`) — abrir o laudo FECHA o pedido.
+
+    SUPERA o martelo de 24/08 ("a ciência é explícita e não se deriva de abrir o
+    laudo"). A regra nova, dita após percorrer a vitrine: *"o exame anda sozinho
+    para o Histórico assim que o cidadão abre"*.
+
+    A REGRA, com a precisão que o pedido dividido exige:
+
+        o pedido fecha quando TODO item que ainda aguarda ciência está coberto
+        por um laudo que o cidadão JÁ ABRIU.
+
+    Num pedido repartido entre laboratórios (J.10), abrir o laudo do primeiro não
+    fecha nada — o outro exame ainda não foi lido por ninguém. Ao abrir o último,
+    tudo fecha junto, inclusive os itens dos laudos abertos antes.
+
+    Duas coisas que esta forma protege:
+
+    1. **Vocabulário.** O ledger do exame só tem `pedido_encerrado` ("ciência
+       registrada"). Fechar item sem fechar o pedido não teria evento que o
+       nomeasse, e emitir `pedido_encerrado` com o pedido aberto seria anunciar
+       fato que não ocorreu — a lição do `pedido_agendado` fantasma, citada no
+       endpoint abaixo. Não inventei vocabulário `core` por conta própria.
+    2. **Item sem laudo não fecha.** Um exame com resultado registrado e sem
+       laudo nenhum não é ciência de ninguém, e segura o pedido aberto — como
+       deve.
+
+    Idempotente por construção: só é chamada na PRIMEIRA abertura, e só age sobre
+    item ainda em `resultado_disponivel`.
+    """
+    pedido_id = laudo.get("pedido_id")
+    if not pedido_id:
+        return None                      # laudo avulso — não há pedido a fechar
+
+    # Itens que ainda aguardam ciência e se cada um já foi LIDO (isto é: coberto
+    # por laudo com `aberto_em`). Roda depois do carimbo de abertura deste laudo,
+    # então o laudo atual já conta como aberto.
+    pendentes = [
+        dict(r) for r in conn.execute(
+            "SELECT i.id AS id, "
+            "       MAX(CASE WHEN l.aberto_em IS NOT NULL THEN 1 ELSE 0 END) AS lido "
+            "  FROM pedido_exame_itens i "
+            "  LEFT JOIN laudo_itens li ON li.pedido_item_id = i.id "
+            "  LEFT JOIN laudos     l  ON l.id = li.laudo_id AND l.status != 'cancelado' "
+            " WHERE i.pedido_id = ? AND i.status_item = 'resultado_disponivel' "
+            " GROUP BY i.id",
+            (pedido_id,),
+        ).fetchall()
+    ]
+    if not pendentes:
+        return None                      # nada aguardando ciência
+    if any(not p["lido"] for p in pendentes):
+        return None                      # ainda há exame que ninguém leu
+
+    for p in pendentes:
+        conn.execute(
+            "UPDATE pedido_exame_itens SET status_item = 'encerrado' WHERE id = ?",
+            (p["id"],),
+        )
+    conn.execute(
+        "UPDATE pedidos_exame SET status = 'encerrado' WHERE id = ?", (pedido_id,)
+    )
+
+    pedido_protocolo = conn.execute(
+        "SELECT protocolo FROM pedidos_exame WHERE id = ?", (pedido_id,)
+    ).fetchone()["protocolo"]
+
+    # O ledger diz DE ONDE veio a ciência — não finge gesto próprio. Mesma
+    # disciplina do `origem: "abertura"` no evento do laudo, logo abaixo.
+    payload = {
+        "itens_encerrados": len(pendentes),
+        "motivo":           "ciencia_registrada",
+        "origem":           "abertura_laudo",
+        "laudo_protocolo":  laudo_protocolo,
+    }
+    registrar_evento_ledger(
+        conn, objeto_tipo="pedido_exame", objeto_id=pedido_id,
+        tipo_evento="pedido_encerrado", instance_id=instance_id, payload=payload,
+    )
+    registrar_outbox(
+        conn, "pedido_encerrado", "pedido_exame", pedido_protocolo, payload,
+        instance_id=instance_id,
+    )
+    return {"protocolo": pedido_protocolo, "itens_encerrados": len(pendentes)}
+
+
 @router.post("/{protocolo}/abrir", status_code=200)
 def abrir_laudo(
     protocolo: str,
@@ -1091,12 +1179,20 @@ def abrir_laudo(
                     "motivo": "ciencia_completa",
                 }, agora, protocolo=protocolo, instance_id=instance_id)
 
+        # MARTELO 26/08 — a mesma abertura que dá ciência do LAUDO fecha o
+        # PEDIDO. No mesmo `with get_tx()`: ou os dois fatos entram, ou nenhum.
+        # Regra de produto não pode morar no navegador.
+        pedido_fechado = _encerrar_pedido_se_a_abertura_completa_a_ciencia(
+            conn, laudo, protocolo, instance_id
+        )
+
         return {
             "protocolo":         protocolo,
             "status":            novo_status,
             "aberto_em":         _iso(agora),
             "primeira_abertura": True,
             "ciencia_derivada":  deriva,
+            "pedido_encerrado":  pedido_fechado,
         }
 
 
