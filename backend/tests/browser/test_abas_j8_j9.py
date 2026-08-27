@@ -172,7 +172,8 @@ def test_abrir_pedido_cai_na_aba_do_proximo_gesto(
 
         _abrir_da_fila(pg, app_demo, proto_novo)
         expect(pg.locator("#aba-btn-realizacao")).to_have_class(_ATIVA)
-        expect(pg.locator("#lista-realizacao")).to_contain_text("Registrar coleta")
+        # MARTELO 27/08 (PR 2) — rótulo unificado; era "Registrar coleta".
+        expect(pg.locator("#lista-realizacao")).to_contain_text("Coletar agora")
         expect(pg.locator("#aba-count-realizacao")).to_have_text("1")
         expect(pg.locator("#aba-count-bancada")).to_have_text("0")
 

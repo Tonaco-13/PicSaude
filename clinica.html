@@ -434,7 +434,7 @@
     .btn-devolver:disabled { color: #94a3b8; cursor: not-allowed; border-color: #e2e8f0; }
 
     /* ENG-015 §2 — "Agendar" por item, na Recepção. Discreto como a recusa: as
-       três decisões pesam igual, e só "Executar agora" é o caminho quente. */
+       três decisões pesam igual, e só "Coletar agora" é o caminho quente. */
     .btn-agendar-item {
       padding: 8px 16px; border-radius: 7px; border: 1px solid #cbd5e1; cursor: pointer;
       background: #fff; color: #334155; font-size: 12px; font-weight: 600;
@@ -957,7 +957,7 @@
              "Não realizamos" ESTAVA na Realização e mudou de aba (demanda do
              Fabiano, §2): recusar não é etapa de execução, é triagem — quem
              recusa não vai coletar. A Realização ficou com um gesto só,
-             "Registrar coleta", que é o que o nome dela promete. -->
+             "Coletar agora", que é o que o nome dela promete. -->
         <div class="card hidden" id="card-decisoes">
           <div class="card-titulo">O que eu decido</div>
           <div id="lista-recepcao"></div>
@@ -1812,9 +1812,12 @@
         // então agir. As três ações vivem no cartão:
         //
         //   · sem compromisso vigente → "Agendar" (marca para depois) ou
-        //     "Executar agora" (coleta direta — o segundo caminho que o martelo
+        //     "Coletar agora" (coleta direta — o segundo caminho que o martelo
         //     do J.7 autoriza, para quem já está com o material na mão);
-        //   · com compromisso vigente → "Executar agendado", que é o
+        //   · com compromisso vigente → também "Coletar agora"
+        //     (MARTELO 27/08, DESENHO-CIRCULACAO-CLINICA-CASAS.md/PR 2 — um
+        //     fato, um nome: o ledger só conhece `pedido_coletado`, e "Executar
+        //     agendado" dizia outra coisa para o mesmo gesto). É o
         //     `POST /agendamentos/{p}/realizar` de sempre. Sem janela de
         //     horário: "a qualquer hora" já é o comportamento do endpoint, e
         //     inventar uma trava aqui seria a tela legislando sobre o domínio.
@@ -1824,7 +1827,7 @@
         // botão que abre o pedido — sem ele, agir dispararia a navegação junto.
         // ENG-015 §2 — A TERCEIRA DECISÃO.
         //
-        // O ENG-014 trouxe duas ("Agendar" e "Executar agora"): o que fazer
+        // O ENG-014 trouxe duas ("Agendar" e "Coletar agora"): o que fazer
         // quando a unidade VAI realizar. Faltava a decisão de quem NÃO vai —
         // e é ela que solta o exame. Sem ela, o operador que não realiza o
         // exame não tinha gesto nenhum no cartão: abria o pedido, ia à
@@ -1848,7 +1851,7 @@
         const acoes = ag
           ? `<button type="button" class="btn-fila-acao primaria"
                      onclick="event.stopPropagation(); executarAgendadoDaFila('${esc(p.protocolo)}', '${esc(ag.protocolo)}')">
-               ▶️ Executar agendado
+               ▶️ Coletar agora
              </button>
              ${btnNaoRealizamos}`
           : `<button type="button" class="btn-fila-acao"
@@ -1857,7 +1860,7 @@
              </button>
              ${temPendente ? `<button type="button" class="btn-fila-acao primaria"
                      onclick="event.stopPropagation(); executarAgoraDaFila('${esc(p.protocolo)}')">
-               ▶️ Executar agora
+               ▶️ Coletar agora
              </button>` : ''}
              ${btnNaoRealizamos}`;
 
@@ -2494,7 +2497,7 @@
                 </div>` : ''}
               </div>
               ${!terminais.includes(ag.status) ? `<div class="ag-acoes">
-                ${podeRealizar  ? `<button class="btn-realizar"  onclick="realizarAgendamento('${esc(ag.protocolo)}')">▶️ Executar</button>` : ''}
+                ${podeRealizar  ? `<button class="btn-realizar"  onclick="realizarAgendamento('${esc(ag.protocolo)}')">▶️ Coletar agora</button>` : ''}
                 ${podeConfirmar ? `<button class="btn-confirmar" onclick="confirmarAgendamento('${esc(ag.protocolo)}')">Confirmar presença</button>` : ''}
                 ${podeRemarcar  ? `<button class="btn-confirmar" onclick="remarcarAgendamento('${esc(ag.protocolo)}')">🔁 Remarcar</button>` : ''}
                 ${podeCancelar  ? `<button class="btn-cancelar-ag btn-falta" ${faltaLiberada ? '' : 'disabled'}
@@ -2836,7 +2839,7 @@
 
       // ENG-015 §2 — O MESMO ITEM APARECE EM DUAS LISTAS, e id repetido é
       // HTML inválido: `getElementById` devolve o primeiro, e o código que
-      // desabilita "Registrar coleta" mexeria no botão da outra aba. A
+      // desabilita "Coletar agora" mexeria no botão da outra aba. A
       // Realização e a Bancada mantêm o namespace histórico (`item-exame-N`,
       // `btn-coletar-N`), que testes e helpers já conhecem; a Recepção, que é
       // nova, ganha o seu. Quem age sobre o item age sobre TODOS os seus
@@ -2869,7 +2872,7 @@
           </button>
           <button class="btn-coletar" id="btn-${ns}coletar-${item.id}" data-coletar="${item.id}"
             onclick="registrarColeta(${item.id})">
-            ▶️ Executar agora
+            ▶️ Coletar agora
           </button>
           <button class="btn-devolver" id="btn-${ns}devolver-${item.id}" data-devolver="${item.id}"
             onclick="devolverItemExame(${item.id})">
@@ -2888,7 +2891,7 @@
           // etapa de execução, é triagem — quem recusa não vai coletar.
           acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}" data-coletar="${item.id}"
             onclick="registrarColeta(${item.id})">
-            Registrar coleta
+            ▶️ Coletar agora
           </button>`;
         } else if (item.status_item === 'coletado') {
           // TICKET-F — dois caminhos legítimos a partir de 'coletado':
@@ -2933,10 +2936,12 @@
     // REGISTRO DE COLETA
     // ─────────────────────────────────────────
 
-    // ENG-015 §2 — o MESMO item tem botão de coleta em duas abas ("Executar
-    // agora" na Recepção, "Registrar coleta" na Realização). Agir por id
-    // pegaria um só e devolveria a ele o rótulo do outro; agir por `data-` pega
-    // os dois e cada um recupera o SEU texto.
+    // ENG-015 §2 — o MESMO item tem botão de coleta em duas abas (Recepção e
+    // Realização — os dois dizem "▶️ Coletar agora" desde o MARTELO 27/08,
+    // PR 2 do desenho de circulação, mas continuam sendo DOIS elementos DOM
+    // distintos). Agir por id pegaria um só; agir por `data-` pega os dois, e
+    // cada um recupera o SEU texto ao restaurar (`_ocuparBotoes` guarda o
+    // `textContent` por elemento, não por rótulo).
     function _botoesDoItem(attr, itemId) {
       return [...document.querySelectorAll(`[data-${attr}="${itemId}"]`)];
     }

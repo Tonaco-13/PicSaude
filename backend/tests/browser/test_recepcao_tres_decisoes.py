@@ -5,10 +5,12 @@ AS REGRAS QUE ESTE ARQUIVO GUARDA
 ---------------------------------
 `DESENHO-AGENDAMENTOS-UX.md`, §2 e §3 (martelo do Fabiano, 23/08):
 
-  §2 — Recepção: **Agendar · Executar agora · Não realizamos**, três decisões
-  num só lugar. "Não realizamos" SAIU da Realização, que fica com o gesto que
-  o nome dela promete. Sobre item já `agendado`, a recusa é **ato composto**:
-  cancela a agenda E devolve a posse — dois fatos, dois eventos.
+  §2 — Recepção: **Agendar · Coletar agora · Não realizamos**, três decisões
+  num só lugar ("Coletar agora" é o rótulo desde o MARTELO 27/08, PR 2 do
+  desenho de circulação — era "Executar agora"). "Não realizamos" SAIU da
+  Realização, que fica com o gesto que o nome dela promete. Sobre item já
+  `agendado`, a recusa é **ato composto**: cancela a agenda E devolve a posse
+  — dois fatos, dois eventos.
 
   §3 — a agenda da unidade responde "o que está marcado?" **sem** exigir um
   pedido em foco; "Registrar falta" só depois da hora marcada; empty state por
@@ -22,7 +24,7 @@ que o operador CONSEGUE fazer isso — que as três decisões existem onde o §2
 colocou, que um clique dispara os dois fatos na ordem certa, e que a agenda
 aparece antes de qualquer busca.
 
-GUARDA DE RUMO (o arquiteto foi explícito): "Executar agora" é a COLETA DIRETA
+GUARDA DE RUMO (o arquiteto foi explícito): "Coletar agora" é a COLETA DIRETA
 do J.7 — `pendente → coletado`, UM evento. A sugestão externa de "agendamento
 instantâneo" (criar+confirmar+realizar) foi REJEITADA: inventaria três fatos
 para um ato que não teve compromisso. `test_executar_agora_e_um_fato_so` é essa
@@ -195,13 +197,15 @@ def test_a_recepcao_oferece_as_tres_decisoes_e_a_realizacao_so_coleta(
         na_recepcao = pg.locator(f"#item-recep-exame-{item_id}")
         expect(na_recepcao).to_be_visible(timeout=_TIMEOUT_MS)
         expect(na_recepcao.get_by_role("button", name="Agendar")).to_be_visible()
-        expect(na_recepcao.get_by_role("button", name="Executar agora")).to_be_visible()
+        expect(na_recepcao.get_by_role("button", name="Coletar agora")).to_be_visible()
         expect(na_recepcao.get_by_role("button", name="Não realizamos este exame")).to_be_visible()
 
         pg.locator("#aba-btn-realizacao").click()
         na_realizacao = pg.locator(f"#item-exame-{item_id}")
         expect(na_realizacao).to_be_visible(timeout=_TIMEOUT_MS)
-        expect(na_realizacao.get_by_role("button", name="Registrar coleta")).to_be_visible()
+        # MARTELO 27/08 (PR 2) — era "Registrar coleta"; mesmo rótulo da
+        # Recepção agora ("Coletar agora"), dois elementos DOM distintos.
+        expect(na_realizacao.get_by_role("button", name="Coletar agora")).to_be_visible()
         expect(na_realizacao.get_by_role("button", name="Não realizamos este exame")).to_have_count(
             0, timeout=_TIMEOUT_MS
         )
@@ -213,7 +217,7 @@ def test_a_recepcao_oferece_as_tres_decisoes_e_a_realizacao_so_coleta(
 def test_executar_agora_e_um_fato_so(browser, app_demo):
     """A GUARDA DE RUMO, virada teste.
 
-    "Executar agora" é a coleta direta do J.7: `pendente → coletado`, UM
+    "Coletar agora" é a coleta direta do J.7: `pendente → coletado`, UM
     evento `pedido_coletado`, sem compromisso nenhum. A proposta externa de
     "agendamento instantâneo" (criar + confirmar + realizar) foi rejeitada —
     inventaria três fatos para um ato que não teve compromisso, o fantasma do
@@ -233,7 +237,7 @@ def test_executar_agora_e_um_fato_so(browser, app_demo):
         pg.locator("#aba-btn-recepcao").click()
         alvo = pg.locator(f"#item-recep-exame-{item_id}")
         expect(alvo).to_be_visible(timeout=_TIMEOUT_MS)
-        alvo.get_by_role("button", name="Executar agora").click()
+        alvo.get_by_role("button", name="Coletar agora").click()
         expect(pg.locator(f"#item-recep-exame-{item_id}")).to_have_count(
             0, timeout=_TIMEOUT_MS)
         assert not erros_js, erros_js

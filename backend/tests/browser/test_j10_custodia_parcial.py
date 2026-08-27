@@ -28,7 +28,9 @@ backend. O que ela NÃO consegue provar é onde o J.10 mais arrisca:
 
     > **Superseded em 23/08 (ENG-015 §2, martelo do Fabiano):** o botão MUDOU
     > DE ABA — saiu da Realização e foi para a Recepção, onde vivem as três
-    > decisões da triagem (Agendar · Executar agora · Não realizamos). Recusar
+    > decisões da triagem (Agendar · Coletar agora · Não realizamos — o
+    > segundo rótulo unificado no MARTELO 27/08, PR 2; era "Executar agora").
+    > Recusar
     > não é etapa de execução: quem recusa não vai coletar. O que este teste
     > guarda não mudou uma vírgula — o item some da tela porque saiu da
     > CUSTÓDIA —, só o lugar de onde se clica. O cartão da Recepção tem id
