@@ -1430,10 +1430,31 @@
       const naFila = document.getElementById('fila-count');
       _definirContador('aba-count-recepcao',
         _contadorRecepcao(naFila ? Number(naFila.textContent) : 0));
-      _definirContador('aba-count-agendamento', (agendamentosAtuais || []).length);
-      _definirContador('aba-count-realizacao', _itensDaAbaRealizacao(itens).length);
-      _definirContador('aba-count-bancada', _itensDaAbaBancada(itens).length);
-      _definirContador('aba-count-aguardando', _itensAguardandoCidadao(itens).length);
+
+      // CONSULTA-UX-001/NC-2, MARTELO 27/08 (PR 4) — Agendamento, Realização,
+      // Bancada e Aguardando só sabem contar o pedido em FOCO: sem foco,
+      // `itens` é `[]` e as quatro caíam em "0". Um "0" que na verdade
+      // significa "não sei" é uma MENTIRA sobre a unidade — não há, para
+      // estas quatro casas, uma fonte de "quanto material a unidade tem
+      // nesta etapa agora" independente de abrir cada pedido; inventar uma
+      // agregação client-side por cima da fila seria arriscar a MESMA
+      // mentira travestida de número (a fila só lista pedido com item
+      // ACIONÁVEL — um pedido 100% em Bancada pode nem estar nela).
+      //
+      // Opção (b) do desenho: sem foco, o traço substitui o zero. A faixa
+      // "PEDIDO EM FOCO" logo acima da barra de abas já é o rótulo
+      // inequívoco de que o número, quando aparece, é DESTE pedido — ela
+      // aparece e desaparece junto com `temPedido`, então o traço nunca fica
+      // sem explicação por perto.
+      const SEM_FOCO = '—';
+      _definirContador('aba-count-agendamento',
+        temPedido ? (agendamentosAtuais || []).length : SEM_FOCO);
+      _definirContador('aba-count-realizacao',
+        temPedido ? _itensDaAbaRealizacao(itens).length : SEM_FOCO);
+      _definirContador('aba-count-bancada',
+        temPedido ? _itensDaAbaBancada(itens).length : SEM_FOCO);
+      _definirContador('aba-count-aguardando',
+        temPedido ? _itensAguardandoCidadao(itens).length : SEM_FOCO);
     }
 
     // MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md §4) — com pedido em
