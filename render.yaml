@@ -60,3 +60,27 @@ services:
         generateValue: true     # Render gera segredo forte
       - key: PICSAUDE_BASE_URL
         sync: false             # setar manualmente = https://<seu-serviço>.onrender.com
+
+  # ── Reset diário da vitrine (DESPACHO-OPS-002) ──────────────────────────
+  # DROP SCHEMA → alembic upgrade head → seed_demo — destrutivo POR DESIGN.
+  # As guardas do script continuam valendo: aborta em PICSAUDE_ENV=prod,
+  # exige PICSAUDE_DEMO_MODE=true, e --sim-eu-quero é o assentimento
+  # não-interativo do §3.3 (alvo ecoado no log antes do DROP).
+  # Manual-sync: NADA disto aplica sem o "Apply" do Fabiano no dashboard.
+  - type: cron
+    name: picsaude-demo-reset
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter            # conferir custo/plano na tela de Apply, como o db
+    schedule: "0 7 * * *"    # 07:00 UTC = 04:00 America/Sao_Paulo (UTC−3 fixo) — §5
+    dockerCommand: python3 scripts/reset_demo_db.py --sim-eu-quero
+    envVars:
+      - key: PICSAUDE_ENV
+        value: stg
+      - key: PICSAUDE_DEMO_MODE
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: picsaude-db
+          property: connectionString

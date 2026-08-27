@@ -169,6 +169,30 @@ def _agora() -> str:
 
 
 # ---------------------------------------------------------------------------
+# DESPACHO-OPS-002 §4 — sentinelas de protocolo, FONTE ÚNICA.
+#
+# Cada `_garantir_*` abaixo que semeia um objeto sanitário é best-effort em
+# `main()` (try/except próprio, engole erro — é o modo de falha que o OPS-001
+# §1 documentou). No caminho manual, quem notava um meio-seed era o Fabiano
+# (OPS-001 §4, checklist SQL). O cron diário (OPS-002) não tem verificador
+# humano: `scripts/reset_demo_db.py` importa ESTA tupla para conferir que
+# todo sentinela nasceu — sem duplicar a lista lá (a lição de
+# comentario-que-promete-fonte-unica: duplicação com assert ainda é
+# duplicação; importe).
+#
+# Quem acrescentar um `_garantir_*` novo com protocolo sentinela ACRESCENTA
+# AQUI, no mesmo PR — é o único lugar que precisa mudar.
+# ---------------------------------------------------------------------------
+SENTINELAS_PROTOCOLO: tuple[tuple[str, str], ...] = (
+    ("prescricoes",   "DEMO-FILA-0001"),
+    ("atestados",     "DEMO-ATESTADO-0001"),
+    ("pedidos_exame", "DEMO-EXAME-0001"),
+    ("pedidos_exame", "DEMO-EXAME-0002"),
+    ("laudos",        "DEMO-LAUDO-0001"),
+)
+
+
+# ---------------------------------------------------------------------------
 # Garantias idempotentes
 # ---------------------------------------------------------------------------
 

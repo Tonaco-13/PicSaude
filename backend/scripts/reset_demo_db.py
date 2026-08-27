@@ -15,6 +15,12 @@ Uso manual (dev, SQLite):
 Uso manual (vitrine, PostgreSQL — Render Shell / job disparado por Fabiano):
     cd /app && PICSAUDE_DEMO_MODE=true python3 scripts/reset_demo_db.py --sim-eu-quero
 
+Uso automatizado (DESPACHO-OPS-002 — cron service do Render, render.yaml):
+    exatamente o mesmo comando acima — `--sim-eu-quero` é o assentimento
+    não-interativo previsto desde o §3.3/§3.4. `DATABASE_URL`/`PICSAUDE_ENV`/
+    `PICSAUDE_DEMO_MODE` chegam via envVars do bloco `cron`, injetadas pelo
+    Render — nenhum agente as vê.
+
 Comportamento por dialeto (§3.1 do ticket)
 ------------------------------------------
 PostgreSQL (engine.dialect.name == "postgresql"):
@@ -51,8 +57,27 @@ não-interativa) antes de emitir qualquer DROP. Sem assentimento, aborta.
 §5 — régua de segurança (defense-in-depth), preservada de TICKET-6:
     1. Aborta se PICSAUDE_ENV=prod.
     2. Aborta se PICSAUDE_DEMO_MODE != "true".
-    NENHUM agente recebe a DATABASE_URL da vitrine — a execução no Render é de
-    Fabiano. O script é versionado e testado; a credencial não circula em chat.
+    A execução no Render é de Fabiano, manual, OU do cron do Render que ele
+    mesmo configurou (DESPACHO-OPS-002 — reset diário, 07:00 UTC = 04:00 BRT).
+    Nos dois casos, NENHUM agente recebe a DATABASE_URL da vitrine: a
+    plataforma injeta a credencial no runtime do job, do mesmo jeito que já
+    faz para o web service. O script é versionado e testado; a credencial não
+    circula em chat, nem manual nem automatizada.
+
+§6 — DESPACHO-OPS-002: duas guardas que a AUTOMAÇÃO exige (o caminho manual já
+as dispensava, porque um humano notava)
+------------------------------------------------------------------------------
+1. `lock_timeout` no DROP (§4.1 do despacho). Sem ele, se o pool do web
+   service tiver uma transação aberta segurando lock em qualquer tabela do
+   schema, o DROP espera indefinidamente — o job morre no timeout opaco da
+   plataforma, e a sentinela abaixo NUNCA é alcançada. `lock_timeout` (não
+   `statement_timeout`) erra especificamente em contenção (SQLSTATE 55P03) e
+   falha em segundos, nomeada no log.
+2. Sentinela pós-seed (§4 do despacho). O seed é best-effort — cada
+   `_garantir_*` de `seed_demo.py` engole erro no seu try/except (é o modo de
+   falha que o OPS-001 §1 documentou). Sem verificador humano, a verificação
+   vira código: falta qualquer sentinela canônica (`seed_demo.
+   SENTINELAS_PROTOCOLO`, fonte única) → mensagem explícita + exit ≠ 0.
 """
 from __future__ import annotations
 
@@ -145,13 +170,25 @@ def _confirmar_alvo_pg(engine, assentido: bool) -> str:
 
 def _reset_postgres(engine, assentido: bool) -> None:
     from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError, OperationalError
 
     schema = _confirmar_alvo_pg(engine, assentido)  # aborta se não autorizado
 
     # DDL crua: DROP + CREATE do schema, commitado no bloco `begin()`.
-    with engine.begin() as conn:
-        conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
-        conn.execute(text(f'CREATE SCHEMA "{schema}"'))
+    # §6.1 — lock_timeout ANTES do DROP: se o pool do web service tiver
+    # transação aberta segurando lock em qualquer tabela do schema, o DROP
+    # falha em 15s com SQLSTATE 55P03 (nomeado no log) em vez de travar até o
+    # timeout opaco da plataforma — o que impediria a sentinela de rodar.
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("SET lock_timeout = '15s'"))
+            conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+            conn.execute(text(f'CREATE SCHEMA "{schema}"'))
+    except (OperationalError, DBAPIError) as e:
+        _abortar(
+            f'❌ ABORTANDO: DROP SCHEMA "{schema}" falhou (possível contenção '
+            f"de lock — SQLSTATE 55P03 se for lock_timeout): {e}"
+        )
     print(f'🗑️  schema "{schema}" dropado e recriado (vazio)')
 
     # §3.4 — dispose() antes do alembic: descarta o pool cujas conexões ainda
@@ -201,6 +238,39 @@ def _alembic_upgrade_head() -> None:
     print("✅ schema recriado via alembic upgrade head")
 
 
+def _verificar_sentinelas() -> None:
+    """§4/§6.2 do despacho — pós-seed, sem verificador humano: confere que
+    toda sentinela canônica nasceu (seed_demo.SENTINELAS_PROTOCOLO, fonte
+    única — nenhuma lista duplicada aqui). O seed é best-effort (cada
+    `_garantir_*` engole erro no seu próprio try/except); sem checagem, um
+    seed manco passaria silencioso. Falta qualquer sentinela → aborta
+    nomeando exatamente qual."""
+    import seed_demo
+    from app.database import get_conn
+
+    faltando: list[str] = []
+    conn = get_conn()
+    try:
+        for tabela, protocolo in seed_demo.SENTINELAS_PROTOCOLO:
+            row = conn.execute(
+                f"SELECT id FROM {tabela} WHERE protocolo = ?", (protocolo,)
+            ).fetchone()
+            if row is None:
+                faltando.append(f"{tabela}.{protocolo}")
+    finally:
+        conn.close()
+
+    if faltando:
+        _abortar(
+            "❌ ABORTANDO: seed incompleto — sentinela(s) ausente(s) após "
+            f"seed_demo.main(): {', '.join(faltando)}\n"
+            "   O seed é best-effort (cada _garantir_* engole erro no seu "
+            "próprio try/except — OPS-001 §1); sem verificador humano, a "
+            "checagem vira código."
+        )
+    print(f"✅ {len(seed_demo.SENTINELAS_PROTOCOLO)} sentinelas conferidas, todas presentes")
+
+
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     assentido = _FLAG_ASSENTIMENTO in argv
@@ -229,6 +299,9 @@ def main(argv: list[str] | None = None) -> None:
     # Semeia as personas/artefatos canônicos.
     import seed_demo
     seed_demo.main()
+
+    # §4/§6.2 — sem verificador humano (cron), a checagem pós-seed vira código.
+    _verificar_sentinelas()
 
 
 if __name__ == "__main__":
