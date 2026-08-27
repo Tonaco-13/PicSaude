@@ -219,12 +219,14 @@ def test_laboratorio_recebe_item_pendente_e_pode_coletar(
         expect(fila).to_contain_text(proto, timeout=_TIMEOUT_MS)
         fila.locator(".fila-item", has_text=proto).click()
 
-        # TICKET-J.8 — o pedido sem coleta feita abre na aba Realização, e o
-        # item `pendente` cai lá por percurso (não por nome de estado).
-        expect(pl.locator("#aba-btn-realizacao")).to_have_class(
+        # TICKET-J.8 — o pedido sem coleta feita abre na aba Recepção
+        # (MARTELO 27/08, PR B — a Realização, que cobria isto antes, foi
+        # dissolvida), e o item `pendente` cai lá por percurso (não por nome
+        # de estado).
+        expect(pl.locator("#aba-btn-recepcao")).to_have_class(
             re.compile(r"\bativa\b"), timeout=_TIMEOUT_MS)
 
-        item = pl.locator(f"#item-exame-{item_id}")
+        item = pl.locator(f"#item-recep-exame-{item_id}")
         expect(item).to_be_visible(timeout=_TIMEOUT_MS)
         expect(item).to_contain_text("Pendente")
         # MARTELO 27/08 (PR 2) — era "Registrar coleta".
@@ -255,9 +257,14 @@ def test_coleta_direta_sem_agendamento(page: Page, browser, app_demo, erros_de_c
         pl.goto(f"{app_demo}/clinica.html", wait_until="networkidle")
         pl.locator("#fila-lista .fila-item", has_text=proto).click()
 
+        # MARTELO 27/08 (PR B) — item `pendente` mora na Recepção
+        # (`item-recep-exame-N`); coletar o MOVE para a Bancada
+        # (`item-exame-N`, namespace histórico), e o locator muda junto.
+        item_recepcao = pl.locator(f"#item-recep-exame-{item_id}")
+        expect(item_recepcao).to_be_visible(timeout=_TIMEOUT_MS)
+        item_recepcao.get_by_role("button", name="Coletar agora").click()
+
         item = pl.locator(f"#item-exame-{item_id}")
-        expect(item).to_be_visible(timeout=_TIMEOUT_MS)
-        item.get_by_role("button", name="Coletar agora").click()
         expect(item).to_contain_text("Coletado", timeout=_TIMEOUT_MS)
     finally:
         ctx_lab.close()
