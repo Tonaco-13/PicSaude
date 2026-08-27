@@ -626,6 +626,25 @@
     .modal-cnes-body{padding:18px 24px 20px;}
     .modal-cnes-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:14px;color:#1e293b;background:#f8fafc;margin-bottom:14px;}
     .modal-cnes-input:focus{outline:none;border-color:#1e3a8a;background:#fff;}
+    /* ENG-019 PR 6 — captura de fato clínico fora do prompt() nativo. Mesma
+       linguagem visual do modal CNES; nome próprio porque o conteúdo é outro. */
+    .modal-fato{position:fixed;inset:0;z-index:9200;display:flex;align-items:center;justify-content:center;}
+    .modal-fato.hidden{display:none!important;}
+    .modal-fato-bd{position:absolute;inset:0;background:rgba(0,0,0,0.45);}
+    .modal-fato-box{position:relative;background:#fff;border-radius:14px;width:520px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,0.22);}
+    .modal-fato-hd{padding:18px 22px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .modal-fato-hd h3{font-size:12px;font-weight:800;color:#1e3a8a;letter-spacing:0.8px;text-transform:uppercase;margin:0;}
+    .modal-fato-body{padding:16px 22px 18px;}
+    .modal-fato-rotulo{display:block;font-size:13px;font-weight:600;color:#1e293b;margin-bottom:8px;}
+    .modal-fato-input{width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:14px;color:#1e293b;background:#f8fafc;font-family:inherit;resize:vertical;}
+    .modal-fato-input:focus{outline:none;border-color:#1e3a8a;background:#fff;}
+    .modal-fato-input.erro{border-color:#dc2626;background:#fef2f2;}
+    .modal-fato-erro{margin:8px 0 0;font-size:12.5px;font-weight:600;color:#dc2626;}
+    .modal-fato-erro.hidden{display:none;}
+    .modal-fato-dica{margin:8px 0 0;font-size:12px;color:#64748b;}
+    .modal-fato-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
+    .btn-fato-cancelar{padding:9px 16px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
+    .btn-fato-ok{padding:9px 18px;border-radius:8px;border:none;background:#1e3a8a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
     .cnes-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:13px 15px;margin-bottom:9px;}
     .cnes-item:hover{border-color:#a5f3fc;background:#f0fdff;}
     .cnes-item-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
@@ -2051,10 +2070,15 @@
         return;
       }
 
-      const motivo = prompt(
-        'Por que esta unidade não realiza? (obrigatório — entra na trilha)',
-        'Exame não realizado por esta unidade');
-      if (!motivo || !motivo.trim()) return;
+      const motivo = await pedirTexto({
+        titulo:  'Por que esta unidade não realiza?',
+        rotulo:  'Motivo (obrigatório — entra na trilha de custódia)',
+        dica:    'O motivo canônico da custódia é `devolucao_nao_realizavel`; este texto entra como detalhe e nunca o sobrescreve.',
+        valor:   'Exame não realizado por esta unidade',
+        minimo:  3,
+        ok:      'Devolver ao cidadão',
+      });
+      if (!motivo) return;
 
       const aviso = ag
         ? `Cancelar o agendamento e devolver ${alvos.length} exame(s) ao cidadão?`
@@ -2894,10 +2918,15 @@
     // do pedido inteiro, o backend explode em nível-item e os demais exames
     // ficam aqui, cada um com a sua linha de custódia.
     async function devolverItemExame(itemId) {
-      const motivo = prompt(
-        'Motivo da devolução (obrigatório — entra na trilha de custódia):',
-        'Exame não realizado por esta unidade');
-      if (!motivo || !motivo.trim()) return;
+      const motivo = await pedirTexto({
+        titulo:  'Devolver exame ao cidadão',
+        rotulo:  'Motivo da devolução (obrigatório — entra na trilha de custódia)',
+        dica:    'O motivo canônico da custódia é `devolucao_nao_realizavel`; este texto entra como detalhe e nunca o sobrescreve.',
+        valor:   'Exame não realizado por esta unidade',
+        minimo:  3,
+        ok:      'Devolver ao cidadão',
+      });
+      if (!motivo) return;
       if (!confirm('Devolver este exame ao cidadão? Ele poderá levá-lo a outro laboratório.')) return;
 
       const restaurar = _ocuparBotoes(_botoesDoItem('devolver', itemId), 'Devolvendo…');
@@ -2938,6 +2967,81 @@
     // (TICKET-C). Ao liberar, o laudo passa à CUSTÓDIA DO CIDADÃO — é a
     // política de docs/POLITICA_CUSTODIA_CLINICA_LAUDO.md acontecendo na tela.
     // ═════════════════════════════════════════════════════════════
+
+    // ═════════════════════════════════════════════════════════════
+    // ENG-019 PR 6 — captura de fato clínico (CONSULTA-UX-001/NC-7)
+    // ═════════════════════════════════════════════════════════════
+    //
+    // O `prompt()` nativo era usado para digitar fato que vai ao ledger. Três
+    // defeitos que nenhum ajuste de texto resolve: não valida (o de resultado
+    // aceitava string vazia e o item avançava com resultado SEM CONTEÚDO), não
+    // sabe explicar por que recusou, e não deixa dizer o que a trilha fará com
+    // aquilo. Como o ledger é imutável (§2), o que entra em branco não se
+    // corrige nunca — só se supera.
+    //
+    // A validação de verdade é do backend (ResultadoIn._resumo_precisa_ter_conteudo
+    // e `motivo: Field(min_length=3)`); este modal existe para o operador saber
+    // ANTES de mandar, e não por um alerta nativo depois do 422.
+    //
+    // Devolve Promise<string|null>: null = desistiu; string = já validada e sem
+    // espaço nas bordas.
+    let _fatoResolver = null;
+    let _fatoMinimo   = 1;
+
+    function pedirTexto({ titulo, rotulo, dica = '', valor = '', minimo = 1, ok = 'Confirmar' }) {
+      return new Promise(resolve => {
+        _fatoResolver = resolve;
+        _fatoMinimo   = minimo;
+        document.getElementById('modal-fato-titulo').textContent = titulo;
+        document.getElementById('modal-fato-rotulo').textContent = rotulo;
+        document.getElementById('modal-fato-dica').textContent   = dica;
+        document.getElementById('modal-fato-ok').textContent     = ok;
+        const campo = document.getElementById('modal-fato-input');
+        campo.value = valor;
+        campo.classList.remove('erro');
+        document.getElementById('modal-fato-erro').classList.add('hidden');
+        document.getElementById('modal-fato').classList.remove('hidden');
+        document.addEventListener('keydown', _fatoTecla);
+        campo.focus();
+        campo.select();
+      });
+    }
+
+    function _fatoTecla(ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); _fatoCancelar(); return; }
+      // Enter confirma; Shift+Enter quebra linha — o campo é multilinha porque
+      // motivo de devolução às vezes é frase, não palavra.
+      if (ev.key === 'Enter' && !ev.shiftKey
+          && ev.target && ev.target.id === 'modal-fato-input') {
+        ev.preventDefault(); _fatoConfirmar();
+      }
+    }
+
+    function _fatoFechar(valor) {
+      document.getElementById('modal-fato').classList.add('hidden');
+      document.removeEventListener('keydown', _fatoTecla);
+      const resolver = _fatoResolver;
+      _fatoResolver = null;
+      if (resolver) resolver(valor);
+    }
+
+    function _fatoCancelar() { _fatoFechar(null); }
+
+    function _fatoConfirmar() {
+      const campo = document.getElementById('modal-fato-input');
+      const valor = (campo.value || '').trim();
+      if (valor.length < _fatoMinimo) {
+        const erro = document.getElementById('modal-fato-erro');
+        erro.textContent = _fatoMinimo > 1
+          ? `Escreva ao menos ${_fatoMinimo} caracteres — isto entra na trilha e não pode ser corrigido depois.`
+          : 'Escreva o resultado — isto entra na trilha e não pode ser corrigido depois.';
+        erro.classList.remove('hidden');
+        campo.classList.add('erro');
+        campo.focus();
+        return;
+      }
+      _fatoFechar(valor);
+    }
 
     // Protocolo do laudo já criado NESTE pedido, para o retry não gerar um
     // segundo laudo (risco declarado no ticket). Some ao trocar de pedido.
@@ -3388,8 +3492,17 @@
     // ─────────────────────────────────────────
 
     async function registrarResultado(itemId) {
-      const resumo = prompt('Resumo do resultado (ex.: "Glicemia 92 mg/dL"):');
-      if (resumo == null) return;                      // cancelou
+      // NC-7: aqui o `prompt()` só barrava `null` (o cancelar) — string vazia
+      // avançava o item com resultado SEM CONTEÚDO, para sempre, porque o
+      // ledger não aceita errata. O modal exige conteúdo, e o backend também.
+      const resumo = await pedirTexto({
+        titulo:  'Registrar resultado',
+        rotulo:  'Resultado (obrigatório)',
+        dica:    'Ex.: "Glicemia 92 mg/dL". Entra no ledger e não pode ser corrigido depois — só superado.',
+        minimo:  1,
+        ok:      'Registrar resultado',
+      });
+      if (!resumo) return;                             // cancelou ou desistiu
       const btn = document.getElementById('btn-resultado-' + itemId);
       if (btn) { btn.disabled = true; btn.textContent = 'Registrando…'; }
 
@@ -4226,6 +4339,29 @@
   </script>
 
   <!-- CNES Modal (Ticket 43) -->
+  <!-- ENG-019 PR 6 — fato clínico não se digita em diálogo nativo:
+       o `prompt()` não valida, não explica o porquê e some sem deixar rastro. -->
+  <div id="modal-fato" class="modal-fato hidden" role="dialog" aria-modal="true"
+       aria-labelledby="modal-fato-titulo">
+    <div class="modal-fato-bd" onclick="_fatoCancelar()"></div>
+    <div class="modal-fato-box">
+      <div class="modal-fato-hd">
+        <h3 id="modal-fato-titulo"></h3>
+        <button class="btn-fechar-cnes" onclick="_fatoCancelar()" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-fato-body">
+        <label class="modal-fato-rotulo" id="modal-fato-rotulo" for="modal-fato-input"></label>
+        <textarea id="modal-fato-input" class="modal-fato-input" rows="3"></textarea>
+        <p id="modal-fato-erro" class="modal-fato-erro hidden"></p>
+        <p id="modal-fato-dica" class="modal-fato-dica"></p>
+        <div class="modal-fato-acoes">
+          <button type="button" class="btn-fato-cancelar" onclick="_fatoCancelar()">Cancelar</button>
+          <button type="button" class="btn-fato-ok" id="modal-fato-ok" onclick="_fatoConfirmar()">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-cnes" class="modal-cnes hidden">
     <div class="modal-cnes-bd" onclick="fecharModalCNES()"></div>
     <div class="modal-cnes-box">
