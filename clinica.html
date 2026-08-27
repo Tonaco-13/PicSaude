@@ -1840,12 +1840,19 @@
         // some e a custódia fica aqui).
         const ag = p.agendamento;
         const temPendente = (p.itens || []).some(i => i.status_item === 'pendente');
-        const temDevolvivel = (p.itens || []).some(
+        // CONSULTA-UX-001/NC-4, MARTELO 27/08 (PR 3) — o botão precisa dizer o
+        // ALCANCE antes do clique: recusar aqui devolve TODOS os itens
+        // devolvíveis do pedido de uma vez (não é seleção por item — essa
+        // existe no pedido em foco, aba Recepção, `devolverItemExame`). Um
+        // rótulo mudo ("Não realizamos") deixava o operador descobrir o
+        // tamanho do gesto só depois de disparar.
+        const devolviveis = (p.itens || []).filter(
           i => i.status_item === 'pendente' || i.status_item === 'agendado');
+        const temDevolvivel = devolviveis.length > 0;
         const btnNaoRealizamos = temDevolvivel
           ? `<button type="button" class="btn-fila-acao recusa"
                      onclick="event.stopPropagation(); naoRealizamosDaFila('${esc(p.protocolo)}')">
-               ↩️ Não realizamos
+               ↩️ Não realizamos (${devolviveis.length})
              </button>`
           : '';
         const acoes = ag
@@ -2144,9 +2151,14 @@
       });
       if (!motivo) return;
 
+      // CONSULTA-UX-001/NC-4, MARTELO 27/08 (PR 3) — o aviso PRECISA nomear
+      // os itens, não só contá-los: contar "3 exame(s)" some quantos, mas não
+      // diz QUAIS — e é exatamente essa lacuna que fazia o operador devolver
+      // mais do que pretendia sem perceber.
+      const nomes = alvos.map(i => i.nome_exame).join(', ');
       const aviso = ag
-        ? `Cancelar o agendamento e devolver ${alvos.length} exame(s) ao cidadão?`
-        : `Devolver ${alvos.length} exame(s) ao cidadão? Ele poderá levá-los a outro laboratório.`;
+        ? `Cancelar o agendamento e devolver ${alvos.length} exame(s) ao cidadão: ${nomes}?`
+        : `Devolver ${alvos.length} exame(s) ao cidadão: ${nomes}? Ele poderá levá-los a outro laboratório.`;
       if (!confirm(aviso)) return;
 
       await abrirPedidoDaFila(protocolo);
@@ -2470,6 +2482,12 @@
           // burocracia que a tela inventou e o domínio nunca pediu.
           const podeRealizar  = ['criado', 'confirmado'].includes(ag.status);
           const podeRemarcar  = podeCancelar;
+          // MARTELO 27/08 (PR 3) — mesmo alcance do botão da fila: este
+          // gesto DELEGA a `naoRealizamosDaFila` (ver a nota na função), que
+          // devolve todos os itens devolvíveis do PEDIDO, não só os deste
+          // compromisso. O rótulo tem de dizer isso antes do clique.
+          const devolviveisAg = ((pedidoAtual && pedidoAtual.itens) || []).filter(
+            i => i.status_item === 'pendente' || i.status_item === 'agendado').length;
           // "Registrar falta" só depois da hora marcada + margem: antes dela a
           // falta não é fato, é adivinhação. Validação de UX declarada como
           // tal — o endpoint continua permissivo, e nenhuma regra de domínio
@@ -2503,7 +2521,7 @@
                 ${podeCancelar  ? `<button class="btn-cancelar-ag btn-falta" ${faltaLiberada ? '' : 'disabled'}
                     title="${faltaLiberada ? 'Registrar não comparecimento' : 'Só depois da hora marcada — antes dela a falta não é fato'}"
                     onclick="registrarFalta('${esc(ag.protocolo)}')">🚫 Registrar falta</button>` : ''}
-                ${podeCancelar  ? `<button class="btn-cancelar-ag" onclick="naoRealizamosDoCompromisso('${esc(ag.protocolo)}')">↩️ Não realizamos</button>` : ''}
+                ${podeCancelar  ? `<button class="btn-cancelar-ag" onclick="naoRealizamosDoCompromisso('${esc(ag.protocolo)}')">↩️ Não realizamos (${devolviveisAg})</button>` : ''}
               </div>` : ''}
             </div>
           `;
