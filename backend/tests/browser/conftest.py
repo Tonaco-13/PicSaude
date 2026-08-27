@@ -367,3 +367,29 @@ def abrir_aba_carteira(page, nome: str) -> None:
     expect(botao).to_be_visible(timeout=15_000)
     botao.click()
     expect(page.locator(f"#submod-{nome}")).to_be_visible(timeout=15_000)
+
+
+def preencher_modal_fato(page, texto: str, *, timeout_ms: int = 15_000) -> None:
+    """ENG-019 PR 6 — o fato clínico saiu do `prompt()` nativo e virou markup.
+
+    Motivo de devolução e resumo de resultado eram digitados em diálogo nativo,
+    que não valida e não explica: string vazia entrava no ledger — imutável por
+    trigger (§2), portanto sem errata possível. Agora há um modal próprio, com
+    validação de conteúdo.
+
+    A consequência para os testes é que `page.on("dialog", …)` já não alcança
+    esses dois campos: não há mais diálogo a aceitar, há um formulário a
+    preencher. Os `confirm()` de escopo que vêm DEPOIS continuam nativos e
+    seguem tratados pelos handlers de cada arquivo — este helper cobre só a
+    captura do fato.
+
+    Fica no conftest porque dois arquivos precisam dele; copiá-lo nos dois seria
+    a mesma duplicação que o projeto já pagou caro noutras ocasiões.
+    """
+    from playwright.sync_api import expect
+
+    modal = page.locator("#modal-fato")
+    expect(modal).to_be_visible(timeout=timeout_ms)
+    page.locator("#modal-fato-input").fill(texto)
+    page.locator("#modal-fato-ok").click()
+    expect(modal).to_be_hidden(timeout=timeout_ms)

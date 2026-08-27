@@ -149,10 +149,20 @@ def test_o_ato_composto_cancela_antes_de_devolver():
 
 
 def test_a_recusa_declara_motivo():
-    """§2: "`motivo` explícito sempre (capacidade ≠ desistência ≠ erro clínico)"."""
+    """§2: "`motivo` explícito sempre (capacidade ≠ desistência ≠ erro clínico)".
+
+    A REGRA é "recusa muda é proibida". O `prompt()` era o ACIDENTE — e o
+    ENG-019 PR 6 o trocou pelo modal `#modal-fato`, que ao contrário do diálogo
+    nativo valida conteúdo. A guarda acompanha o mecanismo e continua exigindo
+    as duas metades: pedir o motivo, e NÃO seguir sem ele. Sem a segunda, a
+    tela poderia perguntar e ignorar a resposta — recusa muda com formulário.
+    """
     corpo = _corpo_da_funcao(_fonte(), "naoRealizamosDaFila")
-    assert "prompt(" in corpo and "motivo" in corpo, (
+    assert "pedirTexto(" in corpo and "motivo" in corpo, (
         "a recusa deixou de pedir o motivo — cancelamento mudo é o que o §2 proíbe"
+    )
+    assert "if (!motivo) return;" in corpo, (
+        "a recusa pede o motivo mas segue sem ele — o §2 exige o motivo, não a pergunta"
     )
 
 

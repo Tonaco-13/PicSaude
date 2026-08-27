@@ -1898,6 +1898,35 @@ class ResultadoIn(BaseModel):
     resultado_resumo: Optional[str] = None
     resultado_url:    Optional[str] = None
 
+    @field_validator("resultado_resumo")
+    @classmethod
+    def _resumo_precisa_ter_conteudo(cls, v: Optional[str]) -> Optional[str]:
+        """ENG-019 PR 6 — `""` não é dado; `None` é ausência declarada.
+
+        A tela capturava o resumo num `prompt()` que só barrava o cancelar, e
+        string vazia avançava o item com um resultado clínico SEM CONTEÚDO. O
+        ledger é imutável por trigger (§2): o que entra em branco hoje não se
+        corrige nunca, só se supera. Por isso a guarda é do backend, e não só
+        da tela — validação de tela não protege registro permanente.
+
+        Nulo segue aceito de propósito: o caminho do LAUDO manda nulo quando o
+        RT preenche conclusão e valor de referência e deixa o resumo livre em
+        branco (`_coletarItensDoEditor` faz `.trim() || null`). Ali o artefato é
+        o laudo; o resumo do item é ponteiro. Exigir texto quebraria o Ticket G
+        sem defender nada.
+
+        Espaço nas bordas é digitação, não dado — some antes de gravar.
+        """
+        if v is None:
+            return None
+        limpo = v.strip()
+        if not limpo:
+            raise ValueError(
+                "resultado_resumo não pode ser vazio: informe o resultado ou "
+                "omita o campo."
+            )
+        return limpo
+
 
 @router.post("/{protocolo}/itens/{item_id}/resultado", status_code=201)
 def registrar_resultado_item(

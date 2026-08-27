@@ -48,7 +48,7 @@ from contextlib import contextmanager
 import httpx
 from playwright.sync_api import expect, Page
 
-from tests.browser.conftest import abrir_aba_carteira
+from tests.browser.conftest import abrir_aba_carteira, preencher_modal_fato
 
 _TIMEOUT_MS = 15_000
 
@@ -209,8 +209,12 @@ def test_parcial_e_devolucao_pelas_telas(browser, app_demo, erros_de_console):
         pl.locator("#aba-btn-recepcao").click()
         item_hemog_recepcao = pl.locator(f"#item-recep-exame-{id_hemog}")
         expect(item_hemog_recepcao).to_be_visible(timeout=_TIMEOUT_MS)
-        with _responder_dialogos(pl, prompt_text="Não realizamos este exame na unidade"):
+        # ENG-019 PR 6 — o motivo saiu do `prompt()` nativo e virou o modal
+        # `#modal-fato`, que valida conteúdo. O `confirm()` de escopo que vem em
+        # seguida continua nativo, e por isso o handler permanece.
+        with _responder_dialogos(pl):
             item_hemog_recepcao.get_by_role("button", name="Não realizamos este exame").click()
+            preencher_modal_fato(pl, "Não realizamos este exame na unidade")
             # O item sai das DUAS listas porque saiu da CUSTÓDIA da unidade
             # (§3.6) — a re-carga devolve o conjunto filtrado pela posse.
             expect(pl.locator(f"#item-recep-exame-{id_hemog}")).to_have_count(

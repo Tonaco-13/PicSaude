@@ -42,6 +42,8 @@ import time
 import httpx
 from playwright.sync_api import expect, Page
 
+from tests.browser.conftest import preencher_modal_fato
+
 _TIMEOUT_MS = 15_000
 
 # Personas canônicas do seed de demo (config.js DEMO.* / seed_demo.py).
@@ -262,8 +264,12 @@ def test_nao_realizamos_sobre_agendado_e_ato_composto(browser, app_demo):
     try:
         pg, erros_js = _nova_pagina(ctx)
         cartao = _abrir_pela_fila(pg, app_demo, proto)
-        with _responder_dialogos(pg, prompt_text="não realizamos nesta unidade"):
+        # ENG-019 PR 6 — o motivo deixou de ser `prompt()` nativo: agora é o
+        # modal `#modal-fato`, que valida conteúdo. O `confirm()` de escopo que
+        # vem em seguida continua nativo, e por isso o handler permanece.
+        with _responder_dialogos(pg):
             cartao.get_by_role("button", name="Não realizamos").click()
+            preencher_modal_fato(pg, "não realizamos nesta unidade")
             expect(pg.locator("#fila-lista")).not_to_contain_text(
                 proto, timeout=_TIMEOUT_MS)
         assert not erros_js, erros_js
