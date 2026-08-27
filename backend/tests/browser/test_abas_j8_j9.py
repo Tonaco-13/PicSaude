@@ -138,12 +138,15 @@ def test_operador_circula_pelas_quatro_abas_sem_perder_o_pedido(
         expect(pg.locator("#pedido-foco-texto")).to_contain_text(_NOME_PACIENTE)
         expect(pg.locator("#pedido-foco-texto")).to_contain_text(proto)
 
-        for aba in ("recepcao", "agendamento", "realizacao", "bancada"):
+        # MARTELO 27/08 — "aguardando" entrou no ciclo (DESENHO-CIRCULACAO-
+        # CLINICA-CASAS.md §2.3).
+        abas = ("recepcao", "agendamento", "realizacao", "bancada", "aguardando")
+        for aba in abas:
             pg.locator(f"#aba-btn-{aba}").click()
             expect(pg.locator(f"#aba-{aba}")).to_be_visible(timeout=_TIMEOUT_MS)
             expect(pg.locator(f"#aba-btn-{aba}")).to_have_class(_ATIVA)
             # Uma aba por vez — e o pedido nunca some de vista.
-            for outra in ("recepcao", "agendamento", "realizacao", "bancada"):
+            for outra in abas:
                 if outra != aba:
                     expect(pg.locator(f"#aba-{outra}")).to_be_hidden()
             expect(pg.locator("#pedido-foco")).to_be_visible()
@@ -201,7 +204,8 @@ def test_nova_busca_devolve_a_recepcao_e_avisa_as_abas_vazias(
 
         for aba, card in (("agendamento", "card-agendamento"),
                           ("realizacao", "card-realizacao"),
-                          ("bancada", "card-bancada")):
+                          ("bancada", "card-bancada"),
+                          ("aguardando", "card-aguardando")):
             pg.locator(f"#aba-btn-{aba}").click()
             expect(pg.locator(f"#vazio-{aba}")).to_be_visible(timeout=_TIMEOUT_MS)
             expect(pg.locator(f"#{card}")).to_be_hidden()
