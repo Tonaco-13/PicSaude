@@ -3,7 +3,9 @@ test_frontend_recepcao_decisoes.py — ENG-015, PR 2 (§2 e §3 do desenho).
 
 AS REGRAS QUE ESTE ARQUIVO TRAVA
 --------------------------------
-1. **"Executar agora" é a COLETA DIRETA do J.7 — um fato.** É a *guarda de
+1. **"Coletar agora" é a COLETA DIRETA do J.7 — um fato.** (Rótulo unificado
+   no MARTELO 27/08, PR 2 do desenho de circulação — antes "Executar agora" só
+   na Recepção; hoje o mesmo texto em toda casa que coleta.) É a *guarda de
    rumo* que o arquiteto declarou por escrito: a consulta externa propôs
    "agendamento instantâneo" (criar + confirmar + realizar) para o gesto, e
    foi **rejeitada com evidência** — inventaria três fatos para um ato que não
@@ -113,7 +115,7 @@ def _ramos_de_acao(html: str) -> dict[str, str]:
 
 @pytest.mark.parametrize("gesto", [
     "agendarItemDaRecepcao",   # Agendar
-    "registrarColeta",         # Executar agora
+    "registrarColeta",         # Coletar agora
     "devolverItemExame",       # Não realizamos
 ])
 def test_a_recepcao_tem_as_tres_decisoes(gesto):

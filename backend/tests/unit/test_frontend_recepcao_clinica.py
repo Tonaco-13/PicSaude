@@ -2,9 +2,16 @@
 
 AS REGRAS QUE ESTE ARQUIVO TRAVA
 --------------------------------
-1. **As três ações existem no cartão da fila** — "Agendar", "Executar agora" e
-   "Executar agendado". É a proposta do Fabiano (20/08): o gesto da recepção
+1. **As três ações existem no cartão da fila** — "Agendar", "Coletar agora" e
+   "Não realizamos". É a proposta do Fabiano (20/08): o gesto da recepção
    começa no cartão, não em três cliques de navegação.
+
+   MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md/PR 2) — a coleta era
+   DOIS rótulos ("Executar agora" sem compromisso, "Executar agendado" com
+   compromisso) para o MESMO fato do ledger (`pedido_coletado`). Colapsaram
+   em um só: "Coletar agora". As DUAS funções por trás (`executarAgoraDaFila`
+   / `executarAgendadoDaFila`) continuam distintas — é só o rótulo que virou
+   um, e é isso que a regra 3 abaixo protege.
 
 2. **Agir no cartão não navega junto.** O cartão inteiro é um botão que abre o
    pedido; sem `stopPropagation` nas ações, agir dispararia a navegação e o
@@ -69,7 +76,7 @@ def test_acao_existe(acao):
     assert f"async function {acao}(" in _fonte(), f"a recepção perdeu {acao}"
 
 
-@pytest.mark.parametrize("rotulo", ["Agendar", "Executar agora", "Executar agendado"])
+@pytest.mark.parametrize("rotulo", ["Agendar", "Coletar agora"])
 def test_botao_no_cartao(rotulo):
     assert rotulo in _fonte(), f"o cartão da fila perdeu o botão '{rotulo}'"
 

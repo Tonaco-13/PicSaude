@@ -17,8 +17,8 @@ duas telas liam POSSE do STATUS, e o status parou de responder essa pergunta.
 
   · a carteira do cidadão oferecia "Transferir Custódia" para `status ==
     'emitido'` — que agora é o estado de um pedido JÁ entregue;
-  · a tela do laboratório só desenhava "Registrar coleta" para `agendado` — e o
-    item agora chega `pendente`;
+  · a tela do laboratório só desenhava "Coletar agora" (então "Registrar
+    coleta") para `agendado` — e o item agora chega `pendente`;
   · a fila esconde pedido sem item acionável, e `pendente` não era acionável.
 
 Cada um desses seria verde no backend e quebrado na vitrine. É a fresta entre o
@@ -227,7 +227,8 @@ def test_laboratorio_recebe_item_pendente_e_pode_coletar(
         item = pl.locator(f"#item-exame-{item_id}")
         expect(item).to_be_visible(timeout=_TIMEOUT_MS)
         expect(item).to_contain_text("Pendente")
-        expect(item.get_by_role("button", name="Registrar coleta")).to_be_visible()
+        # MARTELO 27/08 (PR 2) — era "Registrar coleta".
+        expect(item.get_by_role("button", name="Coletar agora")).to_be_visible()
     finally:
         ctx_lab.close()
 
@@ -256,7 +257,7 @@ def test_coleta_direta_sem_agendamento(page: Page, browser, app_demo, erros_de_c
 
         item = pl.locator(f"#item-exame-{item_id}")
         expect(item).to_be_visible(timeout=_TIMEOUT_MS)
-        item.get_by_role("button", name="Registrar coleta").click()
+        item.get_by_role("button", name="Coletar agora").click()
         expect(item).to_contain_text("Coletado", timeout=_TIMEOUT_MS)
     finally:
         ctx_lab.close()

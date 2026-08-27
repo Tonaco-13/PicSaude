@@ -6,11 +6,12 @@ O gesto da recepção é decidir o percurso do exame que acabou de chegar. Até
 aqui isso exigia abrir o pedido, trocar de aba e só então agir. As três ações
 passam a viver no CARTÃO:
 
-  · sem compromisso vigente → "Agendar" (marca para depois) ou "Executar
+  · sem compromisso vigente → "Agendar" (marca para depois) ou "Coletar
     agora" (coleta direta — o segundo caminho que o martelo do J.7 autoriza,
     para quem já está com o material na mão);
-  · com compromisso vigente → "Executar agendado", que é o
-    `POST /agendamentos/{p}/realizar` de sempre.
+  · com compromisso vigente → também "Coletar agora" (MARTELO 27/08, PR 2 do
+    desenho de circulação — rótulo unificado; era "Executar agendado"), que é
+    o `POST /agendamentos/{p}/realizar` de sempre.
 
 POR QUE UM SMOKE
 ----------------
@@ -133,7 +134,7 @@ def test_executar_agora_coleta_direto_do_cartao(page: Page, browser, app_demo, e
         pl = ctx.new_page()
         card = _cartao(pl, app_demo, proto)
         pl.once("dialog", lambda d: d.accept())
-        card.get_by_role("button", name="Executar agora").click()
+        card.get_by_role("button", name="Coletar agora").click()
         # Espera no EFEITO, não na tela: depois da coleta a `clinica.html`
         # troca de aba sozinha (J.8 — o item migra para a Bancada), então
         # qualquer âncora de DOM aqui é sinal instável. O backend é o fato.
@@ -199,13 +200,18 @@ def test_executar_agendado_aparece_e_realiza(page: Page, browser, app_demo, erro
     try:
         pl = ctx.new_page()
         card = _cartao(pl, app_demo, proto)
-        # Com compromisso vigente, "Executar agora" some e "Executar agendado" entra.
-        expect(card.get_by_role("button", name="Executar agendado")).to_be_visible(
+        # MARTELO 27/08 (PR 2) — "Executar agora" e "Executar agendado" viraram
+        # o mesmo rótulo, "Coletar agora": o ledger só conhece `pedido_coletado`,
+        # um fato. A prova de que é o RAMO CERTO (compromisso vigente) deixa de
+        # ser textual e vira estrutural + comportamental: "Agendar" desaparece
+        # (não se reagenda por aqui) e o clique dispara o endpoint de
+        # agendamento — só ele emite o feedback "realizado" abaixo.
+        expect(card.get_by_role("button", name="Agendar")).to_have_count(0)
+        expect(card.get_by_role("button", name="Coletar agora")).to_be_visible(
             timeout=_TIMEOUT_MS)
-        expect(card.get_by_role("button", name="Executar agora")).to_have_count(0)
 
         pl.once("dialog", lambda d: d.accept())
-        card.get_by_role("button", name="Executar agendado").click()
+        card.get_by_role("button", name="Coletar agora").click()
         expect(pl.locator("#feedback-agendamento")).to_contain_text(
             "realizado", timeout=_TIMEOUT_MS)
     finally:
@@ -227,7 +233,7 @@ def test_agir_no_cartao_nao_navega_junto(page: Page, browser, app_demo, erros_de
         pl = ctx.new_page()
         card = _cartao(pl, app_demo, proto)
         pl.once("dialog", lambda d: d.dismiss())      # recusa a confirmação
-        card.get_by_role("button", name="Executar agora").click()
+        card.get_by_role("button", name="Coletar agora").click()
 
         # Recusou a ação: nada aconteceu E a Recepção continua sendo a aba ativa.
         expect(pl.locator("#aba-btn-recepcao")).to_have_class(
