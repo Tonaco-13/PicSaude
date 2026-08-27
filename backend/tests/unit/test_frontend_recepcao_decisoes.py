@@ -98,19 +98,27 @@ def test_a_coleta_direta_chama_o_endpoint_de_coleta():
 
 
 # ---------------------------------------------------------------------------
-# 2 — as três decisões, e a Realização com um gesto só (§2)
+# 2 — as três decisões da Recepção (§2)
 # ---------------------------------------------------------------------------
 
 def _ramos_de_acao(html: str) -> dict[str, str]:
-    """Separa o ramo da Recepção do ramo da Realização em `_pintarItens`."""
+    """O ramo da Recepção em `_pintarItens`.
+
+    MARTELO 27/08 (PR B, DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2) — esta
+    função extraía DOIS ramos (Recepção e Realização), porque os dois
+    dividiam a mesma função com contextos diferentes. A Realização foi
+    dissolvida (era cópia da união de Recepção + Agendamento — nunca teve
+    régua própria); o ramo dela em `_pintarItens` foi removido junto, não só
+    esvaziado. Só sobra o que sempre foi a regra real: as três decisões da
+    Recepção, num lugar só.
+    """
     corpo = _corpo_da_funcao(html, "_pintarItens")
     m = re.search(
-        r"if \(contexto === 'recepcao'\) \{(.*?)\n        \} else if \(item\.status_item === 'pendente'"
-        r".*?\{(.*?)\n        \} else if \(item\.status_item === 'coletado'",
+        r"if \(contexto === 'recepcao'\) \{(.*?)\n        \} else if \(item\.status_item === 'coletado'",
         corpo, re.S,
     )
-    assert m, "os ramos de ação de `_pintarItens` mudaram de forma"
-    return {"recepcao": m.group(1), "realizacao": m.group(2)}
+    assert m, "o ramo de ação da Recepção em `_pintarItens` mudou de forma"
+    return {"recepcao": m.group(1)}
 
 
 @pytest.mark.parametrize("gesto", [
@@ -124,10 +132,18 @@ def test_a_recepcao_tem_as_tres_decisoes(gesto):
     )
 
 
-def test_a_realizacao_nao_recusa_mais():
-    """§2, demanda do Fabiano: "Não realizamos" SAI da Realização."""
-    assert "devolverItemExame" not in _ramos_de_acao(_fonte())["realizacao"], (
-        "a recusa voltou para a Realização — recusar é triagem, não execução"
+def test_realizacao_nao_tem_mais_ramo_proprio_em_pintaritens():
+    """MARTELO 27/08 (PR B) — supera `test_a_realizacao_nao_recusa_mais`.
+
+    Aquele teste guardava "a recusa não está no ramo da Realização". A regra
+    que importava nunca foi ONDE a recusa não estava — era que a Realização
+    não tinha régua própria e por isso não deveria ter ramo próprio. Dissolvida
+    a aba, a guarda certa é que o ramo (que cobria `pendente`/`agendado` fora
+    dos contextos nomeados) não voltou.
+    """
+    corpo = _corpo_da_funcao(_fonte(), "_pintarItens")
+    assert "item.status_item === 'pendente' || item.status_item === 'agendado'" not in corpo, (
+        "o ramo da Realização voltou a `_pintarItens` — a dissolução do PR B foi desfeita?"
     )
 
 

@@ -138,9 +138,10 @@ def test_operador_circula_pelas_quatro_abas_sem_perder_o_pedido(
         expect(pg.locator("#pedido-foco-texto")).to_contain_text(_NOME_PACIENTE)
         expect(pg.locator("#pedido-foco-texto")).to_contain_text(proto)
 
-        # MARTELO 27/08 — "aguardando" entrou no ciclo (DESENHO-CIRCULACAO-
-        # CLINICA-CASAS.md §2.3).
-        abas = ("recepcao", "agendamento", "realizacao", "bancada", "aguardando")
+        # MARTELO 27/08 — "aguardando" entrou no ciclo (PR A) e "realizacao"
+        # saiu dele (PR B, dissolvida — DESENHO-CIRCULACAO-CLINICA-CASAS.md
+        # §2.2 e §2.3).
+        abas = ("recepcao", "agendamento", "bancada", "aguardando")
         for aba in abas:
             pg.locator(f"#aba-btn-{aba}").click()
             expect(pg.locator(f"#aba-{aba}")).to_be_visible(timeout=_TIMEOUT_MS)
@@ -157,11 +158,15 @@ def test_operador_circula_pelas_quatro_abas_sem_perder_o_pedido(
 def test_abrir_pedido_cai_na_aba_do_proximo_gesto(
     page: Page, browser, app_demo, erros_de_console
 ):
-    """Sem coleta feita → Realização. Já coletado → Bancada.
+    """Sem coleta feita → Recepção. Já coletado → Bancada.
 
     Abrir um pedido e cair numa aba vazia obrigaria o operador a caçar o
     trabalho. O critério é o percurso, não o nome do estado — é o que mantém a
     escolha válida se o J.7 mexer no `agendado`.
+
+    MARTELO 27/08 (PR B) — antes o pedido sem coleta caía na Realização.
+    Dissolvida ela, cai direto na casa que já era a fonte real do item
+    `pendente`: a Recepção. Ver DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2.
     """
     proto_novo, _ = _pedido_no_laboratorio(app_demo, f"NOVO-{_TS}", coletar=False)
     proto_col, item_col = _pedido_no_laboratorio(app_demo, f"COLETADO-{_TS}", coletar=True)
@@ -171,17 +176,16 @@ def test_abrir_pedido_cai_na_aba_do_proximo_gesto(
         pg = ctx.new_page()
 
         _abrir_da_fila(pg, app_demo, proto_novo)
-        expect(pg.locator("#aba-btn-realizacao")).to_have_class(_ATIVA)
-        # MARTELO 27/08 (PR 2) — rótulo unificado; era "Registrar coleta".
-        expect(pg.locator("#lista-realizacao")).to_contain_text("Coletar agora")
-        expect(pg.locator("#aba-count-realizacao")).to_have_text("1")
+        expect(pg.locator("#aba-btn-recepcao")).to_have_class(_ATIVA)
+        expect(pg.locator("#lista-recepcao")).to_contain_text("Coletar agora")
+        expect(pg.locator("#aba-count-recepcao")).to_have_text("1")
         expect(pg.locator("#aba-count-bancada")).to_have_text("0")
 
         _abrir_da_fila(pg, app_demo, proto_col)
         expect(pg.locator("#aba-btn-bancada")).to_have_class(_ATIVA)
         expect(pg.locator(f"#item-exame-{item_col}")).to_be_visible(timeout=_TIMEOUT_MS)
         expect(pg.locator("#aba-count-bancada")).to_have_text("1")
-        expect(pg.locator("#aba-count-realizacao")).to_have_text("0")
+        expect(pg.locator("#aba-count-recepcao")).to_have_text("0")
     finally:
         ctx.close()
 
@@ -204,7 +208,6 @@ def test_nova_busca_devolve_a_recepcao_e_avisa_as_abas_vazias(
         expect(pg.locator("#aba-btn-recepcao")).to_have_class(_ATIVA)
 
         for aba, card in (("agendamento", "card-agendamento"),
-                          ("realizacao", "card-realizacao"),
                           ("bancada", "card-bancada"),
                           ("aguardando", "card-aguardando")):
             pg.locator(f"#aba-btn-{aba}").click()

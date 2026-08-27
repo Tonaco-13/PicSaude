@@ -221,7 +221,7 @@
     /* ============================================================ */
     /* TICKET-J.8 — Abas do percurso do exame                       */
     /* ------------------------------------------------------------ */
-    /* Recepção → Agendamento → Realização → Bancada. As abas       */
+    /* Recepção → Agendamento → Bancada. As abas                   */
     /* espelham o PERCURSO (o que o operador faz), não o estado do  */
     /* item: a partição é "ainda não coletado" vs "já coletado",    */
     /* nunca `agendado` como sinônimo de "com o laboratório" — esse */
@@ -840,9 +840,9 @@
       </div>
 
       <!-- ── TICKET-J.8 — pedido em foco ────────────────────────────
-           Faixa persistente ACIMA das abas: as ações de Agendamento,
-           Realização e Bancada agem sobre um pedido só, e o operador
-           precisa vê-lo sem voltar à Recepção. -->
+           Faixa persistente ACIMA das abas: as ações de Agendamento e
+           Bancada agem sobre um pedido só, e o operador precisa vê-lo
+           sem voltar à Recepção. -->
       <div id="pedido-foco" class="pedido-foco hidden">
         <div>
           <span class="pedido-foco-rotulo">Pedido em foco</span>
@@ -862,11 +862,6 @@
                 id="aba-btn-agendamento" aria-controls="aba-agendamento" aria-selected="false"
                 onclick="abrirAbaLab('agendamento')">
           📅 Agendamento <span class="aba-count" id="aba-count-agendamento">0</span>
-        </button>
-        <button type="button" role="tab" class="aba-lab"
-                id="aba-btn-realizacao" aria-controls="aba-realizacao" aria-selected="false"
-                onclick="abrirAbaLab('realizacao')">
-          🧪 Realização <span class="aba-count" id="aba-count-realizacao">0</span>
         </button>
         <button type="button" role="tab" class="aba-lab"
                 id="aba-btn-bancada" aria-controls="aba-bancada" aria-selected="false"
@@ -956,8 +951,11 @@
 
              "Não realizamos" ESTAVA na Realização e mudou de aba (demanda do
              Fabiano, §2): recusar não é etapa de execução, é triagem — quem
-             recusa não vai coletar. A Realização ficou com um gesto só,
-             "Coletar agora", que é o que o nome dela promete. -->
+             recusa não vai coletar. A Realização ficou, então, com um gesto
+             só, "Coletar agora" — e foi exatamente por sobrar um gesto só,
+             já disponível aqui e em Agendamento, que ela foi DISSOLVIDA
+             (MARTELO 27/08, PR B: DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2).
+             "Coletar agora" sobre item `pendente` mora só aqui agora. -->
         <div class="card hidden" id="card-decisoes">
           <div class="card-titulo">O que eu decido</div>
           <div id="lista-recepcao"></div>
@@ -1001,20 +999,6 @@
           <div class="card-titulo">Agendamento</div>
           <div id="feedback-agendamento" class="hidden"></div>
           <div id="conteudo-agendamento"></div>
-        </div>
-      </section>
-
-      <!-- ══════════════ ABA 3 — REALIZAÇÃO ══════════════ -->
-      <!-- Comparecimento e coleta. A lista é dos exames que AINDA NÃO foram
-           coletados — critério de percurso, não de estado nominal (§6). -->
-      <section class="aba-painel hidden" id="aba-realizacao" role="tabpanel" aria-labelledby="aba-btn-realizacao">
-        <div class="aba-vazia sem-pedido hidden" id="vazio-realizacao">
-          Nenhum pedido em foco.<br>
-          Abra um pedido pela <strong>Recepção</strong> para registrar comparecimento e coleta.
-        </div>
-        <div class="card" id="card-realizacao">
-          <div class="card-titulo">Exames a realizar</div>
-          <div id="lista-realizacao"></div>
         </div>
       </section>
 
@@ -1306,31 +1290,31 @@
     // ═════════════════════════════════════════════════════════════
     // TICKET-J.8 — ABAS DO PERCURSO DO EXAME
     //
-    // Recepção → Agendamento → Realização → Bancada. UI ONLY: nenhuma rota,
-    // estado, evento ou custódia muda por causa das abas.
+    // Recepção → Agendamento → Bancada. UI ONLY: nenhuma rota, estado,
+    // evento ou custódia muda por causa das abas.
+    //
+    // MARTELO 27/08 (PR B, DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2) — a
+    // Realização SAIU do percurso. Ela nunca foi uma casa própria: sua régua
+    // (`pendente` OU `agendado`) era a MESMA de Recepção+Agendamento juntas
+    // — uma segunda vitrine dos mesmos itens, com um botão a mais. O botão
+    // ("Coletar agora") já existia nas duas casas de origem; dissolver é só
+    // apontar para onde o item JÁ mora, sem inventar gesto novo.
     //
     // A partição dos itens é por PERCURSO ("já saiu material?"), não pelo nome
     // do estado. Em especial, nada aqui lê `agendado` como sinônimo de "está
     // com o laboratório" — posse é custódia, e o J.7 pode retirar a transição
-    // para `agendado` do ato de transferir (despacho §4). Se isso acontecer, os
-    // itens chegam como `pendente` e continuam caindo em Realização, sem
+    // para `agendado` do ato de transferir (despacho §4). Se isso acontecer,
+    // os itens chegam como `pendente` e continuam caindo na Recepção, sem
     // retrabalho nesta tela.
     // ═════════════════════════════════════════════════════════════
 
-    const _ABAS_LAB = ['recepcao', 'agendamento', 'realizacao', 'bancada', 'aguardando', 'historico'];
+    const _ABAS_LAB = ['recepcao', 'agendamento', 'bancada', 'aguardando', 'historico'];
 
-    // Etapas em que o material JÁ foi coletado — daí para a frente o trabalho é
-    // de bancada. Tudo o que não está aqui nem encerrado ainda é Realização.
+    // Etapas em que o material JÁ foi coletado — daí para a frente o trabalho
+    // é de bancada.
     const _ETAPAS_POS_COLETA = ['coletado', 'em_analise', 'resultado_disponivel'];
-    const _ETAPAS_ENCERRADAS = ['encerrado', 'cancelado', 'encerrado_fisico'];
 
     let abaLabAtiva = 'recepcao';
-
-    function _itensDaAbaRealizacao(itens) {
-      return (itens || []).filter(i =>
-        !_ETAPAS_POS_COLETA.includes(i.status_item) &&
-        !_ETAPAS_ENCERRADAS.includes(i.status_item));
-    }
 
     // MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.3) — item com
     // resultado coberto por laudo NÃO é mais trabalho da Bancada, é trabalho
@@ -1377,16 +1361,23 @@
      * Abrir um pedido e cair numa aba vazia obrigaria o operador a caçar o
      * trabalho. O critério é o mesmo da partição — percurso, não nome de
      * estado — então continua válido se o J.7 tirar o `agendado` da
-     * transferência: sem coleta feita, o trabalho é Realização.
+     * transferência: sem coleta feita, o trabalho é Recepção (ou Agendamento,
+     * se já houver compromisso).
+     *
+     * MARTELO 27/08 (PR B) — a prioridade que a Realização unificava
+     * (pendente/agendado antes de bancada) se preserva; só aponta agora para
+     * a casa CERTA de cada metade, em vez de uma casa comum que as duas
+     * dividiam.
      */
     function _abaSugeridaParaPedido() {
       const itens = (pedidoAtual && pedidoAtual.itens) || [];
-      if (_itensDaAbaRealizacao(itens).length)    return 'realizacao';
-      if (_itensDaAbaBancada(itens).length)       return 'bancada';
+      if (_itensDaAbaRecepcao(itens).length)          return 'recepcao';
+      if (itens.some(i => i.status_item === 'agendado')) return 'agendamento';
+      if (_itensDaAbaBancada(itens).length)           return 'bancada';
       // Nada a fazer no laboratório, mas há exame esperando o cidadão: mais
       // informativo do que abrir numa Recepção vazia que sugere triagem sem
       // ter nenhuma (MARTELO 27/08).
-      if (_itensAguardandoCidadao(itens).length)  return 'aguardando';
+      if (_itensAguardandoCidadao(itens).length)      return 'aguardando';
       return 'recepcao';
     }
 
@@ -1418,7 +1409,6 @@
       if (cardDecisoes) cardDecisoes.classList.toggle('hidden', !temPedido);
 
       [['agendamento', 'card-agendamento'],
-       ['realizacao',  'card-realizacao'],
        ['bancada',     'card-bancada'],
        ['aguardando',  'card-aguardando']].forEach(([aba, cardId]) => {
         const vazio = document.getElementById('vazio-' + aba);
@@ -1431,15 +1421,15 @@
       _definirContador('aba-count-recepcao',
         _contadorRecepcao(naFila ? Number(naFila.textContent) : 0));
 
-      // CONSULTA-UX-001/NC-2, MARTELO 27/08 (PR 4) — Agendamento, Realização,
-      // Bancada e Aguardando só sabem contar o pedido em FOCO: sem foco,
-      // `itens` é `[]` e as quatro caíam em "0". Um "0" que na verdade
-      // significa "não sei" é uma MENTIRA sobre a unidade — não há, para
-      // estas quatro casas, uma fonte de "quanto material a unidade tem
-      // nesta etapa agora" independente de abrir cada pedido; inventar uma
-      // agregação client-side por cima da fila seria arriscar a MESMA
-      // mentira travestida de número (a fila só lista pedido com item
-      // ACIONÁVEL — um pedido 100% em Bancada pode nem estar nela).
+      // CONSULTA-UX-001/NC-2, MARTELO 27/08 (PR 4) — Agendamento, Bancada e
+      // Aguardando só sabem contar o pedido em FOCO: sem foco, `itens` é `[]`
+      // e as três caíam em "0". Um "0" que na verdade significa "não sei" é
+      // uma MENTIRA sobre a unidade — não há, para estas três casas, uma
+      // fonte de "quanto material a unidade tem nesta etapa agora"
+      // independente de abrir cada pedido; inventar uma agregação
+      // client-side por cima da fila seria arriscar a MESMA mentira
+      // travestida de número (a fila só lista pedido com item ACIONÁVEL —
+      // um pedido 100% em Bancada pode nem estar nela).
       //
       // Opção (b) do desenho: sem foco, o traço substitui o zero. A faixa
       // "PEDIDO EM FOCO" logo acima da barra de abas já é o rótulo
@@ -1449,8 +1439,6 @@
       const SEM_FOCO = '—';
       _definirContador('aba-count-agendamento',
         temPedido ? (agendamentosAtuais || []).length : SEM_FOCO);
-      _definirContador('aba-count-realizacao',
-        temPedido ? _itensDaAbaRealizacao(itens).length : SEM_FOCO);
       _definirContador('aba-count-bancada',
         temPedido ? _itensDaAbaBancada(itens).length : SEM_FOCO);
       _definirContador('aba-count-aguardando',
@@ -2841,23 +2829,26 @@
     // ITENS / EXAMES
     // ─────────────────────────────────────────
 
-    // TICKET-J.8 — o mesmo cartão de item, renderizado em DUAS listas: os que
-    // ainda não foram coletados vão para a aba Realização; os que já foram, para
-    // a Bancada. Um item muda de aba sozinho ao mudar de etapa.
+    // TICKET-J.8 — o cartão do item muda de aba sozinho ao mudar de etapa:
+    // `pendente` mora na Recepção; a partir de `coletado`, na Bancada
+    // (MARTELO 27/08, PR B — a Realização, que ficava no meio, foi
+    // dissolvida por ser cópia da união das duas).
     function renderizarItens(itens) {
       // ENG-015 §2 — EMPTY STATE POR PERGUNTA. Cada lista responde a uma
       // pergunta diferente, e "vazio" significa coisa diferente em cada uma:
-      // na Recepção quer dizer "já triei tudo"; na Realização, "não há o que
-      // coletar". Um texto genérico em todas as três diria a mesma coisa três
+      // na Recepção quer dizer "já triei tudo"; na Bancada, "nada chegou até
+      // aqui ainda". Um texto genérico nas duas diria a mesma coisa duas
       // vezes e nenhuma delas seria a resposta.
+      //
+      // MARTELO 27/08 (PR B) — a Realização (e a lista `lista-realizacao`
+      // que a alimentava) foi DISSOLVIDA: sua régua era `pendente` OU
+      // `agendado`, a mesma união de Recepção + Agendamento — uma segunda
+      // vitrine dos mesmos itens. Ver DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.
       _pintarItens('lista-recepcao', _itensDaAbaRecepcao(itens),
                    'Nada a decidir neste pedido — todos os exames sob sua custódia já foram triados.',
                    'recepcao');
-      _pintarItens('lista-realizacao', _itensDaAbaRealizacao(itens),
-                   'Nenhum exame aguardando coleta neste pedido.',
-                   'realizacao');
       _pintarItens('lista-bancada', _itensDaAbaBancada(itens),
-                   'Nenhum material na bancada. Registre a coleta na aba Realização.',
+                   'Nenhum material na bancada. A coleta acontece na Recepção ou no Agendamento.',
                    'bancada');
       _pintarItens('lista-aguardando', _itensAguardandoCidadao(itens),
                    'Nenhum exame aguardando ciência do cidadão neste pedido.',
@@ -2876,13 +2867,20 @@
         return;
       }
 
-      // ENG-015 §2 — O MESMO ITEM APARECE EM DUAS LISTAS, e id repetido é
-      // HTML inválido: `getElementById` devolve o primeiro, e o código que
-      // desabilita "Coletar agora" mexeria no botão da outra aba. A
-      // Realização e a Bancada mantêm o namespace histórico (`item-exame-N`,
-      // `btn-coletar-N`), que testes e helpers já conhecem; a Recepção, que é
-      // nova, ganha o seu. Quem age sobre o item age sobre TODOS os seus
-      // botões — via `data-item`, não via id.
+      // ENG-015 §2, HISTÓRICO — quando a Realização existia, o MESMO item
+      // podia aparecer em DUAS listas simultâneas (ela e a Recepção), e id
+      // repetido é HTML inválido. A Recepção ganhou namespace próprio
+      // (`item-recep-exame-N`) para não colidir com o `item-exame-N`
+      // histórico da Bancada.
+      //
+      // MARTELO 27/08 (PR B) — a Realização foi dissolvida e a colisão que
+      // motivou o namespace não existe mais: Recepção (`pendente`), Bancada
+      // (`coletado`/`em_analise`/resultado sem laudo) e as demais casas são
+      // hoje mutuamente exclusivas — nenhum item aparece em duas listas ao
+      // mesmo tempo. Mantido mesmo assim: já é convenção conhecida de testes
+      // e helpers, e o `data-item` (não o id) é quem `_botoesDoItem` usa para
+      // agir sobre TODOS os botões de um item — remover o namespace não
+      // ganharia nada e trocaria ids em uso.
       const ns = contexto === 'recepcao' ? 'recep-' : '';
       el.innerHTML = itens.map(item => {
         const statusCls = itemStatusClass(item.status_item);
@@ -2917,21 +2915,13 @@
             onclick="devolverItemExame(${item.id})">
             Não realizamos este exame
           </button>`;
-        // TICKET-J.7 — `pendente` também coleta.
-        //
-        // Entregar a posse ao laboratório deixou de mover o item para
-        // `agendado`: ele chega `pendente`, e é aí que há MAIS a fazer —
-        // marcar hora (aba Agendamento) ou coletar direto, que é o que o
-        // martelo autoriza. Antes do J.7 este ramo só olhava `agendado`, e o
-        // item recém-chegado ficaria sem nenhum botão.
-        } else if (item.status_item === 'pendente' || item.status_item === 'agendado') {
-          // ENG-015 §2 — a Realização ficou com UM gesto. "Não realizamos"
-          // saiu daqui para a Recepção (demanda do Fabiano): recusar não é
-          // etapa de execução, é triagem — quem recusa não vai coletar.
-          acoesHtml = `<button class="btn-coletar" id="btn-coletar-${item.id}" data-coletar="${item.id}"
-            onclick="registrarColeta(${item.id})">
-            ▶️ Coletar agora
-          </button>`;
+        // MARTELO 27/08 (PR B) — este ramo cobria `pendente`/`agendado` fora
+        // dos contextos `recepcao`/`aguardando`: era a Realização. Dissolvida
+        // ela, nenhum item chega aqui mais nesses dois status — `pendente` é
+        // sempre contexto `recepcao` (ver acima), e `agendado` é conteúdo da
+        // aba Agendamento, que não passa por `_pintarItens` (renderiza os
+        // seus próprios blocos, com `realizarAgendamento`). Ramo removido —
+        // ver DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2.
         } else if (item.status_item === 'coletado') {
           // TICKET-F — dois caminhos legítimos a partir de 'coletado':
           //   "Enviar à bancada" → em_analise (o material vai ser processado)
@@ -2975,12 +2965,13 @@
     // REGISTRO DE COLETA
     // ─────────────────────────────────────────
 
-    // ENG-015 §2 — o MESMO item tem botão de coleta em duas abas (Recepção e
-    // Realização — os dois dizem "▶️ Coletar agora" desde o MARTELO 27/08,
-    // PR 2 do desenho de circulação, mas continuam sendo DOIS elementos DOM
-    // distintos). Agir por id pegaria um só; agir por `data-` pega os dois, e
-    // cada um recupera o SEU texto ao restaurar (`_ocuparBotoes` guarda o
-    // `textContent` por elemento, não por rótulo).
+    // ENG-015 §2, HISTÓRICO — até a Realização ser dissolvida (MARTELO
+    // 27/08, PR B), o MESMO item tinha botão de coleta em DUAS abas ao mesmo
+    // tempo (Recepção e Realização), e agir por id pegaria um só. Hoje
+    // `pendente` só é desenhado na Recepção — sem duplicata —, mas o padrão
+    // `data-` fica: é o que `_botoesDoItem` usa para agir sobre TODOS os
+    // botões de um item, e cada um recupera o SEU texto ao restaurar
+    // (`_ocuparBotoes` guarda o `textContent` por elemento, não por rótulo).
     function _botoesDoItem(attr, itemId) {
       return [...document.querySelectorAll(`[data-${attr}="${itemId}"]`)];
     }
@@ -3699,10 +3690,10 @@
         if (item) item.status_item = novoStatus;
       }
 
-      // TICKET-J.8 — repinta as duas listas a partir do estado em memória, em
-      // vez de remendar o cartão no lugar. Coletar um exame agora o MOVE de
-      // Realização para Bancada; um remendo in-place o deixaria na aba errada
-      // até o próximo `recarregarPedido`.
+      // TICKET-J.8 — repinta as listas a partir do estado em memória, em vez
+      // de remendar o cartão no lugar. Coletar um exame agora o MOVE de
+      // Recepção (ou Agendamento) para Bancada; um remendo in-place o
+      // deixaria na aba errada até o próximo `recarregarPedido`.
       //
       // De quebra, resolve o risco que o próprio TICKET-F anotava aqui: o ramo
       // 'coletado' era um "espelho exato" do `renderizarItens`, e dois espelhos

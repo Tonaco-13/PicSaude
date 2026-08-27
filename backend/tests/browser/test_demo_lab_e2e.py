@@ -155,19 +155,25 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
         fila.locator(".fila-item", has_text=proto).click()
         expect(pl.locator("#pedido-foco")).to_be_visible(timeout=_TIMEOUT_MS)
 
-        # TICKET-J.8 — abrir um pedido cai na aba do próximo gesto. Sem coleta
-        # feita, é Realização.
-        expect(pl.locator("#aba-btn-realizacao")).to_have_class(re.compile(r"\bativa\b"))
+        # TICKET-J.8 — abrir um pedido cai na aba do próximo gesto. Sem
+        # coleta feita, é Recepção (MARTELO 27/08, PR B — a Realização, que
+        # cobria isto antes, foi dissolvida).
+        expect(pl.locator("#aba-btn-recepcao")).to_have_class(re.compile(r"\bativa\b"))
 
-        item = pl.locator(f"#item-exame-{item_id}")
+        item_recepcao = pl.locator(f"#item-recep-exame-{item_id}")
 
         # 3b. Coleta. MARTELO 27/08 (PR 2) — era "Registrar coleta".
-        item.get_by_role("button", name="Coletar agora").click()
+        item_recepcao.get_by_role("button", name="Coletar agora").click()
+
+        # TICKET-J.8 — coletar MOVE o item da Recepção para a Bancada, e o
+        # locator muda de namespace junto: a Recepção usa `item-recep-exame-N`
+        # (ENG-015 §2), a Bancada usa o `item-exame-N` histórico.
+        item = pl.locator(f"#item-exame-{item_id}")
         expect(item).to_contain_text("Coletado", timeout=_TIMEOUT_MS)
 
-        # 3c. Enviar à bancada (Ticket F). TICKET-J.8 — coletar MOVE o exame de
-        # Realização para Bancada: o operador troca de aba porque o trabalho
-        # trocou de etapa. O contador da aba é quem avisa que há material lá.
+        # 3c. Enviar à bancada (Ticket F). O operador troca de aba porque o
+        # trabalho trocou de etapa. O contador da aba é quem avisa que há
+        # material lá.
         expect(pl.locator("#aba-count-bancada")).to_have_text("1", timeout=_TIMEOUT_MS)
         pl.locator("#aba-btn-bancada").click()
         expect(item).to_be_visible(timeout=_TIMEOUT_MS)
