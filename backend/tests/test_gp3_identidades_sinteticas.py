@@ -41,7 +41,13 @@ _SEED = _RAIZ / "backend" / "seed_demo.py"
 # ── O CONJUNTO FECHADO, congelado por valor ──────────────────────────────
 # Toda identidade que a demo usa. Acrescentar uma exige editar esta tupla —
 # que é exatamente o ponto de controle que o GP-3 pede.
-_CPFS_DEMO = ("12345678909",)
+#
+# M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3, despacho de Z 27/08) — os
+# dois CPFs seguintes são o 2º e o 3º cidadão demo (chips de quick-pick),
+# espelhados em `DEMO.cidadaos` (config.js) e `PACIENTE_2`/`PACIENTE_3`
+# (seed_demo.py). Decisão consciente, exatamente o gesto que esta guarda
+# exige — não uma exceção aberta para ela.
+_CPFS_DEMO = ("12345678909", "23456789173", "34567891228")
 # CPF de login em modo DEV (`config.js::DEV_LOGIN_CPF`). Dígitos repetidos →
 # matematicamente INVÁLIDO, como o sentinela: nunca colide com cidadão real.
 # Foi ACHADO por esta própria guarda na primeira execução, e declarado aqui —
