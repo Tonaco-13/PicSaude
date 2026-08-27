@@ -5,7 +5,7 @@
 | **Origem** | Fabiano percorreu a vitrine em 26/08 pedindo parecer sobre a circulação do exame na clínica; a troca virou proposta, aprovada por partes — o martelo sobre a ciência do pedido já saiu como `core` (#203/#204). Este desenho cobre o resto: a forma das abas. |
 | **Autor** | Engenheiro (Claude Code) — desenho, **não implementação** |
 | **Classe** | `module` — telas e contadores da clínica. Nenhuma máquina de estados, ledger ou custódia é tocada; ver §5 sobre a fronteira |
-| **Estado** | 🟡 Desenho para revisão do arquiteto. Duas decisões pedem martelo (§6) |
+| **Estado** | 🟢 Martelado (Fabiano, 27/08, §6). PR A em implementação; PR B aguarda os PRs 2/4 da CONSULTA-UX-001 |
 | **Pré-requisito já cumprido** | O martelo de 26/08 (abrir o laudo encerra o pedido, #203/#204) — sem ele a casa nova do §2 não fecharia sozinha |
 
 ---
@@ -182,28 +182,34 @@ nisso — mas duas coisas merecem checagem explícita do arquiteto antes do mart
 
 ---
 
-## §6 Decisões que precisam de martelo
+## §6 Martelo (Fabiano, 27/08)
 
-### 6.1 O nome da casa nova
+### 6.1 O nome da casa nova — MARTELADO: "Aguardando o cidadão"
 
-"Aguardando o cidadão" é o nome de trabalho deste desenho. Alternativas cotadas e descartadas:
-"Ciência pendente" (linguagem de sistema, não de gente) e "Laudo entregue" (confunde com o
-evento `resultado_comunicado`, que é outra coisa no ledger). Peço confirmação do nome antes de
-ele entrar em rótulo de UI — trocar depois é find-and-replace, mas prefiro não supor.
+Confirmado. Argumento decisivo: o painel do laudo, já em produção, diz literalmente **"⏳ Na
+carteira do cidadão, aguardando ciência."** (`clinica.html:3419`). O nome da casa ecoa o
+vocabulário que o operador já lê, em vez de introduzir termo novo — e evita o custo de uma
+segunda curva de aprendizado sem ganho.
 
-### 6.2 Ordem de implementação
+Nota de precisão que sustentou a escolha, e que serve de guarda para não se propor mudar o nome
+sem reabrir esta checagem: **abrir/liberar o laudo não transfere a posse do ITEM de volta ao
+cidadão** — `laudos.py` nunca chama `transferir_posse_exame`. O que vai à carteira é o
+**documento**; o item de exame, em `pedido_exame_custodia`, permanece registrado com o
+laboratório. Por isso "Com o cidadão" foi descartado: seria uma afirmação de posse que o sistema
+não faz.
 
-Recomendo dividir em dois PRs `module` independentes, sem dependência de sequência entre eles:
+### 6.2 Ordem de implementação — MARTELADO: A imediato, B batido com os PRs 2/4
 
-- **PR A** — a casa nova (§2.3) + a régua da Recepção com foco (§4). É o que resolve os dois
-  sintomas mais visíveis da excursão (Bancada presa em 2, Recepção presa em 1).
-- **PR B** — dissolver a Realização (§2.2, migrar o botão de coletar para Recepção/Agenda). É a
-  mudança estrutural maior, e absorve de graça os PRs 2 e 4 da CONSULTA-UX-001 (rótulos
-  unificados, contadores sem divergência) — por isso sugiro que ele espere até aqueles serem
-  martelados, para não reabrir os mesmos arquivos duas vezes.
+Confirmado o raciocínio do §6.2 original, reforçado pela lente clínica: um contador que MENTE
+é pior que um contador ausente — o operador aprende a desconfiar dele e para de checar quando
+importa (o mesmo mecanismo do alarme que berra demais em UTI, ao contrário: aqui é silêncio
+falso). A Bancada presa em 2 depois que não há mais nada a fazer é esse risco.
 
-Se o Fabiano preferir os dois juntos num PR só, digo desde já: o diff fica maior, mas nenhum dos
-dois depende tecnicamente do outro — a ordem é só de conveniência de revisão.
+- **PR A** (implementado nesta rodada) — a casa nova (§2.3) + a régua da Recepção com foco (§4).
+- **PR B** — dissolver a Realização (§2.2). Fica para quando os PRs 2 e 4 da CONSULTA-UX-001
+  forem martelados, porque PR B move o local físico de um botão clínico (memória motora do
+  operador) — trocar isso deve acontecer **uma vez só**, junto com os outros PRs que já mexem
+  no mesmo lugar, não em duas ondas separadas de readaptação.
 
 ---
 
