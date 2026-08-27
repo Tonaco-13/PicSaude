@@ -243,3 +243,140 @@ def test_agir_no_cartao_nao_navega_junto(page: Page, browser, app_demo, erros_de
         ctx.close()
 
     assert _pedido(app_demo, proto)["itens"][0]["status_item"] == "pendente"
+
+
+# ===========================================================================
+# 5 — granularidade honesta do "Não realizamos" (CONSULTA-UX-001/NC-4,
+#     MARTELO 27/08, PR 3)
+# ===========================================================================
+
+def _emitir_multiplos_e_entregar(base_url: str, nomes: list[str]) -> str:
+    """Mesmo preparo de `_emitir_e_entregar`, com N itens no mesmo pedido —
+    é o cenário onde a devolução em massa do cartão da fila importa: um
+    operador que quer recusar só o que ELE sabe que não faz devolvia o
+    pedido inteiro sem ver a lista antes (NC-4)."""
+    r = httpx.post(
+        f"{base_url}/pedidos-exame",
+        headers=_h(_tok(base_url, "prescritor")),
+        json={
+            "cns_prescritor": _CNS, "nome_prescritor": _NOME_PRESCRITOR,
+            "cpf_paciente": _CPF, "nome_paciente": _NOME_PACIENTE,
+            "enviar_ao_paciente": True,
+            "itens": [{"nome_exame": n, "quantidade": 1} for n in nomes],
+        },
+        timeout=15.0,
+    )
+    assert r.status_code in (200, 201), r.text
+    proto = r.json()["protocolo"]
+
+    rt = httpx.post(
+        f"{base_url}/pedidos-exame/{proto}/transferir-laboratorio",
+        headers=_h(_tok(base_url, "paciente")),
+        json={"cnpj_laboratorio": _CNPJ_CLINICA, "nome_laboratorio": "Clínica Demo"},
+        timeout=15.0,
+    )
+    assert rt.status_code in (200, 201), rt.text
+    return proto
+
+
+def test_botao_da_fila_declara_o_alcance_antes_do_clique(
+    page: Page, browser, app_demo, erros_de_console
+):
+    """O rótulo diz QUANTOS itens o clique devolve, ANTES de o operador clicar.
+
+    Sem isto (achado da excursão de 26/08), "↩️ Não realizamos" era mudo sobre
+    o tamanho do gesto — um pedido de 3 exames e um de 1 ofereciam o MESMO
+    botão, e só o clique revelava a diferença.
+    """
+    nomes = [f"HEMOGRAMA-N4-{_TS}", f"GLICEMIA-N4-{_TS}", f"TSH-N4-{_TS}"]
+    proto = _emitir_multiplos_e_entregar(app_demo, nomes)
+
+    ctx = _ctx_clinica(browser, app_demo)
+    try:
+        pl = ctx.new_page()
+        card = _cartao(pl, app_demo, proto)
+        expect(card.get_by_role("button", name="Não realizamos (3)")).to_be_visible(
+            timeout=_TIMEOUT_MS)
+    finally:
+        ctx.close()
+
+
+def test_confirmacao_da_fila_nomeia_os_exames_devolvidos(
+    page: Page, browser, app_demo, erros_de_console
+):
+    """A pergunta de confirmação NOMEIA o que vai voltar ao cidadão.
+
+    Contar ("3 exame(s)") diz quantos, não QUAIS — e era exatamente essa
+    lacuna que deixava o operador devolver mais do que pretendia sem
+    perceber (NC-4). A prova é o TEXTO do diálogo nativo, capturado no
+    handler — não dá para inspecionar um `confirm()` pela árvore de acessi-
+    bilidade, só pelo evento `dialog` do Playwright.
+    """
+    nomes = [f"HEMOGRAMA-N4B-{_TS}", f"GLICEMIA-N4B-{_TS}"]
+    proto = _emitir_multiplos_e_entregar(app_demo, nomes)
+
+    mensagens: list[str] = []
+
+    def _capturar(dialog):
+        mensagens.append(dialog.message)
+        dialog.dismiss()      # não precisamos completar o gesto para provar o texto
+
+    ctx = _ctx_clinica(browser, app_demo)
+    try:
+        pl = ctx.new_page()
+        card = _cartao(pl, app_demo, proto)
+        pl.on("dialog", _capturar)
+
+        # O motivo (modal `#modal-fato`, ENG-019 PR 6) vem ANTES do confirm
+        # nativo nesta função — precisa ser preenchido para o fluxo chegar
+        # ao aviso que este teste mede.
+        card.get_by_role("button", name="Não realizamos (2)").click()
+        expect(pl.locator("#modal-fato")).to_be_visible(timeout=_TIMEOUT_MS)
+        pl.locator("#modal-fato-input").fill("não realizamos nesta unidade")
+        pl.locator("#modal-fato-ok").click()
+
+        # O confirm() nativo dispara depois do modal fechar, num tick
+        # seguinte do event loop — poll manual em vez de `expect` (que mira
+        # locators, não callbacks Python).
+        for _ in range(int(_TIMEOUT_MS / 100)):
+            if mensagens:
+                break
+            pl.wait_for_timeout(100)
+        assert mensagens, "o confirm() nativo não disparou a tempo"
+    finally:
+        pl.remove_listener("dialog", _capturar)
+        ctx.close()
+
+    aviso = mensagens[0]
+    assert nomes[0] in aviso, f"o aviso não nomeou {nomes[0]!r}: {aviso!r}"
+    assert nomes[1] in aviso, f"o aviso não nomeou {nomes[1]!r}: {aviso!r}"
+
+
+def test_recusa_do_compromisso_tambem_declara_o_alcance(
+    page: Page, browser, app_demo, erros_de_console
+):
+    """O MESMO alcance, entrado pela porta do compromisso vigente.
+
+    `naoRealizamosDoCompromisso` DELEGA a `naoRealizamosDaFila` — uma
+    implementação, dois botões. O rótulo tem de contar certo nos dois.
+    """
+    nomes = [f"HEMOGRAMA-N4C-{_TS}", f"GLICEMIA-N4C-{_TS}"]
+    proto = _emitir_multiplos_e_entregar(app_demo, nomes)
+
+    r = httpx.post(
+        f"{app_demo}/agendamentos",
+        headers=_h(_tok(app_demo, "clinica")),
+        json={"pedido_protocolo": proto, "org_id": "clinica-demo",
+              "unidade_id": "DEMO-LAB", "data_hora": "2026-09-01T08:00:00"},
+        timeout=15.0,
+    )
+    assert r.status_code in (200, 201), r.text
+
+    ctx = _ctx_clinica(browser, app_demo)
+    try:
+        pl = ctx.new_page()
+        card = _cartao(pl, app_demo, proto)
+        expect(card.get_by_role("button", name="Não realizamos (2)")).to_be_visible(
+            timeout=_TIMEOUT_MS)
+    finally:
+        ctx.close()
