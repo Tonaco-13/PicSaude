@@ -161,8 +161,8 @@ def test_roteiro_da_demo_ponta_a_ponta(page: Page, browser, app_demo, erros_de_c
 
         item = pl.locator(f"#item-exame-{item_id}")
 
-        # 3b. Coleta.
-        item.get_by_role("button", name="Registrar coleta").click()
+        # 3b. Coleta. MARTELO 27/08 (PR 2) — era "Registrar coleta".
+        item.get_by_role("button", name="Coletar agora").click()
         expect(item).to_contain_text("Coletado", timeout=_TIMEOUT_MS)
 
         # 3c. Enviar à bancada (Ticket F). TICKET-J.8 — coletar MOVE o exame de
