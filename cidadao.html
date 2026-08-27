@@ -1163,7 +1163,6 @@
                 // significa é atrito sem ganho. A ciência nasce da abertura,
                 // que é o fato real — e o ledger registra a abertura, não uma
                 // "ciência" anunciando fato que não ocorreu.
-                const jaAberto = !!laudo.aberto_em;
                 const acaoHtml = laudo.status === 'ciencia_paciente' || laudo.status === 'encerrado'
                     ? `<span style="font-size:12px; color:#16a34a; font-weight:600;">✓ Ciência registrada</span>`
                     : `<span style="font-size:12px; color:#64748b;">${laudo.status}</span>`;
@@ -1197,7 +1196,7 @@
                         <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
                             <button class="btn-outline btn-small" style="margin:0;"
                                     onclick="abrirLaudo('${laudo.protocolo}')">
-                                ${jaAberto ? '📖 Abrir laudo' : '📖 Abrir laudo'}
+                                📖 Abrir laudo
                             </button>
                             <button class="btn-outline btn-small" style="margin:0;" onclick="baixarPdfLaudo('${laudo.protocolo}')">📄 Baixar PDF</button>
                             ${acaoHtml}
