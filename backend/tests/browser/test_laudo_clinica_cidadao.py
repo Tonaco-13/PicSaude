@@ -184,11 +184,34 @@ def test_clinica_produz_laudo_cidadao_recebe_e_da_ciencia(
         expect(pg.locator("#feedback-laudo")).to_contain_text(
             "carteira do cidadão", timeout=_TIMEOUT_MS)
         # AC — o item fechou o ciclo; o gatilho some (sem item na bancada).
+        #
+        # MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.3): item com
+        # resultado JÁ COBERTO por laudo sai da Bancada de vez — não é mais
+        # trabalho do laboratório, é trabalho de ninguém aqui. A asserção
+        # original ("Resultado disponível" dentro de Bancada) descrevia um
+        # item que ainda estava lá; agora ele mudou de casa, e o texto muda
+        # junto — para "Aguardando o cidadão dar ciência" (mesmo id, elemento
+        # relocado para #lista-aguardando).
         expect(pg.locator(f"#item-exame-{item_id}")).to_contain_text(
-            "Resultado disponível", timeout=_TIMEOUT_MS)
+            "Aguardando o cidadão dar ciência", timeout=_TIMEOUT_MS)
         expect(pg.locator("#acoes-laudo")).not_to_contain_text("Produzir laudo")
+        expect(pg.locator("#aba-count-bancada")).to_have_text("0")
+        expect(pg.locator("#aba-count-aguardando")).to_have_text("1")
         # AC — painel de acompanhamento mostra a etapa alcançada.
         expect(pg.locator("#painel-laudo")).to_contain_text("Liberado", timeout=_TIMEOUT_MS)
+
+        # MARTELO 27/08 — a casa nova tem conteúdo próprio: a lista (com o
+        # item namesake acima) e um resumo pedido-level do laudo vigente, que
+        # NÃO é o mesmo widget de `#painel-laudo` (esse é de produção/Bancada;
+        # este é de acompanhamento, só leitura — ver
+        # `_renderizarResumoLaudoAguardando`).
+        pg.locator("#aba-btn-aguardando").click()
+        expect(pg.locator("#lista-aguardando")).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(pg.locator("#lista-aguardando")).to_contain_text(nome_exame)
+        expect(pg.locator("#resumo-laudo-aguardando")).to_contain_text(
+            "Liberado", timeout=_TIMEOUT_MS)
+        expect(pg.locator("#resumo-laudo-aguardando")).to_contain_text(
+            "aguardando ciência")
     finally:
         ctx_lab.close()
 

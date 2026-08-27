@@ -874,6 +874,11 @@
           🔬 Bancada <span class="aba-count" id="aba-count-bancada">0</span>
         </button>
         <button type="button" role="tab" class="aba-lab"
+                id="aba-btn-aguardando" aria-controls="aba-aguardando" aria-selected="false"
+                onclick="abrirAbaLab('aguardando')">
+          ⏳ Aguardando o cidadão <span class="aba-count" id="aba-count-aguardando">0</span>
+        </button>
+        <button type="button" role="tab" class="aba-lab"
                 id="aba-btn-historico" aria-controls="aba-historico" aria-selected="false"
                 onclick="abrirAbaLab('historico'); carregarHistorico()">
           📚 Histórico <span class="aba-count" id="aba-count-historico">0</span>
@@ -1029,6 +1034,27 @@
           <div id="feedback-laudo" class="hidden"></div>
           <div id="editor-laudo" class="hidden"></div>
           <div id="painel-laudo" class="hidden"></div>
+        </div>
+      </section>
+
+      <!-- ══════════════ ABA — AGUARDANDO O CIDADÃO ══════════════ -->
+      <!-- MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.3) — item com
+           resultado JÁ COBERTO por laudo não é mais trabalho do laboratório:
+           não é trabalho de ninguém aqui, só do cidadão. Antes ficava contado
+           na Bancada, mentindo sobre o que ainda precisava de atenção — o
+           sintoma mais confuso da excursão do arquiteto em 26/08 (Bancada
+           presa em 2 depois de o laudo já ter sido liberado). Read-only: só a
+           abertura do laudo pelo cidadão muda o que está aqui (#203/#204),
+           nunca um gesto do laboratório. -->
+      <section class="aba-painel hidden" id="aba-aguardando" role="tabpanel" aria-labelledby="aba-btn-aguardando">
+        <div class="aba-vazia sem-pedido hidden" id="vazio-aguardando">
+          Nenhum pedido em foco.<br>
+          Abra um pedido pela <strong>Recepção</strong> para acompanhar a ciência do cidadão.
+        </div>
+        <div class="card" id="card-aguardando">
+          <div class="card-titulo">Aguardando o cidadão</div>
+          <div id="lista-aguardando"></div>
+          <div id="resumo-laudo-aguardando"></div>
         </div>
       </section>
 
@@ -1291,7 +1317,7 @@
     // retrabalho nesta tela.
     // ═════════════════════════════════════════════════════════════
 
-    const _ABAS_LAB = ['recepcao', 'agendamento', 'realizacao', 'bancada', 'historico'];
+    const _ABAS_LAB = ['recepcao', 'agendamento', 'realizacao', 'bancada', 'aguardando', 'historico'];
 
     // Etapas em que o material JÁ foi coletado — daí para a frente o trabalho é
     // de bancada. Tudo o que não está aqui nem encerrado ainda é Realização.
@@ -1306,8 +1332,19 @@
         !_ETAPAS_ENCERRADAS.includes(i.status_item));
     }
 
+    // MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.3) — item com
+    // resultado coberto por laudo NÃO é mais trabalho da Bancada, é trabalho
+    // de ninguém no laboratório. `laudado` vem do backend (ENG-019 PR 1) e é
+    // read-only aqui: nenhuma linha desta função escreve estado.
     function _itensDaAbaBancada(itens) {
-      return (itens || []).filter(i => _ETAPAS_POS_COLETA.includes(i.status_item));
+      return (itens || []).filter(i =>
+        _ETAPAS_POS_COLETA.includes(i.status_item)
+        && !(i.status_item === 'resultado_disponivel' && i.laudado === true));
+    }
+
+    function _itensAguardandoCidadao(itens) {
+      return (itens || []).filter(i =>
+        i.status_item === 'resultado_disponivel' && i.laudado === true);
     }
 
     // ENG-015 §2 — os itens que ainda esperam DECISÃO desta unidade.
@@ -1344,8 +1381,12 @@
      */
     function _abaSugeridaParaPedido() {
       const itens = (pedidoAtual && pedidoAtual.itens) || [];
-      if (_itensDaAbaRealizacao(itens).length) return 'realizacao';
-      if (_itensDaAbaBancada(itens).length)    return 'bancada';
+      if (_itensDaAbaRealizacao(itens).length)    return 'realizacao';
+      if (_itensDaAbaBancada(itens).length)       return 'bancada';
+      // Nada a fazer no laboratório, mas há exame esperando o cidadão: mais
+      // informativo do que abrir numa Recepção vazia que sugere triagem sem
+      // ter nenhuma (MARTELO 27/08).
+      if (_itensAguardandoCidadao(itens).length)  return 'aguardando';
       return 'recepcao';
     }
 
@@ -1378,7 +1419,8 @@
 
       [['agendamento', 'card-agendamento'],
        ['realizacao',  'card-realizacao'],
-       ['bancada',     'card-bancada']].forEach(([aba, cardId]) => {
+       ['bancada',     'card-bancada'],
+       ['aguardando',  'card-aguardando']].forEach(([aba, cardId]) => {
         const vazio = document.getElementById('vazio-' + aba);
         const card  = document.getElementById(cardId);
         if (vazio) vazio.classList.toggle('hidden', temPedido);
@@ -1386,10 +1428,27 @@
       });
 
       const naFila = document.getElementById('fila-count');
-      _definirContador('aba-count-recepcao', naFila ? naFila.textContent : 0);
+      _definirContador('aba-count-recepcao',
+        _contadorRecepcao(naFila ? Number(naFila.textContent) : 0));
       _definirContador('aba-count-agendamento', (agendamentosAtuais || []).length);
       _definirContador('aba-count-realizacao', _itensDaAbaRealizacao(itens).length);
       _definirContador('aba-count-bancada', _itensDaAbaBancada(itens).length);
+      _definirContador('aba-count-aguardando', _itensAguardandoCidadao(itens).length);
+    }
+
+    // MARTELO 27/08 (DESENHO-CIRCULACAO-CLINICA-CASAS.md §4) — com pedido em
+    // foco, a Recepção passa a contar os itens PENDENTES DAQUELE PEDIDO, na
+    // mesma régua das outras casas; sem foco, segue sendo a fila global.
+    //
+    // Centralizado porque DOIS lugares escreviam `aba-count-recepcao`: esta
+    // função e o poll da fila global (`_renderizarFilaExames`, GAP-4, a cada
+    // 30s, INDEPENDENTE do foco). Sem centralizar, o poll reescreveria por
+    // cima do valor correto a cada tick — o contador voltaria a mentir 30
+    // segundos depois de consertado.
+    function _contadorRecepcao(contagemFilaGlobal) {
+      return pedidoAtual
+        ? _itensDaAbaRecepcao(pedidoAtual.itens || []).length
+        : contagemFilaGlobal;
     }
 
     async function handleUnauthorized() {
@@ -1727,7 +1786,9 @@
       // pedido continua acessível pela busca/relatório, não pela fila.
       const visiveis = (fila || []).filter(p => (p.itens || []).some(i => i.acionavel));
       if (count) count.textContent = visiveis.length;
-      _definirContador('aba-count-recepcao', visiveis.length);   // TICKET-J.8
+      // MARTELO 27/08 — não sobrescrever com a contagem global se há pedido
+      // em foco: ver `_contadorRecepcao`.
+      _definirContador('aba-count-recepcao', _contadorRecepcao(visiveis.length));   // TICKET-J.8
       renderizarAgendaDaUnidade();   // ENG-015 §3 — mesma carga, outra pergunta
 
       if (!visiveis.length) {
@@ -2756,8 +2817,12 @@
       _pintarItens('lista-bancada', _itensDaAbaBancada(itens),
                    'Nenhum material na bancada. Registre a coleta na aba Realização.',
                    'bancada');
+      _pintarItens('lista-aguardando', _itensAguardandoCidadao(itens),
+                   'Nenhum exame aguardando ciência do cidadão neste pedido.',
+                   'aguardando');
 
       renderizarGatilhoLaudo(itens);   // TICKET-G — o laudo é do pedido
+      _renderizarResumoLaudoAguardando();
       _sincronizarAbas();
     }
 
@@ -2783,6 +2848,13 @@
         const sigtap = item.codigo_sigtap ? `<span><strong>SIGTAP:</strong> ${esc(item.codigo_sigtap)}</span>` : '';
 
         let acoesHtml = '';
+        // MARTELO 27/08 — "aguardando" é sempre `resultado_disponivel` (é a
+        // própria definição do filtro), mas o texto não pode ser o mesmo da
+        // Bancada ("✓ Resultado disponível" significa "falta laudar" lá).
+        // Aqui o laboratório já terminou; falta só o cidadão. Checar o
+        // contexto primeiro evita cair na cadeia por status logo abaixo.
+        if (contexto === 'aguardando') {
+          acoesHtml = `<span class="laudo-aguardo">⏳ Aguardando o cidadão dar ciência</span>`;
         // ENG-015 §2 — AS TRÊS DECISÕES, na aba da triagem.
         //
         // O item `pendente` sob custódia é o que espera decisão: agendar para
@@ -2790,7 +2862,7 @@
         // compromisso inventado) ou recusar. A recusa é DEVOLUÇÃO DE POSSE ao
         // cidadão (não é estado, não é cancelamento): o item segue `pendente`
         // e circula a outro CNPJ.
-        if (contexto === 'recepcao') {
+        } else if (contexto === 'recepcao') {
           acoesHtml = `<button class="btn-agendar-item" id="btn-agendar-item-${item.id}"
             onclick="agendarItemDaRecepcao(${item.id})">
             📅 Agendar
@@ -3381,6 +3453,49 @@
       ['ciencia_paciente',  'Ciência do cidadão'],
       ['encerrado',         'Encerrado'],
     ];
+
+    // MARTELO 27/08 — resumo do laudo VIGENTE do pedido, na casa "Aguardando
+    // o cidadão". Pedido-level, não por item: é a MESMA limitação de
+    // granularidade que `laudoDoPedido`/`#painel-laudo` já têm em Bancada —
+    // um só laudo (o não-terminal mais recente) rastreado por vez. Num
+    // pedido com laudos paralelos (J.10), este resumo reflete só um deles;
+    // cada item na lista acima já diz "aguardando ciência" sem prometer QUAL
+    // laudo — não estende a promessa além do que o dado sustenta.
+    //
+    // Deliberadamente NÃO uma cópia do `atualizarPainelLaudo`: aquele faz
+    // fetch próprio e sustenta o polling que a produção do laudo (Bancada)
+    // precisa. Este é só leitura do que `pedidoAtual` já trouxe — a tela
+    // busca de novo ao reabrir o pedido ou ao mudar de estado (mesma
+    // disciplina de `recarregarPedido`), sem duplicar a rede.
+    function _renderizarResumoLaudoAguardando() {
+      const el = document.getElementById('resumo-laudo-aguardando');
+      if (!el) return;
+      const proto  = pedidoAtual && pedidoAtual.laudo_protocolo;
+      const status = pedidoAtual && pedidoAtual.laudo_status;
+      if (!proto) { el.innerHTML = ''; return; }
+
+      const alcancado = _ETAPAS_LAUDO.findIndex(([st]) => st === status);
+      el.innerHTML = `
+        <div class="laudo-painel">
+          <div class="laudo-painel-linha"><strong>Laudo do pedido</strong>
+            <span class="laudo-painel-proto">${esc(proto)}</span></div>
+          <div class="laudo-etapas">
+            ${_ETAPAS_LAUDO.map(([st, rot], i) => `
+              <span class="laudo-etapa ${alcancado >= i && alcancado !== -1 ? 'feita' : ''}">${esc(rot)}</span>
+            `).join('')}
+          </div>
+          <div class="laudo-painel-linha">
+            ${status === 'ciencia_paciente'
+              ? '✓ O cidadão deu ciência do laudo.'
+              : '⏳ Na carteira do cidadão, aguardando ciência.'}
+          </div>
+          <div class="laudo-acoes">
+            <button class="btn-laudo-cancelar" onclick="baixarPdfLaudoClinica()">
+              📄 Baixar PDF do laudo
+            </button>
+          </div>
+        </div>`;
+    }
 
     async function atualizarPainelLaudo() {
       const painel = document.getElementById('painel-laudo');

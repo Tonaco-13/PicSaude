@@ -47,7 +47,11 @@ def _fonte(p: Path) -> str:
 # 1 — estrutura das abas
 # ---------------------------------------------------------------------------
 
-_ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada"]
+_ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada", "aguardando"]
+# MARTELO 27/08 — "aguardando" é a casa nova do
+# DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.3 (item com resultado já coberto por
+# laudo, esperando só o cidadão). A guarda parametrizada acima acompanha
+# junto — se ela deixar de ter botão+painel+ARIA, esta lista acusa.
 # A carteira do cidadão trocou a BARRA DE ABAS por CARTÕES-TÍTULO (decisão do
 # Fabiano, 24/08) e ganhou o submódulo LAUDOS, que antes era uma seção dentro de
 # Exames. A lista cresce por decisão registrada — nunca porque alguém achou a
