@@ -210,6 +210,11 @@ def test_nova_busca_devolve_a_recepcao_e_avisa_as_abas_vazias(
             pg.locator(f"#aba-btn-{aba}").click()
             expect(pg.locator(f"#vazio-{aba}")).to_be_visible(timeout=_TIMEOUT_MS)
             expect(pg.locator(f"#{card}")).to_be_hidden()
+            # CONSULTA-UX-001/NC-2, MARTELO 27/08 (PR 4) — "0" sem pedido em
+            # foco era mentira: dizia "nada aqui" quando o certo era "não sei,
+            # ninguém está olhando". As quatro casas que só sabem contar o
+            # pedido em foco mostram o traço, nunca zero, quando soltas.
+            expect(pg.locator(f"#aba-count-{aba}")).to_have_text("—")
     finally:
         ctx.close()
 
