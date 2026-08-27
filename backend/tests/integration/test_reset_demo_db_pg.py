@@ -16,6 +16,8 @@ AC coberto aqui:
   AC4  — verde: rebuild de PG limpo → alembic head + 17 triggers + personas.
   AC5  — vermelho-antes-de-verde: PG sujo (artefato injetado) → rebuild → some.
   AC6  — idempotente: rodar duas vezes → mesmo estado final.
+  AC7  — DESPACHO-OPS-002 §4.1/§6.1: `lock_timeout` — DROP sob contenção de
+         lock falha em ~15s (SQLSTATE 55P03), não trava indefinidamente.
   AC9  — alvo protegido: sem --sim-eu-quero e não-interativo → aborta, sem DROP.
   AC10 — schema efetivo + dispose: provado de forma funcional (a migração e o
          seed só completam num pool limpo; 17 triggers presentes o confirmam).
@@ -25,6 +27,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import psycopg2
@@ -244,3 +247,42 @@ def test_ac9_alvo_protegido_sem_flag(banco_descartavel):
     # Nenhum DROP emitido: schema e marcador intactos.
     assert _query_one("SELECT version_num FROM alembic_version") == _alembic_head()
     assert _contaminacao_presente(), "o marcador sumiu — houve DROP indevido sem confirmação"
+
+
+# ---------------------------------------------------------------------------
+# AC7 — lock_timeout (§4.1/§6.1 do despacho): sob contenção, o DROP falha
+# rápido (SQLSTATE 55P03) em vez de travar até o timeout opaco da plataforma
+# ---------------------------------------------------------------------------
+
+def test_ac7_lock_timeout_falha_rapido_sob_contencao(banco_descartavel):
+    _rebuild_ok()  # schema limpo + `prescritores` com a persona demo (1 linha)
+
+    # Segura lock em `prescritores` numa transação propositalmente aberta —
+    # simula o pool do web service com transação pendente (§6.1). Mesmo sem
+    # FOR UPDATE, qualquer SELECT dentro de uma transação aberta já detém
+    # AccessShareLock pela duração da transação, que conflita com o
+    # AccessExclusiveLock que DROP SCHEMA CASCADE exige em cada tabela.
+    locker = psycopg2.connect(_THROWAWAY_URL)
+    locker.autocommit = False
+    try:
+        with locker.cursor() as cur:
+            cur.execute("SELECT * FROM prescritores LIMIT 1 FOR UPDATE")
+
+        inicio = time.monotonic()
+        proc = _rodar_reset("--sim-eu-quero")
+        duracao = time.monotonic() - inicio
+
+        assert proc.returncode != 0, "deveria abortar sob contenção de lock, não travar"
+        # lock_timeout='15s' + folga de execução — bem abaixo do timeout opaco
+        # da plataforma que este guard existe para evitar.
+        assert duracao < 25, f"lock_timeout não conteve o DROP a tempo ({duracao:.1f}s)"
+        saida = proc.stdout.lower()
+        assert "55p03" in saida or "lock" in saida, proc.stdout
+    finally:
+        locker.rollback()  # libera o lock
+        locker.close()
+
+    # Lock liberado — um reset subsequente completa normalmente (nada ficou
+    # travado/corrompido pela tentativa abortada).
+    _rebuild_ok()
+    assert _query_one("SELECT version_num FROM alembic_version") == _alembic_head()

@@ -161,6 +161,65 @@ class TestRebuildSqlite:
 # import de banco. Não exigem dialeto — o abort acontece cedo.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# §4/§6.2 (DESPACHO-OPS-002) — sentinela pós-seed: sem verificador humano no
+# cron, a checagem vira código. Sabota um sentinela após um reset SQLite real
+# e prova que `_verificar_sentinelas()` aborta nomeando exatamente o que falta.
+#
+# `_resolve_sqlite_db_path()` (app/database.py) faz `from app.config import
+# PICSAUDE_DEMO_MODE, PIX_SAUDE_DEMO_DB` DENTRO da função — cada chamada relê
+# os atributos atuais do módulo `app.config`. Por isso `monkeypatch.setattr`
+# no módulo (não `monkeypatch.setenv`) é o jeito confiável de redirecionar
+# `get_conn()` para o SQLite efêmero do teste: os atributos de `app.config`
+# já foram resolvidos (e cacheados) no import do módulo, cedo na sessão do
+# pytest — mudar a env var agora não teria efeito nenhum.
+# ---------------------------------------------------------------------------
+
+class TestVerificarSentinelas:
+    def _apontar_get_conn_para(self, monkeypatch, demo_db: Path) -> None:
+        monkeypatch.setattr("app.config.PICSAUDE_DEMO_MODE", True)
+        monkeypatch.setattr("app.config.PIX_SAUDE_DEMO_DB", str(demo_db))
+
+    def test_sentinela_ausente_aborta_nomeando_a_ausente(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        demo_db = tmp_path / "pix_saude_demo.db"
+        proc = _rodar_reset_sqlite(demo_db)
+        assert proc.returncode == 0, f"setup do reset falhou:\n{proc.stdout}\n{proc.stderr}"
+
+        # Sabota a sentinela do atestado por DELETE direto — simula um
+        # `_garantir_atestado_demo` que engoliu erro (best-effort, OPS-001 §1).
+        # `atestados` não é ledger (§2): só `*_eventos` tem trigger de
+        # imutabilidade, a tabela primária aceita DELETE.
+        conn = sqlite3.connect(str(demo_db))
+        try:
+            conn.execute(
+                "DELETE FROM atestados WHERE protocolo = ?", ("DEMO-ATESTADO-0001",)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        self._apontar_get_conn_para(monkeypatch, demo_db)
+
+        from scripts.reset_demo_db import _verificar_sentinelas
+
+        with pytest.raises(SystemExit) as exc_info:
+            _verificar_sentinelas()
+        assert exc_info.value.code == 1
+        assert "atestados.DEMO-ATESTADO-0001" in capsys.readouterr().out
+
+    def test_todas_sentinelas_presentes_nao_aborta(self, tmp_path, monkeypatch):
+        demo_db = tmp_path / "pix_saude_demo.db"
+        proc = _rodar_reset_sqlite(demo_db)
+        assert proc.returncode == 0, f"setup do reset falhou:\n{proc.stdout}\n{proc.stderr}"
+
+        self._apontar_get_conn_para(monkeypatch, demo_db)
+
+        from scripts.reset_demo_db import _verificar_sentinelas
+        _verificar_sentinelas()  # não deve lançar
+
+
 class TestGuardas:
     def _rodar_com_env(self, tmp_path, env_over: dict) -> subprocess.CompletedProcess:
         env = {**os.environ, "PIX_SAUDE_DEMO_DB": str(tmp_path / "x.db"), **env_over}
