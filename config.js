@@ -55,6 +55,20 @@ const DEMO = {
     clinica:  { cnpj: '11222333000181', nome: 'Clínica Demo' },
 };
 
+// M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3) — lista de cidadãos demo para
+// o quick-pick (chips) dos três campos de paciente (receita/exame/
+// encaminhamento). `DEMO.cidadao` continua sendo O cidadão canônico da
+// circulação (guard-rail de concordância com o seed olha só para ele, e o
+// smoke de circulação de um cidadão só fecha nele — nada aqui muda isso).
+// `DEMO.cidadaos` é a LISTA para os chips: a mesma referência do canônico
+// (sem duplicar o literal) + os 2 novos, espelhados em seed_demo.py
+// (PACIENTE_2/PACIENTE_3). CPFs verificados no módulo 11.
+DEMO.cidadaos = [
+    DEMO.cidadao,
+    { cpf: '23456789173', nome: 'Ana Demo Ferreira' },
+    { cpf: '34567891228', nome: 'Pedro Demo Costa' },
+];
+
 // Atalho de login em DEV_MODE (prescritor.html) — credencial de teste local,
 // NÃO é identidade de circulação. Vive aqui só para não deixar um literal de 11
 // dígitos solto na tela (o antigo '11111111111', CPF matematicamente inválido).
