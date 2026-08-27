@@ -193,15 +193,16 @@ def test_parcial_e_devolucao_pelas_telas(browser, app_demo, erros_de_console):
         fila.locator(".fila-item", has_text=proto).click()
 
         # AC (vi) na tela: o item que ficou com o cidadão NÃO aparece — a
-        # unidade não vê (nem aciona) exame que está com outro. Vale nas DUAS
-        # listas em que um item `pendente` aparece desde o ENG-015 §2 (a
-        # Recepção decide, a Realização executa): o anti-vazamento não pode
-        # valer só na aba que o teste olhar.
-        expect(pl.locator(f"#item-exame-{id_tsh}")).to_have_count(0)
+        # unidade não vê (nem aciona) exame que está com outro.
+        #
+        # MARTELO 27/08 (PR B) — item `pendente` só mora na Recepção agora
+        # (`item-recep-exame-N`); a Realização, que também o mostrava, foi
+        # dissolvida. O anti-vazamento continua provado numa lista só, porque
+        # só sobrou uma.
         expect(pl.locator(f"#item-recep-exame-{id_tsh}")).to_have_count(0)
-        item_hemog = pl.locator(f"#item-exame-{id_hemog}")
-        expect(item_hemog).to_be_visible(timeout=_TIMEOUT_MS)
-        expect(item_hemog).to_contain_text("Pendente")
+        item_hemog_recepcao = pl.locator(f"#item-recep-exame-{id_hemog}")
+        expect(item_hemog_recepcao).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(item_hemog_recepcao).to_contain_text("Pendente")
 
         # §0.2: "o laboratório devolve, por item, o que não performa".
         #
@@ -209,19 +210,15 @@ def test_parcial_e_devolucao_pelas_telas(browser, app_demo, erros_de_console):
         # devolução pura de sempre (`/devolver`, J.10); mudou a aba de onde se
         # clica, não o que acontece.
         pl.locator("#aba-btn-recepcao").click()
-        item_hemog_recepcao = pl.locator(f"#item-recep-exame-{id_hemog}")
-        expect(item_hemog_recepcao).to_be_visible(timeout=_TIMEOUT_MS)
         # ENG-019 PR 6 — o motivo saiu do `prompt()` nativo e virou o modal
         # `#modal-fato`, que valida conteúdo. O `confirm()` de escopo que vem em
         # seguida continua nativo, e por isso o handler permanece.
         with _responder_dialogos(pl):
             item_hemog_recepcao.get_by_role("button", name="Não realizamos este exame").click()
             preencher_modal_fato(pl, "Não realizamos este exame na unidade")
-            # O item sai das DUAS listas porque saiu da CUSTÓDIA da unidade
-            # (§3.6) — a re-carga devolve o conjunto filtrado pela posse.
+            # O item sai da lista porque saiu da CUSTÓDIA da unidade (§3.6) —
+            # a re-carga devolve o conjunto filtrado pela posse.
             expect(pl.locator(f"#item-recep-exame-{id_hemog}")).to_have_count(
-                0, timeout=_TIMEOUT_MS)
-            expect(pl.locator(f"#item-exame-{id_hemog}")).to_have_count(
                 0, timeout=_TIMEOUT_MS)
     finally:
         ctx_lab.close()

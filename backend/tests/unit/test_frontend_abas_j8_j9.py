@@ -3,10 +3,17 @@ test_frontend_abas_j8_j9.py — TICKET-J.8 / J.9 (DESPACHO-ENG-011 §6, §7, §1
 
 AS REGRAS QUE ESTE ARQUIVO TRAVA
 --------------------------------
-1. **A tela do laboratório tem as 4 abas do percurso** (Recepção · Agendamento ·
-   Realização · Bancada) e a carteira do cidadão tem as 3 dela (Receita · Exames
-   · Agendamentos · Encaminhamentos · Atestado) — botão, painel e ligação ARIA
-   para cada uma.
+1. **A tela do laboratório tem as abas do percurso** (Recepção · Agendamento ·
+   Bancada · Aguardando o cidadão) e a carteira do cidadão tem as 3 dela
+   (Receita · Exames · Agendamentos · Encaminhamentos · Atestado) — botão,
+   painel e ligação ARIA para cada uma.
+
+   MARTELO 27/08 (PR B, DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2) — a
+   Realização, que era a 3ª aba, foi DISSOLVIDA: sua régua (`pendente` OU
+   `agendado`) era a MESMA união de Recepção + Agendamento — uma segunda
+   vitrine dos mesmos itens, com um botão a mais que já existia nas duas
+   casas de origem. "Aguardando o cidadão" (MARTELO 27/08, PR A) entrou no
+   lugar dela na lista.
 
 2. **Nenhuma aba lê `agendado` como "está com o laboratório".** É a instrução
    explícita do §6: o J.7 pode retirar a transição para `agendado` do ato de
@@ -47,7 +54,7 @@ def _fonte(p: Path) -> str:
 # 1 — estrutura das abas
 # ---------------------------------------------------------------------------
 
-_ABAS_LAB = ["recepcao", "agendamento", "realizacao", "bancada", "aguardando"]
+_ABAS_LAB = ["recepcao", "agendamento", "bancada", "aguardando"]
 # MARTELO 27/08 — "aguardando" é a casa nova do
 # DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.3 (item com resultado já coberto por
 # laudo, esperando só o cidadão). A guarda parametrizada acima acompanha
@@ -245,9 +252,15 @@ def test_a_aba_agendamentos_agrega_no_front_sem_endpoint_novo():
 # ---------------------------------------------------------------------------
 
 def _listas_de_particao(html: str) -> dict[str, str]:
-    """Extrai o corpo das constantes que decidem em qual aba um item cai."""
+    """Extrai o corpo das constantes que decidem em qual aba um item cai.
+
+    MARTELO 27/08 (PR B) — `_ETAPAS_ENCERRADAS` saiu da varredura: ela só
+    existia para `_itensDaAbaRealizacao`, e essa função foi removida junto
+    com a aba que definia. `_ETAPAS_POS_COLETA` continua — é quem decide o
+    que é Bancada, e continua podendo se acoplar a `agendado` por engano.
+    """
     achados = {}
-    for nome in ("_ETAPAS_POS_COLETA", "_ETAPAS_ENCERRADAS"):
+    for nome in ("_ETAPAS_POS_COLETA",):
         m = re.search(rf"const\s+{nome}\s*=\s*\[(.*?)\]", html, re.S)
         assert m, f"constante {nome} sumiu de clinica.html (o J.8 foi desfeito?)"
         achados[nome] = m.group(1)
@@ -260,8 +273,8 @@ def test_particao_das_abas_nao_menciona_agendado():
 
     Se o J.7 tirar a transição para `agendado` do `transferir-laboratorio`, os
     itens chegam ao laboratório como `pendente`. Uma partição escrita em cima de
-    `agendado` mandaria todos eles para lugar nenhum — a aba Realização ficaria
-    vazia com trabalho a fazer. Por isso o critério é "já foi coletado?".
+    `agendado` mandaria todos eles para lugar nenhum — a Bancada ficaria vazia
+    com material a processar. Por isso o critério é "já foi coletado?".
     """
     for nome, corpo in _listas_de_particao(_fonte(_CLINICA)).items():
         assert "agendado" not in corpo, (
@@ -269,17 +282,25 @@ def test_particao_das_abas_nao_menciona_agendado():
         )
 
 
-def test_realizacao_e_o_complemento_da_bancada_e_nao_uma_lista_de_estados():
-    """A aba Realização é definida por NEGAÇÃO (o que não foi coletado nem
-    encerrado). Uma lista positiva de estados voltaria a acoplar a UI ao
-    vocabulário que o J.7 pode mexer."""
+def test_realizacao_foi_dissolvida_pr_b():
+    """MARTELO 27/08 (PR B, DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2).
+
+    Supera `test_realizacao_e_o_complemento_da_bancada_e_nao_uma_lista_de_estados`
+    (removido, não só afrouxado): aquele guardava que a Realização era
+    definida por NEGAÇÃO. A regra que importava nunca foi COMO a aba se
+    definia — era que ela era redundante: sua régua (`pendente` OU `agendado`)
+    é a MESMA união de Recepção + Agendamento, com um botão a mais que já
+    existia nas duas. Dissolvida a aba, a única guarda que ainda faz sentido
+    é que ela NÃO VOLTE por acidente — refatoração que reintroduza a função
+    ou a marcação sem passar de novo pela decisão do arquiteto.
+    """
     html = _fonte(_CLINICA)
-    m = re.search(r"function _itensDaAbaRealizacao\(itens\)\s*\{(.*?)\n    \}", html, re.S)
-    assert m, "_itensDaAbaRealizacao sumiu de clinica.html"
-    corpo = m.group(1)
-    assert "!_ETAPAS_POS_COLETA.includes" in corpo and "!_ETAPAS_ENCERRADAS.includes" in corpo, (
-        "Realização deixou de ser o complemento de Bancada — reacoplamento a estados nominais"
+    assert "function _itensDaAbaRealizacao" not in html, (
+        "_itensDaAbaRealizacao voltou — a dissolução do PR B foi desfeita "
+        "sem decisão nova do arquiteto?"
     )
+    assert 'id="aba-btn-realizacao"' not in html, "o botão da aba Realização voltou"
+    assert 'id="aba-realizacao"' not in html, "o painel da aba Realização voltou"
 
 
 # ---------------------------------------------------------------------------

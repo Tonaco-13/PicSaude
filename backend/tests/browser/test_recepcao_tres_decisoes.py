@@ -8,7 +8,9 @@ AS REGRAS QUE ESTE ARQUIVO GUARDA
   §2 — Recepção: **Agendar · Coletar agora · Não realizamos**, três decisões
   num só lugar ("Coletar agora" é o rótulo desde o MARTELO 27/08, PR 2 do
   desenho de circulação — era "Executar agora"). "Não realizamos" SAIU da
-  Realização, que fica com o gesto que o nome dela promete. Sobre item já
+  Realização, que ficou, então, com um gesto só — e foi exatamente por
+  sobrar um gesto só, já disponível na própria Recepção, que a Realização
+  foi DISSOLVIDA (MARTELO 27/08, PR B, mesmo desenho, §2.2). Sobre item já
   `agendado`, a recusa é **ato composto**: cancela a agenda E devolve a posse
   — dois fatos, dois eventos.
 
@@ -173,17 +175,22 @@ def _abrir_pela_fila(pg: Page, base_url: str, proto: str):
 
 
 # ===========================================================================
-# §2 — as três decisões, e a Realização com um gesto só
+# §2 — as três decisões da Recepção (a Realização foi dissolvida, PR B)
 # ===========================================================================
 
-def test_a_recepcao_oferece_as_tres_decisoes_e_a_realizacao_so_coleta(
-    browser, app_demo
-):
-    """A geometria do §2, nas duas abas de uma vez.
+def test_a_recepcao_e_a_unica_casa_do_item_pendente(browser, app_demo):
+    """A geometria do §2, agora numa casa só.
 
-    O mesmo item `pendente` aparece nas duas listas — e é justamente por isso
-    que o teste olha as duas: se "Não realizamos" tivesse ficado onde estava, a
-    Recepção passaria e a regra teria falhado do mesmo jeito.
+    MARTELO 27/08 (PR B, DESENHO-CIRCULACAO-CLINICA-CASAS.md §2.2) — SUPERA
+    `test_a_recepcao_oferece_as_tres_decisoes_e_a_realizacao_so_coleta`
+    (removido, não só afrouxado). Aquele teste provava que o mesmo item
+    `pendente` aparecia em DUAS listas ao mesmo tempo (Recepção e Realização)
+    e que só a Recepção tinha a recusa. A regra que importava nunca foi
+    "onde a recusa NÃO está" — era que a Realização era cópia redundante da
+    Recepção. Dissolvida ela, a prova vira o oposto: o item `pendente` só
+    existe numa casa, com as três decisões juntas, e o namespace da Bancada
+    (`item-exame-N`, sem duplicar `item-recep-exame-N`) nem chega a existir
+    enquanto o item não sai de `pendente`.
     """
     proto = _no_laboratorio(app_demo, "TRES")
     item_id = _pedido(app_demo, proto)["itens"][0]["id"]
@@ -200,15 +207,9 @@ def test_a_recepcao_oferece_as_tres_decisoes_e_a_realizacao_so_coleta(
         expect(na_recepcao.get_by_role("button", name="Coletar agora")).to_be_visible()
         expect(na_recepcao.get_by_role("button", name="Não realizamos este exame")).to_be_visible()
 
-        pg.locator("#aba-btn-realizacao").click()
-        na_realizacao = pg.locator(f"#item-exame-{item_id}")
-        expect(na_realizacao).to_be_visible(timeout=_TIMEOUT_MS)
-        # MARTELO 27/08 (PR 2) — era "Registrar coleta"; mesmo rótulo da
-        # Recepção agora ("Coletar agora"), dois elementos DOM distintos.
-        expect(na_realizacao.get_by_role("button", name="Coletar agora")).to_be_visible()
-        expect(na_realizacao.get_by_role("button", name="Não realizamos este exame")).to_have_count(
-            0, timeout=_TIMEOUT_MS
-        )
+        # A aba Realização não existe mais — este é o teste de ausência.
+        expect(pg.locator("#aba-btn-realizacao")).to_have_count(0)
+        expect(pg.locator(f"#item-exame-{item_id}")).to_have_count(0)
         assert not erros_js, erros_js
     finally:
         ctx.close()
