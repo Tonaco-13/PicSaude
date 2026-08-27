@@ -116,6 +116,13 @@ def _identidades_config() -> dict[str, str]:
         "cidadao_cpf":  _extrair(txt, r"cidadao:\s*\{\s*cpf:\s*'(\d{11})'", "DEMO.cidadao.cpf"),
         "farmacia_cnpj": _extrair(txt, r"farmacia:\s*\{\s*cnpj:\s*'(\d{14})'", "DEMO.farmacia.cnpj"),
         "clinica_cnpj":  _extrair(txt, r"clinica:\s*\{\s*cnpj:\s*'(\d{14})'", "DEMO.clinica.cnpj"),
+        # M-B — 2º/3º cidadão (chips de quick-pick), ordem literal do array.
+        "cidadao2_cpf": _extrair(txt, r"cidadaos\s*=\s*\[[^\]]*?\{\s*cpf:\s*'(\d{11})'", "DEMO.cidadaos[1].cpf"),
+        "cidadao3_cpf": _extrair(
+            txt,
+            r"cidadaos\s*=\s*\[[^\]]*?\{\s*cpf:\s*'\d{11}'[^\]]*?\{\s*cpf:\s*'(\d{11})'",
+            "DEMO.cidadaos[2].cpf",
+        ),
     }
 
 
@@ -125,6 +132,8 @@ def _identidades_seed() -> dict[str, str]:
         "cidadao_cpf":  _extrair(txt, r'PACIENTE\s*=\s*dict\(\s*cpf\s*=\s*"(\d{11})"', "PACIENTE.cpf"),
         "farmacia_cnpj": _extrair(txt, r'DISPENSADOR\s*=\s*dict\(\s*cnpj\s*=\s*"(\d{14})"', "DISPENSADOR.cnpj"),
         "clinica_cnpj":  _extrair(txt, r'CLINICA\s*=\s*dict\(\s*cnpj\s*=\s*"(\d{14})"', "CLINICA.cnpj"),
+        "cidadao2_cpf": _extrair(txt, r'PACIENTE_2\s*=\s*dict\(\s*cpf\s*=\s*"(\d{11})"', "PACIENTE_2.cpf"),
+        "cidadao3_cpf": _extrair(txt, r'PACIENTE_3\s*=\s*dict\(\s*cpf\s*=\s*"(\d{11})"', "PACIENTE_3.cpf"),
     }
 
 
@@ -144,6 +153,8 @@ def test_config_e_seed_declaram_as_mesmas_identidades():
         ("cidadao_cpf", "cpf"),
         ("farmacia_cnpj", "cnpj"),
         ("clinica_cnpj", "cnpj"),
+        ("cidadao2_cpf", "cpf"),
+        ("cidadao3_cpf", "cpf"),
     ],
 )
 def test_identidades_passam_na_validacao_de_digitos(digitos, validador):

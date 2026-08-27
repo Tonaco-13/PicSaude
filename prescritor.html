@@ -321,6 +321,9 @@
        telas. O CSS local desta barra foi PROMOVIDO para `submodulos.css`. -->
   <link rel="stylesheet" href="submodulos.css">
   <script src="submodulos.js"></script>
+  <!-- M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3) — quick-pick de
+       cidadãos demo nos três campos de paciente. -->
+  <script src="chips-cidadaos-demo.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -571,6 +574,7 @@
                             <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Telefone</label><input type="text" id="pac-telefone" class="form-input" placeholder="DDD + Número"></div>
                         </div>
+                        <div id="chips-cidadao-receita" class="no-print"></div>
                         <div class="grid-address-1" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Logradouro, Número e Bairro <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-endereco" class="form-input" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Complemento</label><input type="text" id="pac-complemento" class="form-input" placeholder="Apto, Bloco"></div>
@@ -693,6 +697,7 @@
                                 </select>
                             </div>
                         </div>
+                        <div id="chips-cidadao-exame" class="no-print"></div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label" style="color: #6d28d9;">Indicação Clínica
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(assistida por IA CID)</span>
@@ -968,6 +973,7 @@
                                     <select id="enc-finalidade" class="form-select" required aria-required="true" onchange="_toggleFinalidadeOutra()"></select>
                                 </div>
                             </div>
+                            <div id="chips-cidadao-encaminhamento" class="no-print"></div>
                             <div class="form-group hidden" id="enc-finalidade-outra-wrap" style="margin:16px 0 0;">
                                 <label class="form-label">Qual finalidade? <span class="obrigatorio" aria-hidden="true">*</span></label>
                                 <input type="text" id="enc-finalidade-texto" class="form-input" placeholder="ex.: parecer pré-operatório">
@@ -1210,6 +1216,28 @@
         function montarSubmodulosPrescritor() {
             Submodulos.render('submod-nav-prescritor', _SUBMODULOS_PRESCRITOR,
                               mostrarSubmodulo, 'receita', 'Submódulos do prescritor');
+        }
+
+        // M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3) — três montagens do
+        // MESMO componente (chips-cidadaos-demo.js), um par nome/CPF por
+        // circulação. Montada uma vez, como a barra de submódulos acima: os
+        // três formulários já existem no DOM (só ficam ocultos pela aba).
+        //
+        // Só em DEMO_MODE: fora da vitrine, "cidadão demo" no consultório real
+        // seria só ruído — e um clique errado preencheria o CPF de um cidadão
+        // fictício num atendimento de verdade. Checagem PRÓPRIA de
+        // /config/public (não reaproveita o <body class="demo"> do banner no
+        // topo): `_entrarNoDashboard` também é alcançada pela hidratação de
+        // sessão síncrona (re-login/E2E, sem await algum antes), que corre
+        // contra a MESMA janela de rede do banner — depender da classe do
+        // <body> aqui seria torcer para vencer uma corrida.
+        async function montarChipsCidadaosDemo() {
+            const cfg = await fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
+                                .then(r => r.json()).catch(() => ({}));
+            if (!cfg.demo_mode) return;
+            ChipsCidadaosDemo.montar('chips-cidadao-receita', 'pac-nome', 'pac-chave');
+            ChipsCidadaosDemo.montar('chips-cidadao-exame', 'exam-pac-nome', 'exam-pac-cpf');
+            ChipsCidadaosDemo.montar('chips-cidadao-encaminhamento', 'enc-pac-nome', 'enc-pac-cpf');
         }
 
         function mostrarSubmodulo(qual) {
@@ -1988,6 +2016,7 @@
             // A barra é montada UMA vez, ao entrar. Re-render piscaria a
             // navegação sob o dedo de quem está prescrevendo.
             montarSubmodulosPrescritor();
+            montarChipsCidadaosDemo();
             novaReceita();
             atualizarPainel();
         }
