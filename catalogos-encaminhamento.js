@@ -33,44 +33,53 @@
 window.CATALOGOS_ENCAMINHAMENTO = {
   versao: "2026-08-23.1",
 
-  /* Especialidades — o §5 pede 10–15 na demo. A ordem é alfabética de
-     propósito: ordenar por "mais usada" seria capturar demanda pela porta dos
-     fundos, exatamente o que a sugestão de destino declara e mitiga.
-
-     DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md §6 — forma `{titulo, codigo}` já
-     na PR do painel (não na PR da base): quando a base CBO entrar (PR
-     `adapter`), cada entrada ganha `codigo` e o painel não muda uma linha —
-     é o teste da agnosticidade. `codigo: null` aqui é a forma HONESTA da
-     lista atual, não uma omissão. */
+  // CBO:GERADO-INICIO — NÃO EDITAR À MÃO. Bloco regenerado por
+  // backend/scripts/importar_snapshot_cbo_encaminhamento.py (DESENHO-
+  // TYPEAHEAD-ENCAMINHAMENTO-CBO.md §3, PR `adapter`). Mudar a base é
+  // editar a FONTE VERIFICADA no script e rodá-lo de novo — nunca editar
+  // o array abaixo diretamente (drift entre script e arquivo é exatamente
+  // o defeito que "importação versionada" existe para evitar).
   especialidades: [
-    { titulo: "CARDIOLOGIA",          codigo: null },
-    { titulo: "CIRURGIA GERAL",       codigo: null },
-    { titulo: "DERMATOLOGIA",         codigo: null },
-    { titulo: "ENDOCRINOLOGIA",       codigo: null },
-    { titulo: "GASTROENTEROLOGIA",    codigo: null },
-    { titulo: "GINECOLOGIA",          codigo: null },
-    { titulo: "NEUROLOGIA",           codigo: null },
-    { titulo: "OFTALMOLOGIA",         codigo: null },
-    { titulo: "ORTOPEDIA",            codigo: null },
-    { titulo: "OTORRINOLARINGOLOGIA", codigo: null },
-    { titulo: "PEDIATRIA",            codigo: null },
-    { titulo: "PNEUMOLOGIA",          codigo: null },
-    { titulo: "PSIQUIATRIA",          codigo: null },
-    { titulo: "REUMATOLOGIA",         codigo: null },
-    { titulo: "UROLOGIA",             codigo: null },
+    { titulo: "CARDIOLOGIA",          codigo: "2251-20", familia: "2251" },
+    { titulo: "CIRURGIA GERAL",       codigo: "2252-25", familia: "2252" },
+    { titulo: "DERMATOLOGIA",         codigo: "2251-35", familia: "2251" },
+    { titulo: "ENDOCRINOLOGIA",       codigo: "2251-55", familia: "2251" },
+    { titulo: "ENFERMAGEM",           codigo: "2235-05", familia: "2235" },
+    { titulo: "FISIOTERAPIA",         codigo: "2236-05", familia: "2236" },
+    { titulo: "FONOAUDIOLOGIA",       codigo: "2238-10", familia: "2238" },
+    { titulo: "GASTROENTEROLOGIA",    codigo: "2251-65", familia: "2251" },
+    { titulo: "GINECOLOGIA",          codigo: "2252-50", familia: "2252" },
+    { titulo: "NEUROLOGIA",           codigo: "2251-12", familia: "2251" },
+    { titulo: "NUTRIÇÃO",             codigo: "2237-10", familia: "2237" },
+    { titulo: "ODONTOLOGIA",          codigo: "2232-08", familia: "2232" },
+    { titulo: "OFTALMOLOGIA",         codigo: "2252-65", familia: "2252" },
+    { titulo: "ORTOPEDIA",            codigo: "2252-70", familia: "2252" },
+    { titulo: "OTORRINOLARINGOLOGIA", codigo: "2252-75", familia: "2252" },
+    { titulo: "PEDIATRIA",            codigo: "2251-24", familia: "2251" },
+    { titulo: "PNEUMOLOGIA",          codigo: "2251-27", familia: "2251" },
+    { titulo: "PSICOLOGIA",           codigo: "2515-10", familia: "2515" },
+    { titulo: "PSIQUIATRIA",          codigo: "2251-33", familia: "2251" },
+    { titulo: "REUMATOLOGIA",         codigo: "2251-36", familia: "2251" },
+    { titulo: "UROLOGIA",             codigo: "2252-85", familia: "2252" },
   ],
 
-  /* Provenância lida pelo painel (typeahead-catalogo.js) — nunca fixa no
-     componente. Trocar a base (PR `adapter`) muda só isto: `fonte`/`versao`
-     passam a citar CBO/MTE, `unidade` pode virar "famílias CBO". O `total`
-     é sempre recalculado de `especialidades.length`, nunca duplicado aqui
-     (lição de comentario-que-promete-fonte-unica: duplicação com contagem
-     estática é duplicação). */
   especialidadesFonte: {
-    fonte: "lista local curada",
-    versao: "2026-08-23.1",
+    fonte: "CBO/MTE — Portaria 397/2002",
+    versao: "CBO 2002",
     unidade: "entradas",
+    data_snapshot: "2026-08-28",
+    familias_incluidas: {
+      "2251": "Médicos clínicos",
+      "2252": "Médicos em especialidades cirúrgicas",
+      "2232": "Cirurgiões-dentistas",
+      "2235": "Enfermeiros e afins",
+      "2236": "Fisioterapeutas",
+      "2237": "Nutricionistas",
+      "2238": "Fonoaudiólogos",
+      "2515": "Psicólogos e psicanalistas",
+    },
   },
+  // CBO:GERADO-FIM
 
   /* Finalidade estruturada (§5). Os códigos são os do backend
      (`FINALIDADES_ENCAMINHAMENTO`); o rótulo é o que o médico lê. */
