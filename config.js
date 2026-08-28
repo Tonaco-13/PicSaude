@@ -109,10 +109,51 @@ function aplicarMascarasCPFGlobais() {
     document.querySelectorAll('.cpf-input, input[data-tipo="cpf"]').forEach(aplicarMascaraCPF);
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', aplicarMascarasCPFGlobais);
-} else {
+/** Aplica máscara automática enquanto o usuário digita CEP num <input>. */
+function aplicarMascaraCEP(input) {
+    if (!input || input.dataset.cepMaskApplied) return;
+    input.dataset.cepMaskApplied = '1';
+    input.setAttribute('inputmode', 'numeric');
+    input.setAttribute('maxlength', '9');  // 8 dígitos + 1 separador
+    input.setAttribute('placeholder', '00000-000');
+    input.addEventListener('input', function(e) {
+        let v = e.target.value.replace(/\D/g, '').slice(0, 8);
+        if (v.length > 5) v = v.replace(/(\d{5})(\d{1,3}).*/, '$1-$2');
+        e.target.value = v;
+    });
+}
+
+/** Aplica a máscara em todos os <input class="cep-input"> da página. */
+function aplicarMascarasCEPGlobais() {
+    document.querySelectorAll('.cep-input, input[data-tipo="cep"]').forEach(aplicarMascaraCEP);
+}
+
+/** TICKET FILA-VIVA A2 (Júlia, 26/08) — bloqueia não-dígitos em campos
+ * numéricos sem máscara de separador (ex.: Idade). */
+function aplicarRestricaoNumerica(input) {
+    if (!input || input.dataset.numericoApplied) return;
+    input.dataset.numericoApplied = '1';
+    input.setAttribute('inputmode', 'numeric');
+    input.addEventListener('input', function(e) {
+        e.target.value = e.target.value.replace(/\D/g, '').slice(0, e.target.maxLength > 0 ? e.target.maxLength : undefined);
+    });
+}
+
+/** Aplica a restrição numérica em todos os <input class="numerico-input"> da página. */
+function aplicarRestricoesNumericasGlobais() {
+    document.querySelectorAll('.numerico-input, input[data-tipo="numerico"]').forEach(aplicarRestricaoNumerica);
+}
+
+function _inicializarMascarasEntradaGlobais() {
     aplicarMascarasCPFGlobais();
+    aplicarMascarasCEPGlobais();
+    aplicarRestricoesNumericasGlobais();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _inicializarMascarasEntradaGlobais);
+} else {
+    _inicializarMascarasEntradaGlobais();
 }
 
 // ─────────────────────────────────────────────────────────────────────────

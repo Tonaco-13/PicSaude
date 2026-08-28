@@ -471,7 +471,7 @@
                             <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="vinc-cep" class="form-input" placeholder="00000-000" required aria-required="true"></div>
+                    <div class="form-group"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="vinc-cep" class="form-input cep-input" data-tipo="cep" required aria-required="true"></div>
                 </div>
                 
                 <div class="grid-2">
@@ -525,7 +525,7 @@
                             <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="perfil-cep" class="form-input" required aria-required="true"></div>
+                    <div class="form-group"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="perfil-cep" class="form-input cep-input" data-tipo="cep" required aria-required="true"></div>
                 </div>
                 
                 <div class="grid-2">
@@ -574,7 +574,7 @@
                         <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Dados Clínicos do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-nome" class="form-input" required aria-required="true"></div>
-                            <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required aria-required="true"></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input numerico-input" data-tipo="numerico" maxlength="3" placeholder="Ex: 45" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Telefone</label><input type="text" id="pac-telefone" class="form-input" placeholder="DDD + Número"></div>
                         </div>
                         <div class="grid-address-1" style="margin-bottom: 16px;">
@@ -589,7 +589,7 @@
                                     <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE" selected>PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option>
                                 </select>
                             </div>
-                            <div class="form-group" style="margin: 0;"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-cep" class="form-input" required aria-required="true"></div>
+                            <div class="form-group" style="margin: 0;"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-cep" class="form-input cep-input" data-tipo="cep" required aria-required="true"></div>
                         </div>
 
                         <!-- Indicação Clínica (opcional) com sugestão de CID (IA CID) —
@@ -2940,7 +2940,7 @@
             document.getElementById('print-medico-cep').textContent = rec.medico_cep;
             document.getElementById('print-medico-tel').textContent = rec.medico_telefone || 'N/I';
             document.getElementById('print-paciente').textContent = rec.paciente_nome;
-            document.getElementById('print-idade').textContent = rec.paciente_idade;
+            document.getElementById('print-idade').textContent = rec.paciente_idade ? `${rec.paciente_idade} anos` : '';
             document.getElementById('print-telefone').textContent = rec.paciente_telefone || 'Não informado';
             document.getElementById('print-paciente-endereco').textContent = rec.paciente_endereco;
             document.getElementById('print-paciente-cep').textContent = rec.paciente_cep;
