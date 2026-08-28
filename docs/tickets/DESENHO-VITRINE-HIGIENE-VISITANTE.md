@@ -5,7 +5,7 @@
 | **Origem** | Fabiano, 27/08: *"as pessoas prescrevem nomes chulos, como TEBATO NAKARA"* na vitrine pública |
 | **Autor** | Arquiteto (Z) — desenho, **não implementação** |
 | **Classe** | Resposta primária: **nenhum código** (martelos do OPS-002). Resposta opcional de fonte: `module` (um PR de tela) |
-| **Estado** | 🟢 **Martelado (Fabiano, 27/08)**: M-A coberto pelos M1/M2 do OPS-002; **M-B aprovado** — PR `module` dos chips liberado |
+| **Estado** | M-A ✔ (OPS-002: #212 mergeado, Blueprint aplicado, primeiro run 28/08 04:00 BRT verde) · M-B ✔ implementado (#213, `b0ef413`) · **M-C martelado (28/08)** — adendo §7, aguarda engenheiro |
 | **Relacionados** | `DESPACHO-OPS-002-RESET-DEMO-CRON.md` (a cadência que resolve a maior parte) · `DESPACHO-OPS-001` (o ritual manual pré-demo) |
 
 ---
@@ -99,6 +99,49 @@ um dia justificar, é desenho novo do arquiteto.
 
 ---
 
-*Desenho do arquiteto, 2026-08-27. Âncoras conferidas: `prescritor.html:570/685/962` ·
-`utils/helpers.py:10` · `seed_demo.py:11` · OPS-001 §3–§5 · OPS-002 §7. Implementação,
-se M-B for aprovado, é do engenheiro.*
+## §7 Adendo M-C — João fixado por padrão nos QUATRO objetos (Fabiano, 28/08)
+
+**Martelo:** *"fixar João Demo da Silva nos quatro objetos sanitários"*.
+
+**Precisão de leitura — o que "fixar" significa:** preenchimento **padrão** do par
+nome+CPF quando o formulário carrega. **Não** é travar o campo: "texto livre
+permanece" foi martelo do §3 e continua valendo — a vitrine não ganha gate. A
+hierarquia do caminho canônico fica: **padrão (zero cliques) > chips (um clique) >
+texto livre (digitar)**. O M-C zera o custo do caso mais comum.
+
+**O quarto objeto.** O M-B (#213) cobriu três montagens — receita (`pac-nome`/
+`pac-chave`), exame (`exam-pac-nome`/`exam-pac-cpf`), encaminhamento
+(`enc-pac-nome`/`enc-pac-cpf`). O **atestado** (`atestado-paciente` +
+`atestado-cpf`) ficou de fora — e é o único dos quatro com CPF **obrigatório**
+para o documento digital. M-C fecha o conjunto.
+
+**Spec:**
+
+1. **Quarta montagem** do componente único (`chips-cidadaos-demo.js`) no atestado.
+2. **Preenchimento padrão**: no boot (e após qualquer limpeza de formulário que o
+   fluxo já faça), os **quatro pares** recebem `DEMO.cidadaos[0]` (João), pelo
+   MESMO código interno de fill+dispatch que o clique do chip usa — máscara de
+   CPF aplicada igual, eventos nativos idênticos. Uma função de preencher, cinco
+   chamadas (4 default + clique): mesma língua por construção.
+3. **Sem memória**: nada de localStorage de última escolha — todo render novo
+   volta a João. "Vitrine nova de manhã" é o modelo mental; escolha sticky seria
+   estado de UI sem dono.
+4. **Convivência**: o botão "Preencher com dados da prescrição atual" do atestado
+   continua podendo sobrescrever — ordem: default no boot, botão é gesto posterior.
+
+**ACs** (classe `module` — só frontend + config):
+
+- **AC1**: fresh load → os 4 pares mostram João (nome + CPF mascarado), sem clique.
+- **AC2**: chips visíveis no atestado (quarta montagem do mesmo componente).
+- **AC3**: limpar/editar continua funcionando; **nenhum** gate novo (§4 vale).
+- **AC4**: chip continua trocando o par; recarregar a página volta ao padrão.
+- **AC5**: guarda de ordem — teste declara `DEMO.cidadaos[0]` = João Demo da
+  Silva (`12345678909`): a posição do "fixado" é contrato, não sorteio.
+- **AC6**: browser test cobre AC1 e a digitação por cima (AC3).
+
+---
+
+*Desenho do arquiteto, 2026-08-27; adendo M-C em 2026-08-28. Âncoras conferidas:
+`prescritor.html:570/685/762/962` · `chips-cidadaos-demo.js` (API `montar`,
+fill+dispatch interno) · `config.js:66` (`DEMO.cidadaos[0]` = `DEMO.cidadao`) ·
+`utils/helpers.py:10` · OPS-001 §3–§5 · OPS-002 §7. Implementação é do engenheiro.*
