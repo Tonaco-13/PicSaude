@@ -128,6 +128,42 @@ class ResultadoValidacaoCatalogo:
     sugestao_classe: Optional[str] = None
     sugestao_tipo_retencao: Optional[str] = None
     substancia: Optional[SubstanciaCatalogo] = None
+    # DESENHO-TALAO-DIGITAL-SNCR.md §1 (G1) — a INVERSÃO SEMÂNTICA: com a
+    # base carimbada (completa + versionada), ausência deixa de ser silêncio
+    # e vira afirmação negativa confiável. Populado SÓ quando `carimbo` foi
+    # passado a `validar_classificacao` E a substância não foi encontrada —
+    # nos demais casos fica None (nada a afirmar, ou já há classificação).
+    afirmacao_nao_controlado: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class CarimboRegulatorio:
+    """A base está COMPLETA e VERSIONADA sob esta declaração — é o que
+    autoriza `validar_classificacao` a inverter o princípio da cautela
+    (§1 do desenho). Sem carimbo (None), ausência continua sendo silêncio,
+    como sempre foi."""
+    fonte: str
+    versao: str
+    data_snapshot: str  # ISO "AAAA-MM-DD"
+
+
+def buscar_carimbo_ativo(conn) -> Optional[CarimboRegulatorio]:
+    """Lê a linha única de `catalogo_regulatorio_carimbo` (id=1). `versao
+    IS NULL` é o estado PENDENTE (nasce assim na migração — §1.1: a fonte
+    consolidada ainda não chegou) e este helper devolve None nesse caso,
+    nunca um `CarimboRegulatorio` com campos vazios — quem chama não
+    precisa checar campo a campo, só truthiness do retorno."""
+    row = conn.execute(
+        "SELECT fonte, versao, data_snapshot FROM catalogo_regulatorio_carimbo WHERE id = 1",
+    ).fetchone()
+    d = _row_dict(row)
+    if not d.get("versao"):
+        return None
+    return CarimboRegulatorio(
+        fonte=d.get("fonte") or "",
+        versao=d["versao"],
+        data_snapshot=d.get("data_snapshot") or "",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -253,12 +289,19 @@ def validar_classificacao(
     tipo_retencao_declarado: Optional[str],
     *,
     nome_para_msg: str = "(item)",
+    carimbo: Optional[CarimboRegulatorio] = None,
 ) -> ResultadoValidacaoCatalogo:
     """Confronta a classificação declarada pelo prescritor com o catálogo.
 
     Cenários:
-      - Substância não encontrada → coerente=True, sem alertas
-        (catálogo parcial não deve gerar falsos positivos).
+      - Substância não encontrada, SEM carimbo → coerente=True, sem alertas
+        (catálogo parcial: princípio da cautela, como sempre foi).
+      - Substância não encontrada, COM carimbo (DESENHO-TALAO-DIGITAL-SNCR.md
+        §1 — a inversão semântica) → coerente=True, `afirmacao_nao_controlado`
+        preenchida: "não consta na base completa, versão V" é uma afirmação
+        confiável, não mais silêncio. A afirmação só é válida enquanto o
+        carimbo existir — passar `carimbo=None` (estado padrão, migração
+        nasce assim) preserva o comportamento de sempre byte a byte.
       - Substância encontrada e classificação bate → coerente=True.
       - Substância encontrada com classe Portaria 344 mas declarada vazia
         ou diferente → alerta WARNING (clínico pode ter errado o código,
@@ -274,8 +317,21 @@ def validar_classificacao(
     tipo_decl = _normaliza_str(tipo_retencao_declarado)
     tipo_decl_low = tipo_decl.lower() if tipo_decl else None
 
-    # 1. Substância não encontrada → não emitir alerta (cautela)
+    # 1. Substância não encontrada
     if substancia is None:
+        if carimbo is not None:
+            # A inversão: base carimbada torna a ausência uma afirmação
+            # negativa confiável, não mais silêncio (§1 do desenho).
+            return ResultadoValidacaoCatalogo(
+                substancia_encontrada=False,
+                classificacao_coerente=True,
+                afirmacao_nao_controlado=(
+                    f"'{nome_para_msg}' não consta na base regulatória "
+                    f"completa ({carimbo.fonte}, versão {carimbo.versao}, "
+                    f"{carimbo.data_snapshot}) — não-controlado."
+                ),
+            )
+        # Sem carimbo → princípio da cautela: não emitir alerta.
         return ResultadoValidacaoCatalogo(
             substancia_encontrada=False,
             classificacao_coerente=True,
@@ -394,7 +450,15 @@ def validar_itens_prescricao(
       - Substância encontrada e classificação bate.
 
     Cada divergência gera 1 ou mais `AlertaItemPrescricao` com severidade.
+
+    Busca o carimbo UMA vez por lote (não por item) — §1 do desenho: com
+    base carimbada, ausência vira afirmação confiável; hoje (carimbo
+    pendente por padrão) é sempre None e o comportamento não muda uma
+    linha. A afirmação em si não vira `AlertaItemPrescricao` (não é
+    divergência, é confirmação neutra) — fica disponível a quem chamar
+    `validar_classificacao` diretamente.
     """
+    carimbo = buscar_carimbo_ativo(conn)
     out: list[AlertaItemPrescricao] = []
     for item in itens:
         nome = item.get("nome_medicamento") or ""
@@ -404,6 +468,7 @@ def validar_itens_prescricao(
             classe_declarada=item.get("classe_controle"),
             tipo_retencao_declarado=item.get("tipo_retencao"),
             nome_para_msg=nome or "(item)",
+            carimbo=carimbo,
         )
         for alerta in resultado.alertas:
             out.append(AlertaItemPrescricao(
