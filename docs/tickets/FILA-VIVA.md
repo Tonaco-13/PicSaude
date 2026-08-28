@@ -82,7 +82,12 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
 
 - **Remarcação de encaminhamento** — desenho pronto
   (`DESENHO-REMARCACAO-ENCAMINHAMENTO.md`: re-ato de agendar, sem estado/aresta/evento novo)
-- **Posologia diabetes / saúde mental** — pré-digitação ampliada (anotação do Fabiano, 25/08)
+- **Posologia diabetes / saúde mental** — pré-digitação ampliada (anotação do Fabiano,
+  25/08). **Precisão do arquiteto (28/08):** o bulário NÃO é fonte da tabela de
+  posologia — ela é dado clínico **curado e assinado** (`posologia_sugerida.csv`, mesma
+  família do semáforo; cresce pela curadoria por condição, ritmo do vagão). Bulário,
+  quando pousar, faz **ponte**: apoio à curadoria + tela de bula + tripwire de
+  divergência — nunca fonte
 - **"Treinar a IA do sinal"** — 🅿️ parqueado por martelo do Fabiano (28/08: "anote
   somente; vamos ver depois das bases"). Nota de direção com 4 trilhas no §7 do
   `VAGAO-CURADORIA-SEMAFORO.md` — inclui o achado de que a camada 3 já grava no ledger,
@@ -92,13 +97,21 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   o "depois das bases"): **CID-10 completo → SIGTAP-exames → listas RDC 1.000/2025 (G1
   do talão digital)**; bulário e TUSS com gatilho declarado. Disciplina única:
   importação offline versionada, nunca ao vivo. Ticket próprio da onda a desenhar;
-  consumo plug-and-play no typeahead agnóstico (#216)
-- **Talão Digital SNCR (motor regulatório)** — martelado 28/08
-  (`DESENHO-TALAO-DIGITAL-SNCR.md`, G1–G4): G1 dobra para a onda das bases; G2 (modo
-  lote/talão no stub) tem **peça `core`-flaggada** — extensão da interface SNCR exige
-  revisão central; G3 (talões na vitrine) `module`; G4 (escrituração externa)
-  **parqueado até piloto**. A ponte já existe (contrato+stub+fábrica+fiação, §0);
-  guardas de honestidade tripla intocáveis
+  consumo plug-and-play no typeahead agnóstico (#216). **G1 andou por fora da onda**
+  (mecânica entregue via Opção 2, ver linha abaixo) — CID-10 completo e SIGTAP-exames
+  seguem sem ticket, não iniciados
+- 🟡 **Talão Digital SNCR (motor regulatório)** — martelado 28/08
+  (`DESENHO-TALAO-DIGITAL-SNCR.md`, G1–G4). **G1 (Opção 2, mecânica) entregue**:
+  migração `2fb9182a0846` (versao/data_snapshot + `catalogo_regulatorio_carimbo`),
+  `validar_classificacao` com modo completo gated, `aplicar_snapshot_carimbado`,
+  `backend/scripts/importar_snapshot_rdc_substancias.py` — tudo contra as 56 atuais,
+  **carimbo explicitamente pendente** (AC5 aguarda a fonte real, §1.1/§1.2). Pesquisa
+  web se mostrou inviável para as ~500+ substâncias do Anexo I completo — mesmo
+  limite já documentado; segue dependendo do gesto do Fabiano (Anvisa Legis, PDF).
+  G2 (modo lote/talão no stub) tem **peça `core`-flaggada** — extensão da interface
+  SNCR exige revisão central; G3 (talões na vitrine) `module`; G4 (escrituração
+  externa) **parqueado até piloto**. A ponte já existe (contrato+stub+fábrica+fiação,
+  §0); guardas de honestidade tripla intocáveis
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
 - ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
   `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —

@@ -75,6 +75,13 @@ class CatalogoSubstancia(Base):
     # exclusões temporárias, observações da publicação Anvisa.
     observacao = Column(Text, nullable=True)
 
+    # DESENHO-TALAO-DIGITAL-SNCR.md §1 (G1) — citação PONTUAL da versão/data
+    # que classificou esta entrada, quando conhecida (import versionado).
+    # NULL nas 56 entradas do seed curado à mão (§1.1): elas citam `fonte`
+    # (norma ampla), não uma versão/data exatas — é honesto, não uma lacuna.
+    versao = Column(String(50), nullable=True)
+    data_snapshot = Column(String(10), nullable=True)  # ISO "AAAA-MM-DD"
+
     # Soft-delete: ativo=False mantém histórico mas remove do lookup.
     ativo = Column(Boolean, nullable=False, default=True)
 
