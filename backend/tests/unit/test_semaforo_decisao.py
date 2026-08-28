@@ -52,6 +52,54 @@ def test_canon_ativo_remove_sal_sufixo_e_acentos():
     assert canon_ativo("Losartana Potássica") == "losartana"
 
 
+# --- TICKET-CANON-ATIVO-DOSE-SUFFIX (strip de dose, amarelo falso) ---
+
+def test_canon_ativo_remove_dose_mg():
+    assert canon_ativo("Losartana 50mg") == "losartana"
+
+
+def test_canon_ativo_remove_dose_com_milhar():
+    assert canon_ativo("Metformina 1.000mg") == "metformina"
+
+
+def test_canon_ativo_remove_dose_com_espaco():
+    assert canon_ativo("Dapagliflozina 10 mg") == "dapagliflozina"
+
+
+def test_canon_ativo_remove_sal_e_dose_juntos():
+    assert canon_ativo("Losartana Potássica 50mg") == "losartana"
+
+
+def test_canon_ativo_entrada_limpa_permanece_inalterada():
+    assert canon_ativo("Escitaloprama") == "escitaloprama"
+
+
+def test_canon_ativo_regressao_base_decisao_semaforo():
+    """Nenhum principio_ativo de data/decisao_semaforo.csv contém dígito — o
+    strip de dose (TICKET-CANON-ATIVO-DOSE-SUFFIX) é garantidamente no-op
+    nesta base, então nenhum canônico existente pode mudar."""
+    import csv
+    import re
+    from pathlib import Path
+
+    caminho = Path(__file__).resolve().parents[3] / "data" / "decisao_semaforo.csv"
+    with open(caminho, encoding="utf-8") as f:
+        principios = [row["principio_ativo"] for row in csv.DictReader(f)]
+    assert principios, "base vazia — teste não cobriria nada"
+    for principio in principios:
+        assert not re.search(r"\d", principio), (
+            f"{principio!r} contém dígito — conferir manualmente que o strip "
+            "de dose não altera o canônico deste princípio ativo"
+        )
+
+
+def test_semaforo_verde_com_dose_no_nome():
+    """AC8 do ticket: 'Losartana 50mg' em I10 deve dar verde, não amarelo
+    falso — antes do fix, o miss de dict-key fazia cair em amarelo."""
+    av = _av("I10", "Losartana 50mg")
+    assert av.sinal == SINAL_VERDE
+
+
 def test_canon_cid_normaliza():
     assert canon_cid(" i10.0 ") == "I10.0"
 

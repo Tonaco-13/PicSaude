@@ -150,6 +150,15 @@ _SAIS_SUFIXO = (
     "anidro", "trihidratado",
 )
 
+# TICKET-CANON-ATIVO-DOSE-SUFFIX — strip de dose ("Losartana 50mg" → "losartana").
+# Sem isso, o lookup exato por dict-key perde a chave e vira amarelo falso
+# (ver docs/tickets/TICKET-CANON-ATIVO-DOSE-SUFFIX.md).
+_DOSE_RE = re.compile(
+    r"\s+\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|ug|g|ui|ufc|mmol|meq"
+    r"|miligrama[s]?|micrograma[s]?|grama[s]?|unidade[s]?\s+internacional(?:is|es)?)\b",
+    flags=re.IGNORECASE,
+)
+
 
 def _strip_acentos(texto: str) -> str:
     nfkd = unicodedata.normalize("NFKD", texto)
@@ -157,13 +166,21 @@ def _strip_acentos(texto: str) -> str:
 
 
 def canon_ativo(nome: str) -> str:
-    """Chave canônica do princípio ativo (sem sal/acento/caixa/espaço extra).
+    """Chave canônica do princípio ativo (sem sal/dose/acento/caixa/espaço extra).
 
-    "Oxalato de Escitalopram" → "escitalopram"
-    "Losartana Potássica"     → "losartana"
+    "Oxalato de Escitalopram"    → "escitalopram"
+    "Losartana Potássica"        → "losartana"
+    "Losartana 50mg"             → "losartana"
+    "Losartana Potássica 50mg"   → "losartana"
+
+    A dose é removida ANTES do sal (não depois, como no rascunho original do
+    ticket): "losartana potassica 50mg" só bate o sufixo " potassica" se a
+    dose que o segue já tiver saído — senão a string termina em "50mg", não
+    em "potassica", e o strip de sal nunca dispara.
     """
     s = _strip_acentos((nome or "").lower())
     s = re.sub(r"\s+", " ", s).strip()
+    s = _DOSE_RE.sub("", s).strip()
     for pref in _SAIS_PREFIXO:
         if s.startswith(pref + " "):
             s = s[len(pref) + 1:]
