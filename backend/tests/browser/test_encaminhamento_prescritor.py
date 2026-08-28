@@ -109,8 +109,8 @@ def test_a_confirmacao_mostra_o_documento_e_nao_o_formulario(browser, app_demo):
         pg, erros = _nova_pagina(ctx)
         _abrir_submodulo(pg, app_demo)
 
-        pg.fill("#enc-pac-nome", _NOME_PACIENTE)
-        pg.fill("#enc-pac-cpf", _CPF)
+        # M-D: #enc-pac-nome/#enc-pac-cpf vêm travados (readonly) no cidadão
+        # canônico — já são _NOME_PACIENTE/_CPF, sem precisar preencher.
         pg.select_option("#enc-finalidade", "segunda_opiniao")
         pg.select_option("#enc-especialidade", "CARDIOLOGIA")
         pg.fill("#enc-cns-destino", _CNS_DESTINO)
@@ -138,8 +138,8 @@ def test_justificativa_curta_nao_passa_e_a_tela_diz_por_que(browser, app_demo):
     try:
         pg, erros = _nova_pagina(ctx)
         _abrir_submodulo(pg, app_demo)
-        pg.fill("#enc-pac-nome", _NOME_PACIENTE)
-        pg.fill("#enc-pac-cpf", _CPF)
+        # M-D: #enc-pac-nome/#enc-pac-cpf vêm travados (readonly) no cidadão
+        # canônico — já são _NOME_PACIENTE/_CPF, sem precisar preencher.
         pg.select_option("#enc-finalidade", "avaliacao")
         pg.select_option("#enc-especialidade", "CARDIOLOGIA")
         pg.fill("#enc-cns-destino", _CNS_DESTINO)
@@ -160,8 +160,8 @@ def test_emitir_pela_tela_entrega_a_carteira_do_cidadao(browser, app_demo):
     try:
         pg, erros = _nova_pagina(ctx)
         _abrir_submodulo(pg, app_demo)
-        pg.fill("#enc-pac-nome", _NOME_PACIENTE)
-        pg.fill("#enc-pac-cpf", _CPF)
+        # M-D: #enc-pac-nome/#enc-pac-cpf vêm travados (readonly) no cidadão
+        # canônico — já são _NOME_PACIENTE/_CPF, sem precisar preencher.
         pg.select_option("#enc-finalidade", "avaliacao")
         pg.select_option("#enc-especialidade", "CARDIOLOGIA")
         pg.fill("#enc-cns-destino", _CNS_DESTINO)

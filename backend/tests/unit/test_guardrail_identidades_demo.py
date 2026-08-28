@@ -116,13 +116,6 @@ def _identidades_config() -> dict[str, str]:
         "cidadao_cpf":  _extrair(txt, r"cidadao:\s*\{\s*cpf:\s*'(\d{11})'", "DEMO.cidadao.cpf"),
         "farmacia_cnpj": _extrair(txt, r"farmacia:\s*\{\s*cnpj:\s*'(\d{14})'", "DEMO.farmacia.cnpj"),
         "clinica_cnpj":  _extrair(txt, r"clinica:\s*\{\s*cnpj:\s*'(\d{14})'", "DEMO.clinica.cnpj"),
-        # M-B — 2º/3º cidadão (chips de quick-pick), ordem literal do array.
-        "cidadao2_cpf": _extrair(txt, r"cidadaos\s*=\s*\[[^\]]*?\{\s*cpf:\s*'(\d{11})'", "DEMO.cidadaos[1].cpf"),
-        "cidadao3_cpf": _extrair(
-            txt,
-            r"cidadaos\s*=\s*\[[^\]]*?\{\s*cpf:\s*'\d{11}'[^\]]*?\{\s*cpf:\s*'(\d{11})'",
-            "DEMO.cidadaos[2].cpf",
-        ),
     }
 
 
@@ -132,24 +125,7 @@ def _identidades_seed() -> dict[str, str]:
         "cidadao_cpf":  _extrair(txt, r'PACIENTE\s*=\s*dict\(\s*cpf\s*=\s*"(\d{11})"', "PACIENTE.cpf"),
         "farmacia_cnpj": _extrair(txt, r'DISPENSADOR\s*=\s*dict\(\s*cnpj\s*=\s*"(\d{14})"', "DISPENSADOR.cnpj"),
         "clinica_cnpj":  _extrair(txt, r'CLINICA\s*=\s*dict\(\s*cnpj\s*=\s*"(\d{14})"', "CLINICA.cnpj"),
-        "cidadao2_cpf": _extrair(txt, r'PACIENTE_2\s*=\s*dict\(\s*cpf\s*=\s*"(\d{11})"', "PACIENTE_2.cpf"),
-        "cidadao3_cpf": _extrair(txt, r'PACIENTE_3\s*=\s*dict\(\s*cpf\s*=\s*"(\d{11})"', "PACIENTE_3.cpf"),
     }
-
-
-def test_mc_cidadao_default_e_o_primeiro_da_lista_cidadaos():
-    """M-C (DESENHO-VITRINE-HIGIENE-VISITANTE.md §7) AC5 — `DEMO.cidadaos[0]`
-    é CONTRATO, não sorteio: é ele quem chips-cidadaos-demo.js usa como
-    preenchimento PADRÃO nos quatro formulários (receita/exame/
-    encaminhamento/atestado). Se um dia `DEMO.cidadaos` for reordenado, o
-    'fixado' muda de pessoa sem ninguém decidir isso conscientemente — esta
-    guarda existe para que essa reordenação precise passar por aqui."""
-    txt = _CONFIG_JS.read_text(encoding="utf-8")
-    assert re.search(r"cidadaos\s*=\s*\[\s*DEMO\.cidadao\s*,", txt), (
-        "DEMO.cidadaos[0] não é (a referência a) DEMO.cidadao — o cidadão "
-        "que M-C fixa como padrão (João Demo da Silva) não está mais "
-        "garantido como o primeiro da lista"
-    )
 
 
 def test_config_e_seed_declaram_as_mesmas_identidades():
@@ -168,8 +144,6 @@ def test_config_e_seed_declaram_as_mesmas_identidades():
         ("cidadao_cpf", "cpf"),
         ("farmacia_cnpj", "cnpj"),
         ("clinica_cnpj", "cnpj"),
-        ("cidadao2_cpf", "cpf"),
-        ("cidadao3_cpf", "cpf"),
     ],
 )
 def test_identidades_passam_na_validacao_de_digitos(digitos, validador):

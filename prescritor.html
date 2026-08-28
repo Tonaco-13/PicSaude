@@ -321,9 +321,9 @@
        telas. O CSS local desta barra foi PROMOVIDO para `submodulos.css`. -->
   <link rel="stylesheet" href="submodulos.css">
   <script src="submodulos.js"></script>
-  <!-- M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3) — quick-pick de
-       cidadãos demo nos três campos de paciente. -->
-  <script src="chips-cidadaos-demo.js"></script>
+  <!-- M-D (DESENHO-VITRINE-HIGIENE-VISITANTE.md §8, revoga M-B/M-C) —
+       trava nome+CPF do paciente no cidadão canônico nos quatro campos. -->
+  <script src="cidadao-demo-fixo.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -574,7 +574,6 @@
                             <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input" placeholder="Ex: 45 anos" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Telefone</label><input type="text" id="pac-telefone" class="form-input" placeholder="DDD + Número"></div>
                         </div>
-                        <div id="chips-cidadao-receita" class="no-print"></div>
                         <div class="grid-address-1" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Logradouro, Número e Bairro <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-endereco" class="form-input" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Complemento</label><input type="text" id="pac-complemento" class="form-input" placeholder="Apto, Bloco"></div>
@@ -697,7 +696,6 @@
                                 </select>
                             </div>
                         </div>
-                        <div id="chips-cidadao-exame" class="no-print"></div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label" style="color: #6d28d9;">Indicação Clínica
                                 <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0; color: #94a3b8;">(assistida por IA CID)</span>
@@ -769,7 +767,6 @@
                             </label>
                             <input type="text" id="atestado-cpf" class="form-input cpf-input"
                                    placeholder="000.000.000-00">
-                            <div id="chips-cidadao-atestado" class="no-print"></div>
                         </div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label">Finalidade <span class="obrigatorio" aria-hidden="true">*</span></label>
@@ -974,7 +971,6 @@
                                     <select id="enc-finalidade" class="form-select" required aria-required="true" onchange="_toggleFinalidadeOutra()"></select>
                                 </div>
                             </div>
-                            <div id="chips-cidadao-encaminhamento" class="no-print"></div>
                             <div class="form-group hidden" id="enc-finalidade-outra-wrap" style="margin:16px 0 0;">
                                 <label class="form-label">Qual finalidade? <span class="obrigatorio" aria-hidden="true">*</span></label>
                                 <input type="text" id="enc-finalidade-texto" class="form-input" placeholder="ex.: parecer pré-operatório">
@@ -1219,46 +1215,48 @@
                               mostrarSubmodulo, 'receita', 'Submódulos do prescritor');
         }
 
-        // M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3) + M-C (§7, adendo) —
-        // QUATRO montagens do MESMO componente (chips-cidadaos-demo.js), um
-        // par nome/CPF por circulação (a quarta, atestado, é do M-C — é o
-        // único dos quatro com CPF obrigatório para o documento digital).
-        // Montada uma vez, como a barra de submódulos acima: os quatro
-        // formulários já existem no DOM (só ficam ocultos pela aba).
+        // M-D (DESENHO-VITRINE-HIGIENE-VISITANTE.md §8 — REVOGA M-B/M-C):
+        // os quatro campos de paciente (receita/exame/encaminhamento/
+        // atestado) ficam TRAVADOS (readonly) no cidadão canônico. Texto
+        // livre permitia nome chulo — "aconteceu isso", martelo do Fabiano
+        // em 28/08 fechou a porta em vez de só tornar o caminho canônico
+        // mais preguiçoso. Travada uma vez, como a barra de submódulos
+        // acima: os quatro formulários já existem no DOM (só ficam ocultos
+        // pela aba).
         //
-        // Só em DEMO_MODE: fora da vitrine, "cidadão demo" no consultório real
-        // seria só ruído — e preencher sozinho o nome/CPF de um cidadão
-        // fictício num atendimento de verdade seria pior que o clique errado
-        // do M-B. Checagem PRÓPRIA de /config/public (não reaproveita o
-        // <body class="demo"> do banner no topo): `_entrarNoDashboard` também
-        // é alcançada pela hidratação de sessão síncrona (re-login/E2E, sem
-        // await algum antes), que corre contra a MESMA janela de rede do
-        // banner — depender da classe do <body> aqui seria torcer para
-        // vencer uma corrida.
+        // Só em DEMO_MODE: fora da vitrine, travar o campo do paciente no
+        // consultório real seria inaceitável — não só ruído, um atendimento
+        // de verdade com o nome errado. Checagem PRÓPRIA de /config/public
+        // (não reaproveita o <body class="demo"> do banner no topo):
+        // `_entrarNoDashboard` também é alcançada pela hidratação de sessão
+        // síncrona (re-login/E2E, sem await algum antes), que corre contra a
+        // MESMA janela de rede do banner — depender da classe do <body>
+        // aqui seria torcer para vencer uma corrida.
         //
-        // `_chipsDemoModeConfirmado` fica em memória (não repete o fetch) —
-        // é o que os `preencherPadrao()` de pós-limpeza abaixo consultam para
-        // saber se têm licença de reaplicar o cidadão default.
-        let _chipsDemoModeConfirmado = false;
+        // `_cidadaoDemoFixoConfirmado` fica em memória (não repete o fetch)
+        // — é o que o `_retravarCidadaoDemo` de pós-limpeza abaixo consulta
+        // para saber se tem licença de reaplicar a trava.
+        let _cidadaoDemoFixoConfirmado = false;
 
-        async function montarChipsCidadaosDemo() {
+        async function travarCidadaoDemoNosFormularios() {
             const cfg = await fetch(`${BACKEND}/config/public`, { cache: 'no-store' })
                                 .then(r => r.json()).catch(() => ({}));
             if (!cfg.demo_mode) return;
-            _chipsDemoModeConfirmado = true;
-            ChipsCidadaosDemo.montar('chips-cidadao-receita', 'pac-nome', 'pac-chave');
-            ChipsCidadaosDemo.montar('chips-cidadao-exame', 'exam-pac-nome', 'exam-pac-cpf');
-            ChipsCidadaosDemo.montar('chips-cidadao-encaminhamento', 'enc-pac-nome', 'enc-pac-cpf');
-            ChipsCidadaosDemo.montar('chips-cidadao-atestado', 'atestado-paciente', 'atestado-cpf');
+            _cidadaoDemoFixoConfirmado = true;
+            CidadaoDemoFixo.travar('pac-nome', 'pac-chave');
+            CidadaoDemoFixo.travar('exam-pac-nome', 'exam-pac-cpf');
+            CidadaoDemoFixo.travar('enc-pac-nome', 'enc-pac-cpf');
+            CidadaoDemoFixo.travar('atestado-paciente', 'atestado-cpf');
         }
 
-        // M-C — reaplica o cidadão default depois que um formulário já
-        // montado é LIMPO (novaReceita/emitirPedidoExame/emitir encaminhamento/
-        // limparAtestado). Sem isto o campo ficaria vazio até o próximo
-        // clique em chip — o padrão só vale no primeiro boot.
-        function _preencherPadraoCidadaoDemo(nomeInputId, cpfInputId) {
-            if (!_chipsDemoModeConfirmado) return;
-            ChipsCidadaosDemo.preencherPadrao(nomeInputId, cpfInputId);
+        // Reaplica a trava depois que um formulário já travado é LIMPO
+        // (novaReceita/emitirPedidoExame/emitir encaminhamento/
+        // limparAtestado). Sem isto o campo ficaria vazio (mas ainda
+        // readonly, sem dono) até o próximo boot — `.reset()` nativo reverte
+        // o VALOR ao vazio do HTML, não a trava.
+        function _retravarCidadaoDemo(nomeInputId, cpfInputId) {
+            if (!_cidadaoDemoFixoConfirmado) return;
+            CidadaoDemoFixo.travar(nomeInputId, cpfInputId);
         }
 
         function mostrarSubmodulo(qual) {
@@ -1755,7 +1753,7 @@
                 const dados = await resp.json();
                 _encMsg(`Encaminhamento emitido e entregue à carteira de ${d.nome}. Protocolo ${dados.protocolo}.`, 'ok');
                 document.getElementById('form-enc-main').reset();
-                _preencherPadraoCidadaoDemo('enc-pac-nome', 'enc-pac-cpf');
+                _retravarCidadaoDemo('enc-pac-nome', 'enc-pac-cpf');
                 voltarAoFormularioEnc();
                 _preencherCatalogosEnc();
                 await carregarMeusEncaminhamentos();
@@ -2038,7 +2036,7 @@
             // A barra é montada UMA vez, ao entrar. Re-render piscaria a
             // navegação sob o dedo de quem está prescrevendo.
             montarSubmodulosPrescritor();
-            montarChipsCidadaosDemo();
+            travarCidadaoDemoNosFormularios();
             novaReceita();
             atualizarPainel();
         }
@@ -2533,7 +2531,7 @@
             mostrarSubmodulo('receita');
             
             document.getElementById('main-prescription-form').reset();
-            _preencherPadraoCidadaoDemo('pac-nome', 'pac-chave');
+            _retravarCidadaoDemo('pac-nome', 'pac-chave');
             document.getElementById('lista-medicamentos').innerHTML = '';
             document.getElementById('btn-emitir').textContent = "Assinar Digitalmente e Emitir";
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
@@ -3028,7 +3026,7 @@
             _tipoEmissaoDerivada = null;
             esconderTudo();
             document.getElementById('main-prescription-form').reset();
-            _preencherPadraoCidadaoDemo('pac-nome', 'pac-chave');
+            _retravarCidadaoDemo('pac-nome', 'pac-chave');
             document.getElementById('lista-medicamentos').innerHTML = '';
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
             document.getElementById('titulo-formulario').textContent = "Prescrição Médica — Emissão Documentada";
@@ -4063,7 +4061,7 @@
                 adicionarExame();
                 document.getElementById('exam-pac-nome').value = '';
                 document.getElementById('exam-pac-cpf').value  = '';
-                _preencherPadraoCidadaoDemo('exam-pac-nome', 'exam-pac-cpf');
+                _retravarCidadaoDemo('exam-pac-nome', 'exam-pac-cpf');
                 document.getElementById('exam-indicacao').value = '';
                 document.getElementById('exam-prioridade').value = 'rotina';
                 const _cExame = document.getElementById('ia-cid-exame');
@@ -4845,7 +4843,7 @@
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
-            _preencherPadraoCidadaoDemo('atestado-paciente', 'atestado-cpf');
+            _retravarCidadaoDemo('atestado-paciente', 'atestado-cpf');
             _aoMudarFinalidade();          // re-oculta o campo "Outro"
             const tipoSel = document.getElementById('atestado-tipo');
             if (tipoSel) tipoSel.value = 'comparecimento';
