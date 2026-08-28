@@ -92,8 +92,10 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   cidadão canônico, retira o quick-pick e os 2 cidadãos extras. Adendo §8 do
   `DESENHO-VITRINE-HIGIENE-VISITANTE.md`. Limite declarado: lock é só de
   frontend, backend não valida `nome_paciente`/`cpf_paciente` em DEMO_MODE.
-- **Typeahead unificado + base CBO no encaminhamento** — martelado 28/08
-  (`DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md`; ordem martelada: **painel primeiro** na
-  lista atual, base CBO depois). Guarda-chave: psicologia (CBO 2515) fica FORA do grupo
-  22 — whitelist explícita, nunca prefixo "22=saúde"
+- 🟡 **Typeahead unificado + base CBO no encaminhamento** — PR 1 (`module`,
+  `typeahead-catalogo.js`) entregue: painel na língua dos padrões-ouro,
+  base = lista atual de 15 especialidades + 55 CID, rodapé lê provenância
+  do catálogo, zero badge de confiança. PR 2 (`adapter`, base CBO) segue
+  como próximo passo — guarda-chave ainda pendente: psicologia (CBO 2515)
+  fica FORA do grupo 22, whitelist explícita, nunca prefixo "22=saúde"
 - **CBEB v11** — conferir pontos A/B quando o Kimi voltar com a revisão
