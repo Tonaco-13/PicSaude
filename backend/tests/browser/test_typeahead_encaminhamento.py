@@ -1,21 +1,33 @@
 """
-tests/browser/test_typeahead_encaminhamento.py — typeahead/CBO PR 1 (`module`).
+tests/browser/test_typeahead_encaminhamento.py — typeahead/CBO PR 1+2 (`module`+`adapter`).
 
 DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md §4/§6: o encaminhamento adota a
 mesma língua visual dos painéis assistidos (padrão-ouro: o painel de CID do
 atestado). Um componente (`typeahead-catalogo.js`), duas montagens —
-especialidade e mini-CID. Base = a lista atual de 15/55 nesta PR; a base
-CBO entra depois (PR `adapter` seguinte) e o componente não muda uma linha
-(AC 6 do §3) — mas essa promessa só se prova aqui, contra a lista pequena.
+especialidade e mini-CID.
+
+PR 1 (`module`) construiu o painel contra a lista local de 15/55 — prova
+que o componente é agnóstico de fonte. PR 2 (`adapter`,
+`importar_snapshot_cbo_encaminhamento.py`) trocou SÓ o arquivo de dados: 21
+especialidades com código CBO (as 15 médicas + odontologia/enfermagem/
+fisioterapia/nutrição/fonoaudiologia/psicologia), família declarada,
+provenância CBO/MTE — sem tocar `typeahead-catalogo.js` nem
+`prescritor.html`'s glue de montagem. Os testes que dependiam da lista
+local antiga (chip ausente, rodapé "lista local curada") foram atualizados
+para o novo estado — é a evolução esperada, não regressão.
 
 O QUE ESTE ARQUIVO PROVA
 -------------------------
-AC1: digitar abre o painel com eco + lista + contagem, sem clique em <select>.
-AC2: rodapé declara a provenância lida do catálogo (na estréia: lista local).
-AC3: zero badge de confiança (sem engine de casamento difuso aqui).
-AC4: escape ("OUTRA"/"não listado") funciona nos dois campos.
-AC5: mini-CID mostra código como chip; provenância "parcial".
-AC6: digitar "CARDIO" lista CARDIOLOGIA; navegação por teclado não
+AC1 (painel): digitar abre o painel com eco + lista + contagem, sem clique em <select>.
+AC1 (base):   toda especialidade oferecida carrega código CBO (chip).
+AC2+AC6 (base): "PSI" lista PSICOLOGIA com CBO 2515 — o caso-guarda do §1
+     (psicologia fora do subgrupo 22, dentro do universo de destino).
+AC3 (painel): zero badge de confiança (sem engine de casamento difuso aqui).
+AC3+AC6 (base): rodapé passa a citar CBO/MTE — o teste da agnosticidade.
+AC4 (painel): escape ("OUTRA"/"não listado") funciona nos dois campos.
+AC5 (painel): mini-CID mostra código como chip; provenância "parcial"
+     (mini-CID não muda nesta PR — só especialidade trocou de base).
+AC6 (painel): digitar "CARDIO" lista CARDIOLOGIA; navegação por teclado não
      submete o formulário (Enter escolhe da lista, não envia).
 
 COMO RODAR
@@ -97,12 +109,13 @@ def test_digitar_cardio_abre_painel_e_lista_cardiologia(browser, app_demo):
 
 
 # ===========================================================================
-# AC1 (chip honesto) — especialidade da lista atual não tem código
+# AC1 (base CBO) — toda especialidade oferecida carrega código CBO
 # ===========================================================================
 
-def test_especialidade_sem_codigo_nao_mostra_chip(browser, app_demo):
-    """A lista atual não tem código CBO — o chip sem código É a forma
-    honesta dela (§4), não um bug de renderização."""
+def test_toda_especialidade_mostra_codigo_cbo_como_chip(browser, app_demo):
+    """DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md §3 AC1 — pós-troca de base,
+    NENHUMA entrada fica sem código (era o oposto na lista local do PR do
+    painel — a mudança de comportamento É o ponto desta PR)."""
     ctx = _ctx_prescritor(browser, app_demo)
     try:
         pg, erros = _pagina(ctx)
@@ -111,7 +124,7 @@ def test_especialidade_sem_codigo_nao_mostra_chip(browser, app_demo):
 
         linha = pg.locator("#enc-especialidade-painel .tac-item", has_text="CARDIOLOGIA")
         expect(linha).to_be_visible(timeout=_TIMEOUT_MS)
-        expect(linha.locator(".tac-item-codigo")).to_have_count(0)
+        expect(linha.locator(".tac-item-codigo")).to_have_text("2251-20")
 
         assert not erros, erros
     finally:
@@ -119,10 +132,44 @@ def test_especialidade_sem_codigo_nao_mostra_chip(browser, app_demo):
 
 
 # ===========================================================================
-# AC2 — rodapé declara a provenância lida do catálogo
+# AC2 + AC6 (§3) — 2515 presente: "PSI" acende PSICOLOGIA com o CBO da
+# família guarda (fora do subgrupo 22, dentro do universo de destino mesmo
+# assim — o caso inteiro que motivou a whitelist explícita em vez de prefixo)
 # ===========================================================================
 
-def test_rodape_declara_provenancia_da_lista_local(browser, app_demo):
+def test_psi_lista_psicologia_com_cbo_2515(browser, app_demo):
+    ctx = _ctx_prescritor(browser, app_demo)
+    try:
+        pg, erros = _pagina(ctx)
+        _abrir_encaminhamento(pg, app_demo)
+
+        pg.locator("#enc-especialidade-busca").click()
+        pg.locator("#enc-especialidade-busca").type("PSI")
+
+        painel = pg.locator("#enc-especialidade-painel")
+        linha = painel.locator(".tac-item", has_text="PSICOLOGIA")
+        expect(linha).to_be_visible(timeout=_TIMEOUT_MS)
+        expect(linha.locator(".tac-item-codigo")).to_have_text("2515-10")
+
+        # "PSI" também casa PSIQUIATRIA — as duas convivem na lista, sem a
+        # psicologia ficar de fora por estar num subgrupo CBO diferente.
+        expect(painel.locator(".tac-item", has_text="PSIQUIATRIA")).to_be_visible()
+
+        linha.click()
+        expect(pg.locator("#enc-especialidade")).to_have_value("PSICOLOGIA")
+
+        assert not erros, erros
+    finally:
+        ctx.close()
+
+
+# ===========================================================================
+# AC3 + AC6 — rodapé passa a citar CBO/MTE porque o catálogo passou a
+# declarar (o painel em si — typeahead-catalogo.js — não foi tocado nesta
+# PR: é o teste da agnosticidade de fonte prometida no PR do painel)
+# ===========================================================================
+
+def test_rodape_declara_provenancia_cbo(browser, app_demo):
     ctx = _ctx_prescritor(browser, app_demo)
     try:
         pg, erros = _pagina(ctx)
@@ -131,9 +178,9 @@ def test_rodape_declara_provenancia_da_lista_local(browser, app_demo):
 
         rodape = pg.locator("#enc-especialidade-painel .tac-rodape")
         expect(rodape).to_be_visible(timeout=_TIMEOUT_MS)
-        expect(rodape).to_contain_text("lista local curada")
-        expect(rodape).to_contain_text("15 entradas")
-        expect(rodape).to_contain_text("2026-08-23.1")
+        expect(rodape).to_contain_text("CBO/MTE")
+        expect(rodape).to_contain_text("21 entradas")
+        expect(rodape).to_contain_text("CBO 2002")
 
         assert not erros, erros
     finally:
