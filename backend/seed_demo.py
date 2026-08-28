@@ -102,23 +102,6 @@ PACIENTE = dict(
     nome="João Demo da Silva",
 )
 
-# M-B (DESENHO-VITRINE-HIGIENE-VISITANTE.md §3) — 2º e 3º cidadão demo, para
-# o quick-pick (chips) dos três campos de paciente no prescritor.html.
-# `PACIENTE` (acima) continua sendo O cidadão canônico da circulação — guard-
-# rail de concordância com `config.js` (TICKET-DEMO-IDENTIDADES-FONTE-UNICA)
-# olha só para ele, e o smoke de circulação de um cidadão só fecha nele; nada
-# aqui muda isso. Estes dois espelham `DEMO.cidadaos[1]`/`[2]` em config.js —
-# mesmos CPF/nome dos dois lados (CPFs verificados no módulo 11).
-PACIENTE_2 = dict(
-    cpf="23456789173",
-    nome="Ana Demo Ferreira",
-)
-
-PACIENTE_3 = dict(
-    cpf="34567891228",
-    nome="Pedro Demo Costa",
-)
-
 # CLINICA — referência do lado servidor para a identidade da clínica/laboratório
 # da demo (TICKET-DEMO-IDENTIDADES-FONTE-UNICA). Espelha `DEMO.clinica` em
 # config.js: um estabelecimento por PAPEL (farmácia ≠ clínica). O guard-rail de
@@ -874,10 +857,6 @@ def main() -> None:
 
         # Paciente (sem `usuarios` — KISS §3.7.1)
         _garantir_paciente(conn, PACIENTE["cpf"], PACIENTE["nome"])
-
-        # M-B — 2º e 3º cidadão demo (chips de quick-pick no prescritor.html).
-        _garantir_paciente(conn, PACIENTE_2["cpf"], PACIENTE_2["nome"])
-        _garantir_paciente(conn, PACIENTE_3["cpf"], PACIENTE_3["nome"])
 
         conn.commit()
         print("\n✅ seed_demo.py concluído com sucesso.")
