@@ -14,19 +14,31 @@ Unitários (sem banco) — normalização e validação pura:
   9. validar_classificacao: substância desconhecida não bloqueia
  10. validar_classificacao: tipo_retencao fora do vocabulário → critical
 
+G1 (DESENHO-TALAO-DIGITAL-SNCR.md §1/§1.1) — a inversão gated pelo carimbo:
+ 11. validar_classificacao: SEM carimbo, ausência é silêncio (AC4)
+ 12. validar_classificacao: COM carimbo, ausência vira afirmação confiável
+ 13. validar_classificacao: carimbo não interfere quando substância é encontrada
+
 Integração (com PostgreSQL):
- 11. Endpoint /catalogo/substancias autocomplete (semaglutida)
- 12. Endpoint /catalogo/substancias autocomplete (amoxicilina)
- 13. Endpoint exige autenticação
- 14. POST /gerar inclui alertas_regulatorios quando antimicrobiano sem tipo_retencao
- 15. POST /gerar não gera alertas quando classificação está coerente
- 16. Catálogo não bloqueia emissão (alertas são informativos)
- 17. eh_item_atomizavel bloqueia substância controlada do catálogo (com conn)
- 18. eh_item_atomizavel sem conn ignora catálogo (compat)
+ 14. Endpoint /catalogo/substancias autocomplete (semaglutida)
+ 15. Endpoint /catalogo/substancias autocomplete (amoxicilina)
+ 16. Endpoint exige autenticação
+ 17. POST /gerar inclui alertas_regulatorios quando antimicrobiano sem tipo_retencao
+ 18. POST /gerar não gera alertas quando classificação está coerente
+ 19. Catálogo não bloqueia emissão (alertas são informativos)
+ 20. eh_item_atomizavel bloqueia substância controlada do catálogo (com conn)
+ 21. eh_item_atomizavel sem conn ignora catálogo (compat)
+ 22. carimbo nasce pendente (migração 2fb9182a0846)
+ 23. aplicar_carimbo + limpar_carimbo — ciclo completo
+ 24. aplicar_snapshot_carimbado — upsert versionado + ativa carimbo
+ 25. aplicar_snapshot_carimbado — idempotente
+ 26. aplicar_snapshot_carimbado — exige fonte/versão/data_snapshot
 """
 from __future__ import annotations
 
 from datetime import datetime
+
+import pytest
 
 from tests.integration.conftest import (
     SEED_PACIENTE_CPF,
@@ -159,6 +171,72 @@ def test_validar_substancia_desconhecida_nao_bloqueia():
     assert res.substancia_encontrada is False
     assert res.classificacao_coerente is True
     assert res.alertas == []
+
+
+# ---------------------------------------------------------------------------
+# G1 — a inversão semântica gated pelo carimbo (DESENHO-TALAO-DIGITAL-SNCR.md
+# §1/§1.1). AC4: base SEM carimbo não afirma não-controlado — os dois testes
+# abaixo testam as duas pontas do gate; juntos são a prova vermelho-antes-de-
+# verde (se o gate quebrar pra qualquer lado, um dos dois cai).
+# ---------------------------------------------------------------------------
+
+def test_validar_classificacao_sem_carimbo_ausencia_e_silencio():
+    """AC4 — o padrão de sempre: sem carimbo (parâmetro omitido OU None
+    explícito), ausência não afirma nada. `catalogo_regulatorio_carimbo`
+    nasce assim pela migração 2fb9182a0846 — este teste prova que o
+    COMPORTAMENTO, não só o dado, começa cauteloso."""
+    from app.domain.catalogo_regulatorio import validar_classificacao
+    res = validar_classificacao(None, None, None, nome_para_msg="Substancia X")
+    assert res.classificacao_coerente is True
+    assert res.afirmacao_nao_controlado is None
+
+    res_explicito = validar_classificacao(
+        None, None, None, nome_para_msg="Substancia X", carimbo=None,
+    )
+    assert res_explicito.afirmacao_nao_controlado is None
+
+
+def test_validar_classificacao_com_carimbo_ausencia_vira_afirmacao_confiavel():
+    """A inversão semântica do §1 — SÓ quando `carimbo` é passado
+    explicitamente. A afirmação cita fonte/versão/data: é rastreável, não
+    um "não-controlado" genérico."""
+    from app.domain.catalogo_regulatorio import (
+        CarimboRegulatorio, validar_classificacao,
+    )
+    carimbo = CarimboRegulatorio(
+        fonte="Portaria 344/98 Anexo I (teste)",
+        versao="RDC 999/2099",
+        data_snapshot="2099-01-01",
+    )
+    res = validar_classificacao(
+        None, None, None, nome_para_msg="Substancia X", carimbo=carimbo,
+    )
+    assert res.substancia_encontrada is False
+    assert res.classificacao_coerente is True
+    assert res.afirmacao_nao_controlado is not None
+    assert "RDC 999/2099" in res.afirmacao_nao_controlado
+    assert "2099-01-01" in res.afirmacao_nao_controlado
+    assert res.alertas == []  # afirmação não é divergência
+
+
+def test_validar_classificacao_substancia_encontrada_carimbo_nao_interfere():
+    """O carimbo só afeta o caminho de AUSÊNCIA. Substância encontrada segue
+    o fluxo de divergência de sempre — a inversão não vaza para o caso que
+    já tinha resposta."""
+    from app.domain.catalogo_regulatorio import (
+        CarimboRegulatorio, SubstanciaCatalogo, validar_classificacao,
+    )
+    sub = SubstanciaCatalogo(
+        dcb="amoxicilina", dcb_display="Amoxicilina",
+        classe_controle=None, tipo_retencao="antimicrobiano",
+        fonte="in_83_2021",
+    )
+    carimbo = CarimboRegulatorio(fonte="x", versao="y", data_snapshot="2099-01-01")
+    res = validar_classificacao(
+        sub, None, "antimicrobiano", nome_para_msg="Amoxicilina", carimbo=carimbo,
+    )
+    assert res.classificacao_coerente is True
+    assert res.afirmacao_nao_controlado is None
 
 
 def test_validar_tipo_retencao_fora_vocabulario():
@@ -480,3 +558,117 @@ def test_atomizacao_glp1_bloqueada_por_catalogo(client, outer_conn):
     }
     with get_tx() as conn:
         assert eh_item_atomizavel(item, conn=conn) is False
+
+
+# ===========================================================================
+# G1 — mecânica do carimbo (DESENHO-TALAO-DIGITAL-SNCR.md §1/§1.1, Opção 2)
+#
+# Contra as 56 curadas de sempre, com o carimbo explicitamente pendente. O
+# que se prova aqui é a MECÂNICA — a fonte real (Anexo I consolidado) ainda
+# não chegou (AC5 do desenho fica para quando ela chegar).
+# ===========================================================================
+
+def test_carimbo_nasce_pendente(client, outer_conn):
+    """A migração 2fb9182a0846 cria a linha única já com tudo NULL —
+    `buscar_carimbo_ativo` devolve None num banco recém-migrado, nunca um
+    `CarimboRegulatorio` com campos vazios."""
+    from app.database_tx import get_tx
+    from app.domain.catalogo_regulatorio import buscar_carimbo_ativo
+
+    with get_tx() as conn:
+        assert buscar_carimbo_ativo(conn) is None
+
+
+def test_aplicar_carimbo_e_depois_limpar_carimbo(client, outer_conn):
+    """Ciclo completo: carimbar ativa o modo completo; limpar volta ao
+    princípio da cautela. `limpar_carimbo` não apaga `catalogo_substancias`
+    — só revoga a AFIRMAÇÃO de completude."""
+    from app.database_tx import get_tx
+    from app.domain.catalogo_regulatorio import buscar_carimbo_ativo
+    from app.domain.catalogo_seed import aplicar_carimbo, limpar_carimbo
+
+    with get_tx() as conn:
+        aplicar_carimbo(
+            conn, fonte="Teste", versao="RDC 000/2026", data_snapshot="2026-08-28",
+        )
+        carimbo = buscar_carimbo_ativo(conn)
+        assert carimbo is not None
+        assert carimbo.versao == "RDC 000/2026"
+        assert carimbo.data_snapshot == "2026-08-28"
+
+        limpar_carimbo(conn)
+        assert buscar_carimbo_ativo(conn) is None
+
+
+def test_aplicar_snapshot_carimbado_upsert_e_ativa_carimbo(client, outer_conn):
+    """`aplicar_snapshot_carimbado` escreve as entradas COM versao/
+    data_snapshot por linha e carimba de uma vez — o caminho que o
+    importador (`importar_snapshot_rdc_substancias.py`) usa quando a fonte
+    real chegar."""
+    from app.database_tx import get_tx
+    from app.domain.catalogo_regulatorio import (
+        buscar_carimbo_ativo, buscar_substancia,
+    )
+    from app.domain.catalogo_seed import aplicar_snapshot_carimbado
+
+    with get_tx() as conn:
+        resultado = aplicar_snapshot_carimbado(
+            conn,
+            fonte="Portaria 344/98 Anexo I (teste)",
+            versao="RDC 001/2099",
+            data_snapshot="2099-01-01",
+            entradas=[
+                ("Substancia Snapshot Teste", "A1", None, None),
+            ],
+        )
+        assert resultado["entradas"] == 1
+
+        sub = buscar_substancia("Substancia Snapshot Teste", conn)
+        assert sub is not None
+        assert sub.classe_controle == "A1"
+
+        carimbo = buscar_carimbo_ativo(conn)
+        assert carimbo is not None
+        assert carimbo.versao == "RDC 001/2099"
+
+
+def test_aplicar_snapshot_carimbado_e_idempotente(client, outer_conn):
+    """Rodar duas vezes com o mesmo dado não duplica — upsert por
+    `dcb_normalizada`, mesma disciplina do seed curado."""
+    from app.database_tx import get_tx
+    from app.domain.catalogo_seed import aplicar_snapshot_carimbado
+
+    entradas = [("Substancia Idempotente Teste", "B1", None, None)]
+    with get_tx() as conn:
+        aplicar_snapshot_carimbado(
+            conn, fonte="Teste", versao="v1", data_snapshot="2099-01-01",
+            entradas=entradas,
+        )
+        aplicar_snapshot_carimbado(
+            conn, fonte="Teste", versao="v1", data_snapshot="2099-01-01",
+            entradas=entradas,
+        )
+        n = conn.execute(
+            "SELECT COUNT(*) AS n FROM catalogo_substancias "
+            "WHERE dcb_normalizada = ?",
+            ("substancia idempotente teste",),
+        ).fetchone()["n"]
+        assert n == 1
+
+
+def test_aplicar_snapshot_carimbado_exige_fonte_versao_data(client, outer_conn):
+    """AC2/AC3 — sem fonte/versão/data_snapshot não é um snapshot
+    versionado, é o seed de sempre. `aplicar_snapshot_carimbado` recusa."""
+    from app.database_tx import get_tx
+    from app.domain.catalogo_seed import aplicar_snapshot_carimbado
+
+    with get_tx() as conn:
+        for kwargs in (
+            {"fonte": "", "versao": "v1", "data_snapshot": "2099-01-01"},
+            {"fonte": "Teste", "versao": "", "data_snapshot": "2099-01-01"},
+            {"fonte": "Teste", "versao": "v1", "data_snapshot": ""},
+        ):
+            with pytest.raises(ValueError):
+                aplicar_snapshot_carimbado(
+                    conn, entradas=[("X", "A1", None, None)], **kwargs,
+                )

@@ -107,6 +107,10 @@ _TABELAS_APP = [
     "atestados",                          # Atestado — objeto sanitário monolítico
     "atestado_eventos",                   # Atestado — ledger imutável
     "atestado_custodia",                  # Atestado — cadeia de custódia
+    "catalogo_substancias",               # Ticket 20 — catálogo regulatório (gap
+                                           # pré-existente: nunca tinha entrado aqui)
+    "catalogo_regulatorio_carimbo",       # DESENHO-TALAO-DIGITAL-SNCR.md §1 (G1) —
+                                           # linha única que carimba a base completa
 ]
 
 

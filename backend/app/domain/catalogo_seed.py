@@ -134,7 +134,14 @@ SEED_INATIVOS: tuple[tuple[str, str | None, str | None, str, str | None], ...] =
 
 def _upsert(conn, dcb_display: str, classe: str | None,
             tipo_ret: str | None, fonte: str, observacao: str | None,
-            ativo: bool = True) -> None:
+            ativo: bool = True, *,
+            versao: str | None = None,
+            data_snapshot: str | None = None) -> None:
+    """Fonte única do upsert de `catalogo_substancias` — usada pelo seed
+    curado à mão (56 entradas, `versao`/`data_snapshot` ficam None: citam
+    só `fonte`, sem versão/data pontuais — §1.1 do DESENHO-TALAO-DIGITAL-
+    SNCR.md) E por `aplicar_snapshot_carimbado` (import versionado real,
+    quando a fonte consolidada chegar — G1)."""
     norm = normalizar_dcb(dcb_display)
     if not norm:
         raise RuntimeError(f"DCB inválida: {dcb_display!r}")
@@ -156,22 +163,25 @@ def _upsert(conn, dcb_display: str, classe: str | None,
                    tipo_retencao = ?,
                    fonte = ?,
                    observacao = ?,
-                   ativo = ?
+                   ativo = ?,
+                   versao = ?,
+                   data_snapshot = ?
              WHERE dcb_normalizada = ?
             """,
             (dcb_display, dcb_display, classe, tipo_ret, fonte,
-             observacao, ativo, norm),
+             observacao, ativo, versao, data_snapshot, norm),
         )
     else:
         conn.execute(
             """
             INSERT INTO catalogo_substancias
                 (dcb, dcb_normalizada, dcb_display, classe_controle,
-                 tipo_retencao, fonte, observacao, ativo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 tipo_retencao, fonte, observacao, ativo, versao,
+                 data_snapshot)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (dcb_display, norm, dcb_display, classe, tipo_ret, fonte,
-             observacao, ativo),
+             observacao, ativo, versao, data_snapshot),
         )
 
 
@@ -201,3 +211,85 @@ def aplicar_seed_catalogo(conn) -> dict:
         "inativos":        n_inativos,
         "total":           n_glp1 + n_amc + n_p344 + n_inativos,
     }
+
+
+# ---------------------------------------------------------------------------
+# G1 — snapshot carimbado (DESENHO-TALAO-DIGITAL-SNCR.md §1/§1.1)
+#
+# Distinto do seed curado acima: este caminho é para um IMPORT VERSIONADO
+# de verdade — cada entrada leva `versao`/`data_snapshot` pontuais, e a
+# aplicação TAMBÉM carimba `catalogo_regulatorio_carimbo` (a linha única
+# que autoriza `validar_classificacao` a inverter o princípio da cautela).
+# Ninguém chama isto ainda em produção: nasce sem dado real (§1.1 — a
+# fonte consolidada ainda depende do gesto do Fabiano), só a mecânica.
+# ---------------------------------------------------------------------------
+
+def aplicar_snapshot_carimbado(
+    conn,
+    *,
+    fonte: str,
+    versao: str,
+    data_snapshot: str,
+    entradas: Iterable[tuple[str, str | None, str | None, str | None]],
+) -> dict:
+    """Aplica um snapshot versionado completo E ativa o carimbo.
+
+    `entradas`: iterable de (dcb, classe_controle, tipo_retencao,
+    observacao) — cada uma recebe `fonte`/`versao`/`data_snapshot` do
+    snapshot inteiro (não por entrada: um snapshot é uma publicação só).
+
+    Não decide se o snapshot está de fato COMPLETO — quem chama (o
+    importador) é responsável por isso; esta função só aplica e carimba.
+    Idempotente como o seed: upsert por `dcb_normalizada`.
+    """
+    if not fonte or not versao or not data_snapshot:
+        raise ValueError(
+            "fonte/versao/data_snapshot são obrigatórios para carimbar "
+            "(AC2/AC3 — sem eles não é um snapshot versionado, é o seed "
+            "de sempre)"
+        )
+
+    n = 0
+    for dcb, classe, tipo_ret, obs in entradas:
+        _upsert(
+            conn, dcb, classe, tipo_ret, fonte, obs,
+            versao=versao, data_snapshot=data_snapshot,
+        )
+        n += 1
+
+    aplicar_carimbo(conn, fonte=fonte, versao=versao, data_snapshot=data_snapshot)
+
+    return {"entradas": n, "fonte": fonte, "versao": versao, "data_snapshot": data_snapshot}
+
+
+def aplicar_carimbo(conn, *, fonte: str, versao: str, data_snapshot: str) -> None:
+    """Ativa o carimbo (a linha única de `catalogo_regulatorio_carimbo`,
+    id=1, sempre existe — criada pela migração 2fb9182a0846). UPDATE, nunca
+    INSERT: a linha nasce com tudo NULL, nunca é recriada."""
+    conn.execute(
+        """
+        UPDATE catalogo_regulatorio_carimbo
+           SET fonte = ?, versao = ?, data_snapshot = ?, atualizado_em = ?
+         WHERE id = 1
+        """,
+        (fonte, versao, data_snapshot, _agora_iso()),
+    )
+
+
+def limpar_carimbo(conn) -> None:
+    """Volta o carimbo a PENDENTE (tudo NULL) — princípio da cautela
+    reativado. Não apaga `catalogo_substancias`: só a AFIRMAÇÃO de base
+    completa é revogada; as entradas continuam servindo o seed de sempre."""
+    conn.execute(
+        """
+        UPDATE catalogo_regulatorio_carimbo
+           SET fonte = NULL, versao = NULL, data_snapshot = NULL, atualizado_em = ?
+         WHERE id = 1
+        """,
+        (_agora_iso(),),
+    )
+
+
+def _agora_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
