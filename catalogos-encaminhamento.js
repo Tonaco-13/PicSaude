@@ -35,24 +35,42 @@ window.CATALOGOS_ENCAMINHAMENTO = {
 
   /* Especialidades — o §5 pede 10–15 na demo. A ordem é alfabética de
      propósito: ordenar por "mais usada" seria capturar demanda pela porta dos
-     fundos, exatamente o que a sugestão de destino declara e mitiga. */
+     fundos, exatamente o que a sugestão de destino declara e mitiga.
+
+     DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md §6 — forma `{titulo, codigo}` já
+     na PR do painel (não na PR da base): quando a base CBO entrar (PR
+     `adapter`), cada entrada ganha `codigo` e o painel não muda uma linha —
+     é o teste da agnosticidade. `codigo: null` aqui é a forma HONESTA da
+     lista atual, não uma omissão. */
   especialidades: [
-    "CARDIOLOGIA",
-    "CIRURGIA GERAL",
-    "DERMATOLOGIA",
-    "ENDOCRINOLOGIA",
-    "GASTROENTEROLOGIA",
-    "GINECOLOGIA",
-    "NEUROLOGIA",
-    "OFTALMOLOGIA",
-    "ORTOPEDIA",
-    "OTORRINOLARINGOLOGIA",
-    "PEDIATRIA",
-    "PNEUMOLOGIA",
-    "PSIQUIATRIA",
-    "REUMATOLOGIA",
-    "UROLOGIA",
+    { titulo: "CARDIOLOGIA",          codigo: null },
+    { titulo: "CIRURGIA GERAL",       codigo: null },
+    { titulo: "DERMATOLOGIA",         codigo: null },
+    { titulo: "ENDOCRINOLOGIA",       codigo: null },
+    { titulo: "GASTROENTEROLOGIA",    codigo: null },
+    { titulo: "GINECOLOGIA",          codigo: null },
+    { titulo: "NEUROLOGIA",           codigo: null },
+    { titulo: "OFTALMOLOGIA",         codigo: null },
+    { titulo: "ORTOPEDIA",            codigo: null },
+    { titulo: "OTORRINOLARINGOLOGIA", codigo: null },
+    { titulo: "PEDIATRIA",            codigo: null },
+    { titulo: "PNEUMOLOGIA",          codigo: null },
+    { titulo: "PSIQUIATRIA",          codigo: null },
+    { titulo: "REUMATOLOGIA",         codigo: null },
+    { titulo: "UROLOGIA",             codigo: null },
   ],
+
+  /* Provenância lida pelo painel (typeahead-catalogo.js) — nunca fixa no
+     componente. Trocar a base (PR `adapter`) muda só isto: `fonte`/`versao`
+     passam a citar CBO/MTE, `unidade` pode virar "famílias CBO". O `total`
+     é sempre recalculado de `especialidades.length`, nunca duplicado aqui
+     (lição de comentario-que-promete-fonte-unica: duplicação com contagem
+     estática é duplicação). */
+  especialidadesFonte: {
+    fonte: "lista local curada",
+    versao: "2026-08-23.1",
+    unidade: "entradas",
+  },
 
   /* Finalidade estruturada (§5). Os códigos são os do backend
      (`FINALIDADES_ENCAMINHAMENTO`); o rótulo é o que o médico lê. */
@@ -64,6 +82,15 @@ window.CATALOGOS_ENCAMINHAMENTO = {
     { codigo: "seguimento",         rotulo: "Seguimento compartilhado" },
     { codigo: "outra",              rotulo: "Outra (especificar)" },
   ],
+
+  /* Provenância do mini-CID — mesma disciplina da especialidade acima:
+     `total` sempre de `cid.length`, nunca duplicado aqui. Sem `versao`
+     de propósito — o mini-CID não é um snapshot datado, é uma lista
+     parcial e permanentemente incompleta (ver aviso no topo do arquivo). */
+  cidFonte: {
+    fonte: "parcial",
+    unidade: "códigos verificáveis",
+  },
 
   /* Mini-CID — snapshot parcial de condições frequentes na APS.
      Ver o aviso no topo: parcial de propósito, com escape validado. */
