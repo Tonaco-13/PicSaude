@@ -90,7 +90,8 @@ def test_o_ciclo_completo_nas_tres_sessoes(browser, app_demo):
         # M-D: #enc-pac-nome/#enc-pac-cpf vêm travados (readonly) no cidadão
         # canônico — já são _NOME_PACIENTE/_CPF, sem precisar preencher.
         pg.select_option("#enc-finalidade", "avaliacao")
-        pg.select_option("#enc-especialidade", "CARDIOLOGIA")
+        pg.locator("#enc-especialidade-busca").click()  # M-typeahead: painel abre no foco
+        pg.locator("#enc-especialidade-painel .tac-item", has_text="CARDIOLOGIA").click()
         pg.fill("#enc-cns-destino", _CNS_DESTINO)
         pg.fill("#enc-justificativa", justificativa)
         pg.click("#form-enc-main button[type=submit]")
