@@ -87,8 +87,8 @@ def test_o_ciclo_completo_nas_tres_sessoes(browser, app_demo):
         pg.locator("#submod-btn-encaminhamento").click()
         expect(pg.locator("#submod-encaminhamento")).to_be_visible(timeout=_TIMEOUT_MS)
 
-        pg.fill("#enc-pac-nome", _NOME_PACIENTE)
-        pg.fill("#enc-pac-cpf", _CPF)
+        # M-D: #enc-pac-nome/#enc-pac-cpf vêm travados (readonly) no cidadão
+        # canônico — já são _NOME_PACIENTE/_CPF, sem precisar preencher.
         pg.select_option("#enc-finalidade", "avaliacao")
         pg.select_option("#enc-especialidade", "CARDIOLOGIA")
         pg.fill("#enc-cns-destino", _CNS_DESTINO)
