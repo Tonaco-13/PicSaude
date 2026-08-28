@@ -83,7 +83,22 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
 - **Remarcação de encaminhamento** — desenho pronto
   (`DESENHO-REMARCACAO-ENCAMINHAMENTO.md`: re-ato de agendar, sem estado/aresta/evento novo)
 - **Posologia diabetes / saúde mental** — pré-digitação ampliada (anotação do Fabiano, 25/08)
-- **Simulador RDC 1.000** — classificação regulatória automática (guardas R4/G4A vigentes)
+- **"Treinar a IA do sinal"** — 🅿️ parqueado por martelo do Fabiano (28/08: "anote
+  somente; vamos ver depois das bases"). Nota de direção com 4 trilhas no §7 do
+  `VAGAO-CURADORIA-SEMAFORO.md` — inclui o achado de que a camada 3 já grava no ledger,
+  na emissão, os tuplas (sinal × item emitido × versão de regra): a fundação de dados
+  para um futuro modelo nasce capturada por desenho
+- **Onda das bases de referência** — martelada 28/08 ("desenrolamos agora", desdobrando
+  o "depois das bases"): **CID-10 completo → SIGTAP-exames → listas RDC 1.000/2025 (G1
+  do talão digital)**; bulário e TUSS com gatilho declarado. Disciplina única:
+  importação offline versionada, nunca ao vivo. Ticket próprio da onda a desenhar;
+  consumo plug-and-play no typeahead agnóstico (#216)
+- **Talão Digital SNCR (motor regulatório)** — martelado 28/08
+  (`DESENHO-TALAO-DIGITAL-SNCR.md`, G1–G4): G1 dobra para a onda das bases; G2 (modo
+  lote/talão no stub) tem **peça `core`-flaggada** — extensão da interface SNCR exige
+  revisão central; G3 (talões na vitrine) `module`; G4 (escrituração externa)
+  **parqueado até piloto**. A ponte já existe (contrato+stub+fábrica+fiação, §0);
+  guardas de honestidade tripla intocáveis
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
 - ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
   `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —
@@ -92,10 +107,18 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   cidadão canônico, retira o quick-pick e os 2 cidadãos extras. Adendo §8 do
   `DESENHO-VITRINE-HIGIENE-VISITANTE.md`. Limite declarado: lock é só de
   frontend, backend não valida `nome_paciente`/`cpf_paciente` em DEMO_MODE.
-- 🟡 **Typeahead unificado + base CBO no encaminhamento** — PR 1 (`module`,
-  `typeahead-catalogo.js`) entregue: painel na língua dos padrões-ouro,
-  base = lista atual de 15 especialidades + 55 CID, rodapé lê provenância
-  do catálogo, zero badge de confiança. PR 2 (`adapter`, base CBO) segue
-  como próximo passo — guarda-chave ainda pendente: psicologia (CBO 2515)
-  fica FORA do grupo 22, whitelist explícita, nunca prefixo "22=saúde"
+- ✔️ **Typeahead unificado no encaminhamento — PR 1 + PR 2 completos**. PR 1
+  (painel, `module`) — PR **#216** mergeado 28/08 (`98c100d`), ratificada pelo
+  arquiteto. **PR 2 (base CBO, `adapter`)** — `especialidades` cresce de 15
+  para 21 (as médicas + odontologia/enfermagem/fisioterapia/nutrição/
+  fonoaudiologia/psicologia), cada uma com código+família,
+  `backend/scripts/importar_snapshot_cbo_encaminhamento.py` como fonte única
+  verificada. **Guarda-chave confirmada**: psicologia = CBO 2515, fora do
+  subgrupo 22, presente na base (browser test "PSI → 2515"). **Achado na
+  conferência**: 4 erros no rascunho da whitelist do §2 do desenho (2252 não
+  é odontologia — é cirúrgicas; 2232 não é enfermagem — é odontologia;
+  fisioterapia não é 2231 — é 2236; fonoaudiologia não é 2236 — é 2238) —
+  detalhado no §7 do `DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md`, junto com um
+  achado fora de escopo (mesmo tipo de erro na glosa do `CBO_PREFIXES` de
+  `config.py:13`, valores intocados, só a legenda estava errada)
 - **CBEB v11** — conferir pontos A/B quando o Kimi voltar com a revisão

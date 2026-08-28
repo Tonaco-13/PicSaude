@@ -5,7 +5,7 @@
 | **Origem** | Fabiano, 28/08: *"os motores de busca do encaminhamento se apresentarem como no atestado ou pedido de exames?"* → parecer do arquiteto → **dois martelos**: unificação visual + troca da base para CBO |
 | **Autor** | Arquiteto (Z) — desenho, **não implementação** |
 | **Classe** | PR 1 `module` (componente de tela, §4) · PR 2 `adapter` (importação de catálogo, snapshot versionado, §3) — ordem invertida pelo §6 |
-| **Estado** | PR 1 (`module`) implementado — `typeahead-catalogo.js`, duas montagens no encaminhamento. PR 2 (`adapter`, base CBO) segue como próximo passo |
+| **Estado** | PR 1 (`module`) e PR 2 (`adapter`) implementados. Base CBO com 21 especialidades (as 15 médicas + odontologia/enfermagem/fisioterapia/nutrição/fonoaudiologia/psicologia), família 2515 presente. Conferência contra a publicação achou 4 erros no rascunho do §2 — ver §7 abaixo |
 | **Relacionados** | `catalogos-encaminhamento.js` (ENG-016 §5 — o arquivo que se troca de base) · `DESENHO-ENCAMINHAMENTO-UX.md` · R4/§2a (identificador externo nunca ao vivo) |
 
 ---
@@ -165,10 +165,52 @@ Depois do M-C (em voo).
 **Martelos (Fabiano, 28/08):** unificação visual ✔ · troca da base para CBO ✔ ·
 psicologia incluída por decisão declarada ✔ (§1) · **motor antes da tabela ✔** (§6).
 
+## §7 O que a conferência achou (PR 2, `adapter`) — "nada entra por memória" mordeu
+
+O §2 já previa a necessidade ("a conferência fina das famílias é passo 1 da
+importação... **nada entra por memória**"). A conferência (28/08, cruzada em
+múltiplas fontes independentes que precisam estar corretas por motivo próprio —
+folha de pagamento, faturamento TISS) achou **quatro erros reais no rascunho
+do §2**, não hipotéticos:
+
+| Rascunho do §2 dizia | A publicação diz | Correção |
+|---|---|---|
+| 2252 = odontologia | 2252 = **Médicos em especialidades cirúrgicas** | Odontologia é 2232 |
+| 2232 = enfermagem | 2232 = **Cirurgiões-dentistas** (odontologia) | Enfermagem é 2235 |
+| 2231 = fisioterapia | 2231 = **"Médicos"**, família de outro subgrupo (223, que coexiste com 225) | Fisioterapia é 2236 |
+| 2236 = fonoaudiologia | 2236 = **Fisioterapeutas** | Fonoaudiologia é 2238 |
+
+Nutrição (2237) e psicologia (2515, o caso-guarda do §1) já estavam certas no
+rascunho — as únicas duas. A tabela de alias mínima prevista no §3 ("persona
+'CARDIOLOGIA' ↔ CBO 2251-10") **não foi necessária**: o valor que viaja no
+payload do encaminhamento continua sendo o `titulo` (nome), nunca o `codigo`
+CBO — decisão já tomada na PR do painel (`valor: (e) => e.titulo`) — então a
+demo casa sem camada extra.
+
+**Achado fora do escopo desta PR, registrado e não tocado:** `CBO_PREFIXES`
+(`config.py:13`, §5 deste desenho) tem os valores certos para "quem
+prescreve" `(2251, 2252, 2232)`, mas a glosa do §2 que os descreve — "médicos,
+odontologia, enfermagem" — tem o mesmo tipo de erro da tabela acima (2252 não
+é odontologia, 2232 não é enfermagem). Os TRÊS valores continuam fazendo
+sentido como categorias de prescritor pleno (médicos clínicos + médicos
+cirúrgicos + dentistas) — é só a legenda que estava errada. AC5 desta PR pedia
+"intocado", então a constante não foi tocada; a correção da legenda é decisão
+de quem mantém §5, fora deste PR.
+
+Base final: **21 especialidades** — as 15 médicas + odontologia, enfermagem,
+fisioterapia, nutrição, fonoaudiologia, psicologia. Fonte, versão, data e
+famílias incluídas declaradas em `especialidadesFonte`
+(`catalogos-encaminhamento.js`), geradas por
+`backend/scripts/importar_snapshot_cbo_encaminhamento.py` — a fonte
+verificada vive no script, nunca editada à mão no arquivo gerado.
+
 ---
 
-*Desenho do arquiteto, 2026-08-28. Âncoras: `prescritor.html:990-991` (select nativo) ·
-`catalogos-encaminhamento.js` (lista de 15, versão 2026-08-23.1) · `config.py:13`
-(CBO_PREFIXES) · `cnes_prescritor.py:109`. Fonte do fato §1: publicação oficial do CBO
-(MTE, Portaria 397/2002) — família 2515 no subgrupo 25, fora do 22. Implementação é do
-engenheiro.*
+*Desenho do arquiteto, 2026-08-28; §7 (achados da conferência) em 2026-08-28,
+na implementação do PR 2. Âncoras: `prescritor.html:990-991` (select nativo,
+já substituído no PR 1) · `catalogos-encaminhamento.js` (base CBO, 21
+entradas) · `backend/scripts/importar_snapshot_cbo_encaminhamento.py` ·
+`config.py:13` (CBO_PREFIXES, intocado) · `cnes_prescritor.py:109`. Fonte do
+fato §1: publicação oficial do CBO (MTE, Portaria 397/2002) — família 2515
+no subgrupo 25, fora do 22, confirmada na conferência do PR 2. Implementação
+é do engenheiro.*
