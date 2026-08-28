@@ -84,5 +84,8 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   (`DESENHO-REMARCACAO-ENCAMINHAMENTO.md`: re-ato de agendar, sem estado/aresta/evento novo)
 - **Posologia diabetes / saúde mental** — pré-digitação ampliada (anotação do Fabiano, 25/08)
 - **Simulador RDC 1.000** — classificação regulatória automática (guardas R4/G4A vigentes)
-- ✔️ **Reset diário da vitrine** — entregue: PR **#212** mergeado 27/08 (`8202f5a`; cron + sentinela pós-seed + lock_timeout). Falta o **Apply do Blueprint** no Render — gesto do Fabiano, sem ele o bloco é texto
+- ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
+- ✔️ **Chips de cidadãos demo (M-B)** — PR **#213** mergeado 27/08 (`b0ef413`; chips nos 3 campos + 2 cidadãos + guardas)
+- **João fixado por padrão nos 4 objetos (M-C)** — martelado 28/08; adendo §7 do
+  `DESENHO-VITRINE-HIGIENE-VISITANTE.md`; inclui o atestado (4º objeto, sem chips no M-B)
 - **CBEB v11** — conferir pontos A/B quando o Kimi voltar com a revisão

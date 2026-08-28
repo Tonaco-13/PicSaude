@@ -137,6 +137,21 @@ def _identidades_seed() -> dict[str, str]:
     }
 
 
+def test_mc_cidadao_default_e_o_primeiro_da_lista_cidadaos():
+    """M-C (DESENHO-VITRINE-HIGIENE-VISITANTE.md §7) AC5 — `DEMO.cidadaos[0]`
+    é CONTRATO, não sorteio: é ele quem chips-cidadaos-demo.js usa como
+    preenchimento PADRÃO nos quatro formulários (receita/exame/
+    encaminhamento/atestado). Se um dia `DEMO.cidadaos` for reordenado, o
+    'fixado' muda de pessoa sem ninguém decidir isso conscientemente — esta
+    guarda existe para que essa reordenação precise passar por aqui."""
+    txt = _CONFIG_JS.read_text(encoding="utf-8")
+    assert re.search(r"cidadaos\s*=\s*\[\s*DEMO\.cidadao\s*,", txt), (
+        "DEMO.cidadaos[0] não é (a referência a) DEMO.cidadao — o cidadão "
+        "que M-C fixa como padrão (João Demo da Silva) não está mais "
+        "garantido como o primeiro da lista"
+    )
+
+
 def test_config_e_seed_declaram_as_mesmas_identidades():
     """config.js (`DEMO.*`) e seed_demo.py batem CPF/CNPJs — os dois lados, uma verdade."""
     config = _identidades_config()
