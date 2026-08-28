@@ -436,7 +436,8 @@ class TestImpressaoDoRascunho:
         page.goto(f"{app_demo}/prescritor.html", wait_until="networkidle")
         page.locator("#submod-btn-atestado").click()
 
-        page.locator("#atestado-paciente").fill("João Demo da Silva")
+        # M-D: #atestado-paciente vem travado (readonly) no cidadão canônico
+        # — "João Demo da Silva" já é o valor, sem precisar preencher.
         page.locator("#atestado-finalidade").select_option("trabalhistas")
         # Layout 2026-07-22: o campo Dias nasce travado (Comparecimento, dias=0). Ele
         # só abre e fica editável em Afastamento — selecionar o tipo antes de preencher.

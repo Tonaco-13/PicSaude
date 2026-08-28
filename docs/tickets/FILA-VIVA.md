@@ -85,7 +85,15 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
 - **Posologia diabetes / saúde mental** — pré-digitação ampliada (anotação do Fabiano, 25/08)
 - **Simulador RDC 1.000** — classificação regulatória automática (guardas R4/G4A vigentes)
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
-- ✔️ **Chips de cidadãos demo (M-B)** — PR **#213** mergeado 27/08 (`b0ef413`; chips nos 3 campos + 2 cidadãos + guardas)
-- **João fixado por padrão nos 4 objetos (M-C)** — martelado 28/08; adendo §7 do
-  `DESENHO-VITRINE-HIGIENE-VISITANTE.md`; inclui o atestado (4º objeto, sem chips no M-B)
+- ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
+  `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —
+  martelo direto do Fabiano ao engenheiro ("fixar, sem possibilidade de edição";
+  o problema original ainda acontecia). M-D trava (readonly) os 4 campos no
+  cidadão canônico, retira o quick-pick e os 2 cidadãos extras. Adendo §8 do
+  `DESENHO-VITRINE-HIGIENE-VISITANTE.md`. Limite declarado: lock é só de
+  frontend, backend não valida `nome_paciente`/`cpf_paciente` em DEMO_MODE.
+- **Typeahead unificado + base CBO no encaminhamento** — martelado 28/08
+  (`DESENHO-TYPEAHEAD-ENCAMINHAMENTO-CBO.md`; ordem martelada: **painel primeiro** na
+  lista atual, base CBO depois). Guarda-chave: psicologia (CBO 2515) fica FORA do grupo
+  22 — whitelist explícita, nunca prefixo "22=saúde"
 - **CBEB v11** — conferir pontos A/B quando o Kimi voltar com a revisão
