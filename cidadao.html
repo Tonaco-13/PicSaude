@@ -788,13 +788,17 @@
         // ORDEM definida em 25/08. A navegação é desenhada A PARTIR desta
         // lista e os painéis são casados por CHAVE — reordenar aqui é seguro,
         // e os E2Es apontam `#submod-btn-{chave}`, não posição.
+        // A3/FILA-VIVA: `contador: null` (não `0`) — nasce SEM DADO, pílula
+        // escondida até `_sincronizarContadoresCarteira()` trazer o valor
+        // real do fetch. `0` de saída pintava "vazio" antes de a carga
+        // acontecer — indistinguível do caso genuinamente vazio.
         const _SUBMODULOS_CARTEIRA = [
-            { chave: 'receita',         titulo: 'Receitas',        contador: 0 },
-            { chave: 'exames',          titulo: 'Exames',          contador: 0 },
-            { chave: 'atestado',        titulo: 'Atestados',       contador: 0 },
-            { chave: 'encaminhamentos', titulo: 'Encaminhamentos', contador: 0 },
-            { chave: 'laudos',          titulo: 'Laudos',          contador: 0 },
-            { chave: 'agendamentos',    titulo: 'Agendamentos',    contador: 0 },
+            { chave: 'receita',         titulo: 'Receitas',        contador: null },
+            { chave: 'exames',          titulo: 'Exames',          contador: null },
+            { chave: 'atestado',        titulo: 'Atestados',       contador: null },
+            { chave: 'encaminhamentos', titulo: 'Encaminhamentos', contador: null },
+            { chave: 'laudos',          titulo: 'Laudos',          contador: null },
+            { chave: 'agendamentos',    titulo: 'Agendamentos',    contador: null },
         ];
         const _ABAS_CARTEIRA = _SUBMODULOS_CARTEIRA.map(x => x.chave);
         let _submoduloAtivo = 'receita';
@@ -815,7 +819,17 @@
         // O contador mostra o que está VIVO, não o histórico: é o que diz ao
         // cidadão se há algo a fazer sem precisar abrir a aba. Histórico e
         // laudos já com ciência continuam listados dentro da aba.
-        const _contagemCarteira = { receitas: 0, pedidos: 0, laudos: 0, atestados: 0, agendamentos: 0, encaminhamentos: 0 };
+        //
+        // A3/FILA-VIVA: os SEIS campos nascem `null` ("ainda não carregado"),
+        // não `0`. Os seis loaders (receita/exames/laudos/atestados/
+        // agendamentos/encaminhamentos) correm em paralelo e cada um, ao
+        // terminar, chama `_sincronizarContadoresCarteira()` — que repinta
+        // TODAS as seis pílulas com o estado ATUAL de `_contagemCarteira`,
+        // não só a sua. Se um campo ainda não carregado nascesse `0`, o
+        // loader mais rápido pintaria "0" numa pílula que só ainda não
+        // teve tempo de buscar o dado real — a pílula piscando (ou
+        // travando em) zero que o walkthrough de 27/08 flagrou.
+        const _contagemCarteira = { receitas: null, pedidos: null, laudos: null, atestados: null, agendamentos: null, encaminhamentos: null };
 
         function _sincronizarContadoresCarteira() {
             // Cada cartão conta o SEU. Enquanto Laudos vivia dentro de Exames,

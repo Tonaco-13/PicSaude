@@ -43,8 +43,12 @@
      *
      * @param {HTMLElement|string} container  elemento ou id
      * @param {Array<{chave,titulo,contador?}>} itens
-     *        `contador` ausente = pílula sem número (a barra do prescritor,
-     *        que numera nada). Presente = número visível desde o início.
+     *        `contador` ausente (undefined) = pílula sem número (a barra do
+     *        prescritor, que numera nada) — nem o `<span>` nasce. `null` =
+     *        pílula existe mas SEM DADO AINDA (nasce `hidden`; A3/FILA-VIVA —
+     *        pintar `0` de saída é indistinguível de "de fato zero", e o
+     *        fetch assíncrono que preenche o valor real ainda não voltou).
+     *        Número = valor real, visível desde o início.
      * @param {(chave:string)=>void} aoEscolher
      * @param {string} ativo  chave inicial
      * @param {string} rotulo rótulo ARIA da barra
@@ -65,7 +69,7 @@
                 data-submod="${_esc(it.chave)}">
           <span class="submod-titulo">${_esc(it.titulo)}</span>
           ${it.contador === undefined ? "" :
-            `<span class="submod-contador" id="submod-count-${_esc(it.chave)}">${it.contador ?? 0}</span>`}
+            `<span class="submod-contador" id="submod-count-${_esc(it.chave)}"${it.contador === null ? " hidden" : ""}>${it.contador ?? 0}</span>`}
         </button>`).join("");
 
       // Delegação: um listener na barra, não N nas pílulas. Re-render não
