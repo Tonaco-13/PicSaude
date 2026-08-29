@@ -245,6 +245,53 @@ class TestNormalizarExame:
 
 
 # ---------------------------------------------------------------------------
+# 3b. TICKET-FILA-7 — SIGTAP acoplado (fonte não pode mentir)
+# ---------------------------------------------------------------------------
+
+class TestNormalizarExameSigtap:
+    """`fonte` tem de vir do REGISTRO, nunca de um literal fixo — um match
+    só-SIGTAP não é "TUSS/BASE_LOCAL" (a mesma disciplina de proveniência
+    honesta do CID-10/RDC/CBO). Estes testes travam os três casos possíveis
+    depois da fusão TUSS+SIGTAP por nome: fusão, só-SIGTAP, só-curado."""
+
+    def test_match_fundido_traz_os_dois_codigos(self):
+        """ECG: nome_busca da curadoria bate com o nome oficial SIGTAP —
+        os dois códigos convivem no mesmo registro."""
+        resp = normalizar_exame("ECG")
+        assert resp["codigo_tuss"] == "40311012"
+        assert resp["codigo_sigtap"] is not None
+        assert resp["codigo_sigtap"].startswith("02")  # grupo diagnóstico
+        assert "TUSS/BASE_LOCAL" in resp["fonte"]
+        assert "SIGTAP/DATASUS" in resp["fonte"]
+
+    def test_match_so_sigtap_nao_afirma_tuss_base_local(self):
+        """Um procedimento SIGTAP sem par na curadoria: fonte tem que dizer
+        SIGTAP, não pode herdar o rótulo genérico da curadoria."""
+        resp = normalizar_exame("DOSAGEM DE GLICOSE-6-FOSFATO DESIDROGENASE")
+        assert resp["match_tipo"] == "exato"
+        assert resp["codigo_tuss"] is None
+        assert resp["codigo_sigtap"] is not None
+        assert resp["fonte"] is not None
+        assert "SIGTAP/DATASUS" in resp["fonte"]
+        assert resp["fonte"] != "TUSS/BASE_LOCAL"
+
+    def test_match_so_curado_sem_par_sigtap_fica_sozinho(self):
+        """glicemia (curada) não tem par SIGTAP com o mesmo nome_busca
+        exato — continua resolvendo (AC3), sem código SIGTAP inventado."""
+        resp = normalizar_exame("glicemia")
+        assert resp["codigo_tuss"] is not None
+        assert resp["codigo_sigtap"] is None
+        assert resp["fonte"] == "TUSS/BASE_LOCAL"
+
+    def test_base_cresceu_muito_alem_da_curadoria(self):
+        """AC2 do ticket: contagem final >= dezenas x a curadoria (38)."""
+        assert BASE_TUSS.total >= 38 * 10
+
+    def test_versao_reflete_sigtap_quando_csv_existe(self):
+        assert "sigtap_" in BASE_TUSS.versao
+
+
+# ---------------------------------------------------------------------------
 # 4. Endpoint POST /ia/exames/normalizar
 # ---------------------------------------------------------------------------
 

@@ -29,12 +29,15 @@ RESPOSTA
     "nome_entrada":       str,
     "nome_normalizado":   str,
     "codigo_tuss":        str | None,
+    "codigo_sigtap":      str | None,   # TICKET-FILA-7 — pode vir sozinho,
+                                        # junto do TUSS, ou nenhum dos dois
     "nome_padronizado":   str | None,
     "categoria":          str | None,
     "preparo_sugerido":   str | None,
     "match_tipo":         "exato" | "alias" | "aproximado" | "nenhum",
     "score":              float,
-    "fonte":              str | None,
+    "fonte":              str | None,   # lida do registro (TICKET-FILA-7) —
+                                        # nunca um literal fixo; ver tuss_base.py
     "versao_base":        str | None,
     "alertas":            list[str],
     "aviso":              str,
@@ -120,16 +123,21 @@ def normalizar_exame(
         )
 
     # --- Resposta ---
+    # `fonte` vem do REGISTRO (TICKET-FILA-7), nunca de um literal fixo — um
+    # registro só-SIGTAP (sem curadoria) não é "TUSS/BASE_LOCAL", e afirmar
+    # isso seria a mesma mentira de proveniência que o CID/RDC/CBO já
+    # corrigiram (fonte não pode mentir).
     return {
         "nome_entrada":     nome_exame,
         "nome_normalizado": nome_norm,
         "codigo_tuss":      registro["codigo_tuss"] if registro else None,
+        "codigo_sigtap":    registro.get("codigo_sigtap") if registro else None,
         "nome_padronizado": registro["nome_padrao"] if registro else None,
         "categoria":        registro["categoria"] if registro else None,
         "preparo_sugerido": registro["preparo"] if registro else None,
         "match_tipo":       match_tipo,
         "score":            round(score, 4),
-        "fonte":            "TUSS/BASE_LOCAL" if registro else None,
+        "fonte":            registro.get("fonte") if registro else None,
         "versao_base":      BASE_TUSS.versao if registro else None,
         "alertas":          alertas,
         "aviso":            _AVISO_FIXO,

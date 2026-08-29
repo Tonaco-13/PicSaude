@@ -3785,7 +3785,7 @@
          * Adiciona um card de exame à lista.
          * Cada card mantém seu próprio debounce e estado de IA — independente dos demais.
          */
-        function adicionarExame(nome = '', qtd = 1, codigoTuss = '') {
+        function adicionarExame(nome = '', qtd = 1, codigoTuss = '', codigoSigtap = '') {
             exameCount++;
             const container = document.getElementById('lista-exames');
             const div = document.createElement('div');
@@ -3800,6 +3800,7 @@
                     <input type="number" class="form-input exame-qtd" placeholder="Qtd." min="1" value="${qtd}">
                 </div>
                 <input type="hidden" class="exame-codigo-tuss" value="${codigoTuss}">
+                <input type="hidden" class="exame-codigo-sigtap" value="${codigoSigtap}">
                 <div class="ia-exame-container"></div>
             `;
             container.appendChild(div);
@@ -3809,9 +3810,13 @@
             if (nomeEl) {
                 const _n = exameCount;
                 nomeEl.addEventListener('input', function() {
-                    // Limpa código TUSS ao editar manualmente
+                    // Limpa códigos sugeridos ao editar manualmente — TUSS e
+                    // SIGTAP (TICKET-FILA-7) andam juntos: o nome mudou, os
+                    // dois deixam de valer.
                     const tussEl = div.querySelector('.exame-codigo-tuss');
                     if (tussEl) tussEl.value = '';
+                    const sigtapEl = div.querySelector('.exame-codigo-sigtap');
+                    if (sigtapEl) sigtapEl.value = '';
                     clearTimeout(_iaExameTimers[_n]);
                     _iaExameTimers[_n] = setTimeout(() => _consultarIaExame(_n), 500);
                 });
@@ -3859,19 +3864,21 @@
         }
 
         /**
-         * Aplica o nome padronizado e o código TUSS no card.
+         * Aplica o nome padronizado e os códigos TUSS/SIGTAP no card.
          * Ação explícita do usuário — nunca automática.
          * O botão some após aplicar (nome já igual ao padronizado).
          */
-        function _usarNomePadronizado(n, nomePadronizado, codigoTuss) {
+        function _usarNomePadronizado(n, nomePadronizado, codigoTuss, codigoSigtap) {
             const card = document.getElementById('exame-item-' + n);
             if (!card) return;
 
-            const nomeEl = card.querySelector('.exame-nome');
-            const tussEl = card.querySelector('.exame-codigo-tuss');
+            const nomeEl   = card.querySelector('.exame-nome');
+            const tussEl   = card.querySelector('.exame-codigo-tuss');
+            const sigtapEl = card.querySelector('.exame-codigo-sigtap');
 
             if (nomeEl) nomeEl.value = nomePadronizado;
             if (tussEl) tussEl.value = codigoTuss || '';
+            if (sigtapEl) sigtapEl.value = codigoSigtap || '';
 
             // Re-consulta para atualizar o bloco (botão some quando já igual)
             clearTimeout(_iaExameTimers[n]);
@@ -3895,6 +3902,7 @@
 
             const nomePadronizado = data.nome_padronizado || '';
             const codigoTuss      = data.codigo_tuss      || '';
+            const codigoSigtap    = data.codigo_sigtap    || '';
             const categoria       = data.categoria        || '';
             const preparo         = data.preparo_sugerido || '';
             const matchTipo       = data.match_tipo        || 'nenhum';
@@ -3927,15 +3935,17 @@
 
                 const nomePadEsc = nomePadronizado.replace(/'/g, "\\'");
                 const tussEsc    = codigoTuss.replace(/'/g, "\\'");
+                const sigtapEsc  = codigoSigtap.replace(/'/g, "\\'");
 
                 html += `<div class="ia-exame-bloco ia-exame-bloco-norm">`;
                 html += `<div class="ia-exame-header">Normalização diagnóstica assistida</div>`;
                 html += `<div class="ia-exame-chips">`;
                 if (nomePadronizado) html += `<span class="ia-exame-chip">📋 ${nomePadronizado}</span>`;
                 if (codigoTuss)      html += `<span class="ia-exame-chip">TUSS ${codigoTuss}</span>`;
+                if (codigoSigtap)    html += `<span class="ia-exame-chip">SIGTAP ${codigoSigtap}</span>`;
                 if (categoria)       html += `<span class="ia-exame-chip">${categoria}</span>`;
                 if (podeSugerir) {
-                    html += `<button type="button" class="ia-exame-btn-usar" onclick="_usarNomePadronizado(${n},'${nomePadEsc}','${tussEsc}')">Usar nome padronizado</button>`;
+                    html += `<button type="button" class="ia-exame-btn-usar" onclick="_usarNomePadronizado(${n},'${nomePadEsc}','${tussEsc}','${sigtapEsc}')">Usar nome padronizado</button>`;
                 }
                 html += `</div>`;
 
@@ -4009,14 +4019,16 @@
 
             const itens = [];
             document.querySelectorAll('.exame-card').forEach(card => {
-                const nomeEl = card.querySelector('.exame-nome');
-                const qtdEl  = card.querySelector('.exame-qtd');
-                const tussEl = card.querySelector('.exame-codigo-tuss');
+                const nomeEl   = card.querySelector('.exame-nome');
+                const qtdEl    = card.querySelector('.exame-qtd');
+                const tussEl   = card.querySelector('.exame-codigo-tuss');
+                const sigtapEl = card.querySelector('.exame-codigo-sigtap');
                 if (nomeEl && nomeEl.value.trim()) {
                     itens.push({
-                        nome_exame:  nomeEl.value.trim(),
-                        codigo_tuss: (tussEl && tussEl.value) ? tussEl.value : null,
-                        quantidade:  qtdEl ? (parseInt(qtdEl.value, 10) || 1) : 1
+                        nome_exame:    nomeEl.value.trim(),
+                        codigo_tuss:   (tussEl && tussEl.value) ? tussEl.value : null,
+                        codigo_sigtap: (sigtapEl && sigtapEl.value) ? sigtapEl.value : null,
+                        quantidade:    qtdEl ? (parseInt(qtdEl.value, 10) || 1) : 1
                     });
                 }
             });
@@ -4195,14 +4207,16 @@
 
             const itens = [];
             document.querySelectorAll('.exame-card').forEach(card => {
-                const nomeEl = card.querySelector('.exame-nome');
-                const qtdEl  = card.querySelector('.exame-qtd');
-                const tussEl = card.querySelector('.exame-codigo-tuss');
+                const nomeEl   = card.querySelector('.exame-nome');
+                const qtdEl    = card.querySelector('.exame-qtd');
+                const tussEl   = card.querySelector('.exame-codigo-tuss');
+                const sigtapEl = card.querySelector('.exame-codigo-sigtap');
                 if (nomeEl && nomeEl.value.trim()) {
                     itens.push({
-                        nome_exame:  nomeEl.value.trim(),
-                        codigo_tuss: (tussEl && tussEl.value) ? tussEl.value : null,
-                        quantidade:  qtdEl ? (parseInt(qtdEl.value, 10) || 1) : 1
+                        nome_exame:    nomeEl.value.trim(),
+                        codigo_tuss:   (tussEl && tussEl.value) ? tussEl.value : null,
+                        codigo_sigtap: (sigtapEl && sigtapEl.value) ? sigtapEl.value : null,
+                        quantidade:    qtdEl ? (parseInt(qtdEl.value, 10) || 1) : 1
                     });
                 }
             });
