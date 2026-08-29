@@ -87,6 +87,16 @@ def canon_ativo(nome: str) -> str:
     return s.strip()
 ```
 
+> **ERRATA (arquiteto, 29/08, na auditoria da #220):** a ordem do exemplo acima está ERRADA e
+> foi invertida na implementação — o strip de dose vem **ANTES** do strip de sal. O motivo: o
+> sal-sufixo casa por `s.endswith(" " + suf)`; com dose no fim (`"losartana potassica 50mg"`),
+> a string termina em "50mg", o sufixo nunca casa, e o sal sobrevive — o exemplo do §2 não
+> satisfazia o AC4 do próprio ticket (§4). O rascunho era internamente inconsistente; o
+> engenheiro achou o caso combinado na execução e invertemos a ordem. Verificado pelo arquiteto
+> na #220: vermelho-antes-do-verde confirmado em `main` (os 5 testes novos falham), e o
+> invariante §3 provado por diff direto — 120 chaves canônicas (semáforo + posologia)
+> byte-idênticas entre `main` e a PR, e nenhum `principio_ativo` da base contém dígito.
+
 > **Atenção (core):** este regex é o ponto crítico do ticket. Um regex guloso pode comer nomes
 > legítimos (ex.: não há princípio ativo com "mg" no nome, mas confirmar contra a base). Testar
 > contra **todos** os `principio_ativo` de `data/decisao_semaforo.csv` + base ANVISA — nenhum nome
