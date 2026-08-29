@@ -3,23 +3,30 @@ base_cid.py
 ===========
 Base CID-10 local para normalização diagnóstica assistida — Ticket 33.
 
-Fonte: CID-10 Subcategorias — Adaptação Brasileira (DATASUS / MS)
-       Subset representativo MVP — Ticket 33.
+Fonte: CID-10 Subcategorias — Adaptação Brasileira (DATASUS/MS), base V2008,
+       com remendos pontuais pós-2008 (família U07–U12, COVID-19, fonte
+       MS/OMS citada por linha) e uma camada de curadoria de aliases
+       clínicos (`_BASE_CID_RAW`) sobreposta.
 
-⚠️  AVISO MVP — SUBSET REPRESENTATIVO, NÃO TABELA OFICIAL COMPLETA
+TABELA COMPLETA, NÃO SUBSET (legenda corrigida em TICKET-FILA-6, 29/08)
 --------------------------------------------------------------------
-Esta base contém ~240 códigos CID-10 selecionados por relevância clínica
-na atenção primária e especializada brasileira.
+Esta base carrega a tabela CID-10 COMPLETA de `data/cid10.csv`
+(14.240 códigos — todas as categorias e subcategorias). O antigo "subset
+MVP ~240 códigos" (Ticket 33) NÃO é mais a fonte principal — sobrevive só
+como a camada `_BASE_CID_RAW` de aliases clínicos sobreposta ao CSV
+completo. Este aviso ficou desatualizado por muito tempo (o loader já lia
+o CSV inteiro havia meses) — é exatamente o tipo de "string escrita à mão
+que envelhece em silêncio" que `manifesto()`, abaixo, existe para não
+repetir.
 
-A tabela CID-10 oficial brasileira (DATASUS) contém ~14.000 subcategorias.
-
-Para v2, substituir por:
-  - Tabela completa carregada de CSV/SQLite (fonte: DATASUS)
-  - URL oficial: http://tabnet.datasus.gov.br/cgi/sih/ihdcap.htm
-  - Versão: CID-10 2ª edição brasileira (revisão 2019)
-
-Enquanto isso, esta base cobre ~85% dos casos na atenção primária,
-urgência e ambulatório especializado.
+TETO ACESSÍVEL (TICKET-FILA-6-CID10-COMPLETO.md, 29/08/2026): a base é
+V2008 + remendos pontuais, NÃO a revisão brasileira vigente completa
+pós-2008 — o Ministério da Saúde não publica essa tabela em canal aberto
+hoje (varredura registrada no §6 do ticket: SVS/MS, DATASUS, CBCD/USP e o
+FHIR RNDS oficial, todos verificados por `curl`). Gatilhos de reabertura
+(§6): (a) MS publicar a tabela completa; (b) PicSaúde ganhar acesso
+institucional ao terminology server RNDS; (c) marco da transição CID-11
+(cronograma MS, conclusão prevista ~2027 — projeto novo, não update).
 
 ESTRUTURA DE CADA REGISTRO
 ---------------------------
@@ -28,8 +35,10 @@ ESTRUTURA DE CADA REGISTRO
   descricao_normalizada: versão sem acentos/lowercase para busca
   categoria:             agrupamento clínico (cardiovascular, endocrine…)
   aliases:               termos alternativos para lookup
-  fonte:                 "CID10/BASE_LOCAL"
-  versao_base:           data de referência do subset
+  fonte:                 proveniência POR LINHA (DATASUS/MS V2008, ou a
+                          citação específica do remendo — nunca genérico)
+  versao_base:           declarada pela classe (`_VERSAO_BASE`); o CSV
+                          carrega o rótulo por linha em `versao_snapshot`
 """
 
 from __future__ import annotations
@@ -61,9 +70,9 @@ def _norm(s: str) -> str:
 # `BASE_CID.manifesto()`, DERIVADA da coluna `fonte` de cada registro
 # (não tem como mentir). Ver TICKET-CID-VALIDACAO, Frente A.
 _VERSAO_BASE = (
-    "DATASUS CID-10 V2008 (base) "
-    "+ uso emergencial OMS 2020/2021 (família U07–U12, COVID-19) "
-    "+ curadoria 2026-07"
+    "V2008+remendos-2026 — DATASUS CID-10 V2008 (base) "
+    "+ remendos MS/OMS 2020-2025 (família U07-U12, COVID-19, fonte por linha) "
+    "+ curadoria 2026-07 — teto acessível (TICKET-FILA-6, 29/08/2026)"
 )
 _FONTE       = "CID10/BASE_LOCAL"
 
