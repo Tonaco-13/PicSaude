@@ -1,44 +1,70 @@
 """
 tuss_base.py
 ============
-Base local TUSS (Tabela Unificada de Procedimentos) para normalização
-diagnóstica assistida — Ticket 31.
+Base local de exames para normalização diagnóstica assistida — Ticket 31,
+v2 em TICKET-FILA-7-SIGTAP-EXAMES.md (fila 7, 29/08/2026).
 
-Fonte de referência: Tabela TUSS ANS (Grupo 4 — Procedimentos Diagnósticos).
-Esta é uma base curada local para o MVP. Cobre os exames mais frequentes
-na atenção primária e especializada.
+FONTE: SIGTAP OFICIAL + CURADORIA TUSS SOBREPOSTA (legenda MVP corrigida)
+----------------------------------------------------------------------------
+A base era uma seleção curada de 35 procedimentos (`_BASE_RAW`) — o
+`⚠️ AVISO MVP` original prometia uma v2 com "CSV/tabela local com
+versionamento explícito"; é esta. A FONTE de códigos/nomes passa a ser
+`data/sigtap_exames.csv` (Tabela Unificada do DATASUS, grupo "Procedimentos
+com finalidade diagnóstica", ~1.100 procedimentos — gerado offline pelo
+script de import em `backend/scripts/`, nunca chamado por este módulo). A
+curadoria de 35 itens SOBREVIVE por cima, intocada: aliases clínicos,
+preparo do paciente e alertas que o CSV oficial não carrega.
 
-⚠️  AVISO MVP — BASE CURADA, NÃO FONTE OFICIAL COMPLETA
----------------------------------------------------------
-Esta base é uma seleção curada de 35 procedimentos diagnósticos frequentes.
-Não é a tabela TUSS oficial completa da ANS.
-Na v2, migrar para:
-  - CSV/tabela local com versionamento explícito
-  - Expansão progressiva dos registros
-  - Mapeamento TUSS ↔ SIGTAP para integração com SUS
-Até lá, acréscimos devem ser feitos aqui em _BASE_RAW, com revisão clínica.
+TUSS (ANS) e SIGTAP (DATASUS/SUS) são sistemas de codificação DIFERENTES,
+sem chave de código em comum publicada de forma simples (o `rl_procedimento
+_tuss.txt` do próprio dump SIGTAP está vazio nesta competência — ver
+MANIFEST.md). Ao contrário do CID-10 (join por código, mesmo sistema nos
+dois lados — `base_cid.py`), o join aqui é por NOME NORMALIZADO: quando o
+`nome_busca` de uma entrada curada bate com o de uma linha SIGTAP, os dois
+se fundem — o registro fica com `codigo_tuss` (da curadoria) E
+`codigo_sigtap` (do CSV) juntos. Sem bater, os dois catálogos coexistem
+lado a lado: a curadoria sozinha (só `codigo_tuss`) e o SIGTAP sozinho (só
+`codigo_sigtap`, sem aliases/preparo/alertas — ninguém curou aquele ainda).
+Nenhum código sai da base por não ter par — a régua do catálogo suave
+(desconhecido ≠ inválido, a mesma lição do CID) vale aqui igual.
 
 ESTRUTURA DE CADA REGISTRO
 ---------------------------
-  codigo_tuss:    código TUSS (str, 8 dígitos)
-  nome_padrao:    nome completo padronizado TUSS
-  nome_busca:     versão normalizada para lookup (sem acentos, lowercase)
-  aliases:        variações comuns aceitas (lista, já normalizadas)
-  categoria:      hematologia | bioquimica | imunologia | hormonal | imagem |
-                  cardiologia | neurologia | urina_fezes | microbiologia |
-                  anatomia_patologica | genetica
-  preparo:        instruções básicas de preparo (str | None)
-  alertas_base:   alertas que sempre acompanham o exame (lista)
+  codigo_tuss:    código TUSS/ANS (str | None) — só nas entradas curadas
+  codigo_sigtap:  código SIGTAP/DATASUS (str | None) — 10 dígitos
+                  GGSSFFPPP-D (grupo·subgrupo·forma·sequencial·dígito)
+  nome_padrao:    nome completo padronizado (curado, ou oficial SIGTAP)
+  nome_busca:     versão normalizada para lookup (sem acentos, lowercase) —
+                  mesma função de `app/ai/normalizacao_exame.py` usada no
+                  lookup do usuário, para o join por nome ser consistente
+  aliases:        variações comuns aceitas (lista, já normalizadas) —
+                  vazio nas entradas só-SIGTAP, sem curadoria ainda
+  categoria:      vocabulário interno curado (hematologia | bioquimica |
+                  ...) — None nas entradas só-SIGTAP (usam `subgrupo` do
+                  SIGTAP como classificação, não a taxonomia interna)
+  subgrupo:       subgrupo SIGTAP (str | None) — só nas entradas SIGTAP
+  preparo:        instruções básicas de preparo (str | None) — curado
+  alertas_base:   alertas que sempre acompanham o exame (lista) — curado
+  fonte:          proveniência LEGÍVEL POR LINHA (nunca mente — mesma
+                  disciplina do CID/RDC/CBO): "TUSS/BASE_LOCAL" (só
+                  curado), "SIGTAP/DATASUS {competência}" (só SIGTAP), ou
+                  os dois concatenados quando o registro é fusão dos dois
 
 CARREGAMENTO
 ------------
   Base carregada uma vez em memória no import do módulo (singleton).
-  Completamente readonly — sem mutação em runtime.
+  Completamente readonly — sem mutação em runtime. Se `sigtap_exames.csv`
+  não existir (empacotamento sem o arquivo), degrada graciosamente para só
+  a curadoria — nunca quebra (mesmo padrão de `base_cid.py`).
 """
 
 from __future__ import annotations
 
+import csv
+import os
 from typing import Optional
+
+from app.ai.normalizacao_exame import normalizar_nome_exame
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +431,100 @@ _BASE_RAW: list[dict] = [
 
 
 # ---------------------------------------------------------------------------
+# SIGTAP oficial — carregamento + fusão com a curadoria (TICKET-FILA-7)
+# ---------------------------------------------------------------------------
+
+def _resolver_sigtap_csv() -> str:
+    """Caminho do CSV SIGTAP (gerado offline pelo script de import).
+
+    Prioriza `PICSAUDE_SIGTAP_CSV` (empacotamento: caminho estável fora de
+    /data); senão usa o layout de dev (raiz do repo / data/sigtap_exames.csv).
+    Mesmo padrão de `base_cid.py::_resolver_cid_csv`.
+    """
+    override = os.getenv("PICSAUDE_SIGTAP_CSV")
+    if override:
+        return override
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", "data", "sigtap_exames.csv",
+        )
+    )
+
+
+def _carregar_csv_sigtap(caminho: str) -> list[dict]:
+    """Lê o CSV SIGTAP e devolve registros no formato interno de `_BaseTUSS`
+    — bare, sem curadoria (aliases/preparo/alertas vazios; `codigo_tuss`
+    ausente). `nome_busca` usa `normalizar_nome_exame`, a MESMA função do
+    lookup do usuário — é essa consistência que faz o join por nome (contra
+    a curadoria, abaixo) funcionar."""
+    registros: list[dict] = []
+    try:
+        with open(caminho, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                codigo = (row.get("codigo_sigtap") or "").strip()
+                nome = (row.get("nome") or "").strip()
+                if not codigo or not nome:
+                    continue
+                competencia = (row.get("competencia") or "").strip()
+                registros.append({
+                    "codigo_tuss":  None,
+                    "codigo_sigtap": codigo,
+                    "nome_padrao":  nome,
+                    "nome_busca":   normalizar_nome_exame(nome),
+                    "aliases":      [],
+                    "categoria":    None,
+                    "subgrupo":     (row.get("subgrupo") or "").strip() or None,
+                    "preparo":      None,
+                    "alertas_base": [],
+                    "fonte":        f"SIGTAP/DATASUS {competencia}" if competencia else "SIGTAP/DATASUS",
+                })
+    except FileNotFoundError:
+        pass
+    return registros
+
+
+def _construir_base() -> list[dict]:
+    """Curadoria TUSS (`_BASE_RAW`) sobreposta ao SIGTAP oficial (CSV).
+
+    Join por NOME NORMALIZADO (não há chave de código comum entre TUSS e
+    SIGTAP — ver docstring do módulo). Colisão de nome → FUSÃO: o registro
+    final carrega os dois códigos, mais aliases/preparo/alertas/categoria
+    da curadoria. Sem colisão, os dois catálogos coexistem como entradas
+    separadas — nenhum código sai da base por falta de par (catálogo
+    suave). Se o CSV não existir, degrada para só a curadoria — nunca
+    quebra (mesmo padrão de `base_cid.py::_construir_base`).
+    """
+    sigtap_regs = _carregar_csv_sigtap(_resolver_sigtap_csv())
+    if not sigtap_regs:
+        return [{**r, "codigo_sigtap": None, "subgrupo": None, "fonte": "TUSS/BASE_LOCAL"}
+                for r in _BASE_RAW]
+
+    por_nome: dict[str, dict] = {r["nome_busca"]: r for r in sigtap_regs}
+    for cur in _BASE_RAW:
+        registro = {**cur, "codigo_sigtap": None, "subgrupo": None, "fonte": "TUSS/BASE_LOCAL"}
+        chave = registro["nome_busca"]
+        alvo_sigtap = por_nome.get(chave)
+        if alvo_sigtap is not None:
+            registro["codigo_sigtap"] = alvo_sigtap["codigo_sigtap"]
+            registro["subgrupo"] = alvo_sigtap["subgrupo"]
+            registro["fonte"] = f"{registro['fonte']} + {alvo_sigtap['fonte']}"
+        por_nome[chave] = registro  # funde (se havia par) ou adiciona a curadoria
+    return list(por_nome.values())
+
+
+def _competencia_sigtap() -> Optional[str]:
+    """Competência do CSV SIGTAP carregado, para compor `versao` — lida do
+    próprio arquivo, nunca declarada à mão (mesma disciplina anti-lenda do
+    `base_cid.py`: uma string escrita à mão envelhece em silêncio)."""
+    try:
+        with open(_resolver_sigtap_csv(), encoding="utf-8", newline="") as f:
+            primeira = next(csv.DictReader(f), None)
+            return (primeira.get("competencia") or "").strip() or None if primeira else None
+    except FileNotFoundError:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Índices para lookup eficiente
 # ---------------------------------------------------------------------------
 
@@ -463,8 +583,14 @@ class _BaseTUSS:
 
     @property
     def versao(self) -> str:
+        # Prefixo "tuss_local" preservado — a curadoria continua na base
+        # mesmo com o SIGTAP acoplado. Sufixo entra SÓ quando o CSV existe
+        # (lido do arquivo, nunca declarado à mão — TICKET-FILA-7).
+        competencia = _competencia_sigtap()
+        if competencia:
+            return f"tuss_local_v2+sigtap_{competencia}"
         return "tuss_local_v1"
 
 
 # Singleton — carregado uma vez no import
-BASE_TUSS = _BaseTUSS(_BASE_RAW)
+BASE_TUSS = _BaseTUSS(_construir_base())
