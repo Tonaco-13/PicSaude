@@ -83,6 +83,12 @@ class TestProcedenciaHonesta:
 
     @pytest.mark.parametrize("codigo", _EMERGENCIAIS)
     def test_nao_se_declara_datasus_v2008(self, codigo):
+        """TICKET-FILA-6 (29/08) recitou 5 dos 7 códigos para o documento
+        MS/SVSA que os define formalmente — mais preciso que "OMS", não
+        menos honesto. `"OMS" in fonte` continua valendo para U08.9/U11.9
+        (citação direta da OMS); os outros cinco citam MS/SVSA, que adapta
+        a mesma orientação da OMS para o contexto brasileiro — qualquer um
+        dos dois identifica a origem real, nenhum é V2008."""
         linha = self._linhas_csv().get(codigo)
         assert linha is not None, f"{codigo} ausente do CSV."
         fonte = linha["fonte"]
@@ -90,7 +96,9 @@ class TestProcedenciaHonesta:
             f"{codigo} declarado como {fonte!r}, mas NÃO está na tabela DATASUS "
             "CID-10 V2008 — conferido no arquivo oficial."
         )
-        assert "OMS" in fonte, f"{codigo}: fonte {fonte!r} não identifica a origem real."
+        assert "OMS" in fonte or "MS/SVSA" in fonte, (
+            f"{codigo}: fonte {fonte!r} não identifica a origem real."
+        )
 
     def test_datasus_v2008_continua_rotulando_o_corpo_da_base(self):
         """A correção não pode ter contaminado as ~14k linhas legítimas."""

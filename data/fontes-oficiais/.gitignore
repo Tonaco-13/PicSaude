@@ -1,0 +1,10 @@
+# Fontes oficiais: binários ficam LOCAIS (fora do git), manifestos COMMITADOS.
+# O idiom `*` + `!*/` permite descer nos diretórios sem ignorá-los — sem ele,
+# `!*/MANIFEST.md` nunca re-inclui (defeito da versão anterior, `*/`, que
+# excluía os próprios diretórios: git não re-inclui arquivo dentro de pasta
+# excluída). Detectado na auditoria da #222.
+*
+!*/
+!MANIFEST.md
+!*/MANIFEST.md
+!.gitignore
