@@ -226,20 +226,22 @@ class NormalizarExameIn(BaseModel):
 
 @router.post(
     "/exames/normalizar",
-    summary="Normalização TUSS stateless (IA v1)",
-    response_description="Código TUSS sugerido, preparo e alertas de rastreabilidade",
+    summary="Normalização TUSS/SIGTAP stateless (IA v1)",
+    response_description="Códigos TUSS/SIGTAP sugeridos, preparo e alertas de rastreabilidade",
 )
 def normalizar(
     payload: NormalizarExameIn,
     _=Depends(require_role("prescritor", "dispensador", "admin")),
 ):
     """
-    Consulta a IA de exames v1 e retorna o código TUSS sugerido.
+    Consulta a IA de exames v1 e retorna os códigos TUSS/SIGTAP sugeridos.
 
     **O que este endpoint faz:**
     - Normaliza o nome do exame (lowercase, sem acentos, expande abreviações).
-    - Busca na base TUSS local (lookup exato, alias ou fuzzy).
-    - Retorna código TUSS, preparo do paciente e alertas.
+    - Busca na base local (curadoria TUSS + SIGTAP oficial — TICKET-FILA-7;
+      lookup exato, alias ou fuzzy).
+    - Retorna código TUSS (quando curado) e/ou SIGTAP (quando oficial), preparo
+      do paciente e alertas.
 
     **O que este endpoint NÃO faz:**
     - Não grava nada no banco de dados.
