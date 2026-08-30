@@ -192,7 +192,20 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   G2 (modo lote/talão no stub) tem **peça `core`-flaggada** — extensão da interface
   SNCR exige revisão central; G3 (talões na vitrine) `module`; G4 (escrituração
   externa) **parqueado até piloto**. A ponte já existe (contrato+stub+fábrica+fiação,
-  §0); guardas de honestidade tripla intocáveis
+  §0); guardas de honestidade tripla intocáveis.
+  ✔️ **G2 — #226 RATIFICADA pelo arquiteto + martelo do Fabiano (30/08),
+  mergeada (`8e1241e`, squash).** Revisão central completa (interface
+  aditiva limpa; as 3 decisões de projeto adjudicadas: conn-injection
+  atômico ✓ — mesmo banco local, sem acoplamento externo novo; endpoint
+  `/receituarios/lotes` ✓ — lote é do par prescritor×tipo, RBAC ok; tabela única
+  `sncr_lotes` ✓ com nota — o número EMBUTE o lote, procedência reconstruível,
+  tabela de consumo fica para o dia de G4 se o ledger explícito for pedido);
+  ACs 1–4 cobertos, AC3 com concorrência REAL (threads+commits); CI gates+smokes
+  verde. Protocolo core reforçado respeitado (merge só após RATIFICADO escrito
+  + martelo). **Próxima: G3 — os talões na vitrine** (§3 do desenho, `module`,
+  PR separada): painel "Talões" no prescritor (lotes ativos, próximo número e
+  consumo), número impresso na receita com o selo honesto de stub, leitura
+  apenas — nenhum gesto clínico novo.
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
 - ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
   `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —
