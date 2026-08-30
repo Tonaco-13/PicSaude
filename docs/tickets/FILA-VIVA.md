@@ -127,8 +127,8 @@ Guarda: `backend/tests/browser/test_a3_pilula_exames_sem_flash_zero.py`.
 
 | # | Decisão | Recomendação do arquiteto |
 |---|---|---|
-| B1 | **§3 do GP-3** — CNS de aparência real no seed (único indistinguível de real) | Substituir por sintético |
-| B2 | **§4 do GP-3** — histórico COMO × O QUE (o que vai a público no git) | Intermediário: técnico completo, menos docs de gestão |
+| B1 | **§3 do GP-3** — CNS de aparência real (`980001112223336` / DRA. DEMO MARINA SOUZA / USF DEMONSTRACAO), no `BASE_CNES_MOCK` do `prescritor.html` **+ cópias em docs** (HARDENING_MVP.md, GP3-AUDITORIA) | **Substituir por sintético no padrão demo** (concretizado 30/08): `cns: "980001112223336"`, `nome: "DRA. DEMO MARINA SOUZA"`, `cnes_nome: "USF DEMONSTRACAO"` — PR `ops` pequena, ~4 arquivos. **Interlock com B2**: a troca limpa a árvore atual; o valor antigo permanece no histórico git até B2 |
+| B2 | **§4 do GP-3** — histórico COMO × O QUE (o que vai a público no git) | **Intermediário** (recomendado, concretizado 30/08): `git filter-repo` removendo caminhos gerenciais (`planejamento/` etc.) + filtro de conteúdo pela string do CNS antigo — histórico de commits/tickets PRESERVADO. **Verdade honesta**: force-push limpa a main, mas blobs antigos seguem acessíveis nas páginas de PR do GitHub — purga total exige support do GitHub ou recriação do repo; shas mudam (registros auditam por sha — documentar); clones re-clonar (runbook existe) |
 
 Fonte: `GP3-AUDITORIA-SEGREDOS-PII-2026-08-26.md` (GP-3 entregue — zero
 segredos reais em 85 refs / 507 commits / 3.105 blobs).
@@ -206,6 +206,18 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   PR separada): painel "Talões" no prescritor (lotes ativos, próximo número e
   consumo), número impresso na receita com o selo honesto de stub, leitura
   apenas — nenhum gesto clínico novo.
+  ✔️ **G3 — #228 RATIFICADA pelo arquiteto + martelo do Fabiano (30/08),
+  mergeada (`f747cf1`, squash).** Três frentes fechadas: ACs do §3 com browser tests (painel A/B com
+  cor/tipo/consumo/selo condicionado a `adapter_usado=="stub"`; nº SNCR + selo
+  honesto extraídos do **PDF real** via pypdf; leitura apenas, sem botão de
+  aquisição); **bug carona do PDF sob SQLite** com causa precisa (`data_validade`
+  sai TEXT do SQLite vs datetime do PG) e coerção na fronteira, 4 guardas
+  unitárias **re-rodadas pelo arquiteto** (worktree, 4 passed), browser test
+  novo como prova vermelha; corpo da PR com as duas histórias separadas.
+  **Julgamento extra ratificado**: o GET lista `sncr_lotes` direto SEM estender
+  a ABC do SNCRAdapter ("listagem não é operação do contrato") — disciplina
+  core ao contrário: saber quando NÃO tocar a interface. Depois do martelo:
+  **flip da abertura** (já despachado)
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
 - ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
   `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —
