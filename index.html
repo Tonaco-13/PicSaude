@@ -599,9 +599,9 @@
                aria-label="Protocolo ou chave de circulação">
         <button class="lente-btn" type="submit">Consultar</button>
       </form>
-      <p class="lente-hint">Demonstração visual com protocolo fictício. A consulta real acontece na plataforma.</p>
+      <p class="lente-hint">Consulta real — qualquer protocolo emitido na plataforma responde aqui. O cartão abaixo é um exemplo ilustrativo até você consultar um de verdade.</p>
 
-      <div class="lente-result" id="lenteResult" role="status">
+      <div class="lente-result visivel" id="lenteResult" role="status">
         <div class="lente-result-top">
           <span class="lente-result-tipo">Objeto localizado</span>
           <span class="chip">exemplo ilustrativo</span>
@@ -703,21 +703,60 @@
   </div>
 </footer>
 
+<script src="lente.js"></script>
 <script>
-  // Demonstração visual da Lente. Sem backend, resultado ilustrativo.
-  document.getElementById('lenteForm').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var entrada = document.getElementById('lenteInput').value.trim();
-    var proto = entrada
-      ? (entrada.length > 14 ? entrada.slice(0, 6) + '…' + entrada.slice(-4) : entrada)
-      : '7f3a9c…c2d1';
-    document.getElementById('resProto').textContent = proto;
-    var res = document.getElementById('lenteResult');
-    res.classList.remove('visivel');
-    void res.offsetWidth;
-    res.classList.add('visivel');
-    res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  });
+  // Lente real (TICKET-J.11, componente compartilhado `lente.js`): consulta
+  // de verdade contra /public/* (neutros por construção — sem sessão,
+  // circulação autenticada nem entra em jogo aqui, exatamente o escopo de
+  // um visitante anônimo na abertura). O cartão ilustrativo abaixo é o
+  // estado de REPOUSO da seção (rótulo "exemplo ilustrativo" — nunca
+  // resultado de busca real) — some assim que a primeira consulta de
+  // verdade responde, achada ou não.
+  (function () {
+    var _resultoOriginal = document.getElementById('lenteResult').innerHTML;
+
+    function mostrarIlustrativo() {
+      var res = document.getElementById('lenteResult');
+      res.innerHTML = _resultoOriginal;
+      res.classList.add('visivel');
+    }
+
+    function mostrarCard(html) {
+      var res = document.getElementById('lenteResult');
+      res.innerHTML = html;
+      res.classList.remove('visivel');
+      void res.offsetWidth;
+      res.classList.add('visivel');
+    }
+
+    function mostrarMensagem(msg) {
+      mostrarCard(
+        '<p style="color:#aab4cf; font-size:14.5px; margin:0;">' +
+          LenteAuditoria.esc(msg) +
+        '</p>'
+      );
+    }
+
+    document.getElementById('lenteForm').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var termo = document.getElementById('lenteInput').value.trim();
+      var res = document.getElementById('lenteResult');
+
+      if (!termo) { mostrarIlustrativo(); res.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return; }
+
+      mostrarMensagem('Consultando…');
+      res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      // Anônimo por desenho: a abertura não tem sessão, então circulação
+      // autenticada nunca entra — só os endpoints /public/* respondem aqui.
+      var resultado = await LenteAuditoria.consultar(termo, {});
+      if (resultado.achou) {
+        mostrarCard(LenteAuditoria.cartaoHtml(resultado));
+      } else {
+        mostrarMensagem(LenteAuditoria.mensagemDeVazio(termo, {}));
+      }
+    });
+  })();
 
   // Trilho fixo e harmonizado: cada estação exibe o objeto cuja história
   // culmina nela. Consultório: Pedido de Exame. Carteira Cidadã: Encaminhamento.
