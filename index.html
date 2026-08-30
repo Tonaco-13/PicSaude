@@ -1,741 +1,832 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PicSaúde — Portal de Acesso</title>
-  <style>
-    /* ------------------------------------------------------------------ */
-    /* Reset + base                                                         */
-    /* ------------------------------------------------------------------ */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PicSaúde · O cuidado precisa de trilhos.</title>
+<meta name="description" content="PicSaúde — infraestrutura de custódia sanitária digital para o SUS. Receita, exame, laudo e encaminhamento circulam com identidade própria, custódia explícita e memória imutável.">
+<link rel="preload" href="fonts/fraunces-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/fraunces-italic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-normal.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  /* Fontes self-hosted (subset latin, woff2). Zero requisições a terceiros. */
+  @font-face {
+    font-family: 'Fraunces'; font-style: normal; font-weight: 300 600;
+    font-display: swap; src: url('fonts/fraunces-normal.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Fraunces'; font-style: italic; font-weight: 300 600;
+    font-display: swap; src: url('fonts/fraunces-italic.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Inter'; font-style: normal; font-weight: 400 700;
+    font-display: swap; src: url('fonts/inter-normal.woff2') format('woff2');
+  }
+  :root {
+    --paper:      #f7f5f0;
+    --paper-soft: #f1ede4;
+    --ink:        #1c2b4a;
+    --ink-soft:   #4a5568;
+    --ink-faint:  #5f6b7d;
+    --blue:       #1e3a8a;
+    --blue-deep:  #14265c;
+    --blue-night: #101c40;
+    --green:      #16a34a;
+    --green-soft: #dcfce7;
+    --green-ink:  #14532d;
+    --line:       #e3ddd0;
+    --yellow:     #eab308;
+    --radius:     18px;
+  }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-                   'Helvetica Neue', Arial, sans-serif;
-      background: #f8fafc;
-      color: #1e293b;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* ------------------------------------------------------------------ */
-    /* Cabeçalho institucional                                             */
-    /* ------------------------------------------------------------------ */
-    .header {
-      background: #ffffff;
-      border-bottom: 3px solid #16a34a;
-      padding: 18px 40px;
-      display: flex;
-      align-items: center;
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--green-soft); color: var(--green-ink); }
+
+  /* Foco visível em tudo que é clicável (teclado). Sem anel, o foco some.
+     Navegadores modernos desenham o outline seguindo o border-radius. */
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2.5px solid var(--blue);
+    outline-offset: 3px;
+  }
+
+  h1, h2, h3, .display { font-family: 'Fraunces', Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
+
+  .mono { font-family: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 48px); }
+
+  /* ---------- topbar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(247,245,240,0.86);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner { display: flex; align-items: center; gap: 20px; height: 86px; }
+  .brand { display: flex; align-items: center; text-decoration: none; }
+  .brand img { height: 52px; width: auto; display: block; }
+  .topnav { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; justify-content: flex-end; }
+  .topnav a {
+    color: var(--ink-soft); text-decoration: none; font-size: 14px; font-weight: 500;
+    transition: color .2s;
+  }
+  .topnav a:hover { color: var(--blue); }
+  .topnav .pilula {
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px;
+    background: #fff; white-space: nowrap; flex: none;
+    transition: border-color .2s, color .2s, box-shadow .2s;
+  }
+  .topnav .pilula:hover { border-color: var(--blue); color: var(--blue); box-shadow: 0 3px 12px rgba(20,38,92,.10); }
+  .entrar {
+    border: 1px solid var(--ink); border-radius: 999px; padding: 8px 20px;
+    color: var(--ink); font-weight: 600; font-size: 14px; text-decoration: none;
+    white-space: nowrap; flex: none;
+    transition: background .2s, color .2s;
+  }
+  .entrar:hover { background: var(--ink); color: var(--paper); }
+  /* No celular, dispositivo do cidadão, as estações não somem: o trilho rola na horizontal. */
+  @media (max-width: 980px) {
+    .topbar-inner { height: 72px; gap: 14px; }
+    .brand img { height: 44px; }
+    .topnav {
       justify-content: flex-start;
-      gap: 24px;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+      mask-image: linear-gradient(to right, #000 86%, transparent);
+      -webkit-mask-image: linear-gradient(to right, #000 86%, transparent);
     }
+    .topnav::-webkit-scrollbar { display: none; }
+  }
 
-    /*
-     * Logo — coloque o arquivo "logo-picsaude.png" na raiz do projeto
-     * (mesmo diretório deste index.html).
-     * Se a imagem não for encontrada, o onerror oculta o elemento e
-     * apenas o texto "PicSaúde" estilizado é exibido.
-     */
-    .header-logo {
-      height: 92px;
-      width: auto;
-      flex-shrink: 0;
-    }
+  /* ---------- hero ---------- */
+  .hero { padding: clamp(64px, 10vh, 120px) 0 clamp(48px, 7vh, 88px); overflow: hidden; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--green-ink); background: var(--green-soft);
+    border-radius: 999px; padding: 7px 16px; margin-bottom: 28px;
+  }
+  .eyebrow::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .hero h1 {
+    font-size: clamp(44px, 7.2vw, 92px);
+    line-height: 1.04;
+    color: var(--ink);
+    max-width: 14ch;
+  }
+  .hero h1 .accent { color: var(--blue); font-style: italic; font-weight: 300; }
+  .hero-sub {
+    margin-top: 28px; max-width: 52ch;
+    font-size: clamp(16px, 1.6vw, 19px); color: var(--ink-soft);
+  }
+  .hero-ctas { margin-top: 36px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    border-radius: 999px; padding: 14px 28px;
+    font-size: 15px; font-weight: 600; text-decoration: none;
+    transition: transform .15s, box-shadow .15s, background .2s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 6px 20px rgba(30,58,138,.25); }
+  .btn-primary:hover { background: var(--blue-deep); }
+  .btn-ghost { border: 1.5px solid var(--line); color: var(--ink); background: transparent; }
+  .btn-ghost:hover { border-color: var(--ink-faint); background: #fff; }
 
-    .header .tagline {
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 1.4px;
-      font-weight: 700;
-      color: #1e3a8a;
-      text-align: right;
-    }
+  /* ---------- o objeto (hero card + trilho) ---------- */
+  .objeto-stage { margin-top: clamp(48px, 8vh, 88px); }
+  .objeto-rail { position: relative; height: 330px; }
+  .rail-line {
+    position: absolute; left: 4%; right: 4%; bottom: 74px; height: 2px;
+    background: repeating-linear-gradient(90deg, var(--line) 0 10px, transparent 10px 20px);
+  }
+  .rail-dots { position: absolute; left: 4%; right: 4%; bottom: 67px; display: flex; justify-content: space-between; }
+  .rail-dot { position: relative; display: flex; flex-direction: column; align-items: center; width: 0; }
+  .rail-dot i {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--paper); border: 2.5px solid var(--ink-faint);
+    display: block;
+    transition: background .5s ease, border-color .5s ease;
+  }
+  .rail-dot.done i { background: var(--green); border-color: var(--green); }
+  .rail-label {
+    position: absolute; top: 24px; left: 50%;
+    transform: translateX(-50%);
+    text-align: center; white-space: nowrap;
+  }
+  .rail-label b {
+    display: block;
+    font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint);
+    transition: color .5s ease;
+  }
+  .rail-label .arco {
+    display: block; margin-top: 3px;
+    font-family: 'Fraunces', Georgia, serif; font-style: italic;
+    font-size: 13px; letter-spacing: 0;
+    color: var(--ink-faint); opacity: .75;
+    transition: color .5s ease, opacity .5s ease;
+  }
+  .rail-dot.done .rail-label b { color: var(--green-ink); }
+  .rail-dot.done .rail-label .arco { color: var(--green); opacity: 1; }
 
-    .header-wordmark h1 {
-      font-size: 30px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      line-height: 1;
-    }
-    .header-wordmark .pic   { color: #1e3a8a; }
-    .header-wordmark .saude { color: #16a34a; }
+  .objeto-card {
+    position: absolute; bottom: 108px; left: 16%;
+    transform: translateX(-50%);
+    width: min(300px, 78vw);
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 24px 60px -18px rgba(20,38,92,.28), 0 2px 8px rgba(20,38,92,.06);
+    padding: 22px 22px 18px;
+    /* A posição é pintada pelo JS, no mesmo relógio dos sinais do trilho.
+       Sem JS o card fica parado na primeira estação, coerente com o rótulo. */
+  }
+  .objeto-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 8px; }
+  .objeto-tipo { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--blue); display: flex; align-items: center; gap: 6px; }
+  .objeto-tipo::before { content: "✚"; color: var(--green); font-weight: 400; }
+  .chip {
+    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 4px 11px;
+    background: var(--green-soft); color: var(--green-ink); white-space: nowrap;
+  }
+  .objeto-proto { font-size: 13px; color: var(--ink-faint); letter-spacing: .04em; }
+  .objeto-divider { border: none; border-top: 1px dashed var(--line); margin: 12px 0; }
+  .objeto-row { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; gap: 10px; }
+  .objeto-row dt { color: var(--ink-faint); }
+  .objeto-row dd { font-weight: 600; color: var(--ink); text-align: right; }
+  .objeto-foot { margin-top: 12px; font-size: 12px; color: var(--ink-faint); display: flex; align-items: center; gap: 6px; }
+  .objeto-foot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .objeto-card .trocando { animation: troca .5s ease; }
+  @keyframes troca { 0% { opacity: .25; transform: translateY(3px); } 100% { opacity: 1; transform: none; } }
 
-    .header-wordmark .tagline {
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 1.4px;
-      font-weight: 600;
-      color: #64748b;
-    }
+  .trilho-nota {
+    margin-top: 6px; text-align: center;
+    font-size: 13px; color: var(--ink-faint); font-style: italic;
+    font-family: 'Fraunces', serif;
+  }
 
-    /* ------------------------------------------------------------------ */
-    /* Main                                                                */
-    /* ------------------------------------------------------------------ */
-    main {
-      flex: 1;
-      max-width: 1040px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 48px 24px 32px;
-    }
+  /* ---------- jornada ---------- */
+  .jornada { padding: clamp(72px, 11vh, 140px) 0 0; }
+  .section-eyebrow {
+    font-size: 12.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--blue); margin-bottom: 16px;
+  }
+  .jornada-intro h2 { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.1; max-width: 18ch; }
+  .jornada-intro p { margin-top: 18px; max-width: 56ch; color: var(--ink-soft); font-size: 17px; }
 
-    /* ------------------------------------------------------------------ */
-    /* Apresentação                                                        */
-    /* ------------------------------------------------------------------ */
-    .intro {
-      text-align: center;
-      margin-bottom: 52px;
-    }
+  .passo {
+    display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 96px);
+    align-items: center;
+    padding: clamp(56px, 9vh, 110px) 0;
+    border-top: 1px solid var(--line);
+    margin-top: clamp(48px, 7vh, 88px);
+  }
+  .passo:first-of-type { border-top: none; margin-top: clamp(32px, 5vh, 56px); }
+  .passo:nth-child(even) .passo-visual { order: -1; }
+  @media (max-width: 820px) {
+    .passo { grid-template-columns: 1fr; }
+    .passo:nth-child(even) .passo-visual { order: 0; }
+  }
+  .passo-num {
+    font-family: 'Fraunces', serif; font-weight: 300;
+    font-size: clamp(96px, 14vw, 180px); line-height: .9;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--blue);
+    user-select: none;
+  }
+  .passo-visual {
+    background: var(--paper-soft); border-radius: calc(var(--radius) * 1.4);
+    min-height: 280px; display: grid; place-items: center; position: relative; overflow: hidden;
+  }
+  .passo-visual svg { width: min(240px, 60%); height: auto; }
+  .passo h3 { font-size: clamp(28px, 3.4vw, 42px); line-height: 1.12; margin-bottom: 16px; }
+  .passo p { color: var(--ink-soft); font-size: 16.5px; max-width: 46ch; }
+  .estado-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 22px; padding: 8px 16px;
+    background: #fff; border: 1px solid var(--line); border-radius: 999px;
+    font-size: 13px; color: var(--ink-soft);
+  }
+  .estado-chip b { color: var(--blue); font-weight: 600; }
+  .estado-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
 
-    .intro h2 {
-      font-size: 21px;
-      font-weight: 700;
-      color: #1e3a8a;
-      margin-bottom: 12px;
-    }
+  .jornada-fecho {
+    text-align: center; padding: clamp(80px, 12vh, 150px) 0;
+  }
+  .jornada-fecho .objetos-lista {
+    font-size: 13px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 26px;
+  }
+  .jornada-fecho .objetos-lista b { color: var(--green-ink); font-weight: 700; }
+  .jornada-fecho p.grande {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(26px, 3.6vw, 44px); line-height: 1.25; color: var(--ink);
+    max-width: 26ch; margin: 0 auto;
+  }
+  .jornada-fecho p.grande em { color: var(--green); font-style: italic; }
 
-    .intro p {
-      color: #64748b;
-      font-size: 15px;
-      max-width: 580px;
-      margin: 0 auto;
-      line-height: 1.7;
-    }
+  /* ---------- lente ---------- */
+  .lente {
+    background: var(--blue-night); color: #eef1f8;
+    padding: clamp(80px, 12vh, 150px) 0;
+    border-radius: clamp(24px, 4vw, 48px);
+    margin: 0 clamp(12px, 2vw, 28px);
+  }
+  .lente .section-eyebrow { color: #7ee2a8; }
+  .lente h2 { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.1; color: #fff; max-width: 16ch; }
+  .lente-sub { margin-top: 18px; color: #aab4cf; max-width: 56ch; font-size: 17px; }
+  .lente-form {
+    margin-top: 44px; display: flex; gap: 12px; max-width: 640px;
+  }
+  .lente-input {
+    flex: 1; background: rgba(255,255,255,.07);
+    border: 1.5px solid rgba(255,255,255,.18);
+    border-radius: 999px; padding: 16px 26px;
+    color: #fff; font-size: 15.5px; font-family: inherit;
+    transition: border-color .2s, background .2s;
+  }
+  .lente-input::placeholder { color: #7d89ab; }
+  .lente-input:focus { outline: none; border-color: #7ee2a8; background: rgba(255,255,255,.11); }
+  .lente-input:focus-visible { outline: 2.5px solid #7ee2a8; outline-offset: 2px; }
+  .lente-btn {
+    border: none; border-radius: 999px; padding: 16px 32px;
+    background: var(--green); color: #fff; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: background .2s, transform .15s;
+  }
+  .lente-btn:hover { background: #128a3f; }
+  .lente-btn:focus-visible { outline: 2.5px solid #fff; outline-offset: 3px; }
+  .lente-btn:active { transform: scale(.97); }
+  @media (max-width: 640px) { .lente-form { flex-direction: column; } }
+  .lente-hint { margin-top: 14px; font-size: 13px; color: #6d789c; }
 
-    /* ------------------------------------------------------------------ */
-    /* Cards de perfil                                                     */
-    /* ------------------------------------------------------------------ */
-    .section-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      font-weight: 700;
-      color: #94a3b8;
-      margin-bottom: 16px;
-    }
+  .lente-result {
+    margin-top: 36px; max-width: 640px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: var(--radius);
+    padding: 26px 28px;
+    display: none;
+  }
+  .lente-result.visivel { display: block; animation: surgir .45s ease; }
+  @keyframes surgir { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .lente-result-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+  .lente-result-tipo { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #7ee2a8; }
+  .lente-result-rows { display: grid; gap: 8px; }
+  .lente-result-row { display: flex; justify-content: space-between; font-size: 14.5px; gap: 16px; }
+  .lente-result-row span:first-child { color: #8d99bd; }
+  .lente-result-row span:last-child { font-weight: 600; color: #eef1f8; text-align: right; }
+  .lente-result-nota { margin-top: 16px; padding-top: 14px; border-top: 1px dashed rgba(255,255,255,.16); font-size: 12.5px; color: #6d789c; }
 
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 16px;
-      margin-bottom: 52px;
-    }
+  /* ---------- princípios ---------- */
+  .principios { padding: clamp(80px, 12vh, 150px) 0; }
+  .principios h2 { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.1; max-width: 20ch; }
+  .principios-grid {
+    margin-top: clamp(40px, 6vh, 64px);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 3vw, 36px);
+  }
+  @media (max-width: 820px) { .principios-grid { grid-template-columns: 1fr; } }
+  .principio {
+    border-top: 2.5px solid var(--ink); padding-top: 26px;
+  }
+  .principio h3 { font-size: 26px; margin-bottom: 12px; display: flex; align-items: baseline; gap: 10px; }
+  .principio h3 .simbolo { color: var(--green); font-family: 'Fraunces', serif; }
+  .principio p { color: var(--ink-soft); font-size: 15.5px; }
+  .numeros {
+    margin-top: clamp(48px, 7vh, 80px);
+    display: flex; gap: clamp(24px, 5vw, 72px); flex-wrap: wrap;
+    padding: 34px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .numero { display: flex; flex-direction: column; gap: 2px; }
+  .numero b { font-family: 'Fraunces', serif; font-weight: 500; font-size: clamp(34px, 4vw, 52px); color: var(--blue); line-height: 1; }
+  .numero span { font-size: 13.5px; color: var(--ink-faint); }
 
-    @media (max-width: 900px) {
-      .cards-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 600px) {
-      .cards-grid { grid-template-columns: repeat(2, 1fr); }
-    }
+  /* ---------- reveals estilo Apple (camada extra; conteúdo nasce visível) ---------- */
+  body.js-reveal .reveal {
+    opacity: 0; transform: translateY(26px);
+    transition: opacity .8s ease, transform .8s cubic-bezier(.22,.61,.21,1);
+  }
+  body.js-reveal .reveal.visivel { opacity: 1; transform: none; }
+  body.js-reveal .reveal-d1 { transition-delay: .12s; }
+  body.js-reveal .reveal-d2 { transition-delay: .24s; }
 
-    .card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 28px 16px 22px;
-      text-align: center;
-      text-decoration: none;
-      color: inherit;
-      display: block;
-      transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
-      cursor: pointer;
-    }
+  /* ---------- rodapé ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 64px 0 48px;
+  }
+  .footer-sign { text-align: center; margin-bottom: 56px; }
+  .footer-sign img { height: 54px; width: auto; margin-bottom: 22px; }
+  .footer-sign .assinatura {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(30px, 4.4vw, 52px); line-height: 1.15; color: var(--ink);
+  }
+  .footer-sign .assinatura b { color: var(--blue); font-weight: 500; }
+  .footer-sign .assinatura .coracao { color: var(--yellow); }
+  .footer-sign p.sub {
+    margin-top: 16px; font-size: 14.5px; color: var(--ink-faint);
+  }
+  .footer-grid { display: flex; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+  .footer-ded { max-width: 40ch; }
+  .footer-ded p:first-child { font-family: 'Fraunces', serif; font-size: 19px; line-height: 1.35; color: var(--ink); }
+  .footer-ded p:last-child { margin-top: 12px; font-size: 13px; color: var(--ink-faint); }
+  .footer-links { display: flex; gap: 48px; }
+  .footer-col b { display: block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 14px; }
+  .footer-col a { display: block; color: var(--ink-soft); text-decoration: none; font-size: 14px; padding: 4px 0; }
+  .footer-col a:hover { color: var(--blue); }
+  .footer-legal { margin-top: 44px; font-size: 12.5px; color: var(--ink-faint); text-align: center; }
 
-    .card:hover {
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.09);
-      transform: translateY(-3px);
-      border-color: #93c5fd;
-    }
+  @media (max-width: 640px) {
+    /* No celular, o nome da estação viaja com o objeto: só a estação onde
+       o card está aparece. As quatro juntas não caberiam sem se atropelar. */
+    .rail-label { opacity: 0; transition: opacity .5s ease; }
+    .rail-label b { font-size: 9.5px; letter-spacing: .06em; }
+    .rail-dot.atual .rail-label { opacity: 1; }
+    .rail-dot:first-child .rail-label { transform: translateX(calc(-50% + 24px)); }
+    .rail-dot:last-child .rail-label { transform: translateX(calc(-50% - 28px)); }
+  }
 
-    .card:focus-visible {
-      outline: 3px solid #3b82f6;
-      outline-offset: 2px;
-    }
-
-    .card-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      margin: 0 auto 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      line-height: 1;
-    }
-    .card-icon.prescritor  { background: #dbeafe; }
-    .card-icon.dispensador { background: #dcfce7; }
-    .card-icon.cidadao     { background: #f0fdf4; }
-    .card-icon.validar     { background: #fef9c3; }
-
-    .card h3 {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 8px;
-    }
-
-    .card p {
-      font-size: 13px;
-      color: #64748b;
-      line-height: 1.55;
-    }
-
-    .card-arrow {
-      margin-top: 20px;
-      font-size: 18px;
-      color: #cbd5e1;
-      transition: color 0.15s;
-    }
-    .card:hover .card-arrow { color: #3b82f6; }
-
-    /* ------------------------------------------------------------------ */
-    /* Status da instância                                                 */
-    /* ------------------------------------------------------------------ */
-    .status-block {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 20px 24px;
-    }
-
-    .status-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      color: #94a3b8;
-      font-weight: 700;
-      margin-bottom: 14px;
-    }
-
-    .status-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      row-gap: 12px;
-    }
-
-    .status-item .status-label {
-      font-size: 11px;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-    .status-item .status-value {
-      font-size: 13px;
-      color: #1e293b;
-      font-weight: 600;
-      margin-top: 3px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-      flex-shrink: 0;
-    }
-    .status-dot.offline { background: #f87171; }
-
-    .status-msg {
-      font-size: 13px;
-      color: #94a3b8;
-      font-style: italic;
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Rodapé                                                              */
-    /* ------------------------------------------------------------------ */
-    footer {
-      border-top: 1px solid #e2e8f0;
-      background: #ffffff;
-      padding: 18px 40px;
-    }
-
-    .footer-inner {
-      max-width: 1040px;
-      margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .footer-brand {
-      font-size: 12px;
-      color: #94a3b8;
-    }
-
-    .footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      align-items: center;
-    }
-    .footer-links a {
-      font-size: 12px;
-      color: #64748b;
-      text-decoration: none;
-    }
-    .footer-links a:hover { color: #1e3a8a; text-decoration: underline; }
-    .footer-links .separator {
-      font-size: 12px;
-      color: #cbd5e1;
-    }
-
-    /* ------------------------------------------------------------------ */
-    /* Responsividade                                                      */
-    /* ------------------------------------------------------------------ */
-    @media (max-width: 640px) {
-      .header        { padding: 14px 18px; gap: 12px; }
-      .header-logo   { height: 48px; }
-      .header-wordmark h1 { font-size: 24px; }
-
-      main { padding: 28px 16px 24px; }
-      .intro h2 { font-size: 18px; }
-
-      .cards-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
-      .card { padding: 22px 14px 18px; }
-      .card-icon { width: 46px; height: 46px; font-size: 20px; }
-      .card h3 { font-size: 14px; }
-      .card p  { font-size: 12px; }
-
-      footer { padding: 16px 18px; }
-      .footer-inner { flex-direction: column; align-items: flex-start; gap: 8px; }
-    }
-
-    @media (max-width: 380px) {
-      .cards-grid { grid-template-columns: 1fr; }
-    }
-  </style>
-  <script src="config.js"></script>
-  <script src="lente.js"></script>
+  @media (prefers-reduced-motion: reduce) {
+    .objeto-card { left: 16%; }
+    html { scroll-behavior: auto; }
+    .lente-result.visivel, .objeto-card .trocando { animation: none; }
+  }
+</style>
 </head>
 <body>
 
-  <!-- ============================================================ -->
-  <!-- TICKET-6 DEMO_MODE — badge DEMO nos cards + interceptação dos -->
-  <!-- cliques para /demo/login. (O painel de chaves NÃO fica no      -->
-  <!-- índice: só nos módulos — decisão 2026-08-12.)                  -->
-  <!-- ============================================================ -->
-  <style id="demo-mode-styles">
-    body.demo .card[data-demo-role] { position: relative; }
-    body.demo .card[data-demo-role]::after {
-      content: "DEMO";
-      position: absolute; top: 8px; right: 8px;
-      background: #f59e0b; color: #fff;
-      font-size: 10px; font-weight: 800;
-      padding: 2px 6px; border-radius: 3px;
-    }
-    /* O painel "Chaves de acesso (demo)" vive no config.js
-       (renderizarPainelChavesDemo) e aparece só nas telas dos módulos. */
-  </style>
-  <script>
-    (async function picsaudeDemoBoot() {
-      try {
-        const r = await fetch('/config/public', { cache: 'no-store' });
-        if (!r.ok) return;
-        const cfg = await r.json();
-        if (!cfg.demo_mode) return;
-        document.body.classList.add('demo');
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="/">
+      <img src="logo-picsaude.png" alt="PicSaúde">
+    </a>
+    <nav class="topnav" aria-label="Estações da plataforma">
+      <a class="pilula" href="prescritor.html" title="Ir para o Consultório">Consultório</a>
+      <a class="pilula" href="dispensador.html" title="Ir para a Farmácia">Farmácia</a>
+      <a class="pilula" href="cidadao.html" title="Ir para a Carteira Cidadã">Carteira Cidadã</a>
+      <a class="pilula" href="clinica.html" title="Ir para Clínica / Laboratório">Clínica / Laboratório</a>
+    </nav>
+    <a class="entrar" href="entrar.html">Entrar</a>
+  </div>
+</header>
 
-        // Decisão 2026-08-12 (Fabiano): o painel "Chaves de acesso (demo)"
-        // NÃO aparece no índice — só nos módulos (borda superior de cada
-        // tela, via renderizarPainelChavesDemo do config.js). O índice fica
-        // limpo como portal; no rodapé dele fica a Lente de Auditoria.
+<main>
 
-        // Mapeia cards → role para interceptar clicks e fazer /demo/login.
-        const ROLE_BY_HREF = {
-          'prescritor.html':  'prescritor',
-          'dispensador.html': 'dispensador',
-          'cidadao.html':     'paciente',
-          'clinica.html':     'clinica',    // ADENDO — persona clínica no /demo/login
-        };
-        document.querySelectorAll('a.card').forEach(card => {
-          const href = card.getAttribute('href') || '';
-          const role = ROLE_BY_HREF[href];
-          if (!role || !cfg.demo_roles.includes(role)) return;
-          card.setAttribute('data-demo-role', role);
-          card.addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-              const resp = await fetch('/demo/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ role }),
-              });
-              if (!resp.ok) {
-                alert('Erro ao iniciar sessão demo. Tente novamente.');
-                return;
-              }
-              const data = await resp.json();
-              sessionStorage.setItem('picsaude_demo_token',  data.access_token);
-              sessionStorage.setItem('picsaude_demo_role',   data.role);
-              sessionStorage.setItem('picsaude_demo_sub',    data.sub);
-              sessionStorage.setItem('picsaude_demo_nome',   data.nome);
-              window.location.href = href;
-            } catch (err) {
-              alert('Erro ao iniciar sessão demo: ' + err.message);
-            }
-          });
-        });
-
-        // ?demo_role=X → click automático.
-        const params = new URLSearchParams(window.location.search);
-        const auto = params.get('demo_role');
-        if (auto && ROLE_BY_HREF[auto + '.html'] === auto) {
-          const card = document.querySelector(`a.card[data-demo-role="${auto}"]`);
-          if (card) card.click();
-        }
-      } catch (e) {
-        // /config/public indisponível — segue com fluxo normal.
-        console.warn('demo boot: ' + e.message);
-      }
-    })();
-  </script>
-
-  <!-- ============================================================ -->
-  <!-- CABEÇALHO INSTITUCIONAL                                       -->
-  <!-- ============================================================ -->
-  <header class="header">
-    <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
-  </header>
-
-  <!-- ============================================================ -->
-  <!-- CONTEÚDO PRINCIPAL                                           -->
-  <!-- ============================================================ -->
-  <main>
-
-    <!-- Apresentação -------------------------------------------- -->
-    <section class="intro" aria-label="Apresentação">
-      <h2>Plataforma de Custódia Sanitária Digital</h2>
-    </section>
-
-    <!-- Cards de perfil ----------------------------------------- -->
-    <section aria-label="Acesso por perfil">
-      <div class="section-label">Selecione o seu perfil de acesso</div>
-
-      <p style="text-align:center;color:#475569;font-size:14px;margin:8px 0 16px;">
-        <strong>Fluxo:</strong> 1. Prescritor emite a receita → 2. Cidadão a recebe na
-        carteira → 3. No balcão, o dispensador atende e dispensa.
-        <a href="guia.html" style="color:#0f766e;font-weight:600;white-space:nowrap;">— ver o guia completo →</a>
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow">Infraestrutura de Custódia Sanitária Digital</span>
+      <h1>O cuidado precisa<br><span class="accent">de trilhos.</span></h1>
+      <p class="hero-sub">
+        Cada objeto sanitário circula sobre esses trilhos, ancorado ao CPF do
+        cidadão. Receita, exame, laudo, encaminhamento. Cada gesto da viagem
+        fica registrado. Do consultório ao balcão, sem atrito.
       </p>
-
-      <!-- FACHADA: os cards nomeiam ESTAÇÕES — o lugar aonde se vai (decisão
-           do Fabiano, 25/08). Os ATORES continuam sendo prescritor, dispensador
-           e cidadão, e é assim que a linha de fluxo abaixo, o `guia.html` e o
-           domínio inteiro os chamam. Renomear a porta não renomeia quem entra:
-           papel de JWT, RBAC e vocabulário de custódia ficam intocados. -->
-      <div class="cards-grid">
-
-        <a href="prescritor.html" class="card" aria-label="Acessar o Consultório">
-          <div class="card-icon prescritor" aria-hidden="true">🩺</div>
-          <h3>Consultório</h3>
-          <p>Emissão de prescrições, pedidos de exame, laudos e documentos clínicos.</p>
-          <div class="card-arrow" aria-hidden="true">→</div>
-        </a>
-
-        <a href="dispensador.html" class="card" aria-label="Acessar a Farmácia">
-          <div class="card-icon dispensador" aria-hidden="true">💊</div>
-          <h3>Farmácia</h3>
-          <p>Consulta, custódia e dispensação de prescrições no balcão da farmácia.</p>
-          <div class="card-arrow" aria-hidden="true">→</div>
-        </a>
-
-        <a href="cidadao.html" class="card" aria-label="Acessar a Carteira Cidadã">
-          <div class="card-icon cidadao" aria-hidden="true">👤</div>
-          <h3>Carteira Cidadã</h3>
-          <p>Acesso às suas prescrições e acompanhamento do seu cuidado em saúde.</p>
-          <div class="card-arrow" aria-hidden="true">→</div>
-        </a>
-
-        <a href="clinica.html" class="card" aria-label="Acessar módulo da Clínica e Laboratório">
-          <div class="card-icon" style="background:#fef3c7;" aria-hidden="true">🏥</div>
-          <h3>Clínica / Laboratório</h3>
-          <p>Emissão de laudos, pedidos de exame e gestão de resultados clínicos.</p>
-          <div class="card-arrow" aria-hidden="true">→</div>
-        </a>
-
-        <a href="validar.html" class="card" aria-label="Verificar autenticidade de prescrição">
-          <div class="card-icon validar" aria-hidden="true">🔍</div>
-          <h3>Verificar Prescrição</h3>
-          <p>Validação pública da autenticidade e integridade de uma prescrição.</p>
-          <div class="card-arrow" aria-hidden="true">→</div>
-        </a>
-
-        <!--
-          admin.html não existe neste momento.
-          Descomentar quando disponível:
-
-          <a href="admin.html" class="card" aria-label="Acessar área administrativa">
-            <div class="card-icon" style="background:#f1f5f9" aria-hidden="true">⚙️</div>
-            <h3>Administrador</h3>
-            <p>Gestão da instância, API keys e configurações institucionais.</p>
-            <div class="card-arrow" aria-hidden="true">→</div>
-          </a>
-        -->
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#jornada">Ver a jornada ↓</a>
+        <a class="btn btn-ghost" href="#lente">Consultar um objeto</a>
       </div>
-    </section>
 
-    <!-- Lente de Auditoria — Circulação PicSaúde ------------------ -->
-    <!-- 2026-08-12: ocupa o lugar do antigo painel de chaves (que subiu
-         para a borda superior de todas as telas). Generaliza o motor de
-         busca da "Circulação Diagnóstica" do módulo Clínica/Laboratório
-         para QUALQUER objeto sanitário (receita, atestado, pedido de
-         exame, laudo, encaminhamento, contrarreferência, circulação
-         diagnóstica). Usa só os endpoints /public/* neutros — existência
-         e estado, nunca conteúdo clínico; a circulação diagnóstica, que
-         exige sessão, é consultada com o token demo da sessão quando
-         existir e renderizada de forma neutra (sem nomes nem exames). -->
-    <style>
-      /* Mesmo formato da "Circulação Diagnóstica" da clínica (cartão +
-         linha de busca + botão), em tom institucional azul — é uma lente
-         de auditoria do portal, não uma operação de laboratório. */
-      .lente-section { background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:12px; padding:20px 24px; margin-top:24px; }
-      .lente-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#1e3a8a; margin-bottom:6px; }
-      .lente-sub { font-size:12px; color:#475569; line-height:1.55; margin:0 0 14px; }
-      .lente-busca-row { display:flex; gap:10px; margin-bottom:6px; }
-      .lente-busca-input { flex:1; padding:10px 14px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:14px; font-family:'Courier New',monospace; letter-spacing:1px; color:#1e293b; background:#f8fafc; }
-      .lente-busca-input:focus { outline:none; border-color:#1d4ed8; background:#fff; }
-      .btn-lente-buscar { padding:10px 22px; border-radius:8px; background:#1e3a8a; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
-      .btn-lente-buscar:hover { background:#0f766e; }
-      /* TICKET-J.11 — as regras do CARTÃO da lente (.lente-card, .lente-badge,
-         .lente-chave-display, .lente-meta, .lente-itens, .lente-nota) saíram
-         daqui: viajam com o componente em `lente.js`, que as injeta. Copiá-las
-         de volta recria a duplicação que a extração desfez. Ficam aqui só as
-         regras desta SEÇÃO (moldura, busca e feedback), que são do portal. */
-      .lente-feedback { padding:8px 12px; border-radius:7px; font-size:13px; font-weight:600; margin-top:10px; }
-      .lente-feedback.ok  { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
-      .lente-feedback.err { background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; }
-      .hidden { display:none !important; }
-    </style>
-    <section class="lente-section" aria-label="Lente de auditoria da circulação PicSaúde">
-      <div class="lente-title">🔍 Lente de Auditoria — Circulação PicSaúde</div>
-      <p class="lente-sub">
-        Consulte a situação de qualquer objeto sanitário que circula na plataforma —
-        receita, atestado, pedido de exame, laudo, encaminhamento, contrarreferência
-        ou circulação diagnóstica — pela chave de circulação ou pelo protocolo.
-        Visão neutra de auditoria: existência e estado, sem dados clínicos.
-      </p>
-      <div class="lente-busca-row">
-        <input type="text" id="lente-input" class="lente-busca-input"
-               placeholder="Chave de circulação ou protocolo (ex: A3F1C2B4E5D6)"
-               maxlength="64" aria-label="Chave de circulação ou protocolo do objeto sanitário"
-               onkeydown="if(event.key==='Enter') consultarObjetoSanitario()">
-        <button type="button" class="btn-lente-buscar" onclick="consultarObjetoSanitario()">Consultar</button>
-      </div>
-      <div id="lente-feedback" class="hidden"></div>
-      <div id="lente-resultado" class="hidden"></div>
-    </section>
-    <!-- /lente de auditoria -->
-
-    <!-- Status da instância ------------------------------------- -->
-    <section class="status-block" aria-label="Estado da instância">
-      <div class="status-title">Estado da instância</div>
-      <div id="status-content" class="status-msg">Carregando…</div>
-    </section>
-
-  </main>
-
-  <!-- ============================================================ -->
-  <!-- RODAPÉ                                                        -->
-  <!-- ============================================================ -->
-  <footer>
-    <div class="footer-inner">
-      <div>
-        <div class="footer-brand">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</div>
-        <div class="footer-brand" style="margin-top:4px;">Distribuído sob GNU AGPL-3.0 — software livre.</div>
-        <div class="footer-brand" style="margin-top:4px; font-size:11px; opacity:.85;">
-          Programa de computador registrado no INPI — BR&nbsp;51&nbsp;2026&nbsp;002267-3.
-          PicSaúde™ — pedidos de marca em análise no INPI (proc. 943014573 · 943014883).
-        </div>
-        <div class="footer-brand" style="margin-top:4px; font-size:11px; opacity:.85;">
-          Responsável técnico: Dr. Fabiano Tonaco Borges.
-        </div>
-        <div class="footer-brand" style="margin-top:4px; font-size:11px; opacity:.85;">
-          Contato: <a href="mailto:contato@picsaude.com.br"
-                      style="color:inherit; text-decoration:underline;">contato@picsaude.com.br</a>.
+      <div class="objeto-stage" aria-hidden="true">
+        <div class="objeto-rail">
+          <div class="objeto-card" id="objetoCard">
+            <div class="objeto-head">
+              <span class="objeto-tipo" id="objTipo">Pedido de exame</span>
+              <span class="chip mono" id="objEstado">emitido</span>
+            </div>
+            <div class="objeto-proto mono">protocolo 7f3a…c2d1</div>
+            <hr class="objeto-divider">
+            <dl>
+              <div class="objeto-row"><dt>Paciente</dt><dd>CPF •••.•••.•••-••</dd></div>
+              <div class="objeto-row"><dt id="objL2">Exames</dt><dd id="objV2">2 solicitados</dd></div>
+              <div class="objeto-row"><dt id="objL3">Validade</dt><dd id="objV3">90 dias</dd></div>
+            </dl>
+            <div class="objeto-foot">cada gesto registrado no ledger</div>
+          </div>
+          <div class="rail-line"></div>
+          <div class="rail-dots" id="railDots">
+            <div class="rail-dot done atual"><i></i>
+              <div class="rail-label"><b>Consultório</b><span class="arco">emitido</span></div>
+            </div>
+            <div class="rail-dot"><i></i>
+              <div class="rail-label"><b>Carteira Cidadã</b><span class="arco">com o cidadão</span></div>
+            </div>
+            <div class="rail-dot"><i></i>
+              <div class="rail-label"><b>Farmácia</b><span class="arco">com quem executa</span></div>
+            </div>
+            <div class="rail-dot"><i></i>
+              <div class="rail-label"><b>Cuidado entregue</b><span class="arco">entregue</span></div>
+            </div>
+          </div>
         </div>
       </div>
-      <nav class="footer-links" aria-label="Links utilitários">
-        <a id="link-health" href="#" target="_blank" rel="noopener">Saúde da instância</a>
-        <span class="separator">·</span>
-        <a id="link-version" href="#" target="_blank" rel="noopener">Versão</a>
-      </nav>
+      <p class="trilho-nota">O objeto muda. O trilho, não.</p>
     </div>
-  </footer>
+  </section>
 
-  <!-- ============================================================ -->
-  <!-- STATUS DA INSTÂNCIA — JS leve, sem dependências externas     -->
-  <!-- ============================================================ -->
-  <script>
-    (function () {
-      'use strict';
+  <!-- ============ JORNADA ============ -->
+  <section class="jornada" id="jornada">
+    <div class="wrap">
+      <div class="jornada-intro reveal">
+        <p class="section-eyebrow">A jornada do objeto</p>
+        <h2>Uma viagem em quatro gestos.</h2>
+        <p>
+          Nenhuma senha decorada. Nenhum papel perdido. Nenhuma fila refeita.
+          O objeto sanitário nasce com identidade própria. Ele atravessa a rede
+          no ritmo de quem cuida e de quem precisa.
+        </p>
+      </div>
 
-      var BACKEND = BACKEND_URL;
+      <article class="passo">
+        <div class="reveal">
+          <div class="passo-num">01</div>
+          <h3>O prescritor emite.</h3>
+          <p>
+            No consultório, a receita nasce digital. Ganha protocolo único e
+            conteúdo selado. Emitida, não pode mais ser alterada. Toda correção
+            vira um novo objeto, ligado ao anterior. A história nunca é reescrita.
+          </p>
+          <span class="estado-chip mono">estado: <b>pendente</b></span>
+        </div>
+        <div class="passo-visual reveal reveal-d1" aria-hidden="true">
+          <svg viewBox="0 0 200 200" fill="none">
+            <rect x="55" y="30" width="90" height="120" rx="10" stroke="#1e3a8a" stroke-width="3" fill="#fff"/>
+            <line x1="72" y1="58" x2="128" y2="58" stroke="#e3ddd0" stroke-width="5" stroke-linecap="round"/>
+            <line x1="72" y1="76" x2="128" y2="76" stroke="#e3ddd0" stroke-width="5" stroke-linecap="round"/>
+            <line x1="72" y1="94" x2="112" y2="94" stroke="#e3ddd0" stroke-width="5" stroke-linecap="round"/>
+            <circle cx="132" cy="132" r="26" fill="#16a34a"/>
+            <path d="M121 132 l8 8 l15 -16" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </article>
 
-      // Links do footer apontam para o backend correto (não podem usar JS em href estático)
-      document.getElementById('link-health').href  = BACKEND + '/health';
-      document.getElementById('link-version').href = BACKEND + '/health/version';
+      <article class="passo">
+        <div class="reveal">
+          <div class="passo-num">02</div>
+          <h3>A posse passa ao cidadão.</h3>
+          <p>
+            Sem aplicativo obrigatório. Sem cadastro em cada farmácia. A receita
+            está onde o cidadão está, ancorada ao CPF dele. A custódia é dele.
+            O sistema sabe disso sem pedir nada em troca.
+          </p>
+          <span class="estado-chip mono">estado: <b>transferida_paciente</b></span>
+        </div>
+        <div class="passo-visual reveal reveal-d1" aria-hidden="true">
+          <svg viewBox="0 0 200 200" fill="none">
+            <circle cx="100" cy="78" r="30" stroke="#1e3a8a" stroke-width="3" fill="#fff"/>
+            <path d="M52 160 q48 -52 96 0" stroke="#1e3a8a" stroke-width="3" fill="#fff"/>
+            <rect x="118" y="46" width="56" height="36" rx="7" fill="#16a34a"/>
+            <line x1="130" y1="60" x2="162" y2="60" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+            <line x1="130" y1="71" x2="150" y2="71" stroke="#dcfce7" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </article>
 
-      function formatUptime(seconds) {
-        if (seconds < 60)   return seconds + 's';
-        if (seconds < 3600) return Math.floor(seconds / 60) + 'min';
-        var h = Math.floor(seconds / 3600);
-        var m = Math.floor((seconds % 3600) / 60);
-        return h + 'h ' + m + 'min';
-      }
+      <article class="passo">
+        <div class="reveal">
+          <div class="passo-num">03</div>
+          <h3>No balcão, um gesto basta.</h3>
+          <p>
+            O dispensador recebe a custódia com a chave de apresentação. Faltou
+            um item? Ele volta à carteira e pode ser buscado em outra farmácia.
+            A prescrição não morre no caixa. Erro identificado? O item retorna
+            ao prescritor, com o caminho inteiro registrado.
+          </p>
+          <span class="estado-chip mono">estado: <b>em_custodia</b></span>
+        </div>
+        <div class="passo-visual reveal reveal-d1" aria-hidden="true">
+          <svg viewBox="0 0 200 200" fill="none">
+            <rect x="40" y="96" width="120" height="58" rx="10" stroke="#1e3a8a" stroke-width="3" fill="#fff"/>
+            <rect x="82" y="40" width="36" height="36" rx="8" fill="#16a34a"/>
+            <path d="M100 48 v20 M90 58 h20" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
+            <line x1="58" y1="116" x2="142" y2="116" stroke="#e3ddd0" stroke-width="5" stroke-linecap="round"/>
+            <line x1="58" y1="132" x2="118" y2="132" stroke="#e3ddd0" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </article>
 
-      function item(label, valueHtml) {
-        return '<div class="status-item">'
-          + '<div class="status-label">' + label + '</div>'
-          + '<div class="status-value">'  + valueHtml + '</div>'
-          + '</div>';
-      }
+      <article class="passo">
+        <div class="reveal">
+          <div class="passo-num">04</div>
+          <h3>Cada entrega é um fato.</h3>
+          <p>
+            Item a item, a dispensação vira registro no ledger imutável. A soma
+            do entregue jamais passa do prescrito. Quando o último item chega às
+            mãos do cidadão, a jornada se encerra. Com recibo, não com memória.
+          </p>
+          <span class="estado-chip mono">estado: <b>dispensada</b></span>
+        </div>
+        <div class="passo-visual reveal reveal-d1" aria-hidden="true">
+          <svg viewBox="0 0 200 200" fill="none">
+            <circle cx="100" cy="100" r="58" stroke="#1e3a8a" stroke-width="3" fill="#fff"/>
+            <circle cx="100" cy="100" r="40" fill="#dcfce7"/>
+            <path d="M82 100 l13 13 l25 -27" stroke="#16a34a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </article>
 
-      function renderStatus(health, version) {
-        var online = health && health.ok;
-        var dot    = '<span class="status-dot' + (online ? '' : ' offline') + '"></span>';
-        var rows   = [
-          item('Status', dot + (online ? 'Operacional' : 'Indisponível')),
-        ];
+      <div class="jornada-fecho reveal">
+        <p class="objetos-lista">
+          <b>Receita</b> · <b>Atestado</b> · <b>Pedido de exame</b> · <b>Laudo</b> · <b>Encaminhamento</b> · <b>Contrarreferência</b> · <b>Circulação diagnóstica</b>
+        </p>
+        <p class="grande">Tudo que circula na saúde viaja assim.<br><em>Toda a jornada registrada. Nenhum atrito sentido.</em></p>
+      </div>
+    </div>
+  </section>
 
-        if (version) {
-          if (version.version)       rows.push(item('Versão',    escHtml(version.version)));
-          if (version.env)           rows.push(item('Ambiente',  escHtml(version.env)));
-          if (version.org_id)        rows.push(item('Org',       escHtml(version.org_id)));
-          if (version.instance_name) rows.push(item('Instância', escHtml(version.instance_name)));
-          if (version.uptime_s != null) {
-            rows.push(item('Uptime', escHtml(formatUptime(version.uptime_s))));
-          }
+  <!-- ============ LENTE ============ -->
+  <section class="lente" id="lente">
+    <div class="wrap reveal">
+      <p class="section-eyebrow">Lente de auditoria</p>
+      <h2>Uma chave.<br>Toda a jornada.</h2>
+      <p class="lente-sub">
+        Qualquer objeto em circulação pode ser consultado. Use a chave de
+        circulação ou o protocolo. A visão é neutra: existência e estado.
+        Nunca dados clínicos.
+      </p>
+
+      <form class="lente-form" id="lenteForm">
+        <input class="lente-input mono" type="text" id="lenteInput"
+               value="7f3a9c41-b2e8-4c1d-9f0a-1c2d3e4f5a6b"
+               placeholder="protocolo ou chave de circulação"
+               aria-label="Protocolo ou chave de circulação">
+        <button class="lente-btn" type="submit">Consultar</button>
+      </form>
+      <p class="lente-hint">Demonstração visual com protocolo fictício. A consulta real acontece na plataforma.</p>
+
+      <div class="lente-result" id="lenteResult" role="status">
+        <div class="lente-result-top">
+          <span class="lente-result-tipo">Objeto localizado</span>
+          <span class="chip">exemplo ilustrativo</span>
+        </div>
+        <div class="lente-result-rows">
+          <div class="lente-result-row"><span>Protocolo</span><span class="mono" id="resProto">7f3a9c…c2d1</span></div>
+          <div class="lente-result-row"><span>Tipo de objeto</span><span>Receita digital</span></div>
+          <div class="lente-result-row"><span>Estado</span><span>Dispensada. Jornada concluída.</span></div>
+          <div class="lente-result-row"><span>Dados clínicos</span><span>Não exibidos. Visão de auditoria.</span></div>
+        </div>
+        <p class="lente-result-nota">
+          A lente responde <em>que</em> o objeto existe e <em>onde</em> ele está.
+          O que ele contém fica entre o cidadão e quem cuida dele.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRINCÍPIOS ============ -->
+  <section class="principios" id="principios">
+    <div class="wrap">
+      <p class="section-eyebrow reveal">Princípios</p>
+      <h2 class="reveal reveal-d1">Feito para merecer confiança.</h2>
+
+      <div class="principios-grid reveal reveal-d2">
+        <div class="principio">
+          <h3><span class="simbolo">§</span> Imutável</h3>
+          <p>
+            Emitido, é lei. Nenhum objeto sanitário é editado depois de emitido.
+            Toda correção é um novo objeto derivado, ligado ao anterior.
+            O ledger nunca recebe correção. Só fatos novos.
+          </p>
+        </div>
+        <div class="principio">
+          <h3><span class="simbolo">◈</span> Rastreável</h3>
+          <p>
+            Quem emitiu. Quem recebeu. Onde esteve. Quando mudou de mãos.
+            A cadeia de custódia é explícita e auditável por quem tem papel na jornada.
+            Sem expor um único dado clínico.
+          </p>
+        </div>
+        <div class="principio">
+          <h3><span class="simbolo">→</span> Sem atrito</h3>
+          <p>
+            A movimentação do objeto, ancorada ao CPF do cidadão, é a régua
+            da casa. Atrito percebido na circulação é defeito.
+            E se trata como tal.
+          </p>
+        </div>
+      </div>
+
+      <div class="numeros reveal reveal-d1">
+        <div class="numero"><b>1</b><span>disciplina de ledger. Todo gesto é fato imutável.</span></div>
+        <div class="numero"><b>7</b><span>tipos de objeto em circulação</span></div>
+        <div class="numero"><b>0</b><span>papel obrigatório na jornada</span></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-sign reveal">
+      <img src="logo-picsaude.png" alt="PicSaúde">
+      <p class="assinatura"><b>PicSaúde.</b> Feito para o SUS<span class="coracao">.</span></p>
+      <p class="sub">Feito com carinho para quem cuida. E para quem precisa de cuidado.</p>
+    </div>
+    <div class="footer-grid reveal reveal-d1">
+      <div class="footer-ded">
+        <p>Uma infraestrutura pública de confiança para os objetos que circulam na saúde brasileira.</p>
+        <p>Cada receita, exame, laudo e encaminhamento viaja com identidade própria,
+           custódia explícita e memória imutável.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <b>Plataforma</b>
+          <a href="#jornada">A jornada</a>
+          <a href="#lente">Lente de auditoria</a>
+          <a href="#principios">Princípios</a>
+        </div>
+        <div class="footer-col">
+          <b>Estações</b>
+          <a href="prescritor.html">Consultório</a>
+          <a href="dispensador.html">Farmácia</a>
+          <a href="cidadao.html">Carteira Cidadã</a>
+          <a href="clinica.html">Clínica / Laboratório</a>
+        </div>
+      </div>
+    </div>
+    <p class="footer-legal">
+      PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.<br>
+      Distribuído sob GNU AGPL-3.0 — software livre.<br>
+      Programa de computador registrado no INPI — BR 51 2026 002267-3.
+      PicSaúde™ — pedidos de marca em análise no INPI (proc. 943014573 · 943014883).<br>
+      Responsável técnico: Dr. Fabiano Tonaco Borges.<br>
+      Contato: <a href="mailto:contato@picsaude.com.br" style="color: inherit;">contato@picsaude.com.br</a>.
+    </p>
+  </div>
+</footer>
+
+<script>
+  // Demonstração visual da Lente. Sem backend, resultado ilustrativo.
+  document.getElementById('lenteForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var entrada = document.getElementById('lenteInput').value.trim();
+    var proto = entrada
+      ? (entrada.length > 14 ? entrada.slice(0, 6) + '…' + entrada.slice(-4) : entrada)
+      : '7f3a9c…c2d1';
+    document.getElementById('resProto').textContent = proto;
+    var res = document.getElementById('lenteResult');
+    res.classList.remove('visivel');
+    void res.offsetWidth;
+    res.classList.add('visivel');
+    res.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  // Trilho fixo e harmonizado: cada estação exibe o objeto cuja história
+  // culmina nela. Consultório: Pedido de Exame. Carteira Cidadã: Encaminhamento.
+  // Farmácia: Receita. Cuidado Entregue: Laudo. O objeto muda. O trilho, não.
+  //
+  // RELÓGIO ÚNICO (parecer de engenharia, 30/08): antes, a posição do card era
+  // animada por CSS (@keyframes) enquanto pontos e troca de objeto eram pintados
+  // por JS com uma tabela de milissegundos — dois relógios que só batiam por
+  // disciplina do autor. Agora a tabela `quadros` é o único dono do tempo e do
+  // espaço: posição do card, sinais verdes e troca de objeto derivam dela, no
+  // mesmo rAF. Bônus: sem JS, tudo parado na estação 1, do card ao rótulo.
+  (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var objetos = [
+      { tipo: 'Pedido de exame', estado: 'emitido',     l2: 'Exames',    v2: '2 solicitados', l3: 'Validade', v3: '90 dias' },
+      { tipo: 'Encaminhamento',  estado: 'emitido',     l2: 'Destino',   v2: 'especialista',  l3: 'Retorno',  v3: 'contrarref.' },
+      { tipo: 'Receita digital', estado: 'em_custodia', l2: 'Itens',     v2: '3 prescritos',  l3: 'Validade', v3: '30 dias' },
+      { tipo: 'Laudo',           estado: 'liberado',    l2: 'Resultado', v2: 'disponível',    l3: 'Ciência',  v3: 'ao abrir' }
+    ];
+    var dots = document.querySelectorAll('#railDots .rail-dot');
+    var card = document.getElementById('objetoCard');
+    var rail = document.querySelector('.objeto-rail');
+    var els = {
+      tipo: document.getElementById('objTipo'),
+      estado: document.getElementById('objEstado'),
+      l2: document.getElementById('objL2'), v2: document.getElementById('objV2'),
+      l3: document.getElementById('objL3'), v3: document.getElementById('objV3')
+    };
+    var VIAGEM = 16000;
+    // [percentual do ciclo, posição do card em % do trilho].
+    // Editar aqui muda tudo junto: card, sinais e troca de objeto.
+    var quadros = [
+      [0, 16], [16, 16],
+      [27, 38.66], [41, 38.66],
+      [52, 61.33], [66, 61.33],
+      [77, 84], [91, 84],
+      [100, 16]
+    ];
+    // Chegadas às estações: derivadas da mesma tabela (fim de cada trecho de viagem).
+    var chegadas = [quadros[0], quadros[2], quadros[4], quadros[6]]
+      .map(function (q) { return q[0] / 100 * VIAGEM; });
+    function easeInOut(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
+    function posicaoPct(pct) {
+      for (var i = 0; i < quadros.length - 1; i++) {
+        var a = quadros[i], b = quadros[i + 1];
+        if (pct >= a[0] && pct <= b[0]) {
+          if (b[0] === a[0]) return b[1];
+          return a[1] + (b[1] - a[1]) * easeInOut((pct - a[0]) / (b[0] - a[0]));
         }
-
-        var el = document.getElementById('status-content');
-        el.className = '';
-        el.innerHTML = '<div class="status-grid">' + rows.join('') + '</div>';
       }
-
-      function escHtml(str) {
-        return String(str)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;');
-      }
-
-      function carregarStatus() {
-        var ctrl   = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        var signal = ctrl ? ctrl.signal : undefined;
-        var timer  = ctrl ? setTimeout(function() { ctrl.abort(); }, 4000) : null;
-
-        Promise.all([
-          fetch(BACKEND + '/health',         { signal: signal }),
-          fetch(BACKEND + '/health/version', { signal: signal }),
-        ])
-        .then(function (responses) {
-          if (timer) clearTimeout(timer);
-          return Promise.all(responses.map(function (r) {
-            return r.ok ? r.json() : null;
-          }));
-        })
-        .then(function (results) {
-          renderStatus(results[0], results[1]);
-        })
-        .catch(function () {
-          if (timer) clearTimeout(timer);
-          var el = document.getElementById('status-content');
-          el.className = 'status-msg';
-          el.textContent = 'Informações da instância indisponíveis.';
-        });
-      }
-
-      carregarStatus();
-    })();
-  </script>
-
-  <!-- ============================================================ -->
-  <!-- LENTE DE AUDITORIA — motor de visualização da circulação     -->
-  <!-- PicSaúde (qualquer objeto sanitário).                        -->
-  <!--                                                              -->
-  <!-- Ordem de resolução da chave digitada:                        -->
-  <!--   1. Se tem formato de chave de circulação diagnóstica (hex) -->
-  <!--      E há sessão demo ativa → GET /circulacao/{chave}        -->
-  <!--      (endpoint autenticado; a lente renderiza de forma       -->
-  <!--      NEUTRA — sem paciente, prescritor ou nomes de exame).   -->
-  <!--   2. Senão/em sequência → endpoints públicos neutros:        -->
-  <!--      /public/{prescricoes,exames,atestados,laudos,           -->
-  <!--      encaminhamentos,contrarreferencias}/{protocolo}.        -->
-  <!--   3. Nada encontrado → feedback com o próximo passo.         -->
-  <!-- ============================================================ -->
-  <script>
-    (function () {
-      'use strict';
-
-      // TICKET-J.11 — o render e a leitura da lente vivem em `lente.js`
-      // (componente compartilhado). Esta tela mantém a lente pública
-      // exatamente como era: mesma busca anônima por protocolo/chave, mesmo
-      // cartão. O que mudou é de onde vem o desenho — a carteira do cidadão
-      // abre a MESMA lente por cartão ("ver rastreabilidade") sem duplicá-lo.
-      function feedback(tipo, msg) {
-        var el = document.getElementById('lente-feedback');
-        el.className = 'lente-feedback ' + tipo;
-        el.textContent = msg;
-        el.classList.remove('hidden');
-      }
-
-      function limparFeedback() {
-        document.getElementById('lente-feedback').classList.add('hidden');
-      }
-
-      function mostrarResultado(html) {
-        var el = document.getElementById('lente-resultado');
-        el.innerHTML = html;
-        el.classList.remove('hidden');
-      }
-
-      function esconderResultado() {
-        var el = document.getElementById('lente-resultado');
-        el.innerHTML = '';
-        el.classList.add('hidden');
-      }
-
-      window.consultarObjetoSanitario = async function () {
-        var input = document.getElementById('lente-input');
-        var termo = (input.value || '').trim();
-
-        if (termo.length < 4) {
-          esconderResultado();
-          feedback('err', 'Informe a chave de circulação ou o protocolo (mínimo 4 caracteres).');
-          return;
+      return quadros[0][1];
+    }
+    // Pausa fora da tela ou com aba oculta: o relógio não gasta à toa.
+    var naTela = true;
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) { naTela = es[0].isIntersecting; }, { threshold: 0.05 })
+        .observe(document.querySelector('.objeto-stage'));
+    }
+    function ativo() { return naTela && !document.hidden; }
+    var atual = 0;
+    function pinta() {
+      if (ativo()) {
+        var t = performance.now() % VIAGEM;
+        // Posição do card, em px, nunca deixando o card sair do trilho (320px real).
+        var railW = rail.clientWidth;
+        var meio = card.offsetWidth / 2;
+        var alvo = posicaoPct(t / VIAGEM * 100) / 100 * railW;
+        if (alvo < meio) alvo = meio;
+        if (alvo > railW - meio) alvo = railW - meio;
+        card.style.left = alvo + 'px';
+        var alcancadas = 1;
+        chegadas.forEach(function (m, idx) { if (t >= m) alcancadas = idx + 1; });
+        dots.forEach(function (d, idx) { d.classList.toggle('done', idx < alcancadas); });
+        var idxObj = alcancadas - 1;
+        dots.forEach(function (d, idx) { d.classList.toggle('atual', idx === idxObj); });
+        if (idxObj !== atual) {
+          atual = idxObj;
+          var o = objetos[idxObj];
+          els.tipo.textContent = o.tipo;
+          els.estado.textContent = o.estado;
+          els.l2.textContent = o.l2; els.v2.textContent = o.v2;
+          els.l3.textContent = o.l3; els.v3.textContent = o.v3;
+          card.classList.remove('trocando');
+          void card.offsetWidth;
+          card.classList.add('trocando');
         }
+      }
+      requestAnimationFrame(pinta);
+    }
+    requestAnimationFrame(pinta);
+  })();
 
-        limparFeedback();
-        mostrarResultado('<p style="font-size:13px;color:#64748b;margin:8px 0 0;">Consultando…</p>');
-
-        var token = null;
-        try { token = sessionStorage.getItem('picsaude_demo_token'); } catch (_) {}
-
-        var resultado = await LenteAuditoria.consultar(termo, { token: token });
-        if (resultado.achou) {
-          limparFeedback();
-          mostrarResultado(LenteAuditoria.cartaoHtml(resultado));
-          return;
+  // Reveals estilo Apple: as seções aparecem ao entrar na tela, da Jornada em diante.
+  // Camada extra: sem JS ou com movimento reduzido, todo o conteúdo nasce visível.
+  (function () {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!('IntersectionObserver' in window)) return;
+    document.body.classList.add('js-reveal');
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('visivel');
+          io.unobserve(e.target);
         }
-
-        esconderResultado();
-        feedback('err', LenteAuditoria.mensagemDeVazio(termo, { token: token }));
-      };
-    })();
-  </script>
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+  })();
+</script>
 
 </body>
 </html>

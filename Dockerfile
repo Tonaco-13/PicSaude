@@ -37,6 +37,12 @@ COPY backend/ .
 COPY *.html *.js *.css logo-picsaude.png /app/frontend/
 ENV PICSAUDE_FRONTEND_DIR=/app/frontend
 
+# Flip da abertura (30/08) — fontes self-hosted do index.html (woff2 subset
+# latin, `fonts/`). Mesma lição do glob acima: sem esta linha, os três
+# arquivos existem no repo, passam em todo teste que roda contra o repo, e
+# 404 em produção porque o glob de cima é plano (não desce em subpasta).
+COPY fonts/ /app/frontend/fonts/
+
 # Bases de referência (medicamentos DEF + CID-10) lidas em runtime por app/ai/.
 # Ficam FORA de /data (que é dir de volume) para não serem sombreadas por um mount.
 COPY data/def_medicamentos.csv /app/reference/def_medicamentos.csv

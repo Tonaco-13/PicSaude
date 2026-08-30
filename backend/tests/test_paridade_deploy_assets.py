@@ -43,7 +43,10 @@ _RAIZ = Path(__file__).resolve().parents[2]
 _DOCKERFILE = _RAIZ / "Dockerfile"
 
 # Assets referenciados por `src=`/`href=` nas telas da raiz.
-_RE_ASSET = re.compile(r'(?:src|href)\s*=\s*["\']([^"\':?#]+\.(?:js|css|png|svg|ico|jpg|jpeg|webp))["\']')
+# `woff2` entrou no flip da abertura (30/08) — as fontes self-hosted do
+# index.html (`<link rel="preload" href="fonts/....woff2">`) são o primeiro
+# asset em SUBPASTA (`fonts/`) que esta guarda precisa enxergar.
+_RE_ASSET = re.compile(r'(?:src|href)\s*=\s*["\']([^"\':?#]+\.(?:js|css|png|svg|ico|jpg|jpeg|webp|woff2))["\']')
 
 # Destino do frontend dentro da imagem (o `PICSAUDE_FRONTEND_DIR`).
 _DESTINO = "/app/frontend/"
@@ -66,16 +69,30 @@ def _assets_referenciados() -> dict[str, list[str]]:
 
 
 def _padroes_copiados_para_o_frontend() -> list[str]:
-    """Os padrões da(s) linha(s) `COPY ... /app/frontend/` do Dockerfile."""
+    """Os padrões de origem (relativos à raiz do repo) que o Dockerfile copia
+    para dentro de `_DESTINO` — direto ou por uma subpasta dela.
+
+    `COPY fonts/ /app/frontend/fonts/` (flip da abertura, 30/08) é o
+    primeiro caso de subpasta: o destino não é `_DESTINO` exato, mas começa
+    por ele. Nesse caso o padrão vira `<sufixo>*` (ex.: `fonts/*`) — os
+    arquivos de `fonts/` continuam acessíveis pelo MESMO caminho relativo
+    que o HTML usa (`fonts/arquivo.woff2`), então o casamento contra o
+    asset referenciado funciona igual ao caso plano.
+    """
     padroes: list[str] = []
     for linha in _DOCKERFILE.read_text(encoding="utf-8").splitlines():
         linha = linha.strip()
         if not linha.upper().startswith("COPY "):
             continue
         partes = linha[len("COPY "):].split()
-        if not partes or partes[-1] != _DESTINO:
+        if len(partes) < 2:
             continue
-        padroes.extend(partes[:-1])
+        destino, origens = partes[-1], partes[:-1]
+        if destino == _DESTINO:
+            padroes.extend(origens)
+        elif destino.startswith(_DESTINO) and destino.endswith("/"):
+            sufixo = destino[len(_DESTINO):]
+            padroes.extend(f"{sufixo}*" for origem in origens if origem.endswith("/"))
     return padroes
 
 
