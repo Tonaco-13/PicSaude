@@ -304,11 +304,23 @@ if _frontend_dir is not None:
     # inventar o esquema agora seria resolver problema que não temos.
     _SEM_CACHE = (".html", ".js", ".css")
 
+    # ── Flip da abertura (30/08) — fontes self-hosted cacheiam AGRESSIVO ──
+    #
+    # `.woff2` não tem o problema do HTML/JS/CSS acima: não é a peça que
+    # "corrigiu um bug e o visitante continua vendo o antigo" — é tipografia
+    # estável, referenciada pelo MESMO nome desde a concepção
+    # (`fonts/fraunces-normal.woff2`). Sem cache longo, toda visita rebaixa
+    # 3 arquivos (~200KB) que quase nunca mudam. `immutable` avisa o
+    # navegador para nem checar revalidação dentro da janela.
+    _CACHE_LONGO = (".woff2",)
+
     class _EstaticoSemCacheNaEntrada(StaticFiles):
         async def get_response(self, path: str, scope):
             resposta = await super().get_response(path, scope)
             if path.endswith(_SEM_CACHE) or path in ("", "."):
                 resposta.headers["Cache-Control"] = "no-cache, must-revalidate"
+            elif path.endswith(_CACHE_LONGO):
+                resposta.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             return resposta
 
     app.mount(

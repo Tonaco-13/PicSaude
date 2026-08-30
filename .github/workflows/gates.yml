@@ -234,7 +234,9 @@ jobs:
           set -euo pipefail
           docker build -t picsaude-paridade:ci .
           echo "— assets referenciados pelas telas —"
-          ASSETS=$(grep -ohE '(src|href)="[^"]+\.(js|css|png|svg|ico)"' *.html \
+          # woff2 entrou no flip da abertura (30/08) — as fontes self-hosted
+          # de index.html (`fonts/*.woff2`) são o primeiro asset em subpasta.
+          ASSETS=$(grep -ohE '(src|href)="[^"]+\.(js|css|png|svg|ico|woff2)"' *.html \
                    | sed 's/.*="//;s/"//' | grep -v '^https\?://' | sort -u)
           echo "$ASSETS"
           # `while read` em vez de `for a in $ASSETS`: o `for` depende de word

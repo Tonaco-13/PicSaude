@@ -25,8 +25,18 @@ import httpx
 import pytest
 
 _ENTRADA = [
-    "index.html", "cidadao.html", "prescritor.html", "dispensador.html",
-    "clinica.html", "config.js", "submodulos.js", "submodulos.css", "lente.js",
+    "index.html", "entrar.html", "cidadao.html", "prescritor.html",
+    "dispensador.html", "clinica.html", "config.js", "submodulos.js",
+    "submodulos.css", "lente.js",
+]
+
+# Flip da abertura (30/08) — o oposto do `_ENTRADA` acima: fontes self-hosted
+# não têm o problema "fix subiu, visitante vê o antigo" (tipografia estável,
+# mesmo nome desde a concepção) — cachear sem revalidar é o comportamento
+# CORRETO aqui, não um esquecimento.
+_FONTES_WOFF2 = [
+    "fonts/fraunces-normal.woff2", "fonts/fraunces-italic.woff2",
+    "fonts/inter-normal.woff2",
 ]
 
 
@@ -66,3 +76,18 @@ def test_a_raiz_tambem_nao_se_cacheia(app_demo):
     r = httpx.get(f"{app_demo}/", timeout=15.0)
     assert r.status_code == 200
     assert "no-cache" in r.headers.get("cache-control", "")
+
+
+@pytest.mark.parametrize("fonte", _FONTES_WOFF2)
+def test_fonte_woff2_cacheia_agressivo(app_demo, fonte):
+    """O OPOSTO da regra de entrada, de propósito: fonte não tem a doença
+    que o `no-cache` acima cura, e cachear sem revalidar poupa 3 downloads
+    (~200KB) por visita que quase nunca mudam."""
+    r = httpx.get(f"{app_demo}/{fonte}", timeout=15.0)
+    assert r.status_code == 200, f"{fonte}: {r.status_code}"
+    cc = r.headers.get("cache-control", "")
+    assert "max-age=31536000" in cc and "immutable" in cc, (
+        f"{fonte} respondeu `Cache-Control: {cc or '(ausente)'}` — deveria "
+        "cachear por 1 ano como immutable"
+    )
+    assert "no-cache" not in cc
