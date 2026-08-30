@@ -3,13 +3,18 @@
 AS REGRAS QUE ESTE ARQUIVO TRAVA
 --------------------------------
 1. **A lente foi EXTRAÍDA, não copiada.** O render do cartão vive em `lente.js`
-   e em nenhum outro lugar. Uma cópia no `index.html` ou na `cidadao.html`
+   e em nenhum outro lugar. Uma cópia no portal ou na `cidadao.html`
    passaria em qualquer E2E e só apareceria no dia em que as duas divergissem —
    é a duplicação com aparência de fonte única, que já custou caro nesta casa.
 
-2. **O `index.html` continua sendo o portal com a lente pública** (§11b: "o
-   index mantém a lente pública; função inalterada"). A extração não podia
-   mudar o que o visitante anônimo vê.
+2. **O portal continua com a lente pública** (§11b: "o index mantém a lente
+   pública; função inalterada"). A extração não podia mudar o que o
+   visitante anônimo vê. **Flip da abertura (30/08)**: o portal (seletor de
+   papéis) mudou de endereço, de `index.html` para `entrar.html` — a REGRA
+   (lente pública no portal) não mudou, só o nome do arquivo onde ela mora.
+   `index.html` virou a página de abertura/marketing (Kimi/arquiteto),
+   deliberadamente SEM a lente real nesta PR — só uma demonstração visual
+   rotulada como tal; a fiação real é PR `module` separada.
 
 3. **O selo não decide qual agendamento é o corrente.** Esse predicado é do
    backend (`agendamento_atual_do_pedido`). Se a tela voltar a filtrar status
@@ -37,7 +42,9 @@ from pathlib import Path
 import pytest
 
 _RAIZ    = Path(__file__).resolve().parents[3]
-_INDEX   = _RAIZ / "index.html"
+# Flip da abertura (30/08): o portal com a lente pública mudou de endereço,
+# de `index.html` para `entrar.html` — `index.html` virou a abertura/marketing.
+_PORTAL  = _RAIZ / "entrar.html"
 _CIDADAO = _RAIZ / "cidadao.html"
 _LENTE   = _RAIZ / "lente.js"
 
@@ -63,7 +70,7 @@ def test_lente_js_publica_o_contrato(membro):
     assert re.search(rf"\b{membro}\s*:", js), f"LenteAuditoria.{membro} não exposto"
 
 
-@pytest.mark.parametrize("pagina", [_INDEX, _CIDADAO])
+@pytest.mark.parametrize("pagina", [_PORTAL, _CIDADAO])
 def test_paginas_carregam_o_componente(pagina):
     assert '<script src="lente.js"></script>' in _fonte(pagina), \
         f"{pagina.name} não carrega lente.js"
@@ -87,7 +94,7 @@ _MARCAS_DO_RENDER = [
 
 
 @pytest.mark.parametrize("marca", _MARCAS_DO_RENDER)
-@pytest.mark.parametrize("pagina", [_INDEX, _CIDADAO])
+@pytest.mark.parametrize("pagina", [_PORTAL, _CIDADAO])
 def test_render_do_cartao_nao_foi_copiado_para_as_telas(pagina, marca):
     assert marca not in _fonte(pagina), (
         f"{pagina.name} tem '{marca}' — o render do cartão deve viver só em lente.js"
@@ -95,9 +102,9 @@ def test_render_do_cartao_nao_foi_copiado_para_as_telas(pagina, marca):
 
 
 @pytest.mark.parametrize("simbolo", ["LENTE_TIPOS", "renderPublico", "renderCirculacao"])
-def test_index_nao_guarda_mais_a_implementacao(simbolo):
-    assert simbolo not in _fonte(_INDEX), (
-        f"index.html ainda define '{simbolo}' — a extração ficou pela metade"
+def test_portal_nao_guarda_mais_a_implementacao(simbolo):
+    assert simbolo not in _fonte(_PORTAL), (
+        f"{_PORTAL.name} ainda define '{simbolo}' — a extração ficou pela metade"
     )
 
 
@@ -109,7 +116,7 @@ def test_lista_de_tipos_consultaveis_mora_no_componente():
 
 
 # ---------------------------------------------------------------------------
-# 3 — o index continua sendo o portal com a lente pública (§11b)
+# 3 — o portal continua com a lente pública (§11b)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("ancora", [
@@ -118,8 +125,8 @@ def test_lista_de_tipos_consultaveis_mora_no_componente():
     "consultarObjetoSanitario",    # a função que o botão chama
     "lente-section",               # a moldura da seção no portal
 ])
-def test_index_preserva_a_lente_publica(ancora):
-    assert ancora in _fonte(_INDEX), f"index.html perdeu '{ancora}' — função alterada"
+def test_portal_preserva_a_lente_publica(ancora):
+    assert ancora in _fonte(_PORTAL), f"{_PORTAL.name} perdeu '{ancora}' — função alterada"
 
 
 # ---------------------------------------------------------------------------

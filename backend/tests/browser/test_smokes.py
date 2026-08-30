@@ -31,8 +31,10 @@ _PRESCRITOR = {"sub": "980001112223334", "nome": "Dra. Demo Maria Souza"}
 # Protocolo sentinela do atestado semeado (backend/seed_demo.py::_garantir_atestado_demo).
 _ATESTADO_SEED = "DEMO-ATESTADO-0001"
 
-# Cards do portal → ESTAÇÃO de destino. Espelha index.html; o smoke (a) percorre
-# todos. `clinica.html` e `validar.html` não passam pelo /demo/login (não têm
+# Cards do portal → ESTAÇÃO de destino. Espelha entrar.html (o portal — flip
+# da abertura, 30/08: `index.html` virou a página de abertura/marketing,
+# `entrar.html` herdou o papel de seletor); o smoke (a) percorre todos.
+# `clinica.html` e `validar.html` não passam pelo /demo/login (não têm
 # papel), mas precisam abrir.
 #
 # Os rótulos são de FACHADA (decisão do Fabiano, 25/08): nomeiam o LUGAR aonde
@@ -83,7 +85,10 @@ def _sem_erros(erros: list[str], tela: str) -> None:
 
 class TestPortal:
     def test_portal_abre_e_lista_os_cards(self, page, app_demo, erros_de_console):
-        page.goto(app_demo, wait_until="networkidle")
+        # Flip da abertura (30/08): o portal (seletor de papéis) mudou de
+        # endereço, de `/` para `/entrar.html` — `/` agora serve a página de
+        # abertura/marketing, que não tem `.card` algum (tem `.pilula`).
+        page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
 
         # ⚠️ CASAR PELO SELETOR DO TÍTULO, nunca por substring do cartão.
         #
@@ -99,7 +104,7 @@ class TestPortal:
             expect(card).to_be_visible(timeout=_TIMEOUT_MS)
             expect(card.locator("h3")).to_have_text(rotulo)
 
-        _sem_erros(erros_de_console, "portal (index.html)")
+        _sem_erros(erros_de_console, "portal (entrar.html)")
 
     @pytest.mark.parametrize("href,rotulo", _CARDS, ids=[c[0] for c in _CARDS])
     def test_cada_card_entra_no_modulo(self, page, app_demo, erros_de_console, href, rotulo):
@@ -569,7 +574,10 @@ class TestConsoleLimpo:
     para qualquer asserção de conteúdo que não olhasse justamente o seletor.
     """
 
-    @pytest.mark.parametrize("href", [c[0] for c in _CARDS] + [""], ids=lambda h: h or "index.html")
+    @pytest.mark.parametrize(
+        "href", [c[0] for c in _CARDS] + ["entrar.html", ""],
+        ids=lambda h: h or "index.html",
+    )
     def test_tela_sem_erro_de_console(self, page, app_demo, erros_de_console, href):
         page.goto(f"{app_demo}/{href}", wait_until="networkidle")
         expect(page.locator("body")).not_to_be_empty(timeout=_TIMEOUT_MS)
@@ -672,10 +680,13 @@ class TestCirculacaoUmCidadao:
 # ---------------------------------------------------------------------------
 
 class TestGuiaNaVitrine:
-    """`guia.html` é servido pela mesma casa (StaticFiles) e a landing leva a ele.
+    """`guia.html` é servido pela mesma casa (StaticFiles) e a fachada de
+    serviço (`entrar.html`) leva a ele.
 
     O guia era um artifact fora da vitrine; agora é página do repositório em
-    `/guia.html`, e a frase do Fluxo na landing ganha o convite que abre o guia.
+    `/guia.html`, e a frase do Fluxo em `entrar.html` ganha o convite que abre
+    o guia. A abertura/marketing (`index.html`, desde o flip de 30/08) não
+    tem essa seção — ver a nota em `test_link_da_landing_abre_o_guia`.
     """
 
     def test_guia_responde_e_renderiza(self, page, app_demo, erros_de_console):
@@ -707,7 +718,12 @@ class TestGuiaNaVitrine:
         _sem_erros(erros_de_console, "index.html rodapé")
 
     def test_link_da_landing_abre_o_guia(self, page, app_demo, erros_de_console):
-        page.goto(app_demo, wait_until="networkidle")
+        # Flip da abertura (30/08): o convite ao guia mora em `entrar.html`
+        # (a fachada de serviço) — o novo `index.html` (abertura/marketing,
+        # Kimi/arquiteto) não tem essa seção. Não é regressão: a landing
+        # nova ainda não define um convite ao guia; a decisão de acrescentar
+        # um é de produto, fora do escopo "toques cirúrgicos" desta PR.
+        page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
 
         link = page.locator('a[href="guia.html"]')
         expect(link).to_be_visible(timeout=_TIMEOUT_MS)

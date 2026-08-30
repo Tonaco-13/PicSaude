@@ -239,13 +239,17 @@ def test_acoes_declaradas_existem_na_tela(tela: str) -> None:
 # ---------------------------------------------------------------------------
 
 class TestHelperUnico:
+    # Flip da abertura (30/08): `index.html` virou a página de abertura/
+    # marketing (autocontida, sem config.js/showToast por desenho) — a lista
+    # de "telas do app" passa a testar `entrar.html`, o portal que herdou o
+    # papel (seletor de papéis, config.js, toast).
     def test_showtoast_mora_no_config_js(self) -> None:
         assert "function showToast(" in _fonte("config.js")
 
     def test_nenhuma_tela_redefine_showtoast(self) -> None:
         """cidadao.html tinha a sua cópia; foi promovida, não duplicada."""
         for tela in ("prescritor.html", "dispensador.html", "clinica.html",
-                     "cidadao.html", "index.html", "validar.html"):
+                     "cidadao.html", "entrar.html", "validar.html"):
             assert "function showToast(" not in _fonte(tela), (
                 f"{tela} redefine showToast — duas implementações divergem, é a "
                 "lição do texto do atestado aplicada ao aviso."
@@ -253,7 +257,7 @@ class TestHelperUnico:
 
     def test_toda_tela_carrega_o_config(self) -> None:
         for tela in ("prescritor.html", "dispensador.html", "clinica.html",
-                     "cidadao.html", "index.html", "validar.html"):
+                     "cidadao.html", "entrar.html", "validar.html"):
             assert '<script src="config.js">' in _fonte(tela)
 
     def test_toast_e_anunciado_para_leitor_de_tela(self) -> None:
