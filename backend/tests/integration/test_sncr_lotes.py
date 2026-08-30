@@ -284,6 +284,80 @@ def test_endpoint_numerar_usa_lote_adquirido_antes(
     )
 
 
+def test_endpoint_listar_lotes_vazio_quando_nenhum(client, outer_conn, seed_usuario):
+    token = obter_token_prescritor(client, seed_usuario)
+    r = client.get("/receituarios/lotes", headers=_headers(token))
+    assert r.status_code == 200, r.text
+    assert r.json() == {"lotes": []}
+
+
+def test_endpoint_listar_lotes_status_derivado(client, outer_conn, seed_usuario):
+    """DESENHO §3 (G3) — status ('ativo'/'esgotado'/'vencido') é derivado
+    na leitura, nunca armazenado."""
+    token = obter_token_prescritor(client, seed_usuario)
+
+    # Lote ativo, intacto.
+    r1 = client.post(
+        "/receituarios/lotes",
+        json={"tipo_receituario": "notificacao_receita_a", "quantidade": 5},
+        headers=_headers(token),
+    )
+    assert r1.status_code == 201, r1.text
+
+    # Lote que já nasce vencido.
+    ontem = (datetime.utcnow() - timedelta(days=1)).isoformat()
+    r2 = client.post(
+        "/receituarios/lotes",
+        json={"tipo_receituario": "notificacao_receita_b", "quantidade": 5,
+              "valida_ate": ontem},
+        headers=_headers(token),
+    )
+    assert r2.status_code == 201, r2.text
+
+    r_lista = client.get("/receituarios/lotes", headers=_headers(token))
+    assert r_lista.status_code == 200, r_lista.text
+    por_tipo = {l["tipo_receituario"]: l for l in r_lista.json()["lotes"]}
+
+    ativo = por_tipo["notificacao_receita_a"]
+    assert ativo["status"] == "ativo"
+    assert ativo["consumido"] == 0
+    assert ativo["restante"] == 5
+
+    vencido = por_tipo["notificacao_receita_b"]
+    assert vencido["status"] == "vencido"
+
+
+def test_endpoint_listar_lotes_nao_vaza_lote_de_outro_prescritor(
+    client, outer_conn, seed_usuario
+):
+    token = obter_token_prescritor(client, seed_usuario)
+    client.post(
+        "/receituarios/lotes",
+        json={"tipo_receituario": "notificacao_receita_a", "quantidade": 5},
+        headers=_headers(token),
+    )
+
+    now = datetime.utcnow()
+    with outer_conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO usuarios (role, identificador, nome, senha_hash, ativo, created_at, updated_at)
+            VALUES ('prescritor', '111199998888777', 'OUTRO PRESCRITOR G3', %s, true, %s, %s)
+            ON CONFLICT (identificador) DO NOTHING
+            """,
+            ("hash-nao-usado", now, now),
+        )
+    from tests.integration.conftest import SavepointConnection
+    outro_conn = SavepointConnection(outer_conn)
+    from app.adapters.sncr_stub import SNCRStub
+    SNCRStub(conn=outro_conn).adquirir_lote("notificacao_receita_b", "111199998888777", 3)
+    outro_conn.commit()
+
+    r = client.get("/receituarios/lotes", headers=_headers(token))
+    tipos = {l["tipo_receituario"] for l in r.json()["lotes"]}
+    assert tipos == {"notificacao_receita_a"}
+
+
 # ---------------------------------------------------------------------------
 # 3. Concorrência real (AC3) — PG real, sem SAVEPOINT, commits de verdade
 # ---------------------------------------------------------------------------

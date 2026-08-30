@@ -101,6 +101,22 @@ def _carregar_itens(conn, prescricao_id: int) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
+def _coagir_data_validade(rec: dict) -> dict:
+    """`data_validade` sai do SQLite como TEXT (string ISO) e do PostgreSQL
+    como `datetime` nativo — mesmo driver, dialetos diferentes. Downstream
+    (`regras_receituario.receituario_expirado`, `.isoformat()` na
+    serialização) conta com o TIPO, não com o dialeto: sem esta normalização
+    na leitura, `baixar_pdf_receituario` quebra com TypeError comparando
+    string com datetime SÓ no SQLite — invisível nos testes de integração
+    (que rodam contra PG) até o primeiro browser test bater neste caminho
+    (G3, DESENHO-TALAO-DIGITAL-SNCR.md §3).
+    """
+    valor = rec.get("data_validade")
+    if isinstance(valor, str):
+        rec["data_validade"] = datetime.fromisoformat(valor)
+    return rec
+
+
 def _receituarios_ativos_existentes(conn, prescricao_id: int) -> list[dict]:
     """Receituários com `substituido_em IS NULL` para a prescrição."""
     rows = conn.execute(
@@ -117,7 +133,7 @@ def _receituarios_ativos_existentes(conn, prescricao_id: int) -> list[dict]:
         """,
         (prescricao_id,),
     ).fetchall()
-    return [_row_to_dict(r) for r in rows]
+    return [_coagir_data_validade(_row_to_dict(r)) for r in rows]
 
 
 def _itens_de_receituario(conn, receituario_id: int) -> list[int]:
@@ -818,7 +834,7 @@ def _carregar_receituario(conn, receituario_id: int) -> Optional[dict]:
         """,
         (receituario_id,),
     ).fetchone()
-    return _row_to_dict(row) if row else None
+    return _coagir_data_validade(_row_to_dict(row)) if row else None
 
 
 def _carregar_itens_de_receituario(conn, receituario_id: int) -> list[dict]:
@@ -1373,3 +1389,66 @@ def adquirir_lote_receituario(
             "concedido_em":     lote.concedido_em,
             "adapter":          adapter.nome_adapter,
         }
+
+
+@router_lotes.get(
+    "/lotes",
+    summary="Lista os lotes (talonários digitais) do prescritor autenticado",
+)
+def listar_lotes_receituario(
+    usuario: dict = Depends(require_role("prescritor")),
+):
+    """DESENHO-TALAO-DIGITAL-SNCR.md §3 (G3) — leitura pura, nenhum gesto
+    novo: alimenta o painel "Talões" (amarelo A / azul B) do prescritor.
+
+    Lê `sncr_lotes` diretamente (SELECT simples) em vez de passar pela
+    ABC do adapter — é o store do STUB hoje, mas uma listagem não é
+    operação do CONTRATO SNCR (requisitar/verificar/registrar/health);
+    adicionar um método à interface só para isto inflaria a peça `core`
+    à toa. `status` é derivado na leitura, nunca armazenado (evita ficar
+    dessincronizado de `proximo`/`valida_ate`).
+    """
+    cns_token = usuario.get("sub") or ""
+    agora = datetime.utcnow()
+
+    with get_tx() as conn:
+        rows = conn.execute(
+            """
+            SELECT lote_id, tipo_receituario, inicio, fim, proximo,
+                   valida_ate, criado_em, adapter_usado
+              FROM sncr_lotes
+             WHERE prescritor_identificador = ?
+             ORDER BY criado_em DESC
+            """,
+            (cns_token,),
+        ).fetchall()
+
+    lotes = []
+    for row in rows:
+        d = {k: row[k] for k in row.keys()} if hasattr(row, "keys") else dict(row)
+        valida_ate = d["valida_ate"]
+        if isinstance(valida_ate, str):
+            valida_ate = datetime.fromisoformat(valida_ate)
+        proximo = d["proximo"]
+        fim = d["fim"]
+        if valida_ate is not None and valida_ate < agora:
+            status_lote = "vencido"
+        elif proximo > fim:
+            status_lote = "esgotado"
+        else:
+            status_lote = "ativo"
+        lotes.append({
+            "lote_id":          d["lote_id"],
+            "tipo_receituario": d["tipo_receituario"],
+            "inicio":           d["inicio"],
+            "fim":              fim,
+            "proximo":          proximo,
+            "consumido":        proximo - d["inicio"],
+            "restante":         max(fim - proximo + 1, 0),
+            "valida_ate":       valida_ate,
+            "criado_em":        d["criado_em"],
+            "adapter_usado":    d["adapter_usado"],
+            "status":           status_lote,
+        })
+
+    return {"lotes": lotes}

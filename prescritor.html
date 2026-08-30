@@ -302,6 +302,23 @@
         .enc-card-acoes { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
         .btn-enc { padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#fff; color:#334155; font-size:12px; font-weight:600; cursor:pointer; }
         .btn-enc:hover { background:#f1f5f9; border-color:#1e3a8a; color:#1e3a8a; }
+
+        /* DESENHO-TALAO-DIGITAL-SNCR.md §3 (G3) — painel "Talões", leitura apenas. */
+        .talao-card { border-radius:8px; padding:16px 18px; margin-bottom:14px; border:1px solid; }
+        .talao-card-a { background:#fffbeb; border-color:#fcd34d; }
+        .talao-card-b { background:#eff6ff; border-color:#93c5fd; }
+        .talao-card-outro { background:#f8fafc; border-color:#e2e8f0; }
+        .talao-titulo { font-size:14px; font-weight:700; color:#1e293b; margin-bottom:2px; }
+        .talao-id { font-family:monospace; font-size:11px; color:#64748b; margin-bottom:10px; }
+        .talao-linha { display:flex; justify-content:space-between; font-size:13px; color:#334155; margin-bottom:4px; }
+        .talao-barra-fundo { background:#e2e8f0; border-radius:999px; height:8px; margin:8px 0; overflow:hidden; }
+        .talao-barra-preenchida { background:#1e3a8a; height:100%; border-radius:999px; }
+        .talao-status { font-size:11px; font-weight:700; padding:2px 9px; border-radius:999px; letter-spacing:.3px; text-transform:uppercase; }
+        .talao-status-ativo { background:#dcfce7; color:#166534; }
+        .talao-status-esgotado { background:#fee2e2; color:#991b1b; }
+        .talao-status-vencido { background:#fef3c7; color:#92400e; }
+        .talao-selo-stub { display:inline-block; margin-top:10px; font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; background:#1e293b; color:#fef08a; padding:3px 8px; border-radius:4px; }
+        .talao-vazio { text-align:center; color:#64748b; font-size:13px; padding:32px 16px; }
         .btn-enc.primaria { background:#1e3a8a; border-color:#1e3a8a; color:#fff; }
         .btn-enc.primaria:hover { background:#1d4ed8; color:#fff; }
         /* Sugestão de destino: a RAZÃO fica visível ao lado do nome (§5). */
@@ -541,12 +558,28 @@
             </form>
         </div>
 
+        <!-- DESENHO-TALAO-DIGITAL-SNCR.md §3 (G3) — painel "Talões", leitura
+             apenas: nenhum gesto de aquisição de lote aqui (isso é §2/G2,
+             backend-only por decisão desta PR). Mostra o que já existe. -->
+        <div id="tela-taloes" class="card hidden no-print">
+            <h2 class="section-title">Talões SNCR</h2>
+            <p style="font-size: 12px; color: #64748b; margin-bottom: 20px;">
+                Talonários digitais de numeração — consumo automático na emissão
+                de receituários de controlados. Somente leitura.
+            </p>
+            <div id="taloes-lista"></div>
+            <div style="margin-top: 20px;">
+                <button type="button" onclick="fecharTaloes()" class="btn btn-outline" style="width: 100%;">Voltar</button>
+            </div>
+        </div>
+
         <div id="tela-dashboard" class="hidden">
-            
+
             <div class="card no-print" style="background: #ffffff; border-left: 4px solid #1e3a8a; padding: 24px; margin-bottom: 24px;">
                 <h3 id="prof-nome" style="color: #1e3a8a; margin-bottom: 8px; font-size: 20px;">...</h3>
                 <p style="font-size: 14px; color: #475569;">Registros: <span id="prof-registro" style="font-weight: 600; color: #0f172a;">...</span> | CNS: <span id="prof-cns">...</span></p>
                 <button onclick="atualizarPainel()" class="btn-outline btn-small" style="margin-top: 12px; font-weight:bold;">🔄 Atualizar Painel</button>
+                <button onclick="abrirTaloes()" class="btn-outline btn-small" style="margin-top: 12px; margin-left: 8px; font-weight:bold;">🎫 Talões SNCR</button>
             </div>
 
             <div id="caixa-renovacao" class="hidden no-print" style="margin-bottom: 32px;">
@@ -1974,7 +2007,7 @@
         }
 
         function esconderTudo() {
-            const blocos = ['tela-acesso', 'tela-busca', 'tela-vincular', 'tela-validacao', 'tela-dashboard', 'tela-perfil', 'tela-sucesso'];
+            const blocos = ['tela-acesso', 'tela-busca', 'tela-vincular', 'tela-validacao', 'tela-dashboard', 'tela-perfil', 'tela-sucesso', 'tela-taloes'];
             blocos.forEach(id => {
                 const elemento = document.getElementById(id);
                 if (elemento) elemento.classList.add('hidden');
@@ -2203,10 +2236,77 @@
             esconderTudo(); document.getElementById('tela-perfil').classList.remove('hidden');
         }
 
-        function fecharPerfil() { 
-            esconderTudo(); 
-            document.getElementById('tela-dashboard').classList.remove('hidden'); 
+        function fecharPerfil() {
+            esconderTudo();
+            document.getElementById('tela-dashboard').classList.remove('hidden');
             atualizarPainel();
+        }
+
+        // ── Talões SNCR (DESENHO-TALAO-DIGITAL-SNCR.md §3, G3) ──────────────
+        // Leitura apenas: só consome GET /receituarios/lotes. Nenhum botão
+        // aqui chama POST /receituarios/lotes — adquirir lote é gesto do §2
+        // (backend), sem UI nesta PR por decisão declarada.
+        const _ROTULO_TIPO_TALAO = {
+            notificacao_receita_a:        { nome: 'Notificação de Receita A', classe: 'talao-card-a' },
+            notificacao_receita_b:        { nome: 'Notificação de Receita B', classe: 'talao-card-b' },
+            receita_controle_especial:    { nome: 'Receita de Controle Especial', classe: 'talao-card-outro' },
+            notificacao_receita_especial: { nome: 'Notificação de Receita Especial', classe: 'talao-card-outro' },
+            receita_retencao:             { nome: 'Receita de Retenção', classe: 'talao-card-outro' },
+        };
+        const _ROTULO_STATUS_TALAO = { ativo: 'Ativo', esgotado: 'Esgotado', vencido: 'Vencido' };
+
+        function abrirTaloes() {
+            esconderTudo();
+            document.getElementById('tela-taloes').classList.remove('hidden');
+            const container = document.getElementById('taloes-lista');
+            container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:24px;">Carregando…</p>';
+            fetch(BACKEND + '/receituarios/lotes', { headers: authHeaders() })
+                .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(data => _renderizarTaloes(data.lotes || []))
+                .catch(() => {
+                    container.innerHTML = '<p class="talao-vazio">Não foi possível carregar os talões agora.</p>';
+                });
+        }
+
+        function fecharTaloes() {
+            esconderTudo();
+            document.getElementById('tela-dashboard').classList.remove('hidden');
+        }
+
+        function _renderizarTaloes(lotes) {
+            const container = document.getElementById('taloes-lista');
+            if (!lotes.length) {
+                container.innerHTML = '<p class="talao-vazio">Nenhum talão adquirido ainda.</p>';
+                return;
+            }
+            container.innerHTML = lotes.map(lote => {
+                const rotulo = _ROTULO_TIPO_TALAO[lote.tipo_receituario] ||
+                               { nome: lote.tipo_receituario, classe: 'talao-card-outro' };
+                const totalFaixa = lote.fim - lote.inicio + 1;
+                const pct = totalFaixa > 0 ? Math.round((lote.consumido / totalFaixa) * 100) : 0;
+                const statusRotulo = _ROTULO_STATUS_TALAO[lote.status] || lote.status;
+                const validade = lote.valida_ate
+                    ? new Date(lote.valida_ate).toLocaleDateString('pt-BR')
+                    : 'sem prazo';
+                return `
+                    <div class="talao-card ${rotulo.classe}">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div class="talao-titulo">${rotulo.nome}</div>
+                                <div class="talao-id">${lote.lote_id}</div>
+                            </div>
+                            <span class="talao-status talao-status-${lote.status}">${statusRotulo}</span>
+                        </div>
+                        <div class="talao-linha"><span>Próximo número</span><strong>${lote.proximo}</strong></div>
+                        <div class="talao-linha"><span>Consumo</span><span>${lote.consumido} de ${totalFaixa}</span></div>
+                        <div class="talao-barra-fundo"><div class="talao-barra-preenchida" style="width:${pct}%;"></div></div>
+                        <div class="talao-linha"><span>Validade</span><span>${validade}</span></div>
+                        ${lote.adapter_usado === 'stub'
+                            ? '<span class="talao-selo-stub">STUB — ambiente de testes, sem validade SNCR real</span>'
+                            : ''}
+                    </div>
+                `;
+            }).join('');
         }
 
         function salvarPerfil(e) {
