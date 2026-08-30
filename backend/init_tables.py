@@ -111,6 +111,8 @@ _TABELAS_APP = [
                                            # pré-existente: nunca tinha entrado aqui)
     "catalogo_regulatorio_carimbo",       # DESENHO-TALAO-DIGITAL-SNCR.md §1 (G1) —
                                            # linha única que carimba a base completa
+    "sncr_lotes",                         # DESENHO-TALAO-DIGITAL-SNCR.md §2 (G2) —
+                                           # store próprio do adapter, lotes/talonários
 ]
 
 
