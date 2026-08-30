@@ -36,12 +36,23 @@ SNCR_ADAPTER_DEFAULT = "stub"
 VALORES_VALIDOS = ("stub", "real")
 
 
-def get_sncr_adapter() -> SNCRAdapter:
+def get_sncr_adapter(conn=None) -> SNCRAdapter:
     """Retorna a implementação do SNCRAdapter configurada pelo ambiente.
 
     Variável de ambiente: `SNCR_ADAPTER`
       - "stub" (default): retorna SNCRStub
       - "real":           retorna SNCRReal (Ticket 16B; hoje levanta erro)
+
+    Args:
+        conn: conexão/transação ativa (ex.: a de `get_tx()`), opcional.
+            DESENHO-TALAO-DIGITAL-SNCR.md §2 (G2) — lotes precisam
+            sobreviver entre requests, então o stub persiste em
+            `sncr_lotes` usando esta MESMA conexão (consumo de lote e
+            escrita do receituário no mesmo commit/rollback — atômico,
+            nunca um lote consumido sobrevive a uma escrita clínica que
+            falhou). Sem `conn`, o adapter funciona como sempre funcionou
+            (numeração sob demanda em memória); `adquirir_lote` fica
+            indisponível nesse modo.
 
     Raises:
         NotImplementedError: SNCR_ADAPTER="real" antes do Ticket 16B existir.
@@ -53,7 +64,7 @@ def get_sncr_adapter() -> SNCRAdapter:
         # Import tardio para manter o módulo factory leve (e evitar acoplamento
         # circular caso o stub precise importar algo da factory no futuro).
         from app.adapters.sncr_stub import SNCRStub
-        return SNCRStub()
+        return SNCRStub(conn=conn)
 
     if adapter_type == "real":
         # Falha explícita — NÃO faz fallback para stub.
