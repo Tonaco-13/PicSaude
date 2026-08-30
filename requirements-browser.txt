@@ -11,3 +11,9 @@
 # já existe. Puppeteer/Cypress introduziriam uma toolchain Node inteira no projeto.
 # ─────────────────────────────────────────────────────────────────────────────
 pytest-playwright>=0.5,<1
+
+# G3 (DESENHO-TALAO-DIGITAL-SNCR.md §3) — leitura do PDF do receituário para
+# provar que o Nº SNCR + o selo honesto de stub chegam ao documento (não dá
+# pra achar por substring nos bytes crus: o ReportLab comprime o content
+# stream). Só o gate de navegador paga este custo — nunca o Docker de produção.
+pypdf>=5,<7
