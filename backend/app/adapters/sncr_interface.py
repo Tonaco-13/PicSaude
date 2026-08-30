@@ -73,6 +73,39 @@ class NumeracaoSNCR:
 
 
 @dataclass(frozen=True)
+class LoteSNCR:
+    """Lote (talonário digital) de numeração SNCR concedido a um prescritor.
+
+    DESENHO-TALAO-DIGITAL-SNCR.md §2 (G2) — a metáfora do talão físico
+    (azul/amarelo): o prescritor adquire um lote por (prescritor × tipo),
+    com faixa numérica [inicio..fim] e validade opcional; a emissão passa
+    a consumir sequencialmente do lote ativo em vez de pedir número por
+    número — zero dependência externa no caminho clínico.
+
+    Campos
+    ------
+    lote_id           Identificador do lote (ex: "STUB-LOTE-2026-NRA-000001").
+    tipo_receituario  Slug do tipo — mesmo vocabulário do motor regulatório.
+    prescritor_cpf    Identificador do prescritor a quem o lote foi concedido
+                      (MVP: CNS — mesma convenção de `NumeracaoSNCR.prescritor_cpf`).
+    inicio            Primeiro número da faixa concedida (inclusive).
+    fim               Último número da faixa concedida (inclusive).
+    proximo           Próximo número a ser sacado (== inicio em lote intacto;
+                      > fim quando esgotado).
+    valida_ate        Prazo de validade do lote (None se sem prazo declarado).
+    concedido_em      Timestamp UTC da concessão.
+    """
+    lote_id: str
+    tipo_receituario: str
+    prescritor_cpf: str
+    inicio: int
+    fim: int
+    proximo: int
+    concedido_em: datetime
+    valida_ate: Optional[datetime] = None
+
+
+@dataclass(frozen=True)
 class RegistroUtilizacao:
     """Resultado do registro de utilização (dispensação) de um receituário.
 
@@ -96,14 +129,15 @@ class ResultadoSNCR:
     Campos
     ------
     sucesso       True se operação completou sem erro.
-    dados         NumeracaoSNCR | RegistroUtilizacao | None — payload da operação.
+    dados         NumeracaoSNCR | RegistroUtilizacao | LoteSNCR | None — payload
+                  da operação.
     erro          Mensagem humana de erro (None se sucesso=True).
     codigo_erro   Código classificável (ex: "SNCR_TIMEOUT", "SNCR_INVALIDO",
                   "SNCR_INDISPONIVEL"). None se sucesso=True.
     tentativa     Número da tentativa atual (para retries futuros).
     """
     sucesso: bool
-    dados: Optional[Union[NumeracaoSNCR, RegistroUtilizacao]] = None
+    dados: Optional[Union[NumeracaoSNCR, RegistroUtilizacao, LoteSNCR]] = None
     erro: Optional[str] = None
     codigo_erro: Optional[str] = None
     tentativa: int = 1
@@ -178,6 +212,47 @@ class SNCRAdapter(ABC):
 
         A implementação real usará assinatura qualificada ICP-Brasil para
         autenticar a requisição (a definir quando a API for documentada).
+        """
+        ...
+
+    @abstractmethod
+    def adquirir_lote(
+        self,
+        tipo_receituario: str,
+        prescritor_cpf: str,
+        quantidade: int,
+        valida_ate: Optional[datetime] = None,
+    ) -> ResultadoSNCR:
+        """Adquire um lote (talonário digital) de numeração para o prescritor.
+
+        DESENHO-TALAO-DIGITAL-SNCR.md §2 (G2) — extensão da interface SNCR,
+        peça `core`-flaggada (CLAUDE.md §10): mudanças neste método exigem
+        revisão central, como qualquer mudança na interface.
+
+        Após a concessão, `requisitar_numeracao` para o MESMO par
+        (tipo_receituario, prescritor_cpf) passa a sacar sequencialmente
+        deste lote em vez de numerar sob demanda — até o lote esgotar
+        (`proximo > fim`) ou `valida_ate` vencer, quando volta a sinalizar
+        indisponibilidade em vez de silenciosamente sacar fora da faixa ou
+        do prazo (AC4 do §2: afirma, não silencia).
+
+        Args:
+            tipo_receituario: tipo do receituário (mesmo vocabulário de
+                `requisitar_numeracao`).
+            prescritor_cpf: identificador do prescritor a quem o lote é
+                concedido.
+            quantidade: tamanho da faixa concedida (>=1) — define
+                [inicio..inicio+quantidade-1].
+            valida_ate: prazo de validade do lote (None = sem prazo).
+
+        Returns:
+            ResultadoSNCR com `dados: LoteSNCR` em sucesso, ou
+            sucesso=False com codigo_erro em falha (ex.: quantidade
+            inválida, tipo desconhecido).
+
+        Adquirir um novo lote não invalida um lote anterior ainda ativo do
+        mesmo par — repor é gesto explícito do prescritor (AC2 do §2),
+        nunca automático.
         """
         ...
 

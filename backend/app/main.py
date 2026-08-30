@@ -227,6 +227,7 @@ app.include_router(dispensadores.router)
 app.include_router(clinicas.router)
 app.include_router(prescricoes.router)
 app.include_router(receituarios.router)   # Ticket 15 — motor regulatório RDC 1.000/2025
+app.include_router(receituarios.router_lotes)  # DESENHO-TALAO-DIGITAL-SNCR.md §2 (G2) — lotes
 app.include_router(catalogo.router)        # Ticket 20 — catálogo regulatório de substâncias
 app.include_router(prescritor.router)      # Ticket 21 — endpoints do prescritor logado (certificado ICP)
 app.include_router(assinaturas.router)    # GET+POST /prescricoes/{proto}/assinatura

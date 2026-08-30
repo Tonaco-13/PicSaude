@@ -567,8 +567,9 @@ def numerar_receituarios(
             _row_to_dict(sig_row).get("tipo_certificado") if sig_row else None
         )
 
-        # 4. Inicializar adapter
-        adapter = get_sncr_adapter()
+        # 4. Inicializar adapter — passa `conn` (DESENHO §2/G2): consumo de
+        # lote e escrita do receituário no MESMO commit/rollback, atômico.
+        adapter = get_sncr_adapter(conn=conn)
         nome_adapter = adapter.nome_adapter
         status_numerado = _ADAPTER_PARA_STATUS_NUMERADO.get(
             nome_adapter, "numerado"
@@ -1297,3 +1298,78 @@ def baixar_pdf_assinado(
             "Content-Length":      str(len(pdf_assinado)),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Lotes (talonários digitais) — DESENHO-TALAO-DIGITAL-SNCR.md §2 (G2)
+# ---------------------------------------------------------------------------
+#
+# Router PRÓPRIO (prefixo /receituarios, não /prescricoes/{protocolo}/...):
+# um lote é concedido por (prescritor × tipo_receituario), não a uma
+# prescrição específica — a metáfora é o talonário físico do consultório,
+# não um gesto sobre um receituário em particular. Registrado em main.py
+# ao lado de `receituarios.router`.
+#
+# G3 (painel "Talões" no prescritor, leitura apenas) fica para PR futura —
+# este endpoint é a ÚNICA porta de escrita (nenhum gesto clínico novo:
+# não toca prescrição/receituário algum, só o store do adapter).
+
+router_lotes = APIRouter(prefix="/receituarios", tags=["receituarios-lotes"])
+
+
+class AdquirirLoteRequest(BaseModel):
+    """Body do POST /receituarios/lotes."""
+    tipo_receituario: str = Field(..., min_length=1)
+    quantidade: int = Field(..., ge=1, le=10_000)
+    valida_ate: Optional[datetime] = None
+
+
+@router_lotes.post(
+    "/lotes",
+    status_code=201,
+    summary="Adquire um lote (talonário digital) de numeração SNCR",
+)
+def adquirir_lote_receituario(
+    body: AdquirirLoteRequest,
+    usuario: dict = Depends(require_role("prescritor")),
+):
+    """Concede ao prescritor autenticado um novo lote — faixa sequencial
+    de numeração para o par (tipo_receituario, prescritor).
+
+    Não bloqueia nem substitui um lote anterior ainda ativo do mesmo par
+    (AC2 do §2): repor é sempre um gesto NOVO e explícito. A próxima
+    chamada a `POST /prescricoes/{protocolo}/receituarios/numerar` para
+    este prescritor passa a sacar deste lote automaticamente — nenhuma
+    mudança de comportamento é exigida do fluxo de emissão.
+    """
+    cns_token = usuario.get("sub") or ""
+
+    with get_tx() as conn:
+        adapter = get_sncr_adapter(conn=conn)
+        resultado = adapter.adquirir_lote(
+            tipo_receituario=body.tipo_receituario,
+            prescritor_cpf=cns_token,
+            quantidade=body.quantidade,
+            valida_ate=body.valida_ate,
+        )
+        if not resultado.sucesso:
+            status = 422 if resultado.codigo_erro == "SNCR_INVALIDO" else 502
+            raise HTTPException(
+                status_code=status,
+                detail={
+                    "erro": "falha_adquirir_lote",
+                    "codigo_erro": resultado.codigo_erro,
+                    "mensagem": resultado.erro,
+                },
+            )
+        lote = resultado.dados
+        return {
+            "lote_id":          lote.lote_id,
+            "tipo_receituario": lote.tipo_receituario,
+            "inicio":           lote.inicio,
+            "fim":              lote.fim,
+            "proximo":          lote.proximo,
+            "valida_ate":       lote.valida_ate,
+            "concedido_em":     lote.concedido_em,
+            "adapter":          adapter.nome_adapter,
+        }
