@@ -8,3 +8,8 @@
 !MANIFEST.md
 !*/MANIFEST.md
 !.gitignore
+
+# Camada 1 da Onda PCDT (extração): CSV rascunho, não binário — é o
+# entregável da PR, não o corpus-fonte. status_curadoria=rascunho sempre;
+# commitar não promove a "validado" (§4 DESENHO-ONDA-PCDT.md).
+!pcdt/extracao/*.csv
