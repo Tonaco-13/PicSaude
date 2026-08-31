@@ -36,3 +36,19 @@ sem CID/fármaco/portaria); o conteúdo canônico é o PDF de cada portaria.
 Nota de frescor (arquiteto, 29/08): o catálogo lista DM2 como "Em atualização"
 (snapshot 08/2025) quando a portaria vigente é SCTIE/MS 13/2026 — o canal
 aberto ATRASA; portaria/PDF é o canônico. Ver DESENHO-ONDA-PCDT.md §0–§1.
+
+## Corpus CONITEC — corpus-conitec-2026-08-30/ (baixado 30/08/2026 pelo arquiteto)
+
+- **240 PDFs, 373 MB, zero falhas** — família `/conitec/pt-br/midias/protocolos/`
+  (qualquer forma de URL, INCLUSIVE as sem extensão `.pdf`, onde moram os mais
+  novos). Página-Fonte: https://www.gov.br/conitec/pt-br/assuntos/avaliacao-de-tecnologias-em-saude/protocolos-clinicos-e-diretrizes-terapeuticas/pcdt
+- **`SHA256SUMS.txt`** no interior da pasta: 240 entradas `sha256 <arquivo>`.
+  **Âncora** (sha256 do próprio SHA256SUMS.txt):
+  `f358ea7d05d90f9c850044f9289130a1dddbc6768217230270316a2b95544f3d`
+- Download com pausa de 2s, validação por magic bytes (`%PDF`) — lição do
+  incidente da primeira passada: sem o sufixo `@@display-file/file` o Plone
+  devolve a PÁGINA de visualização em HTML, não o arquivo.
+- **Escopo declarado**: apenas a família `protocolos/`. As famílias
+  `legislacao/`, `pdf/` e `consultas/` da mesma página NÃO foram colhidas
+  (legislação avulsa e relatórios de consulta — decisão registrada, não lacuna).
+- Reconciliação catálogo×corpus: `docs/tickets/RELATORIO-RECONCILIACAO-PCDT.md`

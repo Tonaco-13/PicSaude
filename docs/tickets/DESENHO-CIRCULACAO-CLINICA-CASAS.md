@@ -5,7 +5,7 @@
 | **Origem** | Fabiano percorreu a vitrine em 26/08 pedindo parecer sobre a circulação do exame na clínica; a troca virou proposta, aprovada por partes — o martelo sobre a ciência do pedido já saiu como `core` (#203/#204). Este desenho cobre o resto: a forma das abas. |
 | **Autor** | Engenheiro (Claude Code) — desenho, **não implementação** |
 | **Classe** | `module` — telas e contadores da clínica. Nenhuma máquina de estados, ledger ou custódia é tocada; ver §5 sobre a fronteira |
-| **Estado** | 🟢 Martelado (Fabiano, 27/08, §6). PR A em implementação; PR B aguarda os PRs 2/4 da CONSULTA-UX-001 |
+| **Estado** | ✅ Implementado (27/08) — PR A em #207; PRs 2/3/4 da CONSULTA-UX-001 em #208/#209/#210; PR B em #211, **na ordem martelada no §6.2** (B só depois dos PRs 2/4) |
 | **Pré-requisito já cumprido** | O martelo de 26/08 (abrir o laudo encerra o pedido, #203/#204) — sem ele a casa nova do §2 não fecharia sozinha |
 
 ---

@@ -16,7 +16,10 @@ REGRA DE SEGURANÇA DESTE MÓDULO:
   - Histórico de eventos (ledger)
   - Dados do estabelecimento
 
-  Retorna apenas: protocolo, status, tipo_emissao e lista de itens (nome + dose + status).
+  Retorna apenas: protocolo, status, tipo_emissao e, por item, ordem + status_item.
+  (Errata 30/08, arquiteto — auditada no parecer do conceito de abertura: esta
+  linha dizia "nome + dose + status", o que a REGRA acima e o SQL abaixo jamais
+  fizeram. O código era honesto; o comentário é que mentia.)
 """
 
 from __future__ import annotations
