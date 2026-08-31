@@ -320,8 +320,16 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   neutros (a lei da exaustividade só vale pra quem assinou). **Achado
   do dia, ticketado fora da PR de curadoria**: `canon_ativo` engole
   "Insulina Humana Regular 100 UI/ml" com sufixo de concentração órfão
-  (mesma peça do #220) → `TICKET-CANON-CONCENTRACAO-SLASH.md`, `core`,
-  fila do engenheiro, aguardando martelo do Fabiano.
+  (mesma peça do #220) → `TICKET-CANON-CONCENTRACAO-SLASH.md`, `core`.
+  ✔️ **FECHADO 31/08 — #239** (`b57b6a2`, squash — RATIFICADA pelo
+  arquiteto + martelo do Fabiano). `_DOSE_RE` ganha sufixo de
+  concentração opcional (com/sem número); "200/6 mcg" (dois números,
+  sem dose isolada antes) declarado fora de escopo com teste do
+  comportamento atual. Invariante: zero-diff 130/130 canônicos
+  (`decisao_semaforo.csv` + `posologia_sugerida.csv`) antes×depois;
+  #220 intacto. Loop fechado na própria guarda que achou o gap
+  (`test_semaforo_flip_e11_j45.py`, novo teste via `avaliar_semaforo`
+  real). 620 unit tests verdes.
 - ✅ **Abertura pública (conceito) — ENTREGUE 30/08, FLIPADA 30/08.**
   `conceitos-landing/`: duas lentes completas (domínio pelo arquiteto,
   engenharia pelo engenheiro — ambos os pareceres aplicados 1:1; relógio único
