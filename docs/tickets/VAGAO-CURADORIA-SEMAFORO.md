@@ -106,7 +106,92 @@ prioridade do item 2 desta fila.
 | Modelo incremental seed→exaustivo | `docs/EXPLICABILIDADE_DECISAO_CLINICA.md:130-132` |
 | Workflow aluno/Fabiano | `docs/ARQUITETURA_DECISAO_CLINICA.md:206`, `ONBOARDING_code_MS.md:73-75` |
 
+## §7 Nota de direção — "treinar a IA do sinal" (anotada 28/08, para depois das bases)
+
+> Martelo do Fabiano: **anotar somente** — a conversa volta depois da onda de bases de
+> referência (CID completo, SIGTAP). Nada abaixo abre sem gatilho dele.
+
+**O que o semáforo é** (lembrança de código, `semaforo_decisao.py`): motor de regras
+determinístico e explicável — sem ML. Portão da exaustividade → 🟢/🟡 com causa estável.
+O "treinamento" que existe é **curadoria** (este vagão).
+
+**Quatro trilhas, quando a conversa voltar:**
+
+- **A — Curadoria** (o treino real de hoje): fila deste vagão — E11 → J45/F32/N39.0.
+- **B — Código destravador**: strip de dose no `canon_ativo`
+  (`TICKET-CANON-ATIVO-DOSE-SUFFIX`) — pré-requisito do flip do E11.
+- **C — Fundação de dados já gravada** (achado 28/08): a trilha de auditoria da camada 3
+  (`prescricoes.py:597-619`) registra no ledger, na emissão, o sinal de cada item + versão
+  de regra; como vai junto dos itens emitidos, o **override do prescritor** (sinal 🟡,
+  item emitido mesmo assim) já é derivável do ledger. Se um dia houver modelo, três
+  condições: volume real (piloto — dado de vitrine demo não é realidade clínica); mora
+  **fora do núcleo** (adapter consumindo G4A, nunca escrevendo em tabela clínica); papel
+  = ranquear sugestões — **o veredito continua regra curada assinada** (ML propõe,
+  curadoria dispõe).
+- **D — Régua de melhoria**: cobertura de CIDs exaustivos ao longo do tempo (golden set
+  = a própria CSV), não "acurácia de modelo".
+
+Paralelo imediato quando reabrir: A + B.
+
+**Adendo §7.1 (Fabiano, 29/08): aprender com concordância/discordância —
+"aprender não é coletar dado".** Verbatim da sessão: *"podemos aprender com a
+concordância/discordância do prescritor, uma vez que não é bloqueante. Aprender
+não é coletar dado. Princípio do aprendizado federado."* Parecer do arquiteto,
+com verificação in-loco na mesma data:
+
+- **A fundação já existe por desenho** (trilha C confirmada no código):
+  `prescricoes.py:595-617` + `auditoria_decisao.py` gravam por item emitido o
+  `sinal · causa · exaustiva · versao_regra · fonte` no ledger, append-only e
+  não-bloqueante. Item emitido com 🟡 É a discordância — nada novo a coletar.
+- **Rótulo fraco:** discordância ≠ verdade. Quatro explicações convivem
+  (curadoria incompleta · exceção clínica · hábito/ancoragem · CID grosso).
+  O alvo do aprendizado é **priorizar a curadoria** (ranquear o que investigar),
+  nunca mudar sinal — ML propõe, curadoria dispõe. Loop de feedback
+  auto-referente é o risco declarado.
+- **Federado de verdade** tem encaixe (`org_id`/`unidade_id` já existem; "o
+  dado fica na casa, o aprendizado sai") mas exige **G4A + volume real de
+  piloto + múltiplas orgs** — nenhum existe hoje. Segue parqueado, gatilhos
+  idem §7. Uso imediato quando houver tráfego real: relatórios de override
+  CID×ativo×versão alimentando a fila de investigação deste vagão.
+- **Fronteira declarada:** abandono pré-emissão (viu 🟡, apagou antes de
+  emitir) NÃO é capturado — seria coleta nova, fora do princípio.
+
+## §8 Despacho — o momento da posologia: JUNTO com cada levantura (Fabiano, 28/08)
+
+> Pergunta: *"qual o momento para avançarmos na posologia?"* — resposta do arquiteto,
+> aceita por continuidade (mesma lógica do §7: curation-paced, não code-paced).
+
+**A engine não pede nada.** `posologia_sugerida.py` + `POST /ia/posologia/sugerir`
+estão prontos, flag on, editáveis, com proveniência por linha. Expandir cobertura =
+**linhas validadas no CSV** — zero código novo. O CSV já semeia a família E11
+(metformina, glibenclamida entre as 12 validadas).
+
+**Brief duplo a partir do E11:** a mesma levantura dos alunos (mesmas fontes — RENAME
+2024 + PCDT, mesma assinatura do Fabiano) entrega **dois artefatos**: as rows
+CID×princípio ativo do semáforo **e** os rascunhos de `posologia_usual` por substância.
+Uma passada de pesquisa, dois produtos, um ato de assinatura — mais barato que duas
+ondas separadas, proveniência idêntica. Saúde mental (F32) idem quando chegar a vez.
+
+**Pré-requisito de código compartilhado:** o **strip de dose** no `canon_ativo`
+(trilha B / TICKET-CANON-ATIVO-DOSE-SUFFIX) vale para os DOIS — sem ele, "Metformina
+500mg" digitada não casa com a chave "metformina" (semáforo e posologia usam a mesma
+função). Slot do engenheiro: pequeno, logo após a PR 2 do typeahead.
+
+**Bulário não é fonte** (precisão registrada no FILA-VIVA): posologia é dado clínico
+curado e assinado; bulário é ponte (apoio à curadoria, exibição, tripwire).
+
+**Adendo §8.1 — sem alunos agora (Fabiano, 28/08): rascunho assistido, assinatura
+intacta.** Quem prepara muda de mãos, a régua não: o **arquiteto** pode rascunhar a
+levantura E11 direto do PCDT oficial (estagiado em
+`data/fontes-oficiais/pcdt/PCDT-diabete-melito-tipo-2-2026.pdf` — Portaria SCTIE/MS
+nº 13/2026, 80 págs., sha256 no manifesto), **cada row com citação precisa**
+(portaria, seção/tabela) e status `rascunho`. A linha vermelha do vagão estende-se a
+agentes: **rascunhista nunca flipa `validado`/`exaustivo`** — o gesto continua do
+Fabiano, único assinante. Fontes: PCDT + RENAME 2024, como §1.1 sempre pediu.
+
 ---
 
 *Fila registrada pelo arquiteto a partir do item B do martelo do conselheiro (2026-08-07). Trabalho
 humano (aluno+Fabiano), não despacho de código — mas com dependência dura no item A (strip de dose).*
+*Nova de direção §7 em 28/08 (Fabiano: "anote somente; depois das bases"). Despacho §8 em 28/08
+(momento da posologia: brief duplo por levantura).*
