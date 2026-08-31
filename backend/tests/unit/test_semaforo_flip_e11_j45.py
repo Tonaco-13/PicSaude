@@ -116,12 +116,19 @@ def test_elenco_j45_assinado_acende_verde():
 
 def test_alias_com_dose_digitada_casa():
     """O strip de dose (#220) foi pré-requisito do flip (vagão §3): a
-    combinação dose+qualificador tem que casar igual. Nota: a notação de
-    CONCENTRAÇÃO com barra ("100 UI/ml") ainda deixa "/ml" órfão no canon —
-    gap real achado por esta guarda no dia do flip; ver
-    TICKET-CANON-CONCENTRACAO-SLASH.md (core, fila do engenheiro)."""
+    combinação dose+qualificador tem que casar igual."""
     assert _av("E11", "Insulina Humana Regular 100UI").sinal == SINAL_VERDE
     assert _av("E11", "Dapagliflozina 10mg").sinal == SINAL_VERDE
+
+
+def test_alias_com_concentracao_em_barra_casa():
+    """TICKET-CANON-CONCENTRACAO-SLASH, FECHADO: a notação de CONCENTRAÇÃO
+    com barra ("100 UI/ml") — a forma como insulina normalmente aparece na
+    prescrição real — deixava "/ml" órfão no canon e caía em amarelo falso.
+    Gap achado por esta mesma guarda no dia do flip (31/08); unit tests
+    dedicados de canon_ativo em test_semaforo_decisao.py."""
+    assert _av("E11", "Insulina Humana Regular 100 UI/ml").sinal == SINAL_VERDE
+    assert _av("E11", "Insulina Glargina 100 UI/3,15 ml").sinal == SINAL_VERDE
 
 
 # ---------------------------------------------------------------------------
