@@ -31,9 +31,11 @@ _PRESCRITOR = {"sub": "980001112223334", "nome": "Dra. Demo Maria Souza"}
 # Protocolo sentinela do atestado semeado (backend/seed_demo.py::_garantir_atestado_demo).
 _ATESTADO_SEED = "DEMO-ATESTADO-0001"
 
-# Cards do portal → ESTAÇÃO de destino. Espelha entrar.html (o portal — flip
+# Cards do portal → ESTAÇÃO de destino. Espelha demo.html (o portal — flip
 # da abertura, 30/08: `index.html` virou a página de abertura/marketing,
-# `entrar.html` herdou o papel de seletor); o smoke (a) percorre todos.
+# `entrar.html` herdou o papel de seletor; despacho Entrar, 31/08: o papel
+# passou de `entrar.html` para `demo.html`, e `entrar.html` virou a página
+# em obras); o smoke (a) percorre todos.
 # `clinica.html` e `validar.html` não passam pelo /demo/login (não têm
 # papel), mas precisam abrir.
 #
@@ -88,7 +90,9 @@ class TestPortal:
         # Flip da abertura (30/08): o portal (seletor de papéis) mudou de
         # endereço, de `/` para `/entrar.html` — `/` agora serve a página de
         # abertura/marketing, que não tem `.card` algum (tem `.pilula`).
-        page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
+        # Despacho Entrar (31/08): o portal mudou de novo, de `/entrar.html`
+        # para `/demo.html` — `/entrar.html` virou a página em obras.
+        page.goto(f"{app_demo}/demo.html", wait_until="networkidle")
 
         # ⚠️ CASAR PELO SELETOR DO TÍTULO, nunca por substring do cartão.
         #
@@ -104,7 +108,7 @@ class TestPortal:
             expect(card).to_be_visible(timeout=_TIMEOUT_MS)
             expect(card.locator("h3")).to_have_text(rotulo)
 
-        _sem_erros(erros_de_console, "portal (entrar.html)")
+        _sem_erros(erros_de_console, "portal (demo.html)")
 
     @pytest.mark.parametrize("href,rotulo", _CARDS, ids=[c[0] for c in _CARDS])
     def test_cada_card_entra_no_modulo(self, page, app_demo, erros_de_console, href, rotulo):
@@ -575,7 +579,7 @@ class TestConsoleLimpo:
     """
 
     @pytest.mark.parametrize(
-        "href", [c[0] for c in _CARDS] + ["entrar.html", ""],
+        "href", [c[0] for c in _CARDS] + ["entrar.html", "demo.html", ""],
         ids=lambda h: h or "index.html",
     )
     def test_tela_sem_erro_de_console(self, page, app_demo, erros_de_console, href):
@@ -681,10 +685,11 @@ class TestCirculacaoUmCidadao:
 
 class TestGuiaNaVitrine:
     """`guia.html` é servido pela mesma casa (StaticFiles) e a fachada de
-    serviço (`entrar.html`) leva a ele.
+    serviço (`demo.html`, desde o despacho Entrar de 31/08 — era
+    `entrar.html`) leva a ele.
 
     O guia era um artifact fora da vitrine; agora é página do repositório em
-    `/guia.html`, e a frase do Fluxo em `entrar.html` ganha o convite que abre
+    `/guia.html`, e a frase do Fluxo em `demo.html` ganha o convite que abre
     o guia. A abertura/marketing (`index.html`, desde o flip de 30/08) não
     tem essa seção — ver a nota em `test_link_da_landing_abre_o_guia`.
     """
@@ -718,12 +723,14 @@ class TestGuiaNaVitrine:
         _sem_erros(erros_de_console, "index.html rodapé")
 
     def test_link_da_landing_abre_o_guia(self, page, app_demo, erros_de_console):
-        # Flip da abertura (30/08): o convite ao guia mora em `entrar.html`
-        # (a fachada de serviço) — o novo `index.html` (abertura/marketing,
-        # Kimi/arquiteto) não tem essa seção. Não é regressão: a landing
-        # nova ainda não define um convite ao guia; a decisão de acrescentar
-        # um é de produto, fora do escopo "toques cirúrgicos" desta PR.
-        page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
+        # Flip da abertura (30/08): o convite ao guia mora na fachada de
+        # serviço — o novo `index.html` (abertura/marketing, Kimi/arquiteto)
+        # não tem essa seção. Não é regressão: a landing nova ainda não
+        # define um convite ao guia; a decisão de acrescentar um é de
+        # produto, fora do escopo "toques cirúrgicos" daquela PR. Despacho
+        # Entrar (31/08): a fachada (com o convite) mudou de `entrar.html`
+        # para `demo.html`.
+        page.goto(f"{app_demo}/demo.html", wait_until="networkidle")
 
         link = page.locator('a[href="guia.html"]')
         expect(link).to_be_visible(timeout=_TIMEOUT_MS)

@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicSaúde — Portal de Acesso</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Reset + base                                                         */
+    /* ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                   'Helvetica Neue', Arial, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Cabeçalho institucional                                             */
+    /* ------------------------------------------------------------------ */
+    .header {
+      background: #ffffff;
+      border-bottom: 3px solid #16a34a;
+      padding: 18px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 24px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    }
+
+    /*
+     * Logo — coloque o arquivo "logo-picsaude.png" na raiz do projeto
+     * (mesmo diretório deste demo.html).
+     * Se a imagem não for encontrada, o onerror oculta o elemento e
+     * apenas o texto "PicSaúde" estilizado é exibido.
+     */
+    .header-logo {
+      height: 92px;
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    .header .tagline {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-weight: 700;
+      color: #1e3a8a;
+      text-align: right;
+    }
+
+    .header-wordmark h1 {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+    .header-wordmark .pic   { color: #1e3a8a; }
+    .header-wordmark .saude { color: #16a34a; }
+
+    .header-wordmark .tagline {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Main                                                                */
+    /* ------------------------------------------------------------------ */
+    main {
+      flex: 1;
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px 32px;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Apresentação                                                        */
+    /* ------------------------------------------------------------------ */
+    .intro {
+      text-align: center;
+      margin-bottom: 52px;
+    }
+
+    .intro h2 {
+      font-size: 21px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 12px;
+    }
+
+    .intro p {
+      color: #64748b;
+      font-size: 15px;
+      max-width: 580px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Cards de perfil                                                     */
+    /* ------------------------------------------------------------------ */
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-weight: 700;
+      color: #94a3b8;
+      margin-bottom: 16px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 52px;
+    }
+
+    @media (max-width: 900px) {
+      .cards-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .cards-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 28px 16px 22px;
+      text-align: center;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.09);
+      transform: translateY(-3px);
+      border-color: #93c5fd;
+    }
+
+    .card:focus-visible {
+      outline: 3px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .card-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      margin: 0 auto 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      line-height: 1;
+    }
+    .card-icon.prescritor  { background: #dbeafe; }
+    .card-icon.dispensador { background: #dcfce7; }
+    .card-icon.cidadao     { background: #f0fdf4; }
+    .card-icon.validar     { background: #fef9c3; }
+
+    .card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.55;
+    }
+
+    .card-arrow {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #cbd5e1;
+      transition: color 0.15s;
+    }
+    .card:hover .card-arrow { color: #3b82f6; }
+
+    /* ------------------------------------------------------------------ */
+    /* Status da instância                                                 */
+    /* ------------------------------------------------------------------ */
+    .status-block {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .status-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: #94a3b8;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .status-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      row-gap: 12px;
+    }
+
+    .status-item .status-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .status-item .status-value {
+      font-size: 13px;
+      color: #1e293b;
+      font-weight: 600;
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+    }
+    .status-dot.offline { background: #f87171; }
+
+    .status-msg {
+      font-size: 13px;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Rodapé                                                              */
+    /* ------------------------------------------------------------------ */
+    footer {
+      border-top: 1px solid #e2e8f0;
+      background: #ffffff;
+      padding: 18px 40px;
+    }
+
+    .footer-inner {
+      max-width: 1040px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .footer-brand {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: center;
+    }
+    .footer-links a {
+      font-size: 12px;
+      color: #64748b;
+      text-decoration: none;
+    }
+    .footer-links a:hover { color: #1e3a8a; text-decoration: underline; }
+    .footer-links .separator {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Responsividade                                                      */
+    /* ------------------------------------------------------------------ */
+    @media (max-width: 640px) {
+      .header        { padding: 14px 18px; gap: 12px; }
+      .header-logo   { height: 48px; }
+      .header-wordmark h1 { font-size: 24px; }
+
+      main { padding: 28px 16px 24px; }
+      .intro h2 { font-size: 18px; }
+
+      .cards-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card { padding: 22px 14px 18px; }
+      .card-icon { width: 46px; height: 46px; font-size: 20px; }
+      .card h3 { font-size: 14px; }
+      .card p  { font-size: 12px; }
+
+      footer { padding: 16px 18px; }
+      .footer-inner { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+
+    @media (max-width: 380px) {
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+  <script src="config.js"></script>
+  <script src="lente.js"></script>
+</head>
+<body>
+
+  <!-- ============================================================ -->
+  <!-- TICKET-6 DEMO_MODE — badge DEMO nos cards + interceptação dos -->
+  <!-- cliques para /demo/login. (O painel de chaves NÃO fica no      -->
+  <!-- índice: só nos módulos — decisão 2026-08-12.)                  -->
+  <!-- ============================================================ -->
+  <style id="demo-mode-styles">
+    body.demo .card[data-demo-role] { position: relative; }
+    body.demo .card[data-demo-role]::after {
+      content: "DEMO";
+      position: absolute; top: 8px; right: 8px;
+      background: #f59e0b; color: #fff;
+      font-size: 10px; font-weight: 800;
+      padding: 2px 6px; border-radius: 3px;
+    }
+    /* O painel "Chaves de acesso (demo)" vive no config.js
+       (renderizarPainelChavesDemo) e aparece só nas telas dos módulos. */
+  </style>
+  <script>
+    (async function picsaudeDemoBoot() {
+      try {
+        const r = await fetch('/config/public', { cache: 'no-store' });
+        if (!r.ok) return;
+        const cfg = await r.json();
+        if (!cfg.demo_mode) return;
+        document.body.classList.add('demo');
+
+        // Decisão 2026-08-12 (Fabiano): o painel "Chaves de acesso (demo)"
+        // NÃO aparece no índice — só nos módulos (borda superior de cada
+        // tela, via renderizarPainelChavesDemo do config.js). O índice fica
+        // limpo como portal; no rodapé dele fica a Lente de Auditoria.
+
+        // Mapeia cards → role para interceptar clicks e fazer /demo/login.
+        const ROLE_BY_HREF = {
+          'prescritor.html':  'prescritor',
+          'dispensador.html': 'dispensador',
+          'cidadao.html':     'paciente',
+          'clinica.html':     'clinica',    // ADENDO — persona clínica no /demo/login
+        };
+        document.querySelectorAll('a.card').forEach(card => {
+          const href = card.getAttribute('href') || '';
+          const role = ROLE_BY_HREF[href];
+          if (!role || !cfg.demo_roles.includes(role)) return;
+          card.setAttribute('data-demo-role', role);
+          card.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+              const resp = await fetch('/demo/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ role }),
+              });
+              if (!resp.ok) {
+                alert('Erro ao iniciar sessão demo. Tente novamente.');
+                return;
+              }
+              const data = await resp.json();
+              sessionStorage.setItem('picsaude_demo_token',  data.access_token);
+              sessionStorage.setItem('picsaude_demo_role',   data.role);
+              sessionStorage.setItem('picsaude_demo_sub',    data.sub);
+              sessionStorage.setItem('picsaude_demo_nome',   data.nome);
+              window.location.href = href;
+            } catch (err) {
+              alert('Erro ao iniciar sessão demo: ' + err.message);
+            }
+          });
+        });
+
+        // ?demo_role=X → click automático.
+        const params = new URLSearchParams(window.location.search);
+        const auto = params.get('demo_role');
+        if (auto && ROLE_BY_HREF[auto + '.html'] === auto) {
+          const card = document.querySelector(`a.card[data-demo-role="${auto}"]`);
+          if (card) card.click();
+        }
+      } catch (e) {
+        // /config/public indisponível — segue com fluxo normal.
+        console.warn('demo boot: ' + e.message);
+      }
+    })();
+  </script>
+
+  <!-- ============================================================ -->
+  <!-- CABEÇALHO INSTITUCIONAL                                       -->
+  <!-- ============================================================ -->
+  <header class="header">
+    <img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'">
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- CONTEÚDO PRINCIPAL                                           -->
+  <!-- ============================================================ -->
+  <main>
+
+    <!-- Apresentação -------------------------------------------- -->
+    <section class="intro" aria-label="Apresentação">
+      <h2>Plataforma de Custódia Sanitária Digital</h2>
+    </section>
+
+    <!-- Cards de perfil ----------------------------------------- -->
+    <section aria-label="Acesso por perfil">
+      <div class="section-label">Selecione o seu perfil de acesso</div>
+
+      <p style="text-align:center;color:#475569;font-size:14px;margin:8px 0 16px;">
+        <strong>Fluxo:</strong> 1. Prescritor emite a receita → 2. Cidadão a recebe na
+        carteira → 3. No balcão, o dispensador atende e dispensa.
+        <a href="guia.html" style="color:#0f766e;font-weight:600;white-space:nowrap;">— ver o guia completo →</a>
+      </p>
+
+      <!-- FACHADA: os cards nomeiam ESTAÇÕES — o lugar aonde se vai (decisão
+           do Fabiano, 25/08). Os ATORES continuam sendo prescritor, dispensador
+           e cidadão, e é assim que a linha de fluxo abaixo, o `guia.html` e o
+           domínio inteiro os chamam. Renomear a porta não renomeia quem entra:
+           papel de JWT, RBAC e vocabulário de custódia ficam intocados. -->
+      <div class="cards-grid">
+
+        <a href="prescritor.html" class="card" aria-label="Acessar o Consultório">
+          <div class="card-icon prescritor" aria-hidden="true">🩺</div>
+          <h3>Consultório</h3>
+          <p>Emissão de prescrições, pedidos de exame, laudos e documentos clínicos.</p>
+          <div class="card-arrow" aria-hidden="true">→</div>
+        </a>
+
+        <a href="dispensador.html" class="card" aria-label="Acessar a Farmácia">
+          <div class="card-icon dispensador" aria-hidden="true">💊</div>
+          <h3>Farmácia</h3>
+          <p>Consulta, custódia e dispensação de prescrições no balcão da farmácia.</p>
+          <div class="card-arrow" aria-hidden="true">→</div>
+        </a>
+
+        <a href="cidadao.html" class="card" aria-label="Acessar a Carteira Cidadã">
+          <div class="card-icon cidadao" aria-hidden="true">👤</div>
+          <h3>Carteira Cidadã</h3>
+          <p>Acesso às suas prescrições e acompanhamento do seu cuidado em saúde.</p>
+          <div class="card-arrow" aria-hidden="true">→</div>
+        </a>
+
+        <a href="clinica.html" class="card" aria-label="Acessar módulo da Clínica e Laboratório">
+          <div class="card-icon" style="background:#fef3c7;" aria-hidden="true">🏥</div>
+          <h3>Clínica / Laboratório</h3>
+          <p>Emissão de laudos, pedidos de exame e gestão de resultados clínicos.</p>
+          <div class="card-arrow" aria-hidden="true">→</div>
+        </a>
+
+        <a href="validar.html" class="card" aria-label="Verificar autenticidade de prescrição">
+          <div class="card-icon validar" aria-hidden="true">🔍</div>
+          <h3>Verificar Prescrição</h3>
+          <p>Validação pública da autenticidade e integridade de uma prescrição.</p>
+          <div class="card-arrow" aria-hidden="true">→</div>
+        </a>
+
+        <!--
+          admin.html não existe neste momento.
+          Descomentar quando disponível:
+
+          <a href="admin.html" class="card" aria-label="Acessar área administrativa">
+            <div class="card-icon" style="background:#f1f5f9" aria-hidden="true">⚙️</div>
+            <h3>Administrador</h3>
+            <p>Gestão da instância, API keys e configurações institucionais.</p>
+            <div class="card-arrow" aria-hidden="true">→</div>
+          </a>
+        -->
+      </div>
+    </section>
+
+    <!-- Lente de Auditoria — Circulação PicSaúde ------------------ -->
+    <!-- 2026-08-12: ocupa o lugar do antigo painel de chaves (que subiu
+         para a borda superior de todas as telas). Generaliza o motor de
+         busca da "Circulação Diagnóstica" do módulo Clínica/Laboratório
+         para QUALQUER objeto sanitário (receita, atestado, pedido de
+         exame, laudo, encaminhamento, contrarreferência, circulação
+         diagnóstica). Usa só os endpoints /public/* neutros — existência
+         e estado, nunca conteúdo clínico; a circulação diagnóstica, que
+         exige sessão, é consultada com o token demo da sessão quando
+         existir e renderizada de forma neutra (sem nomes nem exames). -->
+    <style>
+      /* Mesmo formato da "Circulação Diagnóstica" da clínica (cartão +
+         linha de busca + botão), em tom institucional azul — é uma lente
+         de auditoria do portal, não uma operação de laboratório. */
+      .lente-section { background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:12px; padding:20px 24px; margin-top:24px; }
+      .lente-title { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#1e3a8a; margin-bottom:6px; }
+      .lente-sub { font-size:12px; color:#475569; line-height:1.55; margin:0 0 14px; }
+      .lente-busca-row { display:flex; gap:10px; margin-bottom:6px; }
+      .lente-busca-input { flex:1; padding:10px 14px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:14px; font-family:'Courier New',monospace; letter-spacing:1px; color:#1e293b; background:#f8fafc; }
+      .lente-busca-input:focus { outline:none; border-color:#1d4ed8; background:#fff; }
+      .btn-lente-buscar { padding:10px 22px; border-radius:8px; background:#1e3a8a; color:#fff; border:none; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
+      .btn-lente-buscar:hover { background:#0f766e; }
+      /* TICKET-J.11 — as regras do CARTÃO da lente (.lente-card, .lente-badge,
+         .lente-chave-display, .lente-meta, .lente-itens, .lente-nota) saíram
+         daqui: viajam com o componente em `lente.js`, que as injeta. Copiá-las
+         de volta recria a duplicação que a extração desfez. Ficam aqui só as
+         regras desta SEÇÃO (moldura, busca e feedback), que são do portal. */
+      .lente-feedback { padding:8px 12px; border-radius:7px; font-size:13px; font-weight:600; margin-top:10px; }
+      .lente-feedback.ok  { background:#f0fdf4; border:1px solid #86efac; color:#166534; }
+      .lente-feedback.err { background:#fef2f2; border:1px solid #fca5a5; color:#dc2626; }
+      .hidden { display:none !important; }
+    </style>
+    <section class="lente-section" aria-label="Lente de auditoria da circulação PicSaúde">
+      <div class="lente-title">🔍 Lente de Auditoria — Circulação PicSaúde</div>
+      <p class="lente-sub">
+        Consulte a situação de qualquer objeto sanitário que circula na plataforma —
+        receita, atestado, pedido de exame, laudo, encaminhamento, contrarreferência
+        ou circulação diagnóstica — pela chave de circulação ou pelo protocolo.
+        Visão neutra de auditoria: existência e estado, sem dados clínicos.
+      </p>
+      <div class="lente-busca-row">
+        <input type="text" id="lente-input" class="lente-busca-input"
+               placeholder="Chave de circulação ou protocolo (ex: A3F1C2B4E5D6)"
+               maxlength="64" aria-label="Chave de circulação ou protocolo do objeto sanitário"
+               onkeydown="if(event.key==='Enter') consultarObjetoSanitario()">
+        <button type="button" class="btn-lente-buscar" onclick="consultarObjetoSanitario()">Consultar</button>
+      </div>
+      <div id="lente-feedback" class="hidden"></div>
+      <div id="lente-resultado" class="hidden"></div>
+    </section>
+    <!-- /lente de auditoria -->
+
+    <!-- Status da instância ------------------------------------- -->
+    <section class="status-block" aria-label="Estado da instância">
+      <div class="status-title">Estado da instância</div>
+      <div id="status-content" class="status-msg">Carregando…</div>
+    </section>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- RODAPÉ                                                        -->
+  <!-- ============================================================ -->
+  <footer>
+    <div class="footer-inner">
+      <div>
+        <div class="footer-brand">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</div>
+        <div class="footer-brand" style="margin-top:4px;">Distribuído sob GNU AGPL-3.0 — software livre.</div>
+        <div class="footer-brand" style="margin-top:4px; font-size:11px; opacity:.85;">
+          Programa de computador registrado no INPI — BR&nbsp;51&nbsp;2026&nbsp;002267-3.
+          PicSaúde™ — pedidos de marca em análise no INPI (proc. 943014573 · 943014883).
+        </div>
+        <div class="footer-brand" style="margin-top:4px; font-size:11px; opacity:.85;">
+          Responsável técnico: Dr. Fabiano Tonaco Borges.
+        </div>
+        <div class="footer-brand" style="margin-top:4px; font-size:11px; opacity:.85;">
+          Contato: <a href="mailto:contato@picsaude.com.br"
+                      style="color:inherit; text-decoration:underline;">contato@picsaude.com.br</a>.
+        </div>
+      </div>
+      <nav class="footer-links" aria-label="Links utilitários">
+        <a id="link-health" href="#" target="_blank" rel="noopener">Saúde da instância</a>
+        <span class="separator">·</span>
+        <a id="link-version" href="#" target="_blank" rel="noopener">Versão</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- ============================================================ -->
+  <!-- STATUS DA INSTÂNCIA — JS leve, sem dependências externas     -->
+  <!-- ============================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      var BACKEND = BACKEND_URL;
+
+      // Links do footer apontam para o backend correto (não podem usar JS em href estático)
+      document.getElementById('link-health').href  = BACKEND + '/health';
+      document.getElementById('link-version').href = BACKEND + '/health/version';
+
+      function formatUptime(seconds) {
+        if (seconds < 60)   return seconds + 's';
+        if (seconds < 3600) return Math.floor(seconds / 60) + 'min';
+        var h = Math.floor(seconds / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        return h + 'h ' + m + 'min';
+      }
+
+      function item(label, valueHtml) {
+        return '<div class="status-item">'
+          + '<div class="status-label">' + label + '</div>'
+          + '<div class="status-value">'  + valueHtml + '</div>'
+          + '</div>';
+      }
+
+      function renderStatus(health, version) {
+        var online = health && health.ok;
+        var dot    = '<span class="status-dot' + (online ? '' : ' offline') + '"></span>';
+        var rows   = [
+          item('Status', dot + (online ? 'Operacional' : 'Indisponível')),
+        ];
+
+        if (version) {
+          if (version.version)       rows.push(item('Versão',    escHtml(version.version)));
+          if (version.env)           rows.push(item('Ambiente',  escHtml(version.env)));
+          if (version.org_id)        rows.push(item('Org',       escHtml(version.org_id)));
+          if (version.instance_name) rows.push(item('Instância', escHtml(version.instance_name)));
+          if (version.uptime_s != null) {
+            rows.push(item('Uptime', escHtml(formatUptime(version.uptime_s))));
+          }
+        }
+
+        var el = document.getElementById('status-content');
+        el.className = '';
+        el.innerHTML = '<div class="status-grid">' + rows.join('') + '</div>';
+      }
+
+      function escHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function carregarStatus() {
+        var ctrl   = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var signal = ctrl ? ctrl.signal : undefined;
+        var timer  = ctrl ? setTimeout(function() { ctrl.abort(); }, 4000) : null;
+
+        Promise.all([
+          fetch(BACKEND + '/health',         { signal: signal }),
+          fetch(BACKEND + '/health/version', { signal: signal }),
+        ])
+        .then(function (responses) {
+          if (timer) clearTimeout(timer);
+          return Promise.all(responses.map(function (r) {
+            return r.ok ? r.json() : null;
+          }));
+        })
+        .then(function (results) {
+          renderStatus(results[0], results[1]);
+        })
+        .catch(function () {
+          if (timer) clearTimeout(timer);
+          var el = document.getElementById('status-content');
+          el.className = 'status-msg';
+          el.textContent = 'Informações da instância indisponíveis.';
+        });
+      }
+
+      carregarStatus();
+    })();
+  </script>
+
+  <!-- ============================================================ -->
+  <!-- LENTE DE AUDITORIA — motor de visualização da circulação     -->
+  <!-- PicSaúde (qualquer objeto sanitário).                        -->
+  <!--                                                              -->
+  <!-- Ordem de resolução da chave digitada:                        -->
+  <!--   1. Se tem formato de chave de circulação diagnóstica (hex) -->
+  <!--      E há sessão demo ativa → GET /circulacao/{chave}        -->
+  <!--      (endpoint autenticado; a lente renderiza de forma       -->
+  <!--      NEUTRA — sem paciente, prescritor ou nomes de exame).   -->
+  <!--   2. Senão/em sequência → endpoints públicos neutros:        -->
+  <!--      /public/{prescricoes,exames,atestados,laudos,           -->
+  <!--      encaminhamentos,contrarreferencias}/{protocolo}.        -->
+  <!--   3. Nada encontrado → feedback com o próximo passo.         -->
+  <!-- ============================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      // TICKET-J.11 — o render e a leitura da lente vivem em `lente.js`
+      // (componente compartilhado). Esta tela mantém a lente pública
+      // exatamente como era: mesma busca anônima por protocolo/chave, mesmo
+      // cartão. O que mudou é de onde vem o desenho — a carteira do cidadão
+      // abre a MESMA lente por cartão ("ver rastreabilidade") sem duplicá-lo.
+      function feedback(tipo, msg) {
+        var el = document.getElementById('lente-feedback');
+        el.className = 'lente-feedback ' + tipo;
+        el.textContent = msg;
+        el.classList.remove('hidden');
+      }
+
+      function limparFeedback() {
+        document.getElementById('lente-feedback').classList.add('hidden');
+      }
+
+      function mostrarResultado(html) {
+        var el = document.getElementById('lente-resultado');
+        el.innerHTML = html;
+        el.classList.remove('hidden');
+      }
+
+      function esconderResultado() {
+        var el = document.getElementById('lente-resultado');
+        el.innerHTML = '';
+        el.classList.add('hidden');
+      }
+
+      window.consultarObjetoSanitario = async function () {
+        var input = document.getElementById('lente-input');
+        var termo = (input.value || '').trim();
+
+        if (termo.length < 4) {
+          esconderResultado();
+          feedback('err', 'Informe a chave de circulação ou o protocolo (mínimo 4 caracteres).');
+          return;
+        }
+
+        limparFeedback();
+        mostrarResultado('<p style="font-size:13px;color:#64748b;margin:8px 0 0;">Consultando…</p>');
+
+        var token = null;
+        try { token = sessionStorage.getItem('picsaude_demo_token'); } catch (_) {}
+
+        var resultado = await LenteAuditoria.consultar(termo, { token: token });
+        if (resultado.achou) {
+          limparFeedback();
+          mostrarResultado(LenteAuditoria.cartaoHtml(resultado));
+          return;
+        }
+
+        esconderResultado();
+        feedback('err', LenteAuditoria.mensagemDeVazio(termo, { token: token }));
+      };
+    })();
+  </script>
+
+</body>
+</html>

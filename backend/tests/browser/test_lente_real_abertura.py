@@ -11,7 +11,7 @@ A seção da lente em `/` (abertura) tem um ESTADO DE REPOUSO — o cartão
 ilustrativo original, com o chip "exemplo ilustrativo" — visível desde o
 carregamento da página, sem depender de nenhuma busca. Submeter o
 formulário com um termo real dispara `LenteAuditoria.consultar()` contra
-`/public/*` de verdade (mesmo componente de `entrar.html`/`cidadao.html`,
+`/public/*` de verdade (mesmo componente de `demo.html`/`cidadao.html`,
 TICKET-J.11) e SUBSTITUI o cartão ilustrativo pelo resultado real —
 achado ou não. Campo vazio volta ao repouso ilustrativo.
 

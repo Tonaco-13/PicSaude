@@ -91,8 +91,9 @@ def test_o_portal_nomeia_a_estacao(browser, app_demo, tela, estacao):
     try:
         pg, erros = _pagina(ctx)
         # Flip da abertura (30/08): o portal (cards de estação) mudou de
-        # `index.html` para `entrar.html`.
-        pg.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
+        # `index.html` para `entrar.html`; despacho Entrar (31/08) o moveu
+        # de novo, para `demo.html` (entrar.html virou a página em obras).
+        pg.goto(f"{app_demo}/demo.html", wait_until="networkidle")
         card = pg.locator(f'a.card[href="{tela}"]')
         expect(card).to_be_visible(timeout=_TIMEOUT_MS)
         expect(card.locator("h3")).to_have_text(estacao)
