@@ -153,9 +153,21 @@ _SAIS_SUFIXO = (
 # TICKET-CANON-ATIVO-DOSE-SUFFIX — strip de dose ("Losartana 50mg" → "losartana").
 # Sem isso, o lookup exato por dict-key perde a chave e vira amarelo falso
 # (ver docs/tickets/TICKET-CANON-ATIVO-DOSE-SUFFIX.md).
+#
+# TICKET-CANON-CONCENTRACAO-SLASH — a dose sozinha não basta: "100 UI/ml",
+# "250 mg/5 ml", "100 UI/3,15 ml" deixavam o sufixo de concentração ("/ml",
+# "/5 ml"...) órfão depois do strip acima, e o mesmo amarelo falso reaparecia
+# pela porta da concentração (ver docs/tickets/TICKET-CANON-CONCENTRACAO-SLASH.md).
+# Os dois grupos finais consomem esse sufixo — com número ("/5 ml") ou sem
+# ("/ml") — sempre logo após a unidade da dose principal. O caso "200/6 mcg"
+# (dois números separados por barra, SEM dose isolada antes) fica fora de
+# escopo por desenho: o regex acima nunca casa "200" sozinho sem unidade
+# colada, então a barra nesse caso nunca é alcançada.
 _DOSE_RE = re.compile(
     r"\s+\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|ug|g|ui|ufc|mmol|meq"
-    r"|miligrama[s]?|micrograma[s]?|grama[s]?|unidade[s]?\s+internacional(?:is|es)?)\b",
+    r"|miligrama[s]?|micrograma[s]?|grama[s]?|unidade[s]?\s+internacional(?:is|es)?)\b"
+    r"(?:\s*/\s*\d+(?:[.,]\d+)?\s*(?:ml|mg|mcg|g|ui)\b)?"
+    r"(?:\s*/\s*(?:ml|mg|mcg|g|ui)\b)?",
     flags=re.IGNORECASE,
 )
 

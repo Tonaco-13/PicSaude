@@ -93,6 +93,61 @@ def test_canon_ativo_regressao_base_decisao_semaforo():
         )
 
 
+# --- TICKET-CANON-CONCENTRACAO-SLASH (sufixo de concentração órfão) ---
+
+def test_canon_ativo_remove_sufixo_concentracao_sem_numero():
+    """§1 do ticket, reproduzido: '/ml' sobrava depois do strip de dose e o
+    lookup exato perdia a chave — amarelo falso."""
+    assert canon_ativo("Insulina Humana Regular 100 UI/ml") == "insulina humana regular"
+
+
+def test_canon_ativo_remove_sufixo_concentracao_com_numero():
+    assert canon_ativo("Insulina Humana NPH 100 UI/ml") == "insulina humana nph"
+
+
+def test_canon_ativo_remove_sufixo_concentracao_com_volume_fracionado():
+    """Caneta: '100 UI/3,15 ml' — número com vírgula decimal depois da barra."""
+    assert canon_ativo("Insulina Glargina 100 UI/3,15 ml") == "insulina glargina"
+
+
+def test_canon_ativo_remove_sufixo_concentracao_xarope_mg_ml():
+    assert canon_ativo("Amoxicilina 5 mg/ml") == "amoxicilina"
+
+
+def test_canon_ativo_remove_sufixo_concentracao_com_volume_no_denominador():
+    assert canon_ativo("Amoxicilina 250 mg/5 ml") == "amoxicilina"
+
+
+def test_canon_ativo_combinacao_numero_barra_numero_fora_de_escopo():
+    """§3 do ticket: '200/6 mcg' (dois números separados por barra, sem dose
+    isolada antes) fica declarado FORA de escopo deste patch — o regex de
+    dose nunca casa '200' sozinho (não há unidade logo após), então a barra
+    não é tocada. Comportamento ATUAL, documentado honestamente."""
+    assert canon_ativo("Formoterol 200/6 mcg") == "formoterol 200/6 mcg"
+
+
+def test_canon_ativo_regressao_concentracao_bases():
+    """Invariante §4.1 do TICKET-CANON-CONCENTRACAO-SLASH: nenhum canônico
+    existente muda. Nenhum principio_ativo das duas bases (decisao_semaforo
+    e posologia_sugerida) contém barra — o novo sufixo de concentração do
+    _DOSE_RE é garantidamente no-op nas duas, mesma disciplina do teste de
+    dígito acima (#220)."""
+    import csv
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[3] / "data"
+    for nome_csv in ("decisao_semaforo.csv", "posologia_sugerida.csv"):
+        with open(raiz / nome_csv, encoding="utf-8") as f:
+            principios = [row["principio_ativo"] for row in csv.DictReader(f)]
+        assert principios, f"{nome_csv}: base vazia — teste não cobriria nada"
+        for principio in principios:
+            assert "/" not in principio, (
+                f"{nome_csv}: {principio!r} contém barra — conferir manualmente "
+                "que o sufixo de concentração não altera o canônico deste "
+                "princípio ativo"
+            )
+
+
 def test_semaforo_verde_com_dose_no_nome():
     """AC8 do ticket: 'Losartana 50mg' em I10 deve dar verde, não amarelo
     falso — antes do fix, o miss de dict-key fazia cair em amarelo."""
