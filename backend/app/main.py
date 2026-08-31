@@ -302,7 +302,12 @@ if _frontend_dir is not None:
     # hash no nome: `submodulos.js` é sempre `submodulos.js`. Assets versionados
     # por nome poderiam ser cacheados agressivamente — não há nenhum hoje, e
     # inventar o esquema agora seria resolver problema que não temos.
-    _SEM_CACHE = (".html", ".js", ".css")
+    #
+    # `.png`/`.ico` entraram no #238 (31/08): logo e favicon trocam de
+    # CONTEÚDO sob o MESMO nome de arquivo (`logo-picsaude.png`, `favicon.ico`)
+    # — o mesmo caso "o fix subiu e o visitante segue vendo o antigo" acima,
+    # em imagem.
+    _SEM_CACHE = (".html", ".js", ".css", ".png", ".ico")
 
     # ── Flip da abertura (30/08) — fontes self-hosted cacheiam AGRESSIVO ──
     #

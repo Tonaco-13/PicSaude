@@ -28,6 +28,11 @@ _ENTRADA = [
     "index.html", "entrar.html", "cidadao.html", "prescritor.html",
     "dispensador.html", "clinica.html", "config.js", "submodulos.js",
     "submodulos.css", "lente.js",
+    # #238 (31/08) — logo e favicon trocaram de CONTEÚDO sob o MESMO nome de
+    # arquivo (`logo-picsaude.png`, `favicon.ico`): exatamente o caso "o fix
+    # subiu e o visitante segue vendo o antigo" que este arquivo existe para
+    # matar, agora em imagem — não só em HTML/JS/CSS.
+    "logo-picsaude.png", "favicon.ico",
 ]
 
 # Flip da abertura (30/08) — o oposto do `_ENTRADA` acima: fontes self-hosted
