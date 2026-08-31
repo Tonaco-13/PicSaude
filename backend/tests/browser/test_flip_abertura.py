@@ -1,30 +1,35 @@
 """
-tests/browser/test_flip_abertura.py — flip da abertura (30/08).
+tests/browser/test_flip_abertura.py — flip da abertura (30/08) + Entrar em obras (31/08).
 
 O QUE ESTE ARQUIVO PROVA
 ------------------------
 O conceito de abertura (Kimi/arquiteto, `conceitos-landing/index.html`)
 virou o `index.html` de produção; a fachada de serviço anterior (seletor
-de papéis) moveu-se inteira para `entrar.html`. AC do despacho: "/ serve
-a abertura (hero, trilho, lente demo rotulada) e /entrar.html serve a
-fachada de serviço; nenhuma referência quebrada".
+de papéis) moveu-se inteira para `entrar.html` no flip (30/08) — e dali
+para `demo.html` no despacho Entrar (31/08), que pôs a página "em obras"
+(lista de espera) no endereço `entrar.html`. AC do despacho original: "/
+serve a abertura (hero, trilho, lente demo rotulada) e /entrar.html
+serve a fachada de serviço; nenhuma referência quebrada" — o endereço da
+fachada mudou de novo, a regra de "nenhuma referência quebrada" não.
 
 1. `/` serve a abertura — hero, trilho do objeto, lente com o exemplo
    ilustrativo visível em repouso (a fiação REAL da lente — consulta de
    verdade contra `/public/*` — é `test_lente_real_abertura.py`, PR
    `module` separada de 30/08).
-2. `/entrar.html` serve a fachada de serviço (o antigo `index.html`,
-   sem mudança de conteúdo — só de endereço).
+2. `/entrar.html` serve a página "em obras" (lista de espera) desde
+   31/08. A fachada de serviço (seletor de papéis) que morava aqui
+   mudou de endereço para `/demo.html` — guarda própria em
+   `test_frontend_j11_selo_e_lente.py`/`test_j11_selo_e_lente.py`.
 3. Nenhuma referência quebrada: todo `href`/`src` local do novo `/`
    resolve com 200 (as 4 pílulas das estações + "Entrar" + os 2 logos +
    as 3 fontes) — a mesma disciplina de "gate verde, deploy cego" que
    `test_paridade_deploy_assets.py` prova estaticamente, aqui provada
    ao vivo contra o servidor rodando.
 4. O gesto "Entrar" pela tela leva a `/entrar.html` de verdade (clique,
-   não só o href correto no HTML).
+   não só o href correto no HTML) — agora a página em obras.
 
-Cache-Control (no-cache para `entrar.html`, cache longo para `.woff2`)
-tem arquivo próprio: `test_cache_control_entrada.py`.
+Cache-Control (no-cache para `entrar.html`/`demo.html`, cache longo para
+`.woff2`) tem arquivo próprio: `test_cache_control_entrada.py`.
 """
 from __future__ import annotations
 
@@ -72,13 +77,15 @@ def test_raiz_nao_tem_mais_disclaimer_de_prototipo(app_demo):
 
 
 # ===========================================================================
-# 2 — "/entrar.html" serve a fachada de serviço
+# 2 — "/entrar.html" serve a página "em obras" (lista de espera)
 # ===========================================================================
 
-def test_entrar_html_serve_a_fachada_de_servico(page: Page, app_demo):
+def test_entrar_html_serve_a_pagina_em_obras(page: Page, app_demo):
+    """Despacho Entrar (31/08): a fachada de serviço que morava aqui mudou
+    para `/demo.html` — ver `test_frontend_j11_selo_e_lente.py`."""
     page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
-    expect(page).to_have_title(re.compile("Portal de Acesso"))
-    expect(page.locator("h2")).to_contain_text("Custódia Sanitária Digital")
+    expect(page).to_have_title(re.compile("obras", re.IGNORECASE))
+    expect(page.locator("h1")).to_contain_text("obras")
 
 
 # ===========================================================================
@@ -122,4 +129,4 @@ def test_clicar_entrar_navega_para_entrar_html(page: Page, app_demo):
     page.goto(f"{app_demo}/", wait_until="networkidle")
     page.get_by_role("link", name="Entrar", exact=True).click()
     page.wait_for_url(re.compile(r"/entrar\.html$"), timeout=_TIMEOUT_MS)
-    expect(page).to_have_title(re.compile("Portal de Acesso"))
+    expect(page).to_have_title(re.compile("obras", re.IGNORECASE))

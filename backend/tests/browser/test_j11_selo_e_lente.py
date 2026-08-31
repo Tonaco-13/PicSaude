@@ -34,10 +34,11 @@ O que só aqui se prova:
     > explicitamente reduzir o selo a "ver compromisso") e continua chegando lá
     > **sem** navegação. A aba nova é um segundo lugar para a mesma verdade,
     > não a mudança de lugar dela.
-  · **a extração da lente não quebrou o portal** — `entrar.html` (o portal
-    desde o flip da abertura, 30/08; era `index.html`) é a prova da tese
-    para o visitante anônimo. Um refactor que a mudasse passaria em toda
-    guarda estática que só olha a `cidadao.html`.
+  · **a extração da lente não quebrou o portal** — `demo.html` (o portal
+    desde o despacho Entrar, 31/08; era `entrar.html` desde o flip de
+    30/08, que era `index.html`) é a prova da tese para o visitante
+    anônimo. Um refactor que a mudasse passaria em toda guarda estática
+    que só olha a `cidadao.html`.
 
 COMO RODAR
 ----------
@@ -333,10 +334,12 @@ def test_lente_publica_do_portal_segue_intacta(page: Page, app_demo, erros_de_co
     Flip da abertura (30/08): o portal com a lente REAL mudou de endereço,
     de `index.html` para `entrar.html` — `index.html` virou a abertura/
     marketing, com uma lente só demonstrativa (rotulada como tal) nesta PR.
+    Despacho Entrar (31/08): o portal mudou de novo, de `entrar.html` para
+    `demo.html` — `entrar.html` virou a página "em obras".
     """
     proto = _emitir_ao_paciente(app_demo, f"J11-PORTAL-{_TS}")
 
-    page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
+    page.goto(f"{app_demo}/demo.html", wait_until="networkidle")
     page.fill("#lente-input", proto)
     page.get_by_role("button", name="Consultar").click()
 
@@ -353,7 +356,7 @@ def test_lente_do_portal_avisa_quando_nao_acha(page: Page, app_demo, erros_de_co
     a busca falha em silêncio, que é o pior resultado possível numa tela cuja
     função é provar que o objeto existe.
     """
-    page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
+    page.goto(f"{app_demo}/demo.html", wait_until="networkidle")
     page.fill("#lente-input", "protocolo-que-nao-existe-0000")
     page.get_by_role("button", name="Consultar").click()
 

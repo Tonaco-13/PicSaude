@@ -401,10 +401,10 @@
 
     <header class="header no-print">
         <div class="brand-container">
-            <a href="entrar.html" class="header-logo-link" aria-label="Voltar ao portal PicSaúde"><img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'"></a>
+            <a href="demo.html" class="header-logo-link" aria-label="Voltar ao portal PicSaúde"><img src="logo-picsaude.png" alt="Logo PicSaúde" class="header-logo" onerror="this.style.display='none'"></a>
         </div>
         <div class="header-actions">
-            <a href="entrar.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
+            <a href="demo.html" style="font-size:12px; font-weight:600; color:#64748b; text-decoration:none; letter-spacing:0.3px;" aria-label="Voltar ao portal">← Portal</a>
             <span id="dev-mode-badge" style="display: none; font-size: 11px; font-weight: 600; padding: 4px 10px; background: #fef08a; color: #713f12; border-radius: 4px; letter-spacing: 0.5px;">Ambiente de desenvolvimento</span>
             <span class="module-tag">Consultório</span>
             <div id="header-controls" class="hidden" style="display: flex; gap: 12px;">
@@ -5013,7 +5013,7 @@
         initBancoLocal();
 
         // ── TICKET-6.1 P1#2 — hidratação da sessão demo ─────────────────
-        // Quando o usuário clicou em "Entrar como Prescritor" em entrar.html,
+        // Quando o usuário clicou em "Entrar como Prescritor" em demo.html,
         // o seletor demo gravou o JWT em sessionStorage. Aqui hidratamos
         // jwtAccessToken + medicoLogado e abrimos o dashboard direto,
         // pulando OTP. Suprime DEV_PRESET_CONTEXT porque medicoLogado=true

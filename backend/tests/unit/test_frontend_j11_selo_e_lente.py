@@ -14,7 +14,10 @@ AS REGRAS QUE ESTE ARQUIVO TRAVA
    (lente pública no portal) não mudou, só o nome do arquivo onde ela mora.
    `index.html` virou a página de abertura/marketing (Kimi/arquiteto),
    deliberadamente SEM a lente real nesta PR — só uma demonstração visual
-   rotulada como tal; a fiação real é PR `module` separada.
+   rotulada como tal; a fiação real é PR `module` separada. **Despacho
+   Entrar (31/08)**: o portal mudou de endereço DE NOVO, de `entrar.html`
+   para `demo.html` — `entrar.html` virou a página "em obras" (lista de
+   espera), sem seletor e sem lente.
 
 3. **O selo não decide qual agendamento é o corrente.** Esse predicado é do
    backend (`agendamento_atual_do_pedido`). Se a tela voltar a filtrar status
@@ -44,7 +47,9 @@ import pytest
 _RAIZ    = Path(__file__).resolve().parents[3]
 # Flip da abertura (30/08): o portal com a lente pública mudou de endereço,
 # de `index.html` para `entrar.html` — `index.html` virou a abertura/marketing.
-_PORTAL  = _RAIZ / "entrar.html"
+# Despacho Entrar (31/08): mudou de novo, de `entrar.html` para `demo.html` —
+# `entrar.html` virou a página "em obras".
+_PORTAL  = _RAIZ / "demo.html"
 _CIDADAO = _RAIZ / "cidadao.html"
 _LENTE   = _RAIZ / "lente.js"
 

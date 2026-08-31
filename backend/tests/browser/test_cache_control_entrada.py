@@ -25,7 +25,7 @@ import httpx
 import pytest
 
 _ENTRADA = [
-    "index.html", "entrar.html", "cidadao.html", "prescritor.html",
+    "index.html", "entrar.html", "demo.html", "cidadao.html", "prescritor.html",
     "dispensador.html", "clinica.html", "config.js", "submodulos.js",
     "submodulos.css", "lente.js",
     # #238 (31/08) — logo e favicon trocaram de CONTEÚDO sob o MESMO nome de

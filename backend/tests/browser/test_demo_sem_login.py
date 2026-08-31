@@ -9,8 +9,9 @@ sem escolha. Dois comportamentos andam juntos:
 1. Acesso DIRETO por URL a `prescritor.html` / `cidadao.html` autentica sozinho
    (_autoLoginDemo, mesmo padrão do dispensador) — o usuário não trava numa
    tela de senha/OTP. Antes deste item, só o dispensador tinha esse caminho.
-2. O portal (`entrar.html` desde o flip da abertura, 30/08 — era
-   `index.html`) MANTÉM o seletor de personas de 1 clique.
+2. O portal (`demo.html` desde o despacho Entrar, 31/08 — era
+   `entrar.html` desde o flip da abertura, 30/08, que era `index.html`)
+   MANTÉM o seletor de personas de 1 clique.
 
 FRONTEIRA (handoff §11 — não regredir)
 --------------------------------------
@@ -61,10 +62,10 @@ def test_cidadao_direto_auto_login(page, app_demo, erros_de_console):
 
 def test_portal_mantem_seletor_de_personas(page, app_demo, erros_de_console):
     """Decisão do dono: o portal NÃO perde o seletor — 'sem login' é 1 clique."""
-    page.goto(f"{app_demo}/entrar.html", wait_until="networkidle")
+    page.goto(f"{app_demo}/demo.html", wait_until="networkidle")
 
     # 🎯 Os 3 cards de persona continuam no portal (seletor de 1 clique).
     expect(page.locator('a.card[href="prescritor.html"]')).to_be_visible()
     expect(page.locator('a.card[href="dispensador.html"]')).to_be_visible()
     expect(page.locator('a.card[href="cidadao.html"]')).to_be_visible()
-    _sem_erros(erros_de_console, "entrar.html (seletor de personas)")
+    _sem_erros(erros_de_console, "demo.html (seletor de personas)")
