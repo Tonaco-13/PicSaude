@@ -9,9 +9,10 @@ de papéis) moveu-se inteira para `entrar.html`. AC do despacho: "/ serve
 a abertura (hero, trilho, lente demo rotulada) e /entrar.html serve a
 fachada de serviço; nenhuma referência quebrada".
 
-1. `/` serve a abertura — hero, trilho do objeto, lente rotulada como
-   demonstração (a fiação real da lente é PR `module` separada, ainda
-   não esta).
+1. `/` serve a abertura — hero, trilho do objeto, lente com o exemplo
+   ilustrativo visível em repouso (a fiação REAL da lente — consulta de
+   verdade contra `/public/*` — é `test_lente_real_abertura.py`, PR
+   `module` separada de 30/08).
 2. `/entrar.html` serve a fachada de serviço (o antigo `index.html`,
    sem mudança de conteúdo — só de endereço).
 3. Nenhuma referência quebrada: todo `href`/`src` local do novo `/`
@@ -57,10 +58,10 @@ def test_raiz_serve_a_abertura(page: Page, app_demo):
     # o trilho do objeto (hero card + estações)
     expect(page.locator(".objeto-rail")).to_be_visible(timeout=_TIMEOUT_MS)
     expect(page.locator("#railDots .rail-dot")).to_have_count(4)
-    # a lente segue demonstrativa e ROTULADA como tal nesta PR — a fiação
-    # real é a próxima PR module, não esta.
+    # A lente em repouso mostra o exemplo ilustrativo, rotulado como tal —
+    # a busca em si já é real desde 30/08 (test_lente_real_abertura.py).
     lente = page.locator("#lente")
-    expect(lente).to_contain_text("Demonstração visual")
+    expect(lente).to_contain_text("exemplo ilustrativo")
 
 
 def test_raiz_nao_tem_mais_disclaimer_de_prototipo(app_demo):
