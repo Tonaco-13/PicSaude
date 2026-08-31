@@ -34,7 +34,7 @@ COPY backend/ .
 # guarda de paridade (`tests/test_paridade_deploy_assets.py` + o passo de CI que
 # builda a imagem) vale mais que este glob: glob conserta hoje, guarda impede
 # amanhã. Espécie registrada: **gate verde, deploy cego**.
-COPY *.html *.js *.css logo-picsaude.png /app/frontend/
+COPY *.html *.js *.css logo-picsaude.png favicon.ico favicon-32.png favicon-192.png favicon-512.png apple-touch-icon.png /app/frontend/
 ENV PICSAUDE_FRONTEND_DIR=/app/frontend
 
 # Flip da abertura (30/08) — fontes self-hosted do index.html (woff2 subset
