@@ -218,6 +218,27 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   a ABC do SNCRAdapter ("listagem não é operação do contrato") — disciplina
   core ao contrário: saber quando NÃO tocar a interface. Depois do martelo:
   **flip da abertura** (já despachado)
+  ✔️ **Flip da abertura — #230 RATIFICADA pelo arquiteto + martelo do
+  Fabiano (30/08), mergeada (`281a500`, squash).** O conceito (Kimi/
+  arquiteto) virou `index.html` de produção; a fachada de serviço
+  anterior moveu-se inteira para `entrar.html`. Achado ao rodar a suíte
+  completa (não só o escopo declarado): todo "← Portal" nas 5 telas do
+  app apontava para `index.html` — corrigido — e **9 testes
+  pré-existentes** assumiam literalmente "index.html = portal"
+  (redirecionados para `entrar.html`, regra intacta). Vermelho-antes-
+  do-verde nas duas guardas novas (Dockerfile `fonts/`, Cache-Control
+  `.woff2`). Verificação ao vivo pós-deploy: picsaude.com.br servindo a
+  abertura em `/` e a fachada completa em `/entrar.html`, headers de
+  cache conferidos por curl (Chrome não disponível na sessão — checagem
+  técnica completa, sem o par de olhos visual literal).
+  ✔️ **Lente real na abertura — #231 mergeada (`2fb4665`, squash),
+  30/08.** A busca da lente em `/` passou de canned para real, via o
+  MESMO componente compartilhado (`lente.js`, sem duplicar). Estado de
+  repouso mostra o cartão ilustrativo ("exemplo ilustrativo"); qualquer
+  busca de verdade consulta `/public/*` sem token (anônimo por
+  desenho) e substitui pelo resultado real, achado ou não. Fila do
+  engenheiro fica limpa — próximo item depende do menu do Fabiano
+  (assinatura E11+J45, B1/B2, GP-2).
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
 - ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
   `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —
