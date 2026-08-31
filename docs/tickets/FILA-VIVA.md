@@ -128,7 +128,7 @@ Guarda: `backend/tests/browser/test_a3_pilula_exames_sem_flash_zero.py`.
 | # | Decisão | Recomendação do arquiteto |
 |---|---|---|
 | B1 ✔ **FECHADA 31/08** | **§3 do GP-3** — CNS de aparência real (`980001112223336` / DRA. DEMO MARINA SOUZA / USF DEMONSTRACAO), no `BASE_CNES_MOCK` do `prescritor.html` **+ cópias em docs** (HARDENING_MVP.md, GP3-AUDITORIA) | Substituído por sintético no padrão demo: `cns: "980001112223336"`, `nome: "DRA. DEMO MARINA SOUZA"`, `cnes_nome: "USF DEMONSTRACAO"` — 3 arquivos (`prescritor.html`, `HARDENING_MVP.md`, `GP3-AUDITORIA...`; citação original do achado preservada no GP-3 como registro histórico, marcada RESOLVIDO). PR `ops` #235, merge `7754895`. **Interlock com B2**: a árvore atual está limpa; o valor antigo permanece no histórico git até B2 |
-| B2 | **§4 do GP-3** — histórico COMO × O QUE (o que vai a público no git) | **Intermediário** (recomendado, concretizado 30/08): `git filter-repo` removendo caminhos gerenciais (`planejamento/` etc.) + filtro de conteúdo pela string do CNS antigo — histórico de commits/tickets PRESERVADO. **Verdade honesta**: force-push limpa a main, mas blobs antigos seguem acessíveis nas páginas de PR do GitHub — purga total exige support do GitHub ou recriação do repo; shas mudam (registros auditam por sha — documentar); clones re-clonar (runbook existe) |
+| B2 | **§4 do GP-3** — histórico COMO × O QUE (o que vai a público no git) | **Intermediário** (recomendado, concretizado 30/08): `git filter-repo` removendo caminhos gerenciais (`planejamento/` etc.) + filtro de conteúdo pela string do CNS antigo — histórico de commits/tickets PRESERVADO. **Verdade honesta**: force-push limpa a main, mas blobs antigos seguem acessíveis nas páginas de PR do GitHub — purga total exige support do GitHub ou recriação do repo; shas mudam (registros auditam por sha — documentar); clones re-clonar (runbook existe). **Ainda não executado** — execução é do arquiteto; engenheiro só re-clona quando avisado |
 
 Fonte: `GP3-AUDITORIA-SEGREDOS-PII-2026-08-26.md` (GP-3 entregue — zero
 segredos reais em 85 refs / 507 commits / 3.105 blobs).
@@ -306,12 +306,28 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   também o rabo da posologia da linha anterior, não só rótulo de classe;
   precisão do relatório fica para commit `docs` futuro, opcional. Ver
   [[pcdt-camada1-extrator-fechado]]
-- 🟡 **Abertura pública (conceito) — ENTREGUE 30/08, aguardando o flip.**
+- ✅ **Onda PCDT — camada 2 (curadoria assinada) ENTREGUE 31/08** — ✔️
+  **#233** (`694c538`, squash — martelo do Fabiano "Martelado. Estou
+  contigo. Vamos nessa.", executada pelo arquiteto no canal de
+  curadoria, exceção de papel registrada como na #170). E11 e J45 viram
+  CIDs **exaustivos**: `decisao_semaforo.csv` (109→105 rows — E11 15
+  rows do elenco Quadros 15/18 com aliases ancorados no próprio PDF,
+  J45 11 rows do §7.4.1, 21 rascunhos da era 2022 retirados);
+  `posologia_sugerida.csv` (11→25 rows, `validado_por=Fabiano Tonaco
+  Borges`). Guarda nova (`test_semaforo_flip_e11_j45.py`, 10 testes) —
+  **a demonstração acendeu de verdade: E11×dapagliflozina 🟢**,
+  contraste com I10×dapagliflozina 🟡 preservado; F32/N39.0 seguem
+  neutros (a lei da exaustividade só vale pra quem assinou). **Achado
+  do dia, ticketado fora da PR de curadoria**: `canon_ativo` engole
+  "Insulina Humana Regular 100 UI/ml" com sufixo de concentração órfão
+  (mesma peça do #220) → `TICKET-CANON-CONCENTRACAO-SLASH.md`, `core`,
+  fila do engenheiro, aguardando martelo do Fabiano.
+- ✅ **Abertura pública (conceito) — ENTREGUE 30/08, FLIPADA 30/08.**
   `conceitos-landing/`: duas lentes completas (domínio pelo arquiteto,
   engenharia pelo engenheiro — ambos os pareceres aplicados 1:1; relógio único
   implementado com `chegadas` DERIVADA da tabela `quadros`; contraste 4.96:1;
   320px renderizado de verdade). Errata do docstring de `publico.py:19`
-  lavrada pelo arquiteto (item que ficou com a casa). **Decisão pendente só do
-  Fabiano**: convivência com a fachada de serviço (portal some? vira
-  `/entrar`?) — ele anunciou "vou disparar a mudança"; quando o flip
-  acontecer, aplica a disciplina de paridade de imagem (lição dos assets 404)
+  lavrada pelo arquiteto (item que ficou com a casa). **Decisão do Fabiano
+  concretizada**: opção (a) — abertura em `/`, fachada de serviço movida
+  inteira para `/entrar.html`. Fecho completo (flip #230 + lente real #231)
+  registrado junto do G3, acima.
