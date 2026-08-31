@@ -165,8 +165,12 @@ def test_condicao_semente_silenciosa_e_exaustiva_acende():
     → NEUTRO (sem viés); a condição EXAUSTIVA (I10/hipertensão) acende 🟢."""
     from app.domain.semaforo_decisao import avaliar, total_regras
     assert total_regras() >= 60                                  # I10 exaustiva + semente
-    assert avaliar("E11", "metformina").sinal == SINAL_NEUTRO    # semente → silêncio
-    assert avaliar("F32", "escitalopram").sinal == SINAL_NEUTRO
+    # Atualizada no flip de 31/08 (assinatura Fabiano, E11+J45): o exemplo de
+    # SEMENTE silenciosa passa a ser F32/N39.0 — o E11 assinou e agora ACENDE
+    # (guarda do ato: test_semaforo_flip_e11_j45.py).
+    assert avaliar("F32", "escitalopram").sinal == SINAL_NEUTRO  # semente → silêncio
+    assert avaliar("N39.0", "fosfomicina").sinal == SINAL_NEUTRO
+    assert avaliar("E11", "metformina").sinal == SINAL_VERDE     # assinou 31/08 → acende
     assert avaliar("I10", "losartana").sinal == SINAL_VERDE      # exaustiva → acende
     assert avaliar("I10", "captopril").sinal == SINAL_VERDE      # antes ausente, agora 🟢
     assert avaliar("I10", "amoxicilina").sinal == SINAL_AMARELO  # fora do protocolo
@@ -233,11 +237,13 @@ def test_endpoint_flag_off_retorna_inativo(client, monkeypatch):
 
 
 def test_endpoint_flag_on_condicao_semente_neutra(client, monkeypatch):
-    """Condição ainda em semente (E11, não-exaustiva) → neutro (sem ponto na UI)."""
+    """Condição ainda em semente (F32, não-exaustiva) → neutro (sem ponto na UI).
+    Atualizada no flip de 31/08: E11 assinou e acende — a semente-exemplo agora
+    é F32 (test_semaforo_flip_e11_j45.py guarda o estado novo do E11)."""
     import app.routers.ia as ia
     monkeypatch.setattr(ia, "PICSAUDE_DECISAO_CLINICA", True)
     r = client.post("/ia/decisao/validar",
-                    json={"codigo_cid": "E11", "principio_ativo": "metformina"})
+                    json={"codigo_cid": "F32", "principio_ativo": "escitalopram"})
     assert r.status_code == 200
     d = r.json()
     assert d["ativo"] is True and d["sinal"] == SINAL_NEUTRO
