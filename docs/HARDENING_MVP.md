@@ -61,7 +61,7 @@ Payload mínimo:
 {
   "sub": "id_do_usuario",
   "role": "prescritor",
-  "cns": "706108587809760",
+  "cns": "980001112223336",
   "exp": 1234567890
 }
 ```

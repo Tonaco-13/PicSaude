@@ -97,10 +97,17 @@ merece decisão — ver §3.**
 
 ---
 
-## 3 · ⚠️ O ÚNICO ACHADO QUE PEDE DECISÃO TÉCNICA
+## 3 · ⚠️ O ÚNICO ACHADO QUE PEDE DECISÃO TÉCNICA — RESOLVIDO (B1, 31/08)
+
+**B1 martelado e executado**: o par abaixo (achado original desta auditoria)
+foi substituído no `BASE_CNES_MOCK` por um valor sintético no padrão demo —
+`cns: "980001112223336"`, `nome: "DRA. DEMO MARINA SOUZA"`,
+`cnes_nome: "USF DEMONSTRACAO"`. O valor antigo permanece no histórico git
+até B2 (`git filter-repo`) — ver FILA-VIVA §B.
 
 ```javascript
-// prescritor.html — BASE_CNES_MOCK
+// prescritor.html — BASE_CNES_MOCK (valor ORIGINAL, achado desta auditoria —
+// já substituído no código; citação preservada como registro do achado)
 { cns: "706108587809760", nome: "DRA. MARINA DE ALENCAR CAPELINI",
   cnes_nome: "USF JOSÉ CARLOS PEREIRA" }
 ```
