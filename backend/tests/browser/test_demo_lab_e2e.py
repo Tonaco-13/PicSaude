@@ -3,8 +3,9 @@ tests/browser/test_demo_lab_e2e.py — TICKET-H: o roteiro da demo, executável.
 
 O QUE ESTE ARQUIVO GUARDA
 -------------------------
-O roteiro 1→5 de `planejamento/demo-laboratorio-laudo-cidadao/TICKET-H-demo-e2e.md`,
-do jeito que ele será apresentado — só que sem ninguém clicando:
+O roteiro 1→5 de `planejamento/demo-laboratorio-laudo-cidadao/TICKET-H-demo-e2e.md`
+(caminho gerencial, removido do histórico pelo GP-3/B2, 31/08; citação histórica,
+não navegável), do jeito que ele será apresentado — só que sem ninguém clicando:
 
     1. prescritor emite pedido (TUSS + SIGTAP nos itens)
     2. cidadão transfere a custódia ao laboratório         [tela do cidadão]

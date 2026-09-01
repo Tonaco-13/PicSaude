@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| **Origem** | `planejamento/demo-laboratorio-laudo-cidadao/TICKET-H-demo-e2e.md` |
+| **Origem** | `planejamento/demo-laboratorio-laudo-cidadao/TICKET-H-demo-e2e.md` — caminho gerencial, removido do histórico pelo GP-3/B2 (31/08); citação histórica, não navegável |
 | **Vigência** | 2026-08-13 |
 | **Prova executável** | `backend/tests/browser/test_demo_lab_e2e.py` — este roteiro, sem ninguém clicando |
 
