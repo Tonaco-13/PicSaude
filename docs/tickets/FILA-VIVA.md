@@ -339,3 +339,23 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   concretizada**: opção (a) — abertura em `/`, fachada de serviço movida
   inteira para `/entrar.html`. Fecho completo (flip #230 + lente real #231)
   registrado junto do G3, acima.
+- ✅ **Despacho Entrar — ENTREGUE e FECHADO 31/08** — ✔️ **#241**
+  (`f95948b`, squash — RATIFICADA pelo arquiteto ["as seis lentes
+  fecharam com verificação própria"] + martelo do Fabiano). Conceito
+  validado (`conceitos-landing/entrar.html`) virou o `entrar.html` de
+  produção: "esta estação está em obras", mini-trilho (Vitrine no ar ·
+  Lista de espera · Plataforma), formulário nome+email que monta
+  `mailto:` para `contato@picsaude.com.br` — nada server-side, por
+  desenho. O `entrar.html` anterior (seletor de personas + lente real +
+  estado da instância) mudou de endereço INTEIRO para `demo.html`, sem
+  perda de nada. Repoint dos cinco "← Portal" das estações + `index.html`
+  ganhou o link discreto "Lista de espera" no rodapé. Opcional aprovado:
+  "Vitrine no ar" virou link real para `demo.html`. Os 9 arquivos de
+  teste que assumiam "entrar.html = portal" migraram para "demo.html =
+  portal"; `test_entrar_em_obras.py` novo (6 testes) — **achado técnico
+  registrado no módulo**: `location.href` é *unforgeable* no Chromium
+  (nem redefinir `window.location` nem sobrescrever
+  `Location.prototype.href` intercepta a atribuição — testado
+  empiricamente), prova por duas pernas (runtime + inspeção de fonte).
+  620 unit + 220 browser tests verdes. **Próxima: Lente da abertura
+  (foto exata, `module`)**, em cima desta — as duas tocam `index.html`.
