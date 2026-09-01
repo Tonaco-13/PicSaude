@@ -65,6 +65,12 @@ _CNPJ_CLINICA = "11222333000181"
 
 _TS = time.strftime("%Y%m%d%H%M%S")
 
+
+def _mascarar(protocolo: str) -> str:
+    """Espelha lente.js::_mascarar — despacho 'Lente da abertura: a foto
+    exata' (31/08): seis · reticências · quatro."""
+    return protocolo[:6] + "…" + protocolo[-4:]
+
 _DATA_HORA = "2026-09-01T08:00:00"
 _UNIDADE   = "DEMO-LAB"
 
@@ -312,10 +318,13 @@ def test_ver_rastreabilidade_abre_a_trilha_no_proprio_cartao(
 
         lente = card.locator(".lente-card")
         expect(lente).to_be_visible(timeout=_TIMEOUT_MS)
-        expect(lente).to_contain_text(proto)
+        # Despacho "Lente da abertura: a foto exata" (31/08) — protocolo
+        # MASCARADO, nunca o UUID completo.
+        expect(lente).to_contain_text(_mascarar(proto))
+        expect(lente).not_to_contain_text(proto)
         expect(lente).to_contain_text("Pedido de exame")
         # Visão NEUTRA: estado sim, conteúdo clínico não.
-        expect(lente).to_contain_text("sem conteúdo clínico")
+        expect(lente).to_contain_text("Dados clínicos: não exibidos")
 
         # Toggle — o cartão não cresce para sempre.
         card.get_by_role("button", name="Ver rastreabilidade").click()
@@ -345,7 +354,8 @@ def test_lente_publica_do_portal_segue_intacta(page: Page, app_demo, erros_de_co
 
     resultado = page.locator("#lente-resultado")
     expect(resultado).to_be_visible(timeout=_TIMEOUT_MS)
-    expect(resultado).to_contain_text(proto)
+    expect(resultado).to_contain_text(_mascarar(proto))
+    expect(resultado).not_to_contain_text(proto)
     expect(resultado).to_contain_text("Pedido de exame")
 
 

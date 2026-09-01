@@ -92,9 +92,9 @@ def test_paginas_carregam_o_componente(pagina):
 # própria extração — guarda que acusa a explicação da regra em vez da violação
 # dela é ruído, e ruído no gate é como se treina a ignorá-lo.
 _MARCAS_DO_RENDER = [
-    'class="lente-chave-display"',   # o bloco do protocolo
+    'class="lente-linhas"',          # as quatro linhas (despacho "a foto exata", 31/08)
     'class="lente-item-row"',        # a linha de item
-    "sem conteúdo clínico nem identificação das partes",   # a nota do cartão
+    "Dados clínicos: não exibidos. Visão de auditoria.",   # a linha fixa de neutralidade
 ]
 
 
@@ -235,8 +235,8 @@ class TestAsGuardasMordem:
     """
 
     def test_copia_do_render_seria_pega(self):
-        falso = 'algum html com lente-chave-display dentro'
-        assert "lente-chave-display" in falso   # o mesmo `in` da guarda real
+        falso = 'algum html com class="lente-linhas" dentro'
+        assert 'class="lente-linhas"' in falso   # o mesmo `in` da guarda real
 
     def test_token_na_lente_seria_pego(self):
         falso = "LenteAuditoria.consultar(protocolo, { token: sessaoAtual.token })"
