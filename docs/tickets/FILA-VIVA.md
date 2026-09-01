@@ -133,7 +133,7 @@ Guarda: `backend/tests/browser/test_a3_pilula_exames_sem_flash_zero.py`.
 Fonte: `GP3-AUDITORIA-SEGREDOS-PII-2026-08-26.md` (GP-3 entregue — zero
 segredos reais em 85 refs / 507 commits / 3.105 blobs).
 
-**Depois de B2:** GP-2 (curadoria da fachada) → **flip**. GP-1 já entregue (#199).
+**GO PUBLIC CONCLUÍDO — flip executado por Fabiano em 01/09/2026.** Repo `Tonaco-13/PicSaude` PÚBLICO (verificado anônimo: HTTP 200, frase-matadora na descrição). Primeiro objeto consultado publicamente na lente: `320fbe88…aac0` (metformina 850mg — 1ª linha do E11 assinado 31/08). As fases: GP-1 ✔ · GP-3 ✔ · B1 ✔ · B2 ✔ · GP-2 ✔ (#244/#245) · flip ✔.
 
 ---
 
