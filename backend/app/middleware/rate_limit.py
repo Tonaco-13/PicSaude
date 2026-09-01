@@ -36,6 +36,7 @@ ROUTE_LIMITS: list[tuple[str, int]] = [
     ("/auth/token",          5),
     ("/tokens/apresentacao", 10),
     ("/circulacao",          20),
+    ("/lista-espera",        5),   # superfície pública sem auth — mesma régua do /auth/token
 ]
 DEFAULT_LIMIT = 30
 

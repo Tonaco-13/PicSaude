@@ -15,7 +15,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.observabilidade import ObservabilidadeMiddleware
 from app.observabilidade.logging_config import configure_logging
-from app.routers import agendamentos, api_keys, atestados, auth, assinaturas, catalogo, circulacao_diagnostica, clinicas, config_publico, contrarreferencias, custodia, demo, dispensacoes, dispensadores, encaminhamentos, eventos, health, hospitalares, ia, laudos, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
+from app.routers import agendamentos, api_keys, atestados, auth, assinaturas, catalogo, circulacao_diagnostica, clinicas, config_publico, contrarreferencias, custodia, demo, dispensacoes, dispensadores, encaminhamentos, eventos, health, hospitalares, ia, laudos, lista_espera, login, metrics, pacientes, pedidos_exame, prestadores, prescritor, prescritores, prescricoes, publico, receituarios, relatorios, solicitacoes, tokens, validacao
 
 # Configura logging estruturado o mais cedo possível
 configure_logging()
@@ -248,6 +248,7 @@ app.include_router(agendamentos.router)          # Ticket 29 — módulo de agen
 app.include_router(circulacao_diagnostica.router) # Ticket 53 — circulação diagnóstica
 app.include_router(eventos.router)        # G4A — event publishing layer
 app.include_router(health.router)         # G5-impl — health checks
+app.include_router(lista_espera.router)   # Lista de espera direta — POST público, sem GET
 app.include_router(metrics.router)        # Ticket 11 — métricas operacionais (localhost only)
 app.include_router(prestadores.router)    # Ticket 30 — cadastro de prestadores
 app.include_router(api_keys.router)       # G4B — gestão de API keys institucionais

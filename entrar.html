@@ -172,6 +172,18 @@
     font-size: 14px; color: var(--green-ink);
   }
   .confirmacao.visivel { display: block; }
+  .erro-lista {
+    display: none; margin-top: 16px; padding: 14px 16px;
+    background: #fef2f2; border-radius: 12px;
+    font-size: 14px; color: #991b1b;
+  }
+  .erro-lista.visivel { display: block; }
+  /* Honeypot — invisível e fora do tab-order/leitor de tela; uma pessoa
+     nunca alcança este campo, um preenchimento automatizado geralmente
+     preenche todo campo que encontra no DOM. */
+  .campo-honeypot {
+    position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;
+  }
 
   /* ---------- rodapé ---------- */
   footer { border-top: 1px solid var(--line); padding: 48px 0 40px; text-align: center; }
@@ -232,15 +244,22 @@
             <label for="campoEmail">Seu email</label>
             <input type="email" id="campoEmail" autocomplete="email" required>
           </div>
+          <div class="campo-honeypot" aria-hidden="true">
+            <label for="campoEmpresa">Empresa</label>
+            <input type="text" id="campoEmpresa" name="empresa" tabindex="-1" autocomplete="off">
+          </div>
           <button class="btn-lista" type="submit">Entrar na lista de espera</button>
         </form>
         <div class="confirmacao" id="confirmacao" role="status">
-          Seu aplicativo de email vai abrir com a mensagem pronta.
-          É só enviar. Obrigado por esperar na plataforma certa.
+          Você está na lista. Avisamos assim que a estação abrir.
         </div>
+        <div class="erro-lista" id="erroLista" role="alert"></div>
         <p class="lista-nota">
-          Se o aplicativo de email não abrir, escreva direto para
+          Seu nome e email ficam guardados só para o contato da lista. Para
+          sair, escreva para
           <a href="mailto:contato@picsaude.com.br">contato@picsaude.com.br</a>.
+          Prefere por email desde já?
+          <a href="mailto:contato@picsaude.com.br?subject=Lista%20de%20espera%20%E2%80%94%20PicSa%C3%BAde">Clique aqui</a>.
         </p>
       </div>
     </div>
@@ -257,19 +276,45 @@
 </footer>
 
 <script>
-  // Lista de espera sem backend: o gesto honesto é abrir o email da pessoa
-  // com a mensagem pronta para contato@picsaude.com.br. Nada é enviado sem
-  // que ela veja e confirme no seu próprio aplicativo de email.
-  document.getElementById('listaForm').addEventListener('submit', function (ev) {
+  // Lista de espera direta (despacho "module", 01/09): POST /lista-espera,
+  // sem autenticação — a base tem schema/arquivo próprio, sobrevive ao
+  // reset diário da vitrine (ver backend/app/domain/lista_espera.py). Mesmo
+  // origem do documento (StaticFiles serve a tela E a API): fetch relativo,
+  // sem precisar de config.js/BACKEND_URL. O mailto acima continua vivo —
+  // fallback sem JS, e para quem prefere esse canal.
+  document.getElementById('listaForm').addEventListener('submit', async function (ev) {
     ev.preventDefault();
     var nome = document.getElementById('campoNome').value.trim();
     var email = document.getElementById('campoEmail').value.trim();
-    var assunto = 'Lista de espera — PicSaúde';
-    var corpo = 'Nome: ' + nome + '\nEmail: ' + email + '\n\nQuero entrar na lista de espera da plataforma PicSaúde.';
-    window.location.href = 'mailto:contato@picsaude.com.br'
-      + '?subject=' + encodeURIComponent(assunto)
-      + '&body=' + encodeURIComponent(corpo);
-    document.getElementById('confirmacao').classList.add('visivel');
+    var empresa = document.getElementById('campoEmpresa').value; // honeypot
+
+    var confirmacao = document.getElementById('confirmacao');
+    var erro = document.getElementById('erroLista');
+    confirmacao.classList.remove('visivel');
+    erro.classList.remove('visivel');
+    erro.textContent = '';
+
+    try {
+      var resp = await fetch('/lista-espera', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: nome, email: email, origem: 'entrar-obras', empresa: empresa,
+        }),
+      });
+      if (resp.ok) {
+        confirmacao.classList.add('visivel');
+        document.getElementById('listaForm').reset();
+        return;
+      }
+      erro.textContent = resp.status === 429
+        ? 'Muitas tentativas. Espere um instante e tente de novo, ou escreva para contato@picsaude.com.br.'
+        : 'Não deu para confirmar agora. Tente de novo, ou escreva para contato@picsaude.com.br.';
+      erro.classList.add('visivel');
+    } catch (e) {
+      erro.textContent = 'Sem conexão agora. Escreva para contato@picsaude.com.br.';
+      erro.classList.add('visivel');
+    }
   });
 </script>
 
