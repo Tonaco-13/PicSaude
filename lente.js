@@ -47,6 +47,77 @@
     { path: 'contrarreferencias', nome: 'Contrarreferência',    icone: '↩️', statusKey: 'status_contrarreferencia' },
   ];
 
+  // ── Dicionário de frases — despacho "Lente da abertura: a foto exata" ──────
+  //
+  // Nasce dos contratos (`backend/app/domain/states*.py`) — pequeno e honesto
+  // de propósito: só existe frase onde ela é VERDADE. Cada chave abaixo é um
+  // estado TERMINAL de uma máquina (conferido linha a linha contra
+  // ESTADOS_TERMINAIS_* do arquivo correspondente, não de memória). Estado
+  // sem frase aqui aparece cru, sozinho — nunca legenda inventada.
+  //
+  // "expirado"/"expirada" e "encerrado_fisico"/"encerrada_localmente"
+  // repetem o mesmo texto entre máquinas de propósito: o CLAUDE.md define os
+  // dois com o MESMO significado em todo objeto sanitário (§5a) — reúso
+  // honesto, não invenção.
+  var LENTE_FRASES = {
+    prescricoes: {
+      dispensada: 'Jornada concluída.',
+      cancelada: 'Prescrição cancelada.',
+      expirada: 'Prazo de validade encerrado.',
+      encerrada_localmente: 'Emitida em papel; sem ciclo digital.',
+    },
+    exames: {
+      // MARTELO DO FABIANO 26/08 (core): abrir o laudo dá ciência do PEDIDO —
+      // "encerrado" aqui é ciência derivada, nunca gesto próprio do pedido.
+      encerrado: 'Ciência do resultado registrada.',
+      cancelado: 'Pedido cancelado.',
+      expirado: 'Prazo de validade encerrado.',
+      encerrado_fisico: 'Emitido em papel; sem ciclo digital.',
+    },
+    atestados: {
+      // "assinado" não é terminal (ESTADOS_TERMINAIS_ATESTADO) — sem frase,
+      // aparece cru: o atestado pode estar vigente, e "vigente" não é um fato
+      // que se anuncie como se fosse o fim da jornada.
+      cancelado: 'Atestado cancelado.',
+      expirado: 'Prazo de validade encerrado.',
+      encerrada_localmente: 'Emitido em papel; sem ciclo digital.',
+    },
+    laudos: {
+      encerrado: 'Ciência do laudo registrada.',
+      cancelado: 'Laudo cancelado.',
+      expirado: 'Prazo de validade encerrado.',
+      encerrado_fisico: 'Emitido em papel; sem ciclo digital.',
+    },
+    encaminhamentos: {
+      // Ciência de ciclo é EXPLÍCITA aqui (divergência deliberada do laudo,
+      // ver CLAUDE.md) — "encerrado" é a origem se declarando ciente.
+      encerrado: 'Ciclo encerrado pela origem.',
+      cancelado: 'Encaminhamento cancelado.',
+      expirado: 'Prazo de validade encerrado.',
+      negado: 'Encaminhamento negado.',
+      encerrado_fisico: 'Emitido em papel; sem ciclo digital.',
+    },
+    contrarreferencias: {
+      // "registrada" é o único estado não-terminal (ESTADOS_CONTRARREFERENCIA)
+      // e é também o estado normal/esperado — sem frase, aparece cru.
+      cancelada: 'Contrarreferência cancelada.',
+    },
+  };
+
+  // Circulação diagnóstica — states_circulacao_diagnostica.py, mesma régua.
+  var LENTE_FRASES_CIRCULACAO = {
+    realizado: 'Coleta registrada.',
+    desmarcado_paciente: 'Desmarcado pelo paciente.',
+    desmarcado_laboratorio: 'Desmarcado pelo laboratório.',
+    arquivado_laboratorio: 'Arquivado pelo laboratório.',
+    expirado: 'Prazo de validade encerrado.',
+  };
+
+  // Linha 4, sempre — o contrato de neutralidade com cara de UI (despacho).
+  // Texto FIXO: um browser test afirma este trecho literalmente; mudar a
+  // frase aqui é decisão de produto, não acidente de refatoração.
+  var _LINHA_NEUTRALIDADE = 'Dados clínicos: não exibidos. Visão de auditoria.';
+
   function esc(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -67,20 +138,50 @@
     return '<span class="lente-badge ' + tonoDoStatus(status) + '">' + esc(status || '—') + '</span>';
   }
 
+  // Máscara do protocolo — despacho "Lente da abertura": seis, reticências,
+  // quatro. Identificadores curtos (chave de circulação, 8-16 chars) também
+  // passam por aqui: a régua é a mesma para as duas famílias.
+  function _mascarar(valor) {
+    var v = String(valor || '');
+    if (v.length <= 12) return v;
+    return v.slice(0, 6) + '…' + v.slice(-4);
+  }
+
+  function _linha(rotulo, valorHtml) {
+    return '<div class="lente-linha"><span class="lente-linha-rotulo">' + esc(rotulo) + '</span>'
+      + '<span class="lente-linha-valor">' + valorHtml + '</span></div>';
+  }
+
+  // Estado CRU + frase humana, na mesma linha — "Dispensada. Jornada
+  // concluída." Frase só entra quando o dicionário confirma que é verdade
+  // para ESTE status; sem entrada no dicionário, o estado aparece cru e
+  // sozinho — nunca legenda inventada.
+  function _linhaEstado(statusRaw, frases) {
+    var raw = String(statusRaw || '');
+    if (!raw) return _linha('Estado', esc('—'));
+    var capitalizado = raw.charAt(0).toUpperCase() + raw.slice(1);
+    var frase = frases ? frases[raw] : null;
+    var valor = frase ? (capitalizado + '. ' + frase) : capitalizado;
+    return _linha('Estado', esc(valor));
+  }
+
   // ── Estilos ───────────────────────────────────────────────────────────────
   // Viajam com o componente: uma tela que inclui `lente.js` ganha o cartão já
   // desenhado, sem copiar CSS. Idempotente — a segunda chamada não faz nada.
   var _ESTILOS = ''
     + '.lente-card { background:#fff; border:1.5px solid #bfdbfe; border-radius:10px; padding:16px 20px; margin-top:12px; }'
-    + '.lente-card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }'
-    + '.lente-tipo { font-size:14px; font-weight:700; color:#0f172a; }'
+    + '.lente-linhas { display:grid; gap:8px; }'
+    + '.lente-linha { display:flex; justify-content:space-between; gap:16px; font-size:14px; }'
+    + '.lente-linha-rotulo { color:#64748b; }'
+    + '.lente-linha-valor { font-weight:600; color:#0f172a; text-align:right; }'
+    + '.lente-linha-valor.mono, .lente-linha-valor .mono { font-family:\'Courier New\',monospace; letter-spacing:0.5px; }'
+    + '.lente-linha-neutralidade { font-size:12px; color:#1e40af; background:#eff6ff; border-radius:6px; padding:8px 10px; margin-top:2px; }'
     + '.lente-badge { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:3px 10px; border-radius:999px; background:#f1f5f9; color:#475569; }'
     + '.lente-badge.tono-azul    { background:#dbeafe; color:#1e40af; }'
     + '.lente-badge.tono-verde   { background:#d1fae5; color:#065f46; }'
     + '.lente-badge.tono-amarelo { background:#fef9c3; color:#854d0e; }'
     + '.lente-badge.tono-vermelho{ background:#fee2e2; color:#991b1b; }'
-    + '.lente-chave-display { font-family:\'Courier New\',monospace; font-size:15px; font-weight:700; letter-spacing:2px; color:#1e3a8a; padding:8px 10px; background:#eff6ff; border:1px dashed #93c5fd; border-radius:6px; margin:10px 0; word-break:break-all; }'
-    + '.lente-meta { font-size:12px; color:#64748b; line-height:1.7; }'
+    + '.lente-meta { font-size:12px; color:#64748b; line-height:1.7; margin-top:12px; }'
     + '.lente-itens { margin-top:10px; font-size:13px; color:#334155; }'
     + '.lente-item-row { display:flex; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid #f1f5f9; }'
     + '.lente-item-row:last-child { border-bottom:none; }'
@@ -100,13 +201,20 @@
 
   // Cartão neutro para os endpoints /public/* — o payload já nasce neutro no
   // backend (sem clínica, sem identidade); aqui só apresentamos.
+  //
+  // "A foto exata" (despacho, 31/08): as QUATRO linhas do exemplo estático da
+  // abertura — Protocolo (mascarado) · Tipo de objeto · Estado cru + frase
+  // humana · Dados clínicos (fixa, sempre). Informação extra que já existia
+  // (tipo de emissão, itens, assinatura do atestado) continua abaixo das
+  // quatro — não é uma das quatro linhas, mas não se perde.
   function _cartaoPublico(tipo, dados) {
     var html = '<div class="lente-card">'
-      + '<div class="lente-card-head">'
-      +   '<span class="lente-tipo">' + tipo.icone + ' ' + esc(tipo.nome) + '</span>'
-      +   badge(dados[tipo.statusKey])
+      + '<div class="lente-linhas">'
+      +   _linha('Protocolo', '<span class="mono">' + esc(_mascarar(dados.protocolo)) + '</span>')
+      +   _linha('Tipo de objeto', esc(tipo.nome))
+      +   _linhaEstado(dados[tipo.statusKey], LENTE_FRASES[tipo.path])
+      +   '<div class="lente-linha lente-linha-neutralidade">' + esc(_LINHA_NEUTRALIDADE) + '</div>'
       + '</div>'
-      + '<div class="lente-chave-display">' + esc(dados.protocolo) + '</div>'
       + '<div class="lente-meta">Tipo de emissão: <strong>' + esc(dados.tipo_emissao || '—') + '</strong></div>';
 
     if (tipo.path === 'atestados') {
@@ -126,27 +234,28 @@
       html += '</div>';
     }
 
-    html += '<div class="lente-nota">Visão neutra de auditoria — existência e estado do objeto, '
-      + 'sem conteúdo clínico nem identificação das partes.</div></div>';
+    html += '</div>';
     return html;
   }
 
   // Cartão neutro para circulação diagnóstica. O endpoint autenticado retorna
   // paciente/prescritor/exames — a lente NÃO os exibe: auditoria vê estado,
   // validade e tamanho do conjunto; o restante é operação, e operação fica no
-  // módulo Clínica/Laboratório.
+  // módulo Clínica/Laboratório. Mesma "foto exata" das quatro linhas do
+  // público — a sétima espécie, pela outra família (chave, não protocolo).
   function _cartaoCirculacao(circ) {
     var nItens = Array.isArray(circ.itens) ? circ.itens.length : 0;
     var validade = circ.validade ? String(circ.validade).slice(0, 10) : '—';
     return '<div class="lente-card">'
-      + '<div class="lente-card-head">'
-      +   '<span class="lente-tipo">🔬 Circulação diagnóstica</span>'
-      +   badge(circ.status)
+      + '<div class="lente-linhas">'
+      +   _linha('Protocolo', '<span class="mono">' + esc(_mascarar(circ.chave_circulacao)) + '</span>')
+      +   _linha('Tipo de objeto', 'Circulação diagnóstica')
+      +   _linhaEstado(circ.status, LENTE_FRASES_CIRCULACAO)
+      +   '<div class="lente-linha lente-linha-neutralidade">' + esc(_LINHA_NEUTRALIDADE) + '</div>'
       + '</div>'
-      + '<div class="lente-chave-display">' + esc(circ.chave_circulacao) + '</div>'
       + '<div class="lente-meta">Validade da chave: <strong>' + esc(validade) + '</strong>'
       + ' · Exames nesta circulação: <strong>' + nItens + '</strong></div>'
-      + '<div class="lente-nota">Visão neutra de auditoria. Detalhes clínicos e operação '
+      + '<div class="lente-nota">Detalhes clínicos e operação '
       + '(proposta, confirmação, realização) no módulo '
       + '<a href="clinica.html">Clínica/Laboratório →</a></div></div>';
   }

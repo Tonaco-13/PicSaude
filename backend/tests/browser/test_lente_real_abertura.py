@@ -39,6 +39,12 @@ from playwright.sync_api import expect, Page
 _TIMEOUT_MS = 15_000
 _TS = time.strftime("%Y%m%d%H%M%S")
 
+
+def _mascarar(protocolo: str) -> str:
+    """Espelha lente.js::_mascarar — despacho 'Lente da abertura: a foto
+    exata' (31/08): seis · reticências · quatro."""
+    return protocolo[:6] + "…" + protocolo[-4:]
+
 # Personas canônicas do seed de demo.
 _CNS_PRESCRITOR = "980001112223334"
 _NOME_PRESCRITOR = "Dra. Demo Maria Souza"
@@ -77,6 +83,55 @@ def _buscar(page: Page, termo: str) -> None:
     page.locator("#lenteForm button[type=submit]").click()
 
 
+_CNPJ_FARMACIA = "99999999000191"
+
+
+def _emitir_e_dispensar_totalmente(base_url: str, sufixo: str) -> str:
+    """Emite → paciente transfere à farmácia → dispensador dispensa TOTAL —
+    a prescrição chega a `dispensada` (estado TERMINAL, ESTADOS_TERMINAIS_PRESCRICAO)."""
+    ptok = _tok(base_url, "prescritor")
+    r = httpx.post(
+        f"{base_url}/prescricoes",
+        headers={"Authorization": f"Bearer {ptok}"},
+        json={
+            "cns_prescritor": _CNS_PRESCRITOR, "nome_prescritor": _NOME_PRESCRITOR,
+            "cpf_paciente": _CPF_PACIENTE, "nome_paciente": _NOME_PACIENTE,
+            "tipo_emissao": "nova", "enviar_ao_paciente": True,
+            "itens": [{
+                "nome_medicamento": f"LENTE-DISPENSADA {sufixo}",
+                "quantidade": 5, "posologia": "1cp/dia",
+            }],
+        },
+        timeout=15.0,
+    )
+    assert r.status_code in (200, 201), f"emissão falhou: {r.status_code} {r.text}"
+    dados = r.json()
+    proto = dados["protocolo"]
+
+    pattok = _tok(base_url, "paciente")
+    r = httpx.post(
+        f"{base_url}/paciente/prescricoes/{proto}/transferir-farmacia",
+        headers={"Authorization": f"Bearer {pattok}"},
+        json={"cnpj_farmacia": _CNPJ_FARMACIA}, timeout=15.0,
+    )
+    assert r.status_code == 201, f"transferência falhou: {r.status_code} {r.text}"
+
+    dtok = _tok(base_url, "dispensador")
+    fila = httpx.get(
+        f"{base_url}/dispensadores/fila",
+        headers={"Authorization": f"Bearer {dtok}"}, timeout=15.0,
+    ).json()["fila"]
+    item_id = next(f for f in fila if f["protocolo"] == proto)["itens"][0]["item_id"]
+    r = httpx.post(
+        f"{base_url}/prescricoes/{proto}/itens/{item_id}/dispensar",
+        headers={"Authorization": f"Bearer {dtok}"},
+        json={"cnpj_estabelecimento": _CNPJ_FARMACIA, "quantidade_dispensada": 5},
+        timeout=15.0,
+    )
+    assert r.status_code == 201, f"dispensação falhou: {r.status_code} {r.text}"
+    return proto
+
+
 # ===========================================================================
 # 1 — repouso: exemplo ilustrativo visível sem nenhuma busca
 # ===========================================================================
@@ -99,12 +154,41 @@ def test_protocolo_real_traz_cartao_real(page: Page, app_demo):
     _buscar(page, proto)
 
     resultado = page.locator("#lenteResult")
-    expect(resultado).to_contain_text(proto, timeout=_TIMEOUT_MS)
+    # Despacho "Lente da abertura: a foto exata" (31/08) — o protocolo vem
+    # MASCARADO (seis · reticências · quatro), nunca o UUID completo.
+    expect(resultado).to_contain_text(_mascarar(proto), timeout=_TIMEOUT_MS)
+    expect(resultado).not_to_contain_text(proto)
     expect(resultado).to_contain_text("Receita (prescrição)")
     expect(resultado).not_to_contain_text("exemplo ilustrativo")
-    # o cartão real vem do componente compartilhado — a nota de neutralidade
-    # é dele, não texto inventado nesta seção.
-    expect(resultado).to_contain_text("sem conteúdo clínico")
+    # o cartão real vem do componente compartilhado — a linha de
+    # neutralidade é dele, não texto inventado nesta seção.
+    expect(resultado).to_contain_text("Dados clínicos: não exibidos")
+
+
+# ===========================================================================
+# 2b — a foto exata: estado TERMINAL real acende a frase do dicionário
+# ===========================================================================
+
+def test_prescricao_dispensada_mostra_estado_cru_e_frase_humana(page: Page, app_demo):
+    """Despacho "Lente da abertura: a foto exata" (31/08) — a prova de ponta
+    a ponta: emite → transfere → dispensa de verdade (o estado chega a
+    `dispensada`, TERMINAL em ESTADOS_TERMINAIS_PRESCRICAO) → consulta na
+    abertura → o cartão real mostra as quatro linhas com o estado
+    VERDADEIRO, incluindo a frase do dicionário (`lente.js::LENTE_FRASES`)
+    e a linha fixa de neutralidade. Se a linha de neutralidade um dia
+    sumir do render, esta asserção acusa."""
+    proto = _emitir_e_dispensar_totalmente(app_demo, f"{_TS}C")
+
+    page.goto(f"{app_demo}/", wait_until="networkidle")
+    _buscar(page, proto)
+
+    resultado = page.locator("#lenteResult")
+    expect(resultado).to_contain_text(_mascarar(proto), timeout=_TIMEOUT_MS)
+    expect(resultado).to_contain_text("Receita (prescrição)")
+    # Estado CRU (capitalizado) + frase humana do dicionário, na MESMA linha.
+    expect(resultado).to_contain_text("Dispensada. Jornada concluída.")
+    # Linha 4, sempre — assert explícito e literal, per despacho.
+    expect(resultado).to_contain_text("Dados clínicos: não exibidos. Visão de auditoria.")
 
 
 # ===========================================================================
@@ -150,7 +234,7 @@ def test_busca_na_abertura_nunca_manda_token(page: Page, app_demo):
 
     page.goto(f"{app_demo}/", wait_until="networkidle")
     _buscar(page, proto)
-    expect(page.locator("#lenteResult")).to_contain_text(proto, timeout=_TIMEOUT_MS)
+    expect(page.locator("#lenteResult")).to_contain_text(_mascarar(proto), timeout=_TIMEOUT_MS)
 
     assert pedidos, "nenhuma chamada a /public/* observada — busca não disparou"
     for req in pedidos:
