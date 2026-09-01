@@ -3,7 +3,7 @@
 **Infraestrutura de circulação sem atrito de objetos sanitários com custódia cidadã.**
 
 [![Licença: AGPL v3](https://img.shields.io/badge/Licença-AGPL_v3-blue.svg)](LICENSE)
-[![Testes](https://img.shields.io/badge/gate-1360%20testes-brightgreen.svg)](#os-números-deste-repositório)
+[![Testes](https://img.shields.io/badge/gate-1513%20testes-brightgreen.svg)](#os-números-deste-repositório)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Demo pública](https://img.shields.io/badge/demo-picsaude.com.br-1e3a8a.svg)](https://picsaude.com.br)
 
@@ -11,6 +11,24 @@ Receita, exame, laudo, atestado e encaminhamento como **objetos rastreáveis**:
 imutáveis depois de emitidos, com **cadeia de custódia explícita** e **ledger
 append-only**. O cidadão carrega os próprios documentos e é ele quem os
 entrega — não um intermediário agindo em nome dele.
+
+**[Veja a abertura pública →](https://picsaude.com.br)** — a mesma vitrine que
+roda localmente, com a lente de auditoria consultando protocolos de verdade.
+
+---
+
+## Comece por aqui
+
+| Se você quer... | Vá para |
+|---|---|
+| Ver o sistema rodando sem instalar nada | [picsaude.com.br](https://picsaude.com.br) |
+| Rodar localmente em 5 minutos | [§ Rode local](#rode-local-em-5-minutos), abaixo |
+| Entender o princípio arquitetural (o "porquê") | [`CLAUDE.md`](CLAUDE.md) — a constituição do projeto |
+| Entender o contrato de qualquer objeto sanitário | [`docs/NUCLEO_SANITARIO.md`](docs/NUCLEO_SANITARIO.md) |
+| Navegar a documentação por assunto | [`docs/README.md`](docs/README.md) — o índice da casa |
+| Ver a história técnica de uma decisão | [`docs/tickets/`](docs/tickets/) — pública por desenho, não por acidente |
+| Contribuir com um primeiro PR | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Reportar uma vulnerabilidade | [`SECURITY.md`](SECURITY.md) |
 
 ---
 
@@ -147,9 +165,11 @@ PICSAUDE_DEMO_MODE=true python3 seed_demo.py     # popula as personas
 PICSAUDE_DEMO_MODE=true uvicorn app.main:app --app-dir .
 ```
 
-Abra `http://localhost:8000`. O portal mostra **quatro estações** —
-Consultório · Carteira Cidadã · Farmácia · Laboratório — e um clique entra em
-cada uma, sem senha.
+Abra `http://localhost:8000`. A raiz serve a **abertura pública** — a mesma
+vitrine de picsaude.com.br, com a lente de auditoria já consultando de
+verdade. As **quatro estações** — Consultório · Carteira Cidadã · Farmácia ·
+Laboratório — ficam em `http://localhost:8000/demo.html`, um clique em cada,
+sem senha.
 
 **Roteiro sugerido (≈3 minutos):** emita uma receita no Consultório → abra a
 Carteira Cidadã e veja o documento chegar → transfira à Farmácia → dispense no
@@ -166,11 +186,11 @@ e evita que quem só quer ver o sistema funcionando baixe o Playwright inteiro.
 
 ```bash
 pip install pytest                          # unidade e integração
-cd backend && pytest tests/unit -q          # 592
+cd backend && pytest tests/unit -q          # 620
 
 pip install -r ../requirements-browser.txt  # navegador (Playwright)
 python3 -m playwright install chromium      # ~8 min na primeira vez
-pytest tests/browser -q                     # 139
+pytest tests/browser -q                     # 221
 ```
 
 ### Prefere Docker?
@@ -214,10 +234,10 @@ Contagem única, verificável, sem arredondamento para cima:
 
 | Suíte | Testes | Como conferir |
 |---|---|---|
-| unidade (sem banco) | **592** | `pytest tests/unit -q` |
-| integração (PostgreSQL) | **629** | `pytest tests/integration --ignore=tests/integration/test_concorrencia.py -q` |
-| navegador (Playwright, ponta a ponta) | **139** | `pytest tests/browser -q` |
-| **total no gate** | **1.360** | os três acima, em todo PR |
+| unidade (sem banco) | **620** | `pytest tests/unit -q` |
+| integração (PostgreSQL) | **672** | `pytest tests/integration --ignore=tests/integration/test_concorrencia.py -q` |
+| navegador (Playwright, ponta a ponta) | **221** | `pytest tests/browser -q` |
+| **total no gate** | **1.513** | os três acima, em todo PR |
 
 O repositório contém outros testes fora do gate principal (suítes históricas em
 `backend/tests/*.py`, parcialmente cobertas por passos específicos do CI). **O

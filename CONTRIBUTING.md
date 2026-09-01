@@ -15,6 +15,39 @@ Este guia é curto de propósito — para ser lido inteiro antes do primeiro caf
 
 Veja `README.md` → seção "Quick Start (5 min)".
 
+## Como a casa classifica uma mudança
+
+Toda mudança no PicSaúde é classificada antes de ser implementada — a classe
+determina o nível de revisão exigido (`AGENTS.md` §10, espelhado em
+`CLAUDE.md` §10):
+
+| Classe | O que é | Revisão |
+|---|---|---|
+| `core` | Ledger, custódia, máquina de estados, RBAC, documento canônico, protocolos públicos | Revisão central obrigatória |
+| `module` | Novo objeto sanitário ou extensão de módulo existente | Checklist de `docs/NUCLEO_SANITARIO.md` + revisão |
+| `adapter` | Integração externa — **nunca** escreve direto no banco clínico | Revisão de contrato de interface |
+| `local-extension` | Customização que não altera semântica clínica | Revisão de isolamento |
+| `docs` | Documentação sem impacto em código executável | Revisão de consistência |
+| `ops` | Infraestrutura, empacotamento, CI/CD | Revisão de segurança operacional |
+
+Mudanças `core` — ledger, custódia, assinatura, documento canônico — nascem de
+um ticket (`docs/tickets/`) antes de virar código. Não são o lugar para um
+primeiro PR: exigem entender o contrato inteiro do núcleo primeiro. Comece por
+`good-first-issue` (abaixo).
+
+## O rito de um PR
+
+1. **Vermelho antes do verde** — se a mudança corrige um defeito, escreva o
+   teste que reproduz o defeito primeiro, confirme que ele falha pelo motivo
+   certo, só então corrija.
+2. **Suíte completa, não só o escopo declarado** — `pytest tests/unit -q` e,
+   se a mudança tocar telas, `pytest tests/browser -q`. Regressão fora do
+   escopo declarado é achado, não desculpa.
+3. **Um PR, uma mudança** — commits separados para código e para
+   documentação/ticket relacionado.
+4. **PRs `core`/`module` esperam revisão** antes do merge — não é bloqueio
+   burocrático, é a mesma disciplina que mantém o ledger confiável.
+
 ## Convenções
 
 - Type hints em todas as funções públicas

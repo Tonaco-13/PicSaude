@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Classificação** | `local-extension` / `docs` — declara política e mapeia o existente; **não altera semântica clínica** (estados, ledger, custódia) |
-| **Origem** | Decisão #2 da demo Laboratório (`planejamento/demo-laboratorio-laudo-cidadao/`, Ticket A) |
+| **Origem** | Decisão #2 da demo Laboratório (`planejamento/demo-laboratorio-laudo-cidadao/`, Ticket A — caminho gerencial, removido do histórico pelo GP-3/B2, 31/08; citação histórica, não navegável) |
 | **Vigência** | 2026-08-13 |
 | **Escopo** | Objeto sanitário `laudo`. Não altera prescrição, pedido de exame, atestado |
 
@@ -154,7 +154,8 @@ Nenhum estado novo. Nenhuma tabela nova. Nenhuma alteração de transição. A c
   §10 (taxonomia de contribuição).
 - `ETHICS.md` — não-objetivos éticos.
 - Tickets: `planejamento/demo-laboratorio-laudo-cidadao/TICKET-A-politica-custodia-clinica.md`
-  (esta política), `TICKET-B` (fluxo bancada), `TICKET-C` (RBAC do dispensador).
+  (esta política), `TICKET-B` (fluxo bancada), `TICKET-C` (RBAC do dispensador) — caminho
+  gerencial, removido do histórico pelo GP-3/B2 (31/08); citação histórica, não navegável.
 
 ---
 
