@@ -79,13 +79,13 @@ def test_e11_e_j45_estao_exaustivos():
     assert "E11" in cids and "J45" in cids
 
 
-def test_f32_e_n39_seguem_nao_exaustivos():
-    """A lei da exaustividade não virou padrão: quem não assinou, segue
-    silencioso (neutro) — sem viés a favor dos curados."""
+def test_f32_e_n39_assinaram_0209_e_o_silencio_mudou_de_lado():
+    """Atualizada no flip de 02/09: F32 e N39.0 ASSINARAM (guarda própria em
+    test_semaforo_flip_f32_n39.py). A lei da exaustividade segue valendo para
+    quem nunca foi curado — o exemplo agora é M54.5."""
     _, cids, _ = _carregar()
-    assert "F32" not in cids
-    assert "N39.0" not in cids
-    assert _av("F32", "sertralina").sinal not in (SINAL_VERDE, SINAL_AMARELO)
+    assert "F32" in cids and "N39.0" in cids
+    assert _av("M54.5", "dipirona").sinal not in (SINAL_VERDE, SINAL_AMARELO)
 
 
 # ---------------------------------------------------------------------------

@@ -86,19 +86,24 @@ J45,Asma,mepolizumabe,"PCDT Asma 2026 (Port. Conjunta SAES/SCTIE 43/2026, §7.4.
 J45,Asma,omalizumabe,"PCDT Asma 2026 (Port. Conjunta SAES/SCTIE 43/2026, §7.4.1, p. 37-41)",validado,Fabiano Tonaco Borges,semaforo_j45_exaustiva_v1_2026-08,true
 J45,Asma,benralizumabe,"PCDT Asma 2026 (Port. Conjunta SAES/SCTIE 43/2026, §7.4.1, p. 37-41)",validado,Fabiano Tonaco Borges,semaforo_j45_exaustiva_v1_2026-08,true
 J45,Asma,dupilumabe,"PCDT Asma 2026 (Port. Conjunta SAES/SCTIE 43/2026, §7.4.1, p. 37-41)",validado,Fabiano Tonaco Borges,semaforo_j45_exaustiva_v1_2026-08,true
+F32,Depressão,fluoxetina,"RENAME 2024 (p. 95, 131)",validado,Fabiano Tonaco Borges,semaforo_f32_exaustiva_v1_2026-09,true
+F32,Depressão,clomipramina,"RENAME 2024 (p. 95, 130)",validado,Fabiano Tonaco Borges,semaforo_f32_exaustiva_v1_2026-09,true
+F32,Depressão,amitriptilina,"RENAME 2024 (p. 94, 130)",validado,Fabiano Tonaco Borges,semaforo_f32_exaustiva_v1_2026-09,true
+F32,Depressão,nortriptilina,"RENAME 2024 (p. 97, 132)",validado,Fabiano Tonaco Borges,semaforo_f32_exaustiva_v1_2026-09,true
+F32,Depressão,bupropiona,"RENAME 2024 (p. 95 — ATC N06AX12, componente Estratégico)",validado,Fabiano Tonaco Borges,semaforo_f32_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),nitrofurantoína,"RENAME 2024 (p. 71, 142) + RAMB 2003 (p. 5-7)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),fosfomicina,"RAMB 2003 (p. 5) — NÃO consta da RENAME 2024 (ausência declarada por decisão do Fabiano, 02/09)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),cefalexina,"RENAME 2024 (p. 61, 129) + RAMB 2003 (p. 5-6)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),amoxicilina,"RENAME 2024 (p. 58, 126) + RAMB 2003 (p. 5)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),amoxicilina + clavulanato de potássio,"RENAME 2024 (p. 58, 126)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),sulfametoxazol + trimetoprima,"RENAME 2024 (p. 77, 144) + RAMB 2003 (p. 5, 8)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),ciprofloxacino,"RENAME 2024 (p. 61, 129) — reserva (AWaRe Watch)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
+N39.0,Infecção do trato urinário (ITU),levofloxacino,"RENAME 2024 (p. 70, 153) — reserva (AWaRe Watch)",validado,Fabiano Tonaco Borges,semaforo_n39_exaustiva_v1_2026-09,true
 E03,Hipotireoidismo,levotiroxina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 E78,Dislipidemia,sinvastatina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 E78,Dislipidemia,atorvastatina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F32,Depressão,fluoxetina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F32,Depressão,sertralina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F32,Depressão,escitalopram,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F32,Depressão,amitriptilina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 K21,Refluxo gastroesofágico (DRGE),omeprazol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 K21,Refluxo gastroesofágico (DRGE),pantoprazol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-N39.0,Infecção do trato urinário (ITU),fosfomicina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-N39.0,Infecção do trato urinário (ITU),nitrofurantoína,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-N39.0,Infecção do trato urinário (ITU),cefalexina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-N39.0,Infecção do trato urinário (ITU),ciprofloxacino,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 F41,Transtornos ansiosos,clonazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 F41,Transtornos ansiosos,diazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 F41,Transtornos ansiosos,fluoxetina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
