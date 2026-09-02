@@ -359,3 +359,47 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   empiricamente), prova por duas pernas (runtime + inspeção de fonte).
   620 unit + 220 browser tests verdes. **Próxima: Lente da abertura
   (foto exata, `module`)**, em cima desta — as duas tocam `index.html`.
+- ✅ **Lente da abertura — foto exata — ENTREGUE e FECHADO 01/09** — ✔️
+  **#243** (`176074c`, squash — merge direto). O cartão real de
+  `lente.js::_cartaoPublico`/`_cartaoCirculacao` reescrito para as
+  QUATRO linhas do exemplo estático: Protocolo (mascarado — seis,
+  reticências, quatro), Tipo de objeto, Estado cru + frase humana, e a
+  linha fixa "Dados clínicos: não exibidos. Visão de auditoria." em
+  todo resultado. Dicionário de frases (`LENTE_FRASES`/
+  `LENTE_FRASES_CIRCULACAO`) nasce dos contratos — cada chave conferida
+  linha a linha contra `ESTADOS_TERMINAIS_*` do `states*.py`
+  correspondente; estado sem entrada aparece cru, sozinho (`assinado`
+  do atestado e `registrada` da contrarreferência são exemplos
+  deliberados de SEM frase — não são terminais). Sete espécies de
+  objeto cobertas (6 tipos públicos + circulação diagnóstica). Achado
+  ao rodar a suíte: 4 asserções antigas checavam o protocolo COMPLETO
+  (agora mascarado por desenho) — migradas. Teste novo, ponta a ponta:
+  emite → dispensa de verdade (`dispensada`, TERMINAL) → consulta na
+  abertura → "Dispensada. Jornada concluída." + a linha de
+  neutralidade, ambas literais. 620 unit + 221 browser tests verdes.
+- ✅ **Lista de espera direta — ENTREGUE e FECHADO 02/09** — ✔️ **#247**
+  (`9ca2b5d`, squash — RATIFICADA pelo arquiteto ["as seis invariantes
+  verificadas com prova própria"] + martelo do Fabiano). `POST
+  /lista-espera` (público, sem auth) substitui o mailto-como-mecanismo
+  em `entrar.html` (que vira fallback visível, não mais o caminho
+  principal). Base isolada POR CONSTRUÇÃO, não por exceção no script de
+  reset: schema próprio `lista_espera` em PostgreSQL (nunca `public` —
+  fora do `DROP SCHEMA CASCADE` do reset diário), arquivo próprio em
+  SQLite. **Achado real ao rodar o reset de verdade**: `alembic_version`
+  mora no schema dropado — a migração reaplicava contra uma tabela que
+  SOBREVIVEU e colidia; corrigida para idempotente (guard
+  `_table_exists`, disciplina de `2a36dba2e33f`). Prova de ponta a
+  ponta: `test_lista_espera_sobrevive_ao_reset` — dois resets seguidos
+  (o cron roda todo dia), a inscrição sobrevive às duas. Defesas
+  mínimas: validação Pydantic, honeypot (campo fora da tela por
+  posicionamento — não `display:none`, sinal que bots avançados
+  reconhecem e pulam — preenchido finge sucesso sem gravar, o robô
+  nunca sabe que foi pego), rate limit por IP (reuso de
+  `rate_limit.py`), caps de volume total. Sem GET público — enumeração
+  é vazamento. Copy antiga morta ("nada é enviado sem que ela veja e
+  confirme"); linha de consentimento nova no lugar. 635 unit + 673
+  integração + 224 browser = 1.532 no gate.
+  **Conferência pendente do arquiteto**: ciclo completo com o relógio
+  do Render — inscrição de teste hoje, reset das 04:00, a inscrição
+  ainda lá às 04:01. Leitura manual (Render), sem GET público por
+  desenho.
