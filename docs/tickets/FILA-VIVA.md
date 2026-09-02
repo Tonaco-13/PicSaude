@@ -239,7 +239,15 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   desenho) e substitui pelo resultado real, achado ou não. Fila do
   engenheiro fica limpa — próximo item depende do menu do Fabiano
   (assinatura E11+J45, B1/B2, GP-2).
-- 🟡 **Curadoria F32+N39.0 — ASSINADA 02/09, PR #249 aberta** (rascunhos com recomendações aprovadas inteiras; as sementes acabaram — todo CID com rows está assinado). Decisões originais:: fontes estagiadas com sha256 — **RENAME 2024** (espelho
+- ✅ **Curadoria F32+N39.0 — ASSINADA e FECHADA 02/09** — ✔️ **#249**
+  (`d4509e4`, squash — martelo do Fabiano "Estou de acordo... com suas
+  recomendações") + **#250** (`5d3b66f`, docs, manifests/rascunhos, merge
+  junto). Cinco CIDs exaustivos na vitrine: I10, E11, J45, F32, N39.0.
+  As sementes acabaram — todo CID com rows na base está assinado; os
+  exemplos de silêncio nos testes migraram para CIDs nunca curados
+  (M54.5), como as leis contam nos próprios docstrings.
+  (rascunhos com recomendações aprovadas inteiras). Decisões originais:
+  fontes estagiadas com sha256 — **RENAME 2024** (espelho
   governamental AL; BVS canônico recusou download programático, registrado) +
   AMB/ABP 2009 + Fiocruz APS 2022 + RAMB ITU 2003 (`fontes-oficiais/diretrizes/`
   e `rename/`). **Achado transversal**: 3 das 8 seeds citam "RENAME" sem
@@ -411,3 +419,11 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   do Render — inscrição de teste hoje, reset das 04:00, a inscrição
   ainda lá às 04:01. Leitura manual (Render), sem GET público por
   desenho.
+- ✅ **Link do código-fonte na fachada — ENTREGUE e FECHADO 02/09** —
+  ✔️ **#251** (`a2158ab`, squash). "Código-fonte (GitHub)" →
+  github.com/Tonaco-13/PicSaude em `index.html` (coluna Plataforma do
+  rodapé) e `entrar.html` (linha de contato) — `target="_blank"` +
+  `rel="noopener noreferrer"`, microcopy "Código aberto · AGPL-3.0".
+  Vermelho-antes-do-verde confirmado: é o ÚNICO alvo `http(s)://`
+  externo em cada página (sabotagem com um segundo link externo pegou
+  o teste). 643 unit + 228 browser tests verdes.
