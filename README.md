@@ -3,7 +3,7 @@
 **Infraestrutura de circulação sem atrito de objetos sanitários com custódia cidadã.**
 
 [![Licença: AGPL v3](https://img.shields.io/badge/Licença-AGPL_v3-blue.svg)](LICENSE)
-[![Testes](https://img.shields.io/badge/gate-1513%20testes-brightgreen.svg)](#os-números-deste-repositório)
+[![Testes](https://img.shields.io/badge/gate-1532%20testes-brightgreen.svg)](#os-números-deste-repositório)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Demo pública](https://img.shields.io/badge/demo-picsaude.com.br-1e3a8a.svg)](https://picsaude.com.br)
 
@@ -186,11 +186,11 @@ e evita que quem só quer ver o sistema funcionando baixe o Playwright inteiro.
 
 ```bash
 pip install pytest                          # unidade e integração
-cd backend && pytest tests/unit -q          # 620
+cd backend && pytest tests/unit -q          # 635
 
 pip install -r ../requirements-browser.txt  # navegador (Playwright)
 python3 -m playwright install chromium      # ~8 min na primeira vez
-pytest tests/browser -q                     # 221
+pytest tests/browser -q                     # 224
 ```
 
 ### Prefere Docker?
@@ -234,10 +234,10 @@ Contagem única, verificável, sem arredondamento para cima:
 
 | Suíte | Testes | Como conferir |
 |---|---|---|
-| unidade (sem banco) | **620** | `pytest tests/unit -q` |
-| integração (PostgreSQL) | **672** | `pytest tests/integration --ignore=tests/integration/test_concorrencia.py -q` |
-| navegador (Playwright, ponta a ponta) | **221** | `pytest tests/browser -q` |
-| **total no gate** | **1.513** | os três acima, em todo PR |
+| unidade (sem banco) | **635** | `pytest tests/unit -q` |
+| integração (PostgreSQL) | **673** | `pytest tests/integration --ignore=tests/integration/test_concorrencia.py -q` |
+| navegador (Playwright, ponta a ponta) | **224** | `pytest tests/browser -q` |
+| **total no gate** | **1.532** | os três acima, em todo PR |
 
 O repositório contém outros testes fora do gate principal (suítes históricas em
 `backend/tests/*.py`, parcialmente cobertas por passos específicos do CI). **O

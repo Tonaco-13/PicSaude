@@ -219,6 +219,51 @@ def test_ac6_idempotente(banco_descartavel):
 
 
 # ---------------------------------------------------------------------------
+# Lista de espera — sobrevive ao reset (despacho "Lista de espera direta")
+# ---------------------------------------------------------------------------
+#
+# `lista_espera.inscricoes` mora num schema PRÓPRIO (`lista_espera`, não
+# `public`) — por construção, fora do `DROP SCHEMA "public" CASCADE` que o
+# reset faz. Prova de ponta a ponta contra o script REAL, não contra a
+# lógica isolada: insere → reseta DUAS vezes seguidas (o cron roda todo
+# dia, não uma vez) → confirma que a linha sobrevive às duas.
+
+def test_lista_espera_sobrevive_ao_reset(banco_descartavel):
+    _rebuild_ok()  # garante lista_espera.inscricoes criada (migração)
+
+    conn = psycopg2.connect(_THROWAWAY_URL)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO lista_espera.inscricoes (nome, email, origem, created_at) "
+                "VALUES (%s, %s, %s, now())",
+                ("Maria Sobrevivência", "maria.sobrevivencia@example.com", "teste-reset"),
+            )
+    finally:
+        conn.close()
+
+    assert _query_one(
+        "SELECT count(*) FROM lista_espera.inscricoes WHERE email = %s",
+        ("maria.sobrevivencia@example.com",),
+    ) == 1, "pré-condição: inscrição não foi gravada"
+
+    _rebuild_ok()  # reset #1
+
+    assert _query_one(
+        "SELECT count(*) FROM lista_espera.inscricoes WHERE email = %s",
+        ("maria.sobrevivencia@example.com",),
+    ) == 1, "reset #1 apagou a lista de espera — a base não sobreviveu"
+
+    _rebuild_ok()  # reset #2 — o cron roda TODO dia, não uma vez só
+
+    assert _query_one(
+        "SELECT count(*) FROM lista_espera.inscricoes WHERE email = %s",
+        ("maria.sobrevivencia@example.com",),
+    ) == 1, "reset #2 apagou a lista de espera — sobrevivência não é idempotente"
+
+
+# ---------------------------------------------------------------------------
 # AC9 — alvo protegido: sem flag e não-interativo → aborta, sem DROP
 # ---------------------------------------------------------------------------
 
