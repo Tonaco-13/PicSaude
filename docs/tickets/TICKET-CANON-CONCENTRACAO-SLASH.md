@@ -5,7 +5,7 @@
 | **Origem** | Guarda do flip E11+J45 (31/08, `test_semaforo_flip_e11_j45.py`) — achado real no dia da assinatura |
 | **Classe** | `core` — `canon_ativo` é canonização do motor clínico (`semaforo_decisao.py`), mesma peça do strip de dose (#220) |
 | **Para** | Engenheiro · **exige martelo do Fabiano** (régua `core`) |
-| **Estado** | 🟡 Desenho pronto, aguardando slot |
+| **Estado** | ✔️ **FECHADO 31/08 — PR #239** (`b57b6a2`, squash — RATIFICADA pelo arquiteto + martelo do Fabiano). Ver `docs/tickets/FILA-VIVA.md` §C (onda PCDT — camada 2) para o registro completo |
 
 ---
 
