@@ -239,6 +239,14 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   desenho) e substitui pelo resultado real, achado ou não. Fila do
   engenheiro fica limpa — próximo item depende do menu do Fabiano
   (assinatura E11+J45, B1/B2, GP-2).
+- 🟡 **Curadoria F32+N39.0 — ASSINADA 02/09, PR #249 aberta** (rascunhos com recomendações aprovadas inteiras; as sementes acabaram — todo CID com rows está assinado). Decisões originais:: fontes estagiadas com sha256 — **RENAME 2024** (espelho
+  governamental AL; BVS canônico recusou download programático, registrado) +
+  AMB/ABP 2009 + Fiocruz APS 2022 + RAMB ITU 2003 (`fontes-oficiais/diretrizes/`
+  e `rename/`). **Achado transversal**: 3 das 8 seeds citam "RENAME" sem
+  constar na RENAME 2024 (sertralina, escitalopram, **fosfomicina**) —
+  `RASCUNHO-F32-DEPRESSAO-2026.md` §2 e `RASCUNHO-N39-ITU-2026.md` §3 carregam
+  os pontos de decisão com recomendação. Nota-ops no N39 §5: re-conferir as 61
+  rows do I10 contra o RENAME estagiado (mesmo defeito pode estar lá).
 - ✔️ **Reset diário da vitrine** — **entregue completo**: PR #212 mergeado 27/08 (`8202f5a`); Blueprint **aplicado** por Fabiano na noite de 27/08; primeiro run automático **28/08 04:00 BRT com sucesso** (dashboard: "Successful run" — verde que, com a sentinela pós-seed, agora é prova, não silêncio)
 - ✔️ **Higiene do campo de paciente — M-B → M-C → M-D (28/08)**: M-B (chips, #213,
   `b0ef413`) e M-C (padrão + atestado, #214, `8b714fa`) **REVOGADOS** pelo M-D —
