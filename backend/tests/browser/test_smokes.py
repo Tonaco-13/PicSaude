@@ -715,8 +715,19 @@ class TestGuiaNaVitrine:
         page.goto(app_demo, wait_until="networkidle")
         rodape = page.locator("footer")
         expect(rodape).to_contain_text("contato@picsaude.com.br", timeout=_TIMEOUT_MS)
-        # O responsável técnico permanece nomeado na vitrine (decisão do Fabiano).
-        expect(rodape).to_contain_text("Dr. Fabiano Tonaco Borges")
+        # A atribuição da vitrine virou INSTITUCIONAL (04/09): a linha
+        # "Responsável técnico: Dr. Fabiano Tonaco Borges" saiu do rodapé e deu
+        # lugar ao projeto de extensão PJ324-2026. A asserção anterior exigia o
+        # nome aqui (TICKET-RODAPE-CONTATO) — é a MESMA inversão que já ocorrera
+        # no guia, logo acima, agora chegando à abertura.
+        # A fachada fala pela instituição; o documento fala pela pessoa: o
+        # responsável está na certidão, o titular no README, o assinante das
+        # curadorias em cada row. Ver
+        # docs/tickets/DESPACHO-ATRIBUICAO-INSTITUCIONAL.md, e a guarda
+        # dedicada em test_atribuicao_institucional.py.
+        # O contato segue institucional (contato@), que é o ponto deste teste.
+        expect(rodape).not_to_contain_text("Dr. Fabiano Tonaco Borges")
+        expect(rodape).to_contain_text("Universidade Federal de Pernambuco")
         expect(
             page.locator('footer a[href="mailto:contato@picsaude.com.br"]')
         ).to_be_visible(timeout=_TIMEOUT_MS)

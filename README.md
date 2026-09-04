@@ -201,7 +201,13 @@ PostgreSQL, healthcheck e volume persistente.
 
 ### Para extensionistas da UFPE
 
-Projeto de extensão do CTG/UFPE. Comece por
+**Registro institucional:** projeto de extensão **PJ324-2026**, *PicSaúde:
+Plataforma de Integração do Cuidado e Infraestrutura Computacional de Custódia
+Sanitária para o SUS*, do Departamento de Engenharia Biomédica (CTG/UFPE), em
+execução. Certidão em
+[`docs/institucional/PJ324-2026.md`](docs/institucional/PJ324-2026.md).
+
+Comece por
 [`CONTRIBUTING-EXTENSAO.md`](CONTRIBUTING-EXTENSAO.md) — mapa do repositório,
 primeiros tickets (`good-first-issue`), a convenção de nomes pt-BR/en e o
 roteiro de homologação manual.
