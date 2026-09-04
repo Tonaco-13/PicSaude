@@ -37,6 +37,24 @@ O restante do bloco `.footer-legal` (licença, avisos) permanece como está.
 
 **Régua de pontuação:** zero travessão, ponto final, nada de emenda de palavra.
 
+### Ratificação de 04/09 — dois acréscimos de uma linha
+
+Na ratificação da #255 o arquiteto acrescentou:
+
+1. **A substituição vale nas DUAS fachadas.** `demo.html` tinha a mesma linha
+   pessoal no rodapé e recebe a mesma linha institucional, com o mesmo href.
+   **Decisão pelo princípio da fachada:** onde a vitrine se apresenta, quem
+   assina é a instituição — o princípio não é de uma página, é da fachada.
+2. **O âncora ganha `target="_blank" rel="noopener noreferrer"`**, paridade
+   com o link do repositório. A casa não deixa a aba nova controlar a
+   original.
+
+Os atributos valem para as duas cópias da linha: "mesma linha institucional"
+é literal, e duas fachadas com atributos diferentes seriam divergência sem
+motivo. Cada página estiliza no seu próprio idiom — `index.html` pela regra
+`.footer-legal a`, `demo.html` pelo `style` inline que já usa no mailto —
+porque isso é formatação, não copy.
+
 ---
 
 ## 2. FAQ — resposta "Quem faz? Como sei que posso confiar?"

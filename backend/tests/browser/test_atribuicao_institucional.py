@@ -17,9 +17,13 @@ o assinante de cada curadoria clínica está na própria row (`validado_por`).
 1. A linha institucional está no rodapé, **verbatim**, com o href da certidão.
 2. A ocorrência pessoal **saiu** do `index.html` — a troca é troca, não
    acréscimo (se as duas coexistissem, a decisão não teria sido aplicada).
-3. A linha é visível e clicável na página renderizada.
-4. A emenda do FAQ ("Quem faz? Como sei que posso confiar?") está **verbatim**.
-5. A régua de pontuação da casa: zero travessão nas duas cópias novas.
+3. A linha é visível e clicável, com `target="_blank"` +
+   `rel="noopener noreferrer"` — paridade com o link do repositório.
+4. **As DUAS fachadas** falam pela instituição: `demo.html` tinha a mesma
+   linha pessoal e recebeu a mesma troca, com href e atributos idênticos. O
+   princípio é da fachada, não de uma página só.
+5. A emenda do FAQ ("Quem faz? Como sei que posso confiar?") está **verbatim**.
+6. A régua de pontuação da casa: zero travessão nas duas cópias novas.
 
 A copy das duas é travada pelo arquiteto. A fonte canônica é
 `docs/tickets/DESPACHO-ATRIBUICAO-INSTITUCIONAL.md` — este arquivo é a cópia
@@ -89,6 +93,35 @@ def test_a_ocorrencia_pessoal_saiu_do_rodape(app_demo):
     )
 
 
+def test_a_demo_tambem_fala_pela_instituicao(app_demo):
+    """A substituição vale nas DUAS fachadas (ratificação de 04/09).
+
+    O princípio é da fachada, não de uma página: onde a vitrine se apresenta,
+    quem assina é a instituição. `demo.html` tinha a mesma linha pessoal.
+    """
+    html = httpx.get(f"{app_demo}/demo.html", timeout=15.0).text
+
+    assert _OCORRENCIA_PESSOAL not in html, (
+        "a linha 'Responsável técnico' ainda está no rodapé da demo"
+    )
+    assert _LINHA_INSTITUCIONAL in _texto(html), (
+        "a demo não recebeu a linha institucional verbatim"
+    )
+    assert _CERTIDAO_URL in html, "a demo não aponta para a certidão PJ324-2026"
+
+
+def test_a_linha_da_demo_e_clicavel_com_os_mesmos_atributos(page: Page, app_demo):
+    """Mesma linha, mesmo href, mesmos atributos das duas fachadas."""
+    page.goto(f"{app_demo}/demo.html", wait_until="networkidle")
+
+    link = page.get_by_role("link", name=_LINHA_INSTITUCIONAL)
+    expect(link).to_have_count(1)
+    expect(link).to_be_visible(timeout=_TIMEOUT_MS)
+    expect(link).to_have_attribute("href", _CERTIDAO_URL)
+    expect(link).to_have_attribute("target", "_blank")
+    expect(link).to_have_attribute("rel", "noopener noreferrer")
+
+
 def test_a_linha_institucional_e_visivel_e_clicavel(page: Page, app_demo):
     page.goto(f"{app_demo}/", wait_until="networkidle")
 
@@ -96,6 +129,10 @@ def test_a_linha_institucional_e_visivel_e_clicavel(page: Page, app_demo):
     expect(link).to_have_count(1)
     expect(link).to_be_visible(timeout=_TIMEOUT_MS)
     expect(link).to_have_attribute("href", _CERTIDAO_URL)
+    # Paridade com o link do repositório (ratificação de 04/09): abre em aba
+    # nova, e a casa não deixa a aba nova controlar a original.
+    expect(link).to_have_attribute("target", "_blank")
+    expect(link).to_have_attribute("rel", "noopener noreferrer")
 
 
 def test_a_emenda_do_faq_esta_verbatim(app_demo):
