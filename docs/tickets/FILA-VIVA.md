@@ -427,3 +427,38 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   Vermelho-antes-do-verde confirmado: é o ÚNICO alvo `http(s)://`
   externo em cada página (sabotagem com um segundo link externo pegou
   o teste). 643 unit + 228 browser tests verdes.
+- ✅ **FAQ da abertura — ENTREGUE e FECHADO 04/09** — ✔️ **#253**
+  (`9fd5a4d`, squash; ratificada pela auditoria do arquiteto, martelo
+  do Fabiano). Seção "Perguntas de quem acabou de chegar" em
+  `index.html`, logo após Princípios: 9 entradas em
+  `<details>`/`<summary>`, accordion **nativo**, âncora `#faq`.
+  **O primeiro ticket nascido do público** — pergunta de amiga médica,
+  resposta na primeira porta, sem jargão no caminho de volta.
+  Copy do arquiteto **9/9 verbatim** (comparação palavra por palavra
+  contra o texto canônico, na entrega e na auditoria; zero travessões,
+  zero aspas curvas). Só formatação: quebra em dois parágrafos nas
+  respostas 1, 3 e 7, onde o texto vira de assunto — ratificada.
+  **Sem JS provado por comportamento**, não por leitura de código: um
+  contexto com `java_script_enabled=False` clica no `<summary>` e o
+  `<details>` fica `[open]` com a resposta visível. Teste irmão reprova
+  se algum `<script>` da página passar a mencionar a FAQ — se o
+  accordion nativo virar um de JavaScript, o gate acusa.
+  Link **"Perguntas"** no rodapé (coluna Plataforma, junto de #251) —
+  a sonda achou **zero** links apontando para `#faq`, âncora sem porta;
+  ratificado com convicção como defeito corrigido, não enfeite.
+  **Achado registrado como exemplo:** o teste da âncora falhou primeiro,
+  e o errado era o TESTE, não o produto. `scroll-behavior: smooth` sobre
+  ~5.700px leva mais de um segundo, e `networkidle` dispara com a
+  rolagem em voo (medida intermediária: `top=2314` numa janela de 720px;
+  assentada: `top=100`, o `scroll-margin-top`, contra topbar sticky de
+  87px). Sondar antes de "consertar" evitou mexer em código correto. O
+  teste agora espera a condição final e, na mesma espera, guarda o
+  invariante visual.
+  6 testes novos; suíte de navegador completa 234 verdes (rodada
+  inteira porque `index.html` é página compartilhada) + 160 guardas
+  estáticas de frontend; CI `gates` + `smokes` verdes.
+  **Melhoria de canal em vigor desta entrega em diante:** copy travada
+  **viaja no repo**. Texto travado pelo arquiteto vem acompanhado de um
+  doc de despacho em `docs/tickets/` com a copy na íntegra. O chat
+  perdeu o texto uma vez (a entrega parou pedindo a copy de volta); o
+  arquivo não perde.
