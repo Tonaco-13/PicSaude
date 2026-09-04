@@ -351,6 +351,41 @@
   .numero b { font-family: 'Fraunces', serif; font-weight: 500; font-size: clamp(34px, 4vw, 52px); color: var(--blue); line-height: 1; }
   .numero span { font-size: 13.5px; color: var(--ink-faint); }
 
+  /* ---------- FAQ (perguntas de quem acabou de chegar) ----------
+     Accordion NATIVO: <details>/<summary>. Sem uma linha de JS — a resposta
+     nasce no HTML e abre por comportamento do navegador. Quem chega com
+     script desligado lê tudo do mesmo jeito. */
+  .faq {
+    padding: clamp(80px, 12vh, 150px) 0;
+    border-top: 1px solid var(--line);
+    /* a topbar é sticky: sem esta folga a âncora encosta o título atrás dela */
+    scroll-margin-top: 100px;
+  }
+  .faq h2 { font-size: clamp(34px, 4.6vw, 58px); line-height: 1.1; max-width: 20ch; }
+  .faq-lista { margin-top: clamp(40px, 6vh, 64px); max-width: 74ch; }
+  .faq-item { border-top: 1px solid var(--line); }
+  .faq-item:last-child { border-bottom: 1px solid var(--line); }
+  .faq-item > summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: baseline; gap: 16px;
+    padding: 22px 0;
+    font-size: 18.5px; font-weight: 600; color: var(--ink);
+    transition: color .2s;
+  }
+  .faq-item > summary::-webkit-details-marker { display: none; }
+  .faq-item > summary::after {
+    content: '+'; margin-left: auto; align-self: center; flex: none;
+    font-family: 'Fraunces', serif; font-size: 28px; line-height: 1;
+    color: var(--green);
+  }
+  .faq-item[open] > summary::after { content: '–'; }
+  .faq-item > summary:hover { color: var(--blue); }
+  .faq-resposta { padding: 0 0 26px; max-width: 66ch; color: var(--ink-soft); font-size: 16px; }
+  .faq-resposta p + p { margin-top: 14px; }
+  @media (max-width: 820px) {
+    .faq-item > summary { font-size: 17px; gap: 12px; }
+  }
+
   /* ---------- reveals estilo Apple (camada extra; conteúdo nasce visível) ---------- */
   body.js-reveal .reveal {
     opacity: 0; transform: translateY(26px);
@@ -664,6 +699,123 @@
     </div>
   </section>
 
+  <!-- ============ FAQ ============
+       Accordion nativo: <details>/<summary>. A resposta nasce no HTML e abre
+       por comportamento do navegador — sem uma linha de JavaScript. -->
+  <section class="faq" id="faq">
+    <div class="wrap">
+      <h2 class="reveal">Perguntas de quem acabou de chegar</h2>
+
+      <div class="faq-lista reveal reveal-d1">
+
+        <details class="faq-item">
+          <summary>O que é um "objeto sanitário"?</summary>
+          <div class="faq-resposta">
+            <p>
+              É qualquer documento do cuidado que precisa circular.
+              A receita, o pedido de exame, o laudo, o atestado, o encaminhamento.
+            </p>
+            <p>
+              Hoje são papéis que você carrega de um lado para o outro.
+              Aqui são digitais. Têm identidade própria e um histórico que ninguém apaga.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>O que é "custódia"?</summary>
+          <div class="faq-resposta">
+            <p>
+              Quem detém o documento neste momento. A resposta é sempre uma e sempre sabida.
+              O padrão é o cidadão. Como a chave do Pix, o documento mora com quem ele serve.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>A consulta pública mostra meus dados?</summary>
+          <div class="faq-resposta">
+            <p>
+              Não. Mostra apenas que o objeto existe e em que estado está.
+            </p>
+            <p>
+              É como o registro da portaria do prédio. Anota quem entrou e quando.
+              Nunca o que há dentro dos apartamentos. Ninguém vê remédio, dose ou diagnóstico.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>Dados clínicos são vendidos ou monetizados?</summary>
+          <div class="faq-resposta">
+            <p>
+              Não. O valor está no trilho, não no que passa por ele.
+              A custódia é do cidadão. O que é público se limita a existência e estado.
+              E o código é aberto para qualquer um conferir.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>Preciso instalar um aplicativo?</summary>
+          <div class="faq-resposta">
+            <p>
+              Não. A carteira do cidadão funciona no navegador, ancorada ao seu CPF.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>E se faltar internet?</summary>
+          <div class="faq-resposta">
+            <p>
+              A receita pode ser impressa. A emissão em papel fica registrada como tal.
+              O trilho não se quebra quando a ponte cai.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>O que significam o verde e o amarelo na prescrição?</summary>
+          <div class="faq-resposta">
+            <p>
+              É o semáforo de apoio à decisão. Verde quando o remédio consta na lista
+              oficial para aquela condição. Amarelo quando não consta.
+              Sempre com a fonte citada.
+            </p>
+            <p>
+              Amarelo não é proibição. É honestidade.
+              A decisão continua sendo do profissional.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>Quem faz? Como sei que posso confiar?</summary>
+          <div class="faq-resposta">
+            <p>
+              É um projeto de código aberto, com licença AGPL e repositório público.
+              Qualquer pessoa pode ler, auditar, usar e contribuir.
+              As regras clínicas citam a fonte oficial, com página.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>Como posso ver funcionando?</summary>
+          <div class="faq-resposta">
+            <p>
+              Você está convidado. Esta vitrine é pública.
+              Entre no Consultório de demonstração.
+              Acompanhe o objeto na Carteira Cidadã e consulte na lente.
+            </p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <footer>
@@ -685,6 +837,7 @@
           <a href="#jornada">A jornada</a>
           <a href="#lente">Lente de auditoria</a>
           <a href="#principios">Princípios</a>
+          <a href="#faq">Perguntas</a>
           <a href="entrar.html">Lista de espera</a>
           <a href="https://github.com/Tonaco-13/PicSaude" target="_blank" rel="noopener noreferrer">Código-fonte (GitHub)</a>
           <span class="footer-caption">Código aberto · AGPL-3.0</span>
