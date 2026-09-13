@@ -506,3 +506,30 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   — o teste não cita id nenhum, só a frase. Lição ampliada: **trocar texto
   visível de página compartilhada conta como mudança compartilhada.**
   241 browser + 160 guardas estáticas verdes; CI `gates` + `smokes` verdes.
+- ✅ **Linha institucional nas ESTAÇÕES — ENTREGUE e FECHADO 04/09** —
+  ✔️ **#258** (`49bbb44`, squash). Extensão do princípio do #255: a linha
+  **deixa de ser só da fachada**. Prescritor, dispensador, cidadão e
+  clínica passam a mostrar a mesma linha institucional — mesma copy
+  travada, mesmo href da certidão PJ324-2026, mesmos `target="_blank"` +
+  `rel="noopener noreferrer"`. **Quem opera a plataforma também vê de quem
+  é a casa.**
+  **A clínica era a única estação SEM RODAPÉ nenhum.** Ganhou um com a
+  forma das outras três (aviso de licença + linha institucional), depois
+  das telas e antes dos modais, que são sobreposições. A alternativa —
+  rodapé só com a linha — deixaria a clínica como a única tela servida sem
+  o aviso de AGPL, num projeto cuja licença é AGPL. Decisão declarada na
+  PR, reversível em duas linhas.
+  **Dívida declarada, não escondida:** a linha vive hoje em **SEIS cópias**
+  (2 fachadas + 4 estações). **Não existe rodapé compartilhado** no
+  repositório — `submodulos.js` não injeta rodapé e só duas telas o
+  carregam —, então as cópias são inevitáveis sem construir um componente,
+  obra maior que esta e não pedida. O que impede a divergência é a guarda:
+  a copy travada mora em **UMA constante** e as seis telas são conferidas
+  contra ela. Componente de rodapé é ticket próprio, se o arquiteto quiser.
+  Guarda: `test_atribuicao_institucional.py` sobe de 7 para **15 testes**,
+  com as quatro estações numa **tabela parametrizada** (não quatro cópias
+  de teste — a linha é uma só e o que se prova em cada tela é idêntico):
+  linha verbatim + href + atributos + existe rodapé onde ela possa morar.
+  Conferido por script nas seis telas (exatamente UMA ocorrência verbatim
+  em cada) e o rodapé novo da clínica conferido renderizado.
+  249 browser + 160 guardas estáticas verdes; CI `gates` + `smokes` verdes.
