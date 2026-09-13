@@ -55,6 +55,36 @@ motivo. Cada página estiliza no seu próprio idiom — `index.html` pela regra
 `.footer-legal a`, `demo.html` pelo `style` inline que já usa no mailto —
 porque isso é formatação, não copy.
 
+### Extensão às ESTAÇÕES (04/09)
+
+A linha passa a valer também nas quatro telas de trabalho: **prescritor,
+dispensador, cidadão e clínica**. Não é mais só da fachada — quem **opera** a
+plataforma também vê de quem é a casa.
+
+Onde a linha vive hoje, com a mesma copy, o mesmo href e os mesmos atributos:
+
+| Tela | Rodapé antes | O que mudou |
+|---|---|---|
+| `index.html` | `.footer-legal` | linha pessoal → institucional |
+| `demo.html` | `.footer-brand` | linha pessoal → institucional |
+| `prescritor.html` | copyright + AGPL | ganhou a linha |
+| `dispensador.html` | copyright + AGPL | ganhou a linha |
+| `cidadao.html` | copyright + AGPL | ganhou a linha |
+| `clinica.html` | **nenhum** | ganhou rodapé com a forma das irmãs |
+
+A clínica era a única estação **sem rodapé nenhum**. Recebeu um com a mesma
+forma das outras três (aviso de licença + linha institucional), posicionado
+depois das telas e antes dos modais, que são sobreposições. A alternativa —
+um rodapé só com a linha institucional — deixaria a clínica como a única
+tela servida sem o aviso de AGPL, num projeto cuja licença é AGPL.
+
+**Não há rodapé compartilhado no repositório** (`submodulos.js` não injeta
+rodapé, e só duas telas o carregam), então as seis cópias são inevitáveis
+hoje sem construir um componente — obra maior que esta. O que impede as
+cópias de divergirem é a guarda parametrizada em
+`tests/browser/test_atribuicao_institucional.py`: a copy travada mora em UMA
+constante, e todas as telas são conferidas contra ela.
+
 ---
 
 ## 2. FAQ — resposta "Quem faz? Como sei que posso confiar?"
