@@ -118,6 +118,11 @@ def test_seed_da_demo_popula_catalogo_substancias(demo_db):
     conn = _conn(demo_db)
     try:
         n = conn.execute("SELECT COUNT(*) FROM catalogo_substancias").fetchone()[0]
+        presentes = {
+            r[0] for r in conn.execute(
+                "SELECT dcb_normalizada FROM catalogo_substancias"
+            ).fetchall()
+        }
     finally:
         conn.close()
 
@@ -128,9 +133,24 @@ def test_seed_da_demo_popula_catalogo_substancias(demo_db):
         "`app.domain.catalogo_seed.aplicar_seed_catalogo`). Sem isso o motor "
         "RDC 1.000/2025 fica cego e /catalogo/substancias responde vazio."
     )
-    assert n == len(_DCBS_ESPERADAS), (
-        f"o seed gravou {n} substâncias, mas o catálogo curado tem "
-        f"{len(_DCBS_ESPERADAS)} DCBs distintas — seed parcial."
+    # G1, 13/09: o seed deixou de gravar SÓ as curadas. Depois delas, aplica o
+    # Anexo I da Portaria 344/98 transcrito e CARIMBA o catálogo. A igualdade
+    # com as 56 era a guarda de "seed parcial" na época em que o seed curado
+    # era tudo que havia; hoje o parcial se detecta pelo contrário — toda DCB
+    # curada tem de continuar presente, e o total tem de ser MAIOR que elas.
+    assert n > len(_DCBS_ESPERADAS), (
+        f"o seed gravou {n} substâncias, mas o catálogo curado sozinho já tem "
+        f"{len(_DCBS_ESPERADAS)}. O snapshot carimbado do Anexo I não foi "
+        f"aplicado (`aplicar_snapshot_anexo_i` em `_garantir_catalogo_regulatorio`) "
+        f"— sem ele `validar_classificacao` volta ao princípio da cautela."
+    )
+    # O que a igualdade realmente guardava: nenhuma curada pode SUMIR quando o
+    # snapshot passa por cima. Antimicrobianos e GLP-1 não são da Portaria 344
+    # e têm de sobreviver ao upsert.
+    faltando = sorted(set(_DCBS_ESPERADAS) - presentes)
+    assert not faltando, (
+        f"o snapshot carimbado engoliu DCB curada: {faltando}. O upsert é por "
+        f"`dcb_normalizada` e não deveria remover nada."
     )
 
 
@@ -178,7 +198,13 @@ def test_motor_enxerga_classificacao_do_clonazepam(demo_db):
             f"classe do clonazepam veio '{subst.classe_controle}', esperado 'B1' "
             "(Portaria SVS/MS 344/1998)"
         )
-        assert subst.fonte == "portaria_344"
+        # G1, 13/09: a fonte do clonazepam deixou de ser o slug `portaria_344`
+        # e passou a ser a CITAÇÃO OFICIAL, porque o snapshot carimbado do
+        # Anexo I passou por cima da row curada. A guarda melhorou junto: em
+        # vez do slug, exige a citação com versão — que é o que um auditor
+        # precisa ler.
+        assert "Portaria 344/98 consolidada" in subst.fonte, subst.fonte
+        assert "RDC 1.036/2026" in subst.fonte, subst.fonte
 
         # (b) o motor do /gerar reage: item declarado SEM classe vira alerta
         alertas = validar_itens_prescricao(
