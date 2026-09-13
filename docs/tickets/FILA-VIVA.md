@@ -462,3 +462,47 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   doc de despacho em `docs/tickets/` com a copy na íntegra. O chat
   perdeu o texto uma vez (a entrega parou pedindo a copy de volta); o
   arquivo não perde.
+- ✅ **Atribuição institucional — ENTREGUE e FECHADO 04/09** — ✔️ **#255**
+  (`953709f`, squash; ratificada com dois acréscimos de uma linha).
+  **A fachada fala pela instituição; o documento fala pela pessoa.**
+  A linha "Responsável técnico: Dr. Fabiano Tonaco Borges." sai do rodapé
+  das DUAS fachadas (`index.html` e `demo.html`) e dá lugar à linha
+  institucional, que aponta para a certidão do projeto de extensão
+  **PJ324-2026** no GitHub (`target="_blank"` + `rel="noopener
+  noreferrer"`, paridade com o link do repositório). A responsabilidade
+  pessoal não sumiu: mudou para onde é exigível e verificável — o
+  responsável na certidão, o titular no README, o assinante das curadorias
+  em cada row (`validado_por`).
+  Intactas por decisão explícita: a assinatura "PicSaúde. Feito para o
+  SUS.", a dedicação `.footer-sign p.sub` (voz da casa, não nomeação) e a
+  descrição `.footer-ded`.
+  **README** ganha a linha de registro junto aos extensionistas: código
+  PJ324-2026 + título oficial do SIGAA, **verbatim da certidão**, com link
+  relativo. **FAQ**: a resposta "Quem faz?" recebe a emenda (só a primeira
+  frase muda; sem link, porque o rodapé já leva à certidão).
+  **Proveniência com PII fora do repo:** `docs/institucional/PJ324-2026.md`
+  (certidão, pública) + `data/fontes-oficiais/ufpe/MANIFEST.md` (sha256).
+  O PDF do SIGAA **não é versionado** — a página 4 lista nomes completos de
+  dez participantes que não consentiram com republicação (régua do B1).
+  Verificado, não presumido: o sha256 bate; um `.pdf` de mentira no caminho
+  foi **recusado** pelo `git add` (deny-by-default `*` + allowlist no
+  `.gitignore` de `data/fontes-oficiais/`, não o glob genérico); o
+  `Dockerfile` copia `data/` por nome explícito, então o PDF também não
+  chega à imagem.
+  **Copy travada versionada** em
+  `docs/tickets/DESPACHO-ATRIBUICAO-INSTITUCIONAL.md` — primeira aplicação
+  da convenção de 04/09, que nasceu do FAQ (#253).
+  Guardas: `test_atribuicao_institucional.py` (7 testes — linha verbatim +
+  href + atributos nas duas fachadas, a pessoal SAIU, emenda do FAQ
+  verbatim, régua de pontuação); `test_link_codigo_fonte_fachada.py` passa
+  a declarar **dois alvos externos nomeados** no index (guarda a lista
+  fechada, não o número um).
+  **Achado registrado:** a suíte completa pegou
+  `test_smokes.py::test_index_tem_contato_institucional`, que **exigia** o
+  nome pessoal no rodapé — guarda da decisão ANTERIOR
+  (TICKET-RODAPE-CONTATO), a mesma inversão que já ocorrera no guia,
+  agora chegando à abertura. Vermelho que não era bug: era decisão
+  superada, emendada registrando a inversão. Um grep dirigido não acharia
+  — o teste não cita id nenhum, só a frase. Lição ampliada: **trocar texto
+  visível de página compartilhada conta como mudança compartilhada.**
+  241 browser + 160 guardas estáticas verdes; CI `gates` + `smokes` verdes.
