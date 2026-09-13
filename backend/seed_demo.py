@@ -43,7 +43,7 @@ from app.routers.pedidos_exame import (  # choke-point de posse (CLAUDE.md §7 p
     DETENTOR_PACIENTE,
     transferir_posse_exame,
 )
-from app.domain.catalogo_seed import aplicar_seed_catalogo
+from app.domain.catalogo_seed import aplicar_seed_catalogo, aplicar_snapshot_anexo_i
 
 # ---------------------------------------------------------------------------
 # Personas canônicas (§3.3 TICKET-6 — P3#8 CODEX rodada 1: IDs novos)
@@ -224,6 +224,26 @@ def _garantir_catalogo_regulatorio(conn) -> dict:
         f"(GLP-1 {contagens['glp1']} · antimicrobianos {contagens['antimicrobianos']} "
         f"· Portaria 344 {contagens['portaria_344']} · inativas {contagens['inativos']})"
     )
+
+    # G1 — o Anexo I oficial por cima do seed curado, E o carimbo.
+    #
+    # A ORDEM IMPORTA: o curado primeiro (é ele que traz antimicrobianos e
+    # GLP-1, que não são da Portaria 344 e sobrevivem intactos), o oficial
+    # depois, sobrescrevendo por `dcb_normalizada` onde os nomes batem. É
+    # literalmente o AC5 do desenho — "as curadas migram/reconciliam contra a
+    # lista oficial" —, e as divergências dessa migração estão relatadas em
+    # docs/tickets/RECONCILIACAO-ANEXO-I-2026-09-13.md, nunca silenciosas.
+    #
+    # NÃO é best-effort, pelo mesmo motivo do catálogo acima: shipado o
+    # carimbo, um seed que silenciosamente não o aplicasse devolveria a
+    # vitrine ao princípio da cautela sem ninguém notar — e `ausência de
+    # alerta` passaria a significar duas coisas diferentes sem aviso.
+    snapshot = aplicar_snapshot_anexo_i(conn)
+    print(
+        f"  ✅ Anexo I carimbado: {snapshot['entradas']} entradas "
+        f"({snapshot['versao']} · {snapshot['data_snapshot']})"
+    )
+
     return contagens
 
 

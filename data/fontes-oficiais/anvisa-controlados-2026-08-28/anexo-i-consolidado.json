@@ -1,0 +1,2989 @@
+{
+  "fonte": "Anexo I Portaria 344/98 consolidada, Atualização nº 101 — RDC 1.036/2026, Anvisa Legis 13/09/2026",
+  "versao": "RDC 1.036/2026 (Atualização nº 101)",
+  "data_snapshot": "2026-09-13",
+  "entradas": [
+    {
+      "dcb": "Acetilmetadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alfacetilmetadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alfameprodina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alfametadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alfaprodina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alfentanila",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alilprodina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Anileridina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Bezitramida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benzetidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benzilmorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benzoilmorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Betacetilmetadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Betameprodina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Betametadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Betaprodina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Buprenorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Butorfanol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clonitazeno",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Codoxima",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Concentrado de palha de dormideira",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dextromoramida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Diampromida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dietiltiambuteno",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Difenoxilato",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Difenoxina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Diidromorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dimefeptanol (metadol)",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "metadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Dimefeptanol (metadol)] no Anexo I (Lista A1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Dimenoxadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dimetiltiambuteno",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dioxafetila",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dipipanona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Drotebanol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etilmetiltiambuteno",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etonitazeno",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etoxeridina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenadoxona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenampromida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenazocina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenomorfano",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenoperidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fentanila",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Furetidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidrocodona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidromorfinol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidromorfona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidroxipetidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Intermediário da metadona (4-ciano-2-dimetilamina-4,4-difenilbutano)",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "4-ciano-2-dimetilamina-4,4-difenilbutano",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Intermediário da metadona (4-ciano-2-dimetilamina-4,4-difenilbutano)] no Anexo I (Lista A1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Intermediário da moramida (ácido 2-metil-3-morfolina-1,1-difenilpropano carboxílico)",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "ácido 2-metil-3-morfolina-1,1-difenilpropano carboxílico",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Intermediário da moramida (ácido 2-metil-3-morfolina-1,1-difenilpropano carboxílico)] no Anexo I (Lista A1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Intermediário \"a\" da petidina (4-ciano-1-metil-4-fenilpiperidina)",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "4-ciano-1-metil-4-fenilpiperidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Intermediário \"a\" da petidina (4-ciano-1-metil-4-fenilpiperidina)] no Anexo I (Lista A1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Intermediário \"b\" da petidina (éster etílico do ácido 4-fenilpiperidina-4-carboxilíco)",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "éster etílico do ácido 4-fenilpiperidina-4-carboxilíco",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Intermediário \"b\" da petidina (éster etílico do ácido 4-fenilpiperidina-4-carboxilíco)] no Anexo I (Lista A1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Intermediário \"c\" da petidina (ácido-1-metil-4-fenilpiperidina-4-carboxílico)",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "ácido-1-metil-4-fenilpiperidina-4-carboxílico",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Intermediário \"c\" da petidina (ácido-1-metil-4-fenilpiperidina-4-carboxílico)] no Anexo I (Lista A1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Isometadona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levofenacilmorfano",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levometorfano",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levomoramida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levorfanol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metadona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metazocina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metildesorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metildiidromorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metopona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mirofina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Morferidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Morfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Morinamida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nicomorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Noracimetadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Norlevorfanol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Normetadona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Normorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Norpipanona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "N-oxicodeína",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "N-oximorfina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ópio",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oripavina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxicodona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oximorfona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Petidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Piminodina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Piritramida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Proeptazina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Properidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Racemetorfano",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Racemoramida",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Racemorfano",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Remifentanila",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Sufentanila",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tapentadol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tebacona",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tebaína",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tilidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Trimeperidina",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Viminol",
+      "classe_controle": "A1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Acetildiidrocodeina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Codeína",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dextropropoxifeno",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Diidrocodeína",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etilmorfina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Folcodina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nalbufina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nalorfina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nicocodina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nicodicodina",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Norcodeína",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Propiram",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tramadol",
+      "classe_controle": "A2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Anfetamina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Catina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clorfentermina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dexanfetamina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dronabinol",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Femetrazina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenciclidina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenetilina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenfluramina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levanfetamina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lisdexanfetamina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metilfenidato",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metilsinefrina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tanfetamina",
+      "classe_controle": "A3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alfaxalona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Alprazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Amineptina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Amobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Aprobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Armodafinila",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Barbexaclona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Barbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Bromazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Bromazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Brotizolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Butabarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Butalbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Camazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Carisoprodol",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cetamina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cetazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ciclobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clobazam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clonazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clonazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clorazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clorazepato",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clordiazepóxido",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cloreto de etila",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cloreto de metileno/diclorometano",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clotiazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cloxazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Delorazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Diazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Diclazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Escetamina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Estazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Eszopiclona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etclorvinol",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etilanfetamina (N-etilanfetamina)",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "N-etilanfetamina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Etilanfetamina (N-etilanfetamina)] no Anexo I (Lista B1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Etinamato",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etizolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flualprazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flubromazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fludiazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flunitrazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flunitrazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flurazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "GBL",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "GHB - (ácido gama - hidroxibutírico)",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "ácido gama-hidroxibutírico",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [GHB - (ácido gama - hidroxibutírico)] no Anexo I (Lista B1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Glutetimida",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Halazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Haloxazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lefetamina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lemborexante",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Loflazepato de etila",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Loprazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lorazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lormetazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Medazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Meprobamato",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mesocarbo",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metilfenobarbital (prominal)",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "prominal",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Metilfenobarbital (prominal)] no Anexo I (Lista B1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Metiprilona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Midazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Modafinila",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nimetazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nitrazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Norcanfano (fencanfamina)",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "fencanfamina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Norcanfano (fencanfamina)] no Anexo I (Lista B1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Nordazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pemolina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pentazocina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pentobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Perampanel",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pinazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pipradrol",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pirovalerona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Prazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Prolintano",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Propilexedrina",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Remimazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Secbutabarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Secobarbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Temazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tetrazepam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tiamilal",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tiopental",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Triazolam",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tricloroetileno",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Triexifenidil",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Vinilbital",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Zaleplona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Zolpidem",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Zopiclona",
+      "classe_controle": "B1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Aminorex",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Anfepramona",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Femproporex",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fendimetrazina",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fentermina",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mazindol",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mefenorex",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Sibutramina",
+      "classe_controle": "B2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Acepromazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ácido valpróico",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Agomelatina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Amantadina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Amissulprida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Amitriptilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Amoxapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Aripiprazol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Asenapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Atomoxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Azaciclonol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Beclamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benactizina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benfluorex",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benzidamina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benzoctamina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Benzoquinamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Biperideno",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Brexpiprazol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Brivaracetam",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Bupropiona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Buspirona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Butaperazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Butriptilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Canabidiol (CBD)",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "CBD",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Canabidiol (CBD)] no Anexo I (Lista C1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Captodiamo",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Carbamazepina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Caroxazona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Celecoxibe",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cenobamato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ciclarbamato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ciclexedrina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ciclopentolato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cisaprida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Citalopram",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clomacrano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clometiazol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clomipramina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clorexadol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clorpromazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clorprotixeno",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clotiapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clozapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dapoxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Desflurano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Desipramina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Desvenlafaxina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Deutetrabenazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dexetimida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dexmedetomidina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dibenzepina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dimetracrina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Disopiramida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dissulfiram",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Divalproato de sódio",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Dixirazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Donepezila",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Doxepina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Droperidol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Duloxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ectiluréia",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Emilcamato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Enflurano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Entacapona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Escitalopram",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Estiripentol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etomidato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etoricoxibe",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etossuximida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Facetoperano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Femprobamato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenaglicodol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenelzina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Feniprazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fenitoina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flufenazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flumazenil",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fluoxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Flupentixol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fluvoxamina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Gabapentina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Galantamina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Haloperidol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Halotano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidrato de cloral",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidroclorbezetilamina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Hidroxidiona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Homofenazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Imicloprazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Imipramina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Imipraminóxido",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Iproclozida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Isocarboxazida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Isoflurano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Isopropil-crotonil-uréia",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lacosamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lamotrigina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Leflunomida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levetiracetam",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levomepromazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Levomilnaciprana",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lisurida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lítio",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Loperamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Loxapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lumiracoxibe",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Lurasidona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mavacanteno",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Maprotilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Meclofenoxato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mefenoxalona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mefexamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Memantina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mepazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mesoridazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metilnaltrexona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metilpentinol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metisergida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metixeno",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metopromazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metoxiflurano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mianserina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Milnaciprana",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Miltefosina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Minaprina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mirtazapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Misoprostol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Moclobemida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Molnupiravir",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Moperona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Naloxona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Naltrexona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nefazodona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nialamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nitrito de isobutila",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nitrito de isopentila",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nitrito de isopropila",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nomifensina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nortriptilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Noxiptilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Olanzapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Opipramol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxcarbazepina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxibuprocaína (benoxinato)",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "benoxinato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Oxibuprocaína (benoxinato)] no Anexo I (Lista C1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Oxifenamato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxipertina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Paliperidona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Parecoxibe",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Paroxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Penfluridol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Perfenazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pergolida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Periciazina (propericiazina)",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "propericiazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Periciazina (propericiazina)] no Anexo I (Lista C1). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Pimozida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pipamperona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pipotiazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pramipexol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pregabalina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Primidona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Proclorperazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Promazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Propanidina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Propiomazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Propofol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Protipendil",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Protriptilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Proximetacaina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Quetiapina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ramelteona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Rasagilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Reboxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ribavirina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Rimonabanto",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Risperidona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Rivastigmina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Rofecoxibe",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ropinirol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Rotigotina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Rufinamida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Selegilina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Sertralina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Sevoflurano",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Sulpirida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Sultoprida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tacrina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Teriflunomida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tetrabenazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tetracaína",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tiagabina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tianeptina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tiaprida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tioproperazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tioridazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tiotixeno",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tolcapona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Topiramato",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tranilcipromina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Trazodona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Triclofós",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Trifluoperazina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Trifluperidol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Trimipramina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Troglitazona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Valdecoxibe",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Valproato sódico",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Venlafaxina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Veraliprida",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Vigabatrina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Vilazodona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Vortioxetina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ziprasidona",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Zotepina",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Zuclopentixol",
+      "classe_controle": "C1",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Acitretina",
+      "classe_controle": "C2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Adapaleno",
+      "classe_controle": "C2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Bexaroteno",
+      "classe_controle": "C2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Isotretinoína",
+      "classe_controle": "C2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Tretinoína",
+      "classe_controle": "C2",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Ftalimidoglutarimida (talidomida)",
+      "classe_controle": "C3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "talidomida",
+      "classe_controle": "C3",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Ftalimidoglutarimida (talidomida)] no Anexo I (Lista C3). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Lenalidomida",
+      "classe_controle": "C3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Pomalidomida",
+      "classe_controle": "C3",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Androstanolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Bolasterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Boldenona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Cloroxomesterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Clostebol",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Deidroclormetiltestosterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Drostanolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Estanolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Estanozolol",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Etilestrenol",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fluoximesterona ou fluoximetiltestosterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Fluoximesterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Fluoximesterona ou fluoximetiltestosterona] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "fluoximetiltestosterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Fluoximesterona ou fluoximetiltestosterona] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Formebolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Gestrinona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mesterolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metandienona ou metandrostenolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metandienona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Metandienona ou metandrostenolona] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "metandrostenolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Metandienona ou metandrostenolona] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Metandranona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metandriol",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metenolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Metiltestosterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Mibolerona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Nandrolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Noretandrolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oxandrolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oximesterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Oximetolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Prasterona (deidroepiandrosterona - DHEA)",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "deidroepiandrosterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Prasterona (deidroepiandrosterona - DHEA)] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "DHEA",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Prasterona (deidroepiandrosterona - DHEA)] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Somapacitana",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Somatrogona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Somatropina (hormônio do crescimento humano)",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "hormônio do crescimento humano",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": "Designação alternativa de [Somatropina (hormônio do crescimento humano)] no Anexo I (Lista C5). Linha de lookup, não substância adicional da lista."
+    },
+    {
+      "dcb": "Testosterona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    },
+    {
+      "dcb": "Trembolona",
+      "classe_controle": "C5",
+      "tipo_retencao": null,
+      "observacao": null
+    }
+  ]
+}

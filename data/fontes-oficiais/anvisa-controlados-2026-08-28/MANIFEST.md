@@ -3,7 +3,17 @@
 Baixado pelo arquiteto (Z) em 28/08/2026 da página oficial:
 https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/controlados/lista-substancias
 Estes são os PDFs do HISTÓRICO DE EMENDAS ao Anexo I da Portaria 344/98 — não a lista consolidada.
-A lista consolidada requer exportação interativa do Anvisa Legis (gesto do Fabiano — ver DESENHO-TALAO-DIGITAL-SNCR.md §1.1).
+A lista consolidada requer exportação interativa do Anvisa Legis (ver DESENHO-TALAO-DIGITAL-SNCR.md §1.1).
+[Adendo 13/09/2026: a consolidada foi depositada nesta pasta — ver última entrada. Exportação via browser (Chromium/Playwright), courier Kimi.]
+
+## PORTARIA-344-1998-CONSOLIDADA-anvisalegis-2026-09-13.pdf  —  sha256:58e88fd05cee24ac…
+- Fonte (URL): https://anvisalegis.datalegis.net/action/ActionDatalegis.php?acao=abrirTextoAto&tipo=POR&numeroAto=00000344&seqAto=000&valorAno=1998&orgao=SVS/MS&codTipo=&desItem=&desItemFim=&cod_menu=1696&cod_modulo=134&pesquisa=true
+- Nota de edição: TEXTO CONSOLIDADO Anvisa Legis — "VIGENTE COM ALTERAÇÕES", atualizado até a Atualização nº 101 (RDC nº 1.036, de 09/07/2026). 57 páginas A4, 4,8 MB. Capturado via Chromium headless (print-to-PDF da visualização completa) porque a rota de impressão devolve vazio para curl (§1.1 do desenho). Sem login.
+- Probes de verificação: TALIDOMIDA (Lista A1) ✓ · LISTA DAS SUBSTÂNCIAS PSICOTRÓPICAS (B1) ✓ · todas as listas A1→F ✓ · ANEXOS I–IV ✓ · encerra com "Este texto não substitui a Publicação Oficial" ✓
+- **Errata da transcrição (13/09, engenheiro):** a probe "TALIDOMIDA (Lista A1)" está incorreta — nas listas de substância, talidomida aparece **uma única vez, na Lista C3**, como `1.Ftalimidoglutarimida (talidomida)` (p. 31). As ocorrências das p. 47–49 estão nos ANEXOS do Termo de Esclarecimento, que não são lista de substância. A probe de captura continua válida como prova de que o PDF baixou inteiro; o que não vale é a atribuição de lista. Conferido linha a linha no PDF. Ver `docs/tickets/RECONCILIACAO-ANEXO-I-2026-09-13.md`.
+- **Também da transcrição:** o consolidado traz o CÓDIGO da lista (`LISTA - B1`) além do título formal, e o código é indispensável — A3 e B1 compartilham o título "LISTA DAS SUBSTÂNCIAS PSICOTRÓPICAS", então mapear por título colapsaria as duas.
+- 1ª página: MINISTÉRIO DA SAÚDE • SECRETARIA DE VIGILÂNCIA SANITÁRIA • PORTARIA Nº 344, DE 12 DE MAIO DE 1998 • Aprova o Regulamento Técnico sobre substâncias e medicamentos sujeitos a controle especial.
+- Data: 13/09/2026
 
 ## f1.bin  —  sha256:f6f72a3bbc06ee4e…
 - URL: https://www.gov.br/anvisa/pt-br/assuntos/medicamentos/controlados/lista/arquivos-controlados/6527json-file-1/@@display-file/file
