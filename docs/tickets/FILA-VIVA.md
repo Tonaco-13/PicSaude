@@ -533,3 +533,97 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   Conferido por script nas seis telas (exatamente UMA ocorrência verbatim
   em cada) e o rodapé novo da clínica conferido renderizado.
   249 browser + 160 guardas estáticas verdes; CI `gates` + `smokes` verdes.
+- ✅ **I10 v2 estrito — MERGEADO 13/09** — ✔️ **#256** (`637e5e7`, squash).
+  Sinal verde do Fabiano de 04/09 ("sinal verde I10 estrito") + **martelo
+  verbal de 13/09, verbatim: "Merge e canetas autorizados"**, citado no corpo
+  da PR antes do merge. Elenco fundador 61 → **17**, cada row com página da
+  RENAME 2024; as 44 excomungadas viram 🟡 com causa; clortalidona fora da
+  posologia. Casos de demo preservados (I10×dapagliflozina segue 🟡, o
+  contraste com E11🟢 vive). Guarda: `test_semaforo_flip_i10_v2.py`, 7 testes.
+- ✅ **G1 CARIMBO REGULATÓRIO ATIVO — ENTREGUE e FECHADO 13/09** —
+  ✔️ **#260** (`a7cc4e2`, squash). **Fecha o AC5 do
+  `DESENHO-TALAO-DIGITAL-SNCR.md` §1.1, pendente desde 28/08 por falta de
+  fonte.** O PDF consolidado do Anvisa Legis chegou (Atualização nº 101 —
+  RDC 1.036/2026, 57 p., sha256 conferido contra o MANIFEST) e destravou tudo
+  que era mecânico.
+  **A inversão semântica está de pé:** substância ausente deixou de silenciar
+  e passou a AFIRMAR "não-controlado sob a versão V". Verificado ao vivo
+  contra banco limpo, e o vermelho-antes-de-verde confirmado — sem carimbo, a
+  mesma chamada volta ao silêncio. A inversão é gated by design e continua.
+  Transcrição offline (`scripts/transcrever_portaria_344.py`, pypdf, padrão
+  CID/SIGTAP/PCDT): **476 substâncias** nas nove listas prescritíveis + 21
+  designações alternativas declaradas pela própria fonte. D1/D2, E e F1–F4
+  ficam FORA do catálogo de prescrição — proscrito não é "controlado com
+  receita", e marcá-lo como classe faria o semáforo sugerir que existe
+  receituário para ele. O transcritor **recusa emitir** se a numeração 1..N
+  de alguma lista quebrar.
+  **Reconciliação (AC5): 17 conferem · 3 divergem · 0 ausentes**, todas
+  migrando no upsert — tramadol B1→**A2** (muda o receituário: A2 é
+  Notificação "A"), isotretinoína D1→**C2**, talidomida D1→**C3**.
+  Antimicrobianos e GLP-1 não são da Portaria 344 e sobrevivem. Relatório em
+  `RECONCILIACAO-ANEXO-I-2026-09-13.md` — relatadas, nunca silenciosas.
+  **Dois achados sobre a fonte**, registrados como errata no MANIFEST: (a) a
+  probe do courier "TALIDOMIDA (Lista A1)" está **errada** — talidomida
+  aparece nas listas UMA vez, na **C3**, como `Ftalimidoglutarimida
+  (talidomida)`; as ocorrências das p. 47-49 são anexos do Termo de
+  Esclarecimento. (b) o consolidado **traz o código da lista** além do título
+  formal, ao contrário do briefing — e o código é indispensável, porque **A3 e
+  B1 compartilham o título** "LISTA DAS SUBSTÂNCIAS PSICOTRÓPICAS"; mapear por
+  título teria colapsado as duas listas. Nas duas, o PDF foi o juiz.
+  Empacotamento: Dockerfile copia o snapshot **por nome** e o seed **falha
+  alto** se ele faltar — carimbo que some em silêncio faria "ausência de
+  alerta" significar duas coisas diferentes sem aviso.
+  Guarda: `tests/unit/test_anexo_i_transcrito.py` (9 testes). O #218 guardava
+  a MECÂNICA com snapshot sintético; o que faltava era guarda sobre **o
+  dado** — contagens congeladas, ligadura tipográfica, cláusula de ADENDO
+  capturada como substância, e a prova de que toda divergência migra.
+  **Achado do gate:** `tests/test_seed_catalogo_dcb.py` roda num passo próprio
+  do workflow, FORA de `tests/unit` — duas guardas datavam de antes do carimbo
+  e reprovaram. Corrigidas e melhoradas (a fonte do clonazepam passa a exigir
+  a citação oficial com versão, não o slug `portaria_344`). Lição ampliada:
+  **rodar `tests/unit` inteiro não é a varredura do gate.**
+- ✅ **Canetas J44 (DPOC) + I50 (IC) — ENTREGUE e FECHADO 13/09** —
+  ✔️ **#261** (`535a526`, squash). Autorização verbal do Fabiano, verbatim
+  **"Merge e canetas autorizados"** (13/09), citada no corpo — mesmo
+  precedente do sinal verde I10 (#256): a palavra do Fabiano é a assinatura.
+  Executado dos rascunhos auto-checkados, que entram versionados com carimbo
+  de execução. **21 rows** exaustivas com página: J44 (8, PCDT DPOC 2025 ∩
+  RENAME) e I50 (13, PCDT IC 2024 Quadro 5 ∩ RENAME). Pontos de decisão do §4
+  seguiram a recomendação do próprio rascunho: estrito puro — ausente da
+  RENAME fica 🟡 com causa.
+  **O núcleo cardiorrespiratório crônico da APS ficou completo:** I10 · E11 ·
+  J45 · J44 · I50 · F32 · N39.0 — sete condições exaustivas.
+  **Achado desta caneta, e é dívida declarada:** `carregar_posologias` indexa
+  por PRINCÍPIO ATIVO, não por (ativo, CID) — `idx[ativo_k] = ...`. Nove rows
+  colidiam com HAS, asma e DM2, e **a última do CSV venceria em silêncio**:
+  carvedilol começa em 3,125 mg 2x/dia na IC, e sobrescrever a dose de
+  hipertensão com a de insuficiência cardíaca é **erro clínico calado**. As
+  nove foram retiradas; guarda nova faz a PRÓXIMA colisão falhar. Posologia
+  específica para fármaco compartilhado só entra quando o índice chavear por
+  (ativo, CID) — **mudança `module`, ticket próprio se o arquiteto quiser.**
+  Guarda: `test_semaforo_flip_j44_i50.py` (14 testes), incluindo
+  não-contaminação entre protocolos. `test_semaforo_flip_i10_v2::
+  test_nenhuma_outra_condicao_touch` foi de cinco para sete CIDs — o literal
+  é proposital, e cada caneta o atualiza como ato declarado.
+- 🟡 **RASCUNHO F41 (transtornos ansiosos) — LAVRADO 13/09, SEM FLIP** —
+  ✔️ **#262** (`237e295`, squash, só documentação). Aguarda assinatura futura
+  do Fabiano; **nenhuma linha de dado curado foi tocada**.
+  **Duas premissas do despacho não se sustentaram, e o fato está registrado:**
+  (a) **não existe PCDT da CONITEC para ansiedade** — varredura dos 242 PDFs
+  do corpus: há esquizoafetivo, bipolar I e TDAH, mais nada. O padrão
+  aplicável é o do **F32** (diretriz + RENAME), não o do J44/I50; (b) a
+  levantura é dupla por desenho, mas **só um lado é possível hoje**: nenhuma
+  diretriz de ansiedade está estagiada (o guia Fiocruz é de depressão —
+  "ansiedade" aparece 1 vez em 40 páginas).
+  Lado RENAME completo e verificável. **Achado: duas das cinco seeds citam
+  RENAME que não as contém** — sertralina e escitalopram, NENHUMA página em
+  254. É o mesmo defeito que o F32 excomungou em 02/09, sobrevivendo em outra
+  condição. **Não propõe elenco**: meia fonte é o "close enough" que a casa
+  recusa, e em saúde mental, com benzodiazepínico e risco de dependência, o
+  erro não é cosmético. Quatro pontos de decisão no §4 do documento.
+- ⏳ **Higiene da `main` local — PENDENTE, precisa do Fabiano.** A `main` do
+  checkout principal está **7 commits atrás com ZERO commits exclusivos** —
+  fast-forward limpo, não divergência de histórias. O engenheiro não consegue
+  executar: `git` recusa (`refusing to fetch into branch 'main' checked out
+  at …`) e a sessão em worktree é barrada de operar no checkout principal.
+  Um comando resolve: `git -C <repo> pull --ff-only`.
