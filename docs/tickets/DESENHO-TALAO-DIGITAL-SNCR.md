@@ -88,10 +88,24 @@ com sha256 e identificação de cada arquivo.
 3. ✅ `validar_classificacao` ganha o modo completo: com base carimbada, ausência =
    `"não_controlado"` **informado com versão**; sem carimbo, silêncio como hoje.
 4. ✅ Vermelho-antes-de-verde: base sem carimbo NÃO afirma não-controlado.
-5. ⏳ **PENDENTE** — as 56 curadas atuais migram/reconciliam contra a lista oficial
-   (divergências relatadas, não silenciosas). Não há o que reconciliar contra uma
-   fonte que ainda não chegou (§1.1); fica para a primeira vez que o importador
-   rodar com dado real.
+5. ✅ **FECHADO 13/09** — as 56 curadas migram/reconciliam contra a lista oficial
+   (divergências relatadas, não silenciosas). A fonte chegou: PDF consolidado do
+   Anvisa Legis (Atualização nº 101 — RDC 1.036/2026, 57 páginas, sha256 no
+   MANIFEST), transcrito offline por `scripts/transcrever_portaria_344.py`.
+   **476 substâncias** nas nove listas prescritíveis + 21 designações
+   alternativas declaradas pela própria fonte. Reconciliação:
+   **17 conferem · 3 divergem · 0 ausentes** — tramadol B1→**A2**,
+   isotretinoína D1→**C2**, talidomida D1→**C3**, todas migrando no upsert.
+   Relatório completo em `RECONCILIACAO-ANEXO-I-2026-09-13.md`; guarda em
+   `tests/unit/test_anexo_i_transcrito.py`.
+
+   > **O carimbo está ATIVO.** `seed_demo._garantir_catalogo_regulatorio`
+   > aplica o snapshot depois do seed curado, então vitrine e local carimbam
+   > pelo mesmo caminho. Daqui em diante, substância ausente **afirma**
+   > "não-controlado sob a versão V" em vez de silenciar. Sem o arquivo do
+   > snapshot o seed **falha alto** (e o deploy com ele): carimbo que some em
+   > silêncio faria "ausência de alerta" significar duas coisas diferentes sem
+   > aviso.
 
 ### §1.2 Implementação da Opção 2 (28/08 — mecânica, carimbo pendente)
 

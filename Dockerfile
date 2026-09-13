@@ -55,6 +55,15 @@ COPY data/decisao_semaforo.csv /app/reference/decisao_semaforo.csv
 ENV PICSAUDE_SEMAFORO_CSV=/app/reference/decisao_semaforo.csv
 COPY data/posologia_sugerida.csv /app/reference/posologia_sugerida.csv
 ENV PICSAUDE_POSOLOGIA_CSV=/app/reference/posologia_sugerida.csv
+# G1 — Anexo I da Portaria 344/98 transcrito (DESENHO-TALAO-DIGITAL-SNCR §1).
+# Sem esta linha o snapshot não chega à imagem e o `seed_demo` aborta o deploy:
+# carimbo é o que autoriza afirmar "não-controlado sob a versão V", e falhar
+# alto é melhor que subir a vitrine com a base silenciosamente sem carimbo.
+# COPY por NOME, como os outros: `data/` nunca entra por glob. O PDF de 57
+# páginas que originou este JSON fica de fora — é corpus-fonte de 4,8 MB, com
+# sha256 no MANIFEST; o que a imagem precisa é da transcrição.
+COPY data/fontes-oficiais/anvisa-controlados-2026-08-28/anexo-i-consolidado.json /app/reference/anexo-i-portaria-344.json
+ENV PICSAUDE_ANEXO_I_JSON=/app/reference/anexo-i-portaria-344.json
 
 # Banco em volume externo — nunca dentro da imagem
 ENV PIX_SAUDE_DB=/data/picsaude.db

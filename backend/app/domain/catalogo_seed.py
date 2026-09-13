@@ -293,3 +293,78 @@ def limpar_carimbo(conn) -> None:
 def _agora_iso() -> str:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# G1 — o Anexo I oficial, transcrito e commitado (13/09)
+#
+# O §1.1 do DESENHO-TALAO-DIGITAL-SNCR previa "carimbo pendente até a fonte
+# chegar". A fonte chegou: o PDF consolidado do Anvisa Legis (Atualização
+# nº 101, RDC 1.036/2026) foi estagiado com sha256 no MANIFEST e transcrito
+# por `scripts/transcrever_portaria_344.py` para o JSON commitado abaixo.
+#
+# É a APLICAÇÃO deste snapshot que inverte o princípio da cautela: a partir
+# dele, substância ausente deixa de ser silêncio e passa a afirmar
+# "não-controlado sob a versão V". Sem o arquivo, nada é carimbado e o
+# comportamento cauteloso de sempre permanece — a inversão é gated by
+# design, e continua sendo.
+# ---------------------------------------------------------------------------
+
+_NOME_SNAPSHOT_ANEXO_I = "anexo-i-consolidado.json"
+
+
+def caminho_snapshot_anexo_i() -> str:
+    """Env `PICSAUDE_ANEXO_I_JSON` tem prioridade (empacotamento Docker);
+    senão, layout de dev (data/ na raiz do repo) — mesmo idiom de
+    `semaforo_decisao._resolver_csv`."""
+    import os
+
+    override = os.getenv("PICSAUDE_ANEXO_I_JSON")
+    if override:
+        return override
+    return os.path.normpath(
+        os.path.join(
+            os.path.dirname(__file__), "..", "..", "..",
+            "data", "fontes-oficiais", "anvisa-controlados-2026-08-28",
+            _NOME_SNAPSHOT_ANEXO_I,
+        )
+    )
+
+
+def aplicar_snapshot_anexo_i(conn, caminho: str | None = None) -> dict:
+    """Carrega o Anexo I transcrito e aplica o snapshot CARIMBADO.
+
+    Devolve o dicionário de `aplicar_snapshot_carimbado`. Levanta se o
+    arquivo faltar ou vier malformado: carimbo é afirmação regulatória, e
+    falhar alto é melhor que carimbar meia base — o chamador decide se isso
+    aborta o seed.
+    """
+    import json
+    import os
+
+    alvo = caminho or caminho_snapshot_anexo_i()
+    if not os.path.exists(alvo):
+        raise FileNotFoundError(
+            f"snapshot do Anexo I não encontrado em {alvo}. Sem ele o catálogo "
+            f"não é carimbado e `validar_classificacao` fica no princípio da "
+            f"cautela (silêncio). Gere com scripts/transcrever_portaria_344.py."
+        )
+
+    with open(alvo, encoding="utf-8") as fh:
+        dado = json.load(fh)
+
+    for campo in ("fonte", "versao", "data_snapshot", "entradas"):
+        if not dado.get(campo):
+            raise ValueError(f"snapshot do Anexo I sem `{campo}`: {alvo}")
+
+    entradas = [
+        (e["dcb"], e.get("classe_controle"), e.get("tipo_retencao"), e.get("observacao"))
+        for e in dado["entradas"]
+    ]
+    return aplicar_snapshot_carimbado(
+        conn,
+        fonte=dado["fonte"],
+        versao=dado["versao"],
+        data_snapshot=dado["data_snapshot"],
+        entradas=entradas,
+    )
