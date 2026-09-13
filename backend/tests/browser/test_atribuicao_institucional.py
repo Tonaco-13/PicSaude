@@ -22,8 +22,13 @@ o assinante de cada curadoria clínica está na própria row (`validado_por`).
 4. **As DUAS fachadas** falam pela instituição: `demo.html` tinha a mesma
    linha pessoal e recebeu a mesma troca, com href e atributos idênticos. O
    princípio é da fachada, não de uma página só.
-5. A emenda do FAQ ("Quem faz? Como sei que posso confiar?") está **verbatim**.
-6. A régua de pontuação da casa: zero travessão nas duas cópias novas.
+5. **As QUATRO estações** também — prescritor, dispensador, cidadão e clínica.
+   A linha não é só da fachada: quem opera a plataforma também vê de quem é a
+   casa. Passam por tabela parametrizada, porque a linha é uma só e o que se
+   prova em cada tela é idêntico. A clínica era a única sem rodapé nenhum e
+   ganhou um com a mesma forma das irmãs.
+6. A emenda do FAQ ("Quem faz? Como sei que posso confiar?") está **verbatim**.
+7. A régua de pontuação da casa: zero travessão nas duas cópias novas.
 
 A copy das duas é travada pelo arquiteto. A fonte canônica é
 `docs/tickets/DESPACHO-ATRIBUICAO-INSTITUCIONAL.md` — este arquivo é a cópia
@@ -37,6 +42,7 @@ from __future__ import annotations
 import re
 
 import httpx
+import pytest
 from playwright.sync_api import expect, Page
 
 _TIMEOUT_MS = 15_000
@@ -117,6 +123,41 @@ def test_a_linha_da_demo_e_clicavel_com_os_mesmos_atributos(page: Page, app_demo
     link = page.get_by_role("link", name=_LINHA_INSTITUCIONAL)
     expect(link).to_have_count(1)
     expect(link).to_be_visible(timeout=_TIMEOUT_MS)
+    expect(link).to_have_attribute("href", _CERTIDAO_URL)
+    expect(link).to_have_attribute("target", "_blank")
+    expect(link).to_have_attribute("rel", "noopener noreferrer")
+
+
+# ─── As ESTAÇÕES (04/09, extensão do mesmo princípio) ─────────────────────────
+# A linha não é só da fachada: quem opera também vê de quem é a casa. As quatro
+# estações passam pela MESMA tabela — teste parametrizado em vez de quatro
+# cópias, porque a linha é uma só e o que se prova é idêntico em cada tela.
+_ESTACOES = [
+    "prescritor.html",
+    "dispensador.html",
+    "cidadao.html",
+    "clinica.html",
+]
+
+
+@pytest.mark.parametrize("pagina", _ESTACOES)
+def test_cada_estacao_tem_a_linha_institucional(pagina, app_demo):
+    html = httpx.get(f"{app_demo}/{pagina}", timeout=15.0).text
+
+    assert "<footer" in html, f"{pagina} não tem rodapé onde a linha possa morar"
+    assert _LINHA_INSTITUCIONAL in _texto(html), (
+        f"{pagina} não tem a linha institucional verbatim — a copy é travada"
+    )
+    assert _CERTIDAO_URL in html, f"{pagina} não aponta para a certidão PJ324-2026"
+
+
+@pytest.mark.parametrize("pagina", _ESTACOES)
+def test_cada_estacao_abre_a_certidao_em_aba_nova(pagina, page: Page, app_demo):
+    """Mesmos atributos das fachadas: a casa não deixa a aba nova controlar."""
+    page.goto(f"{app_demo}/{pagina}", wait_until="networkidle")
+
+    link = page.get_by_role("link", name=_LINHA_INSTITUCIONAL)
+    expect(link).to_have_count(1)
     expect(link).to_have_attribute("href", _CERTIDAO_URL)
     expect(link).to_have_attribute("target", "_blank")
     expect(link).to_have_attribute("rel", "noopener noreferrer")
