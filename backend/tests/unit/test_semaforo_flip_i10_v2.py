@@ -100,9 +100,18 @@ def test_posologia_perdeu_clortalidona_e_ganhou_v2():
 
 
 def test_nenhuma_outra_condicao_touch():
-    """A cirurgia é só no I10: os outros quatro CIDs intocados."""
+    """A cirurgia é só no I10: os outros CIDs intocados.
+
+    O conjunto é literal de propósito — CID exaustivo novo aparecendo sem
+    alguém declarar aqui é o alarme que este teste existe para dar. Cada
+    caneta nova ATUALIZA esta linha, e a atualização é o ato declarado.
+
+    13/09 (canetas J44 + I50, autorização verbal do Fabiano "Merge e canetas
+    autorizados"): de cinco para SETE. O núcleo cardiorrespiratório crônico
+    da APS ficou completo — I10 · E11 · J45 · J44 · I50 · F32 · N39.0.
+    """
     _, cids, _ = carregar_regras(str(_CSV))
-    assert cids == {"I10", "E11", "J45", "F32", "N39.0"}
+    assert cids == {"I10", "E11", "J45", "J44", "I50", "F32", "N39.0"}
     assert _av("E11", "metformina").sinal == SINAL_VERDE
     assert _av("J45", "beclometasona").sinal == SINAL_VERDE
     assert _av("F32", "fluoxetina").sinal == SINAL_VERDE
