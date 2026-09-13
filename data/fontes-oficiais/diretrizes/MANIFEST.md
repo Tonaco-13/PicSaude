@@ -20,3 +20,20 @@
 - 8 págs. **Única diretriz brasileira dedicada localizável — e é de 2003;
   idade declarada nos rascunhos.** Fonte viva para ITU no SUS é o RENAME 2024
   (classificação AWaRe).
+
+## amb-ansiedade-2008.pdf
+- sha256: 2eb7d0df070674bd35f33bcb149541f8a42b2d4bfc6835e6002a9b96bab03796
+- Fonte: https://amb.org.br/files/_BibliotecaAntiga/transtornos-de-ansiedade-diagnostico-e-tratamento.pdf
+- Projeto Diretrizes AMB/CFM — "Transtornos de Ansiedade: Diagnóstico e
+  Tratamento" (2008), 15 págs. Idade declarada (a referência AMB do precedente
+  F32 é de 2009 — mesma era, mesmo Projeto). **Extração pypdf BOA para nomes de
+  fármaco** (sertralina ×8, benzodiazepínicos ×9 na varredura).
+- Estagiada pelo arquiteto 13/09 (martelo "Caça a diretriz") para o F41.
+
+## abp-tag-2024.pdf
+- sha256: 20e9d955665e04494d089c21d30b855a1b43eb61eb415ae058e420dc10fd4e69
+- Fonte: https://ojs.latinamericanpublicacoes.com.br/ojs/index.php/ah/article/view/3389
+  (download exige UA/referer de navegador — curl limpo devolve HTML; resgatado com headers)
+- Diretrizes de tratamento da ABP para Transtorno de Ansiedade Generalizada —
+  publicação de 2024, 5 págs. Complemento moderno da AMB 2008.
+- Estagiada pelo arquiteto 13/09 (martelo "Caça a diretriz") para o F41.

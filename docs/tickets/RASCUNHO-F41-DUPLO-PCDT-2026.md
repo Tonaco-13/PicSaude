@@ -1,119 +1,185 @@
-# RASCUNHO F41 DUPLO — semáforo dos Transtornos Ansiosos (para revisão e assinatura)
+# RASCUNHO F41 DUPLO — semáforo dos Transtornos Ansiosos (v2, levantura dual)
 
 | Campo | Valor |
 |---|---|
-| **Origem** | Despacho do arquiteto 13/09 ("limpar a mesa"), item 3 |
+| **Origem** | Despacho 13/09 ("limpar a mesa", item 3) → **martelo do Fabiano 13/09**: *"Concordo com os três: segunda fonte na ordem SBP/AMB → NICE → mhGAP, citações falsas dobradas no flip, escopo F41 puro. Caça a diretriz."* |
 | **Rascunhista** | Engenheiro — **nunca flipa** `validado`/`exaustivo` |
 | **Assinante** | **Fabiano** |
-| **Estado** | 🟡 **RASCUNHO — SEM FLIP.** Este item **não tem autorização**: a caneta de 13/09 cobriu J44 e I50, não F41 |
-| **Fonte estagiada** | **RENAME 2024** (`fontes-oficiais/rename/rename-2024.pdf`, 254 p., sha256 no MANIFEST) |
-| **Segunda fonte** | ⛔ **NÃO EXISTE AINDA** — ver §0 |
+| **Estado** | 🟡 **RASCUNHO v2 — SEM FLIP.** A autorização verbal de 13/09 ("Merge e canetas autorizados") cobriu **J44 e I50**; F41 **não tem caneta** |
+| **Fontes (sha256 conferido contra o MANIFEST)** | **RENAME 2024** (`rename/rename-2024.pdf`, 254 p.) · **AMB/CFM 2008** (`diretrizes/amb-ansiedade-2008.pdf`, 15 p., `2eb7d0df…`) · **ABP/TAG 2024** (`diretrizes/abp-tag-2024.pdf`, 5 p., `20e9d955…`) |
+
+> **Errata da v1:** a v1 (PR #262) afirmou "não há diretriz de ansiedade
+> estagiada". Era verdade quando escrita, e **deixou de ser** no mesmo dia: o
+> arquiteto caçou e estagiou as duas acima. Esta v2 faz a levantura que a v1
+> não podia fazer.
 
 ---
 
-## §0 A levantura é DUPLA por desenho, e hoje só um lado é possível
+## §0 Escopo: F41 PURO
 
-O padrão da casa cruza **duas** fontes: o protocolo clínico (o que a medicina
-recomenda) e a **RENAME** (o que o SUS entrega). O F32 teve as duas — AMB/ABP
-Depressão 2009 + Guia Fiocruz APS, ambas estagiadas.
+CID-10: **F41 = "Outros transtornos ansiosos"**, e a AMB 2008 organiza as
+recomendações **por transtorno**, o que torna o recorte mecânico:
 
-**Para transtornos ansiosos não há nenhuma das duas:**
+| Dentro (F41) | Fora |
+|---|---|
+| **F41.0** transtorno de pânico | **F40.1** transtorno de ansiedade social (AMB p. 7, 9) |
+| **F41.1** transtorno de ansiedade generalizada (TAG) | **F40.0** agorafobia · **F42** TOC (AMB p. 7-8, 9) |
 
-1. **Não existe PCDT da CONITEC para ansiedade.** Varri o corpus inteiro
-   (`fontes-oficiais/pcdt/corpus-conitec-2026-08-30/`, 242 PDFs): há
-   esquizoafetivo, bipolar tipo I e TDAH — **nenhum de transtornos ansiosos**.
-   O despacho pedia "padrão corpus-PCDT"; o corpus não tem o protocolo, então
-   o padrão aplicável é o do **F32** (diretriz + RENAME), não o do J44/I50.
-2. **Não há diretriz de ansiedade estagiada.** O guia Fiocruz do corpus é
-   *depressão unipolar* (40 p.; "ansiedade" aparece 1 vez, "transtorno de
-   ansiedade" nenhuma). A AMB/ABP estagiada também é de depressão.
-
-**Consequência honesta:** o lado RENAME deste rascunho está **completo e
-verificável** (§2). O lado clínico **não pode ser levantado sem uma fonte
-estagiada**, e não se inventa elenco de memória. É o mesmo muro que o §1.1 do
-DESENHO-TALAO-DIGITAL-SNCR descreveu para a Portaria 344: o gesto que falta é
-humano — escolher e estagiar a diretriz.
+O recorte não é opinião: o **algoritmo da p. 9** da AMB tem uma linha por
+transtorno, e basta ler qual. Duas consequências saem só disso, e nenhuma
+delas estava prevista no despacho — ver §2.
 
 ---
 
-## §1 O achado principal: duas das cinco seeds citam RENAME que não as contém
+## §1 A tabela dual (RENAME × AMB 2008 × ABP 2024)
 
-As 5 rows de F41 hoje (`semaforo_seed_v1_2026-06`, `exaustivo=false`) declaram
-`fonte = RENAME/PCDT (APS)`. Varredura das 254 páginas da RENAME 2024:
+Critério estrito da casa (sinal verde I10 v2): **🟢 = reconhecido _e_
+disponível no SUS.** "Reconhecido" = recomendado por diretriz **para um
+transtorno de F41**; "disponível" = consta da RENAME 2024.
 
-| Seed atual | RENAME 2024 | Situação |
+| Substância | AMB 2008 — escopo F41 | ABP 2024 (TAG) | RENAME 2024 | Estrito |
+|---|---|---|---|---|
+| **clonazepam** | pânico, 3ª linha, 2–4 mg/dia (p. 6, 9) | BZD, curto prazo (p. 4, genérico) | **p. 94, 130** | **🟢** |
+| **clomipramina** | pânico, 2ª linha, 100–150 mg/dia (p. 5, 9) | — | **p. 95, 130** | **🟢** ⚠️ ver §2.1 |
+| sertralina | pânico 1ª (50 mg) · TAG 2ª (50–200 mg) (p. 6, 8, 9) | 1ª escolha (p. 3) | **ausente** | 🟡 |
+| paroxetina | pânico 1ª (20 mg) · TAG 2ª (20–40 mg) (p. 6, 9) | 1ª escolha (p. 3) | **ausente** | 🟡 |
+| escitalopram | — | 1ª escolha (p. 3) | **ausente** | 🟡 |
+| venlafaxina | pânico 1ª · TAG 1ª (75–150 mg) (p. 6, 8, 9) | eficaz (p. 4) | **ausente** | 🟡 |
+| duloxetina | — | eficaz (p. 4) | **ausente** | 🟡 |
+| imipramina | pânico, 2ª linha, 150–200 mg/dia (p. 5, 9) | — | **ausente** | 🟡 |
+| alprazolam | pânico, 3ª linha, 2–4 mg/dia (p. 6, 9) | — | **ausente** | 🟡 |
+| **fluoxetina** | **só TOC** (p. 9) — **fora de F41** | — | p. 95, 131 | 🟡 ⚠️ ver §2.2 |
+| **diazepam** | não nomeado (só "BZD" genérico na TAG) | idem | **p. 98, 133** | ⚠️ ver §2.3 |
+| bromazepam | **só ansiedade social** (p. 7) — fora de F41 | — | ausente | 🟡 |
+
+### Elenco estrito proposto: **2 substâncias**
+
+**clonazepam** · **clomipramina** — as únicas que a diretriz recomenda para um
+transtorno de F41 **e** que o SUS entrega pela RENAME 2024.
+
+> **O elenco é pequeno e isso é o achado, não um defeito da varredura.** Das 9
+> substâncias que as diretrizes recomendam para pânico e TAG, **7 não constam
+> da RENAME 2024** — inclusive todas as de primeira linha (sertralina,
+> paroxetina, escitalopram, venlafaxina). O que sobra no SUS é um
+> benzodiazepínico de 3ª linha e um tricíclico de 2ª. **Marcar isso como 🟡
+> honesto é exatamente o serviço que o semáforo presta**: o prescritor de APS
+> vê que a 1ª linha do livro não está na prateleira dele.
+
+---
+
+## §2 Três pontos de decisão (só o Fabiano)
+
+### 2.1 Clomipramina — o despacho diz para tirar; **a fonte diz o contrário**
+
+O despacho instruiu: *"clomipramina sai do elenco candidato — seu próprio
+achado"*. O achado era meu e estava **incompleto**: eu escrevi na v1 que
+clomipramina "é clássica em TOC, que é outro capítulo do CID". É verdade — e
+não é só isso.
+
+**A AMB 2008 recomenda clomipramina para TRANSTORNO DE PÂNICO**, que é
+**F41.0**, dentro do escopo puro:
+
+> *"A eficácia da clomipramina também foi demonstrada, em menor número de
+> ensaios duplo-cego, placebo-controlados"* (p. 5, seção TRANSTORNO DE PÂNICO)
+
+e o algoritmo da p. 9 a lista como **2ª linha do pânico, 100–150 mg/dia** —
+dose distinta da do TOC (300 mg/dia), o que confirma que são indicações
+diferentes, não a mesma citação contada duas vezes.
+
+Como **consta da RENAME 2024** (p. 95, 130), pelo critério estrito ela é 🟢.
+
+**Não a retirei por conta própria.** A regra do próprio despacho é que na
+dúvida entre incluir e não incluir eu marque ponto de decisão em vez de
+decidir — e aqui não é nem dúvida minha: é a fonte contradizendo a premissa da
+instrução. **Decisão:** entra como 🟢 (recomendação do rascunho, pelo critério
+estrito) ou sai por decisão clínica de escopo?
+
+### 2.2 Fluoxetina — seed atual que a diretriz **não** sustenta em F41
+
+`fluoxetina` é uma das 5 seeds vigentes de F41. No algoritmo da AMB (p. 9) ela
+aparece **apenas na linha do Transtorno Obsessivo-Compulsivo** (60 mg/dia) —
+**nenhuma menção para pânico ou TAG**. A ABP 2024 também não a cita.
+
+Ela **consta da RENAME** (p. 95, 131), então não é caso de indisponibilidade: é
+caso de **indicação fora do escopo**. Pelo critério estrito ela seria 🟡 em
+F41 — uma **terceira excomunhão**, além das duas que o despacho já previa.
+
+**Decisão:** fluoxetina sai do elenco de F41 (recomendação do rascunho) ou o
+escopo F41 admite o uso off-label consagrado em ansiedade?
+
+### 2.3 Diazepam — seed atual que **nenhuma das duas** diretrizes nomeia
+
+`diazepam` é seed vigente e **consta da RENAME** (p. 98, 133). Mas a AMB nunca
+o nomeia, e a linha de TAG do algoritmo diz genericamente **"BZD: prazos
+curtos"**, sem princípio ativo. A ABP também fala em "benzodiazepínicos" como
+classe.
+
+Manter diazepam exigiria ler a classe genérica como endosso nominal — e com
+benzodiazepínico no jogo, **"close enough" não é opção** (o aviso é da v1 deste
+próprio rascunho, e o despacho o reafirmou).
+
+**Decisão:** diazepam entra por leitura de classe, sai por falta de citação
+nominal, ou fica como 🟡 até uma diretriz o nomear?
+
+---
+
+## §3 Excomunhões já decididas (dobradas no flip)
+
+O martelo de 13/09 decidiu: *"citações falsas dobradas no flip"*.
+
+| Seed | `fonte` declarada hoje | Verificação |
 |---|---|---|
-| clonazepam | **p. 94, 130** | ✅ consta |
-| diazepam | **p. 98, 133** | ✅ consta |
-| fluoxetina | **p. 95, 131** | ✅ consta |
-| **sertralina** | — | ❌ **NÃO CONSTA — nenhuma página** |
-| **escitalopram** | — | ❌ **NÃO CONSTA — nenhuma página** |
+| **sertralina** | `RENAME/PCDT (APS)` | **NÃO CONSTA da RENAME 2024** — nenhuma das 254 páginas |
+| **escitalopram** | `RENAME/PCDT (APS)` | **NÃO CONSTA da RENAME 2024** — nenhuma das 254 páginas |
 
-**É exatamente o mesmo defeito que o F32 encontrou** (§1 do
-`RASCUNHO-F32-DEPRESSAO-2026.md`): a semeadura de junho citou "RENAME/PCDT
-(APS)" em bloco, e sertralina/escitalopram não estão na RENAME. As duas seeds
-já foram excomungadas do F32 por este motivo, e continuam de pé no F41 — a
-mesma citação falsa, na mesma base, sobrevivendo em outra condição.
+Mesmo defeito que o F32 excomungou em 02/09: a semeadura de junho citou
+"RENAME/PCDT (APS)" em bloco. As duas viram **🟡 com causa** (`não consta da
+RENAME 2024`) no ato da caneta — o que é orientação **correta** para o
+prescritor de APS: são 1ª linha no livro e não estão na prateleira do SUS.
 
 ---
 
-## §2 O que a RENAME 2024 tem, entre os candidatos de ansiedade
+## §4 Nota sobre a força das fontes
 
-Varredura mecânica, com página. **Consta:**
+Registro para o assinante, porque muda o peso do que está sendo citado:
 
-| Princípio ativo | RENAME 2024 (págs.) | Comentário |
-|---|---|---|
-| clonazepam | 94, 130 | benzodiazepínico, seed atual |
-| diazepam | 98, 133 | benzodiazepínico, seed atual |
-| clobazam | 94, 182 | benzodiazepínico |
-| midazolam | 101, 141 | benzodiazepínico (uso hospitalar/sedação) |
-| fluoxetina | 95, 131 | ISRS, seed atual |
-| amitriptilina | 94, 130 | tricíclico |
-| nortriptilina | 97, 132 | tricíclico |
-| clomipramina | 95, 130 | tricíclico (clássico em TOC) |
-| bupropiona | 95, 147 | componente Estratégico (nota do F32) |
-| propranolol | 43, 133 | betabloqueador (ansiedade de desempenho) |
-
-**Não consta** (nenhuma página): sertralina · escitalopram · alprazolam ·
-bromazepam · lorazepam · buspirona · hidroxizina · paroxetina · citalopram ·
-venlafaxina · duloxetina · imipramina · mirtazapina.
-
-> ⚠️ **Estar na RENAME não é indicação para ansiedade.** Midazolam consta e
-> obviamente não é fármaco de F41 ambulatorial; clomipramina consta e é
-> clássica em TOC, que é outro capítulo do CID. **Quem separa o que é elenco
-> de F41 do que é apenas "disponível no SUS" é a diretriz clínica — a fonte
-> que falta.** Por isso §2 é levantamento, não proposta de elenco.
+- **AMB/CFM 2008** é diretriz primária do Projeto Diretrizes, com algoritmo
+  próprio e graus de evidência por recomendação. É a fonte forte aqui. Tem
+  **17 anos** — a ordem que o martelo fixou (AMB → NICE → mhGAP) prevê
+  camadas mais novas, ainda não estagiadas.
+- **ABP/TAG 2024** é, pelo próprio texto, uma **revisão sistemática _sobre_ as
+  diretrizes da ABP** publicada no *Archives of Health* — não a diretriz da ABP
+  em si (ela cita "ABP, 2020" como fonte). Serve como camada moderna e
+  corroborante; **não substitui** uma diretriz primária. Usei-a só para
+  corroborar, nunca como única sustentação de uma substância.
+- **NICE e mhGAP não foram caçados** — a ordem do martelo os coloca depois da
+  AMB, e as duas primeiras já bastaram para a levantura. Se o Fabiano quiser a
+  camada internacional antes de assinar, é novo gesto de estagiamento.
 
 ---
 
-## §3 O que este rascunho NÃO faz
+## §5 O que este rascunho NÃO faz
 
-- **Não propõe elenco.** Propor elenco com meia fonte seria o "close enough"
-  que a casa recusa — e num CID de saúde mental, onde benzodiazepínico tem
-  risco de dependência, o erro não é cosmético.
-- **Não flipa `exaustivo`.** As 5 seeds seguem `exaustivo=false`: fora do
-  elenco continua NEUTRO, não amarelo. Nenhuma linha de CSV muda nesta PR.
-- **Não corrige as duas citações falsas.** Retirar sertralina/escitalopram do
-  F41 é ato de curadoria e precisa da caneta — mesmo tendo a varredura pronta
-  e o precedente do F32 apontando para lá.
+- **Não flipa nada.** Nenhuma linha dos CSVs muda nesta PR. As 5 seeds seguem
+  `exaustivo=false`; fora do elenco continua **neutro**, não amarelo.
+- **Não resolve os três pontos do §2.** Dois deles (clomipramina, fluoxetina)
+  contrariam premissas do despacho, e é justamente por isso que sobem para o
+  Fabiano em vez de descerem para o meu julgamento.
 
----
+## §6 O flip, quando houver caneta
 
-## §4 Pontos de decisão (só o Fabiano)
+Com o *"concordo com o elenco"* do Fabiano (verbatim, citado no corpo da PR):
 
-1. **A segunda fonte.** Qual diretriz de transtornos ansiosos estagiar? O
-   precedente F32 usou AMB/ABP + Fiocruz APS. Sem ela, o F41 não fecha.
-2. **As duas citações falsas** (sertralina, escitalopram): seguem o destino do
-   F32 (🟡 com causa "não consta da RENAME 2024") ou há razão para tratar
-   ansiedade diferente de depressão? Recomendo o mesmo destino — a citação é
-   falsa do mesmo jeito nos dois CIDs.
-3. **Escopo do CID.** F41 é "outros transtornos ansiosos"; TOC (F42) e fobias
-   (F40) são capítulos vizinhos. Clomipramina puxa para TOC. Vale decidir se o
-   elenco cobre só F41 ou a família.
-4. Versão na assinatura, se e quando houver: `semaforo_f41_exaustiva_v1_2026-XX`.
+- versão: `semaforo_f41_exaustiva_v1_2026-09`;
+- rows `validado` + `exaustivo=true`, `validado_por = Fabiano Tonaco Borges`,
+  fonte com **página** nas três obras que sustentam cada uma;
+- sertralina e escitalopram dobradas no mesmo ato;
+- guarda no padrão `test_semaforo_flip_*`, com o elenco, as excomunhões e a
+  não-contaminação com F32 (fluoxetina é 🟢 em depressão e seguirá assim).
 
 ---
 
-*Lavrado em 13/09/2026 pelo engenheiro, a pedido do despacho do arquiteto.
-Varredura mecânica da RENAME 2024 (254 p., pypdf) e do corpus CONITEC (242
-PDFs). Nenhuma linha de dado curado foi tocada.*
+*Lavrado em 13/09/2026 pelo engenheiro. Varredura mecânica (pypdf) da RENAME
+2024 (254 p.), da AMB 2008 (15 p.) e da ABP 2024 (5 p.); sha256 das três
+conferido contra os MANIFESTs antes da leitura. Nenhuma linha de dado curado
+foi tocada.*
