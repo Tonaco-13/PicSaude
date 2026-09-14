@@ -60,11 +60,6 @@ E78,Dislipidemia,sinvastatina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,s
 E78,Dislipidemia,atorvastatina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 K21,Refluxo gastroesofágico (DRGE),omeprazol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 K21,Refluxo gastroesofágico (DRGE),pantoprazol,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F41,Transtornos ansiosos,clonazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F41,Transtornos ansiosos,diazepam,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F41,Transtornos ansiosos,fluoxetina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F41,Transtornos ansiosos,sertralina,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
-F41,Transtornos ansiosos,escitalopram,RENAME/PCDT (APS),validado,Fabiano Tonaco Borges,semaforo_seed_v1_2026-06,false
 J44,Outras doenças pulmonares obstrutivas crônicas,salbutamol,"PCDT DPOC 2025 (Port. Conjunta SAES/SCTIE 29/2025, p. 15-22) + RENAME 2024 (RENAME 2024 p. 111, 144)",validado,Fabiano Tonaco Borges,semaforo_j44_exaustiva_v1_2026-09,true
 J44,Outras doenças pulmonares obstrutivas crônicas,ipratrópio,"PCDT DPOC 2025 (Port. Conjunta SAES/SCTIE 29/2025, p. 15-22) + RENAME 2024 (RENAME 2024 p. 107, 127)",validado,Fabiano Tonaco Borges,semaforo_j44_exaustiva_v1_2026-09,true
 J44,Outras doenças pulmonares obstrutivas crônicas,tiotrópio,"PCDT DPOC 2025 (Port. Conjunta SAES/SCTIE 29/2025, p. 15-22) + RENAME 2024 (RENAME 2024 p. 107, 173)",validado,Fabiano Tonaco Borges,semaforo_j44_exaustiva_v1_2026-09,true
@@ -86,3 +81,5 @@ I50,Insuficiência cardíaca,digoxina,"PCDT Insuficiência Cardíaca 2024 (Port.
 I50,Insuficiência cardíaca,hidralazina,"PCDT Insuficiência Cardíaca 2024 (Port. Conjunta SAES/SECTICS 10/2024, Quadro 5, p. 16) + RENAME 2024 (RENAME 2024 p. 43, 131)",validado,Fabiano Tonaco Borges,semaforo_i50_exaustiva_v1_2026-09,true
 I50,Insuficiência cardíaca,isossorbida,"PCDT Insuficiência Cardíaca 2024 (Port. Conjunta SAES/SECTICS 10/2024, Quadro 5, p. 16) + RENAME 2024 (RENAME 2024 p. 44-45)",validado,Fabiano Tonaco Borges,semaforo_i50_exaustiva_v1_2026-09,true
 I50,Insuficiência cardíaca,dapagliflozina,"PCDT Insuficiência Cardíaca 2024 (Port. Conjunta SAES/SECTICS 10/2024, Quadro 5, p. 16) + RENAME 2024 (RENAME 2024 p. 29, 187)",validado,Fabiano Tonaco Borges,semaforo_i50_exaustiva_v1_2026-09,true
+F41,Transtornos ansiosos,clonazepam,"AMB/CFM Transtornos de Ansiedade 2008 (pânico, 3ª linha, p. 6, 9) + RENAME 2024 (p. 94, 130)",validado,Fabiano Tonaco Borges,semaforo_f41_exaustiva_v1_2026-09,true
+F41,Transtornos ansiosos,clomipramina,"AMB/CFM Transtornos de Ansiedade 2008 (pânico, 2ª linha, p. 5, 9) + RENAME 2024 (p. 95, 130)",validado,Fabiano Tonaco Borges,semaforo_f41_exaustiva_v1_2026-09,true
