@@ -621,9 +621,67 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   condição. **Não propõe elenco**: meia fonte é o "close enough" que a casa
   recusa, e em saúde mental, com benzodiazepínico e risco de dependência, o
   erro não é cosmético. Quatro pontos de decisão no §4 do documento.
-- ⏳ **Higiene da `main` local — PENDENTE, precisa do Fabiano.** A `main` do
-  checkout principal está **7 commits atrás com ZERO commits exclusivos** —
-  fast-forward limpo, não divergência de histórias. O engenheiro não consegue
-  executar: `git` recusa (`refusing to fetch into branch 'main' checked out
-  at …`) e a sessão em worktree é barrada de operar no checkout principal.
-  Um comando resolve: `git -C <repo> pull --ff-only`.
+  **↳ SUPERADO PELA v2 (#264) no mesmo dia** — a premissa (b) caiu: o
+  arquiteto caçou e estagiou as duas diretrizes horas depois. A premissa (a)
+  (não existe PCDT de ansiedade) **continua valendo**.
+- 🟡 **RASCUNHO F41 v2 — LEVANTURA DUAL FEITA, SEM FLIP** — ✔️ **#264**
+  (`4ee5d65`, squash, só documentação). **Aguarda a caneta do Fabiano**: a
+  autorização verbal de 13/09 cobriu J44 e I50; **F41 não tem caneta**, e
+  nenhuma linha de CSV mudou (as 5 seeds seguem `exaustivo=false`).
+  Martelo que destravou, verbatim: *"Concordo com os três: segunda fonte na
+  ordem SBP/AMB → NICE → mhGAP, citações falsas dobradas no flip, escopo F41
+  puro. Caça a diretriz."* Fontes estagiadas pelo arquiteto e **sha256
+  conferido contra os MANIFESTs antes da leitura**: AMB/CFM 2008
+  (`2eb7d0df…`, 15 p.) + ABP/TAG 2024 (`20e9d955…`, 5 p.), somadas à
+  RENAME 2024 (254 p.).
+  **Escopo F41 puro, e o recorte é mecânico:** a AMB organiza por transtorno
+  e o algoritmo da p. 9 tem uma linha para cada. Dentro: F41.0 pânico e
+  F41.1 TAG. Fora: F40.1 ansiedade social, F42 TOC.
+  **Elenco estrito proposto: DUAS substâncias** — clonazepam (pânico 3ª
+  linha, AMB p. 6/9; RENAME p. 94/130) e clomipramina (pânico 2ª linha, AMB
+  p. 5/9; RENAME p. 95/130).
+  **O elenco é pequeno e isso é o achado:** das 9 substâncias que as
+  diretrizes recomendam para pânico e TAG, **SETE não constam da RENAME
+  2024** — inclusive **todas as de primeira linha** (sertralina, paroxetina,
+  escitalopram, venlafaxina). Sobra no SUS um benzodiazepínico de 3ª linha e
+  um tricíclico de 2ª. Marcar como 🟡 honesto é o serviço que o semáforo
+  presta: o prescritor de APS vê que a 1ª linha do livro não está na
+  prateleira dele.
+  **Três pontos de decisão, DOIS deles contrariando premissas do despacho** —
+  por isso subiram em vez de serem resolvidos pelo engenheiro (regra 5 do
+  próprio despacho):
+  1. **Clomipramina** — o despacho mandou tirar citando achado do engenheiro,
+     e o achado estava **incompleto**: a AMB a recomenda para **transtorno de
+     pânico** (F41.0, dentro do escopo), em seção própria e no algoritmo, com
+     **dose distinta da do TOC** (100-150 contra 300 mg/dia) — indicações
+     diferentes, não a mesma citação contada duas vezes. Consta da RENAME;
+     pelo estrito é 🟢.
+  2. **Fluoxetina** — seed vigente que o algoritmo só sustenta sob **TOC**.
+     Consta da RENAME, então não é indisponibilidade: é indicação fora do
+     escopo. Seria uma **terceira excomunhão**.
+  3. **Diazepam** — seed vigente, na RENAME, mas **nenhuma das duas diretrizes
+     o nomeia** (a TAG diz só "BZD: prazos curtos"). Ler classe genérica como
+     endosso nominal é o "close enough" que o despacho proibiu.
+  **Ressalva de fonte registrada:** a ABP/TAG 2024 **não é a diretriz da ABP**
+  — pelo próprio texto é uma revisão sistemática *sobre* ela (Archives of
+  Health, citando "ABP, 2020"). Usada só para corroborar, nunca como
+  sustentação única. A AMB 2008 é a fonte forte, e tem 17 anos. NICE e mhGAP
+  não foram caçados (a ordem do martelo os põe depois da AMB).
+  §6 do documento traz a receita do flip pronta para quando vier o "concordo
+  com o elenco": versão `semaforo_f41_exaustiva_v1_2026-09`, rows com página
+  nas três obras, excomunhões dobradas no mesmo ato, guarda no padrão
+  `test_semaforo_flip_*`.
+- ✅ **Higiene da `main` local — FEITA 13/09 pelo arquiteto.** Estava 7
+  commits atrás com zero exclusivos (fast-forward limpo, não divergência de
+  histórias). O engenheiro não conseguia executar — `git` recusa atualizar
+  branch checada em outro worktree, e a sessão isolada é barrada de operar no
+  checkout principal. Resolvido com `git pull --ff-only`; `main` = `d320ae4`
+  no ato, verificada.
+
+### Fila corrente (martelo 13/09)
+
+**F41** (aguardando caneta, acima) → **posologia-por-condição**
+(`DESENHO-POSOLOGIA-POR-CONDICAO.md` — as **9 rows exiladas voltam**; é a
+dívida que a caneta J44/I50 declarou: `carregar_posologias` indexa por ativo
+e não por (ativo, CID)) → **Receita Viva** (`DESENHO-RECEITA-VIVA.md`, ticket
+ratificado; o PROMPT do Kimi chega com o visto do arquiteto).
