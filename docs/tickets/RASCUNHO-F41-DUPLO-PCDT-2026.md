@@ -5,7 +5,7 @@
 | **Origem** | Despacho 13/09 ("limpar a mesa", item 3) → **martelo do Fabiano 13/09**: *"Concordo com os três: segunda fonte na ordem SBP/AMB → NICE → mhGAP, citações falsas dobradas no flip, escopo F41 puro. Caça a diretriz."* |
 | **Rascunhista** | Engenheiro — **nunca flipa** `validado`/`exaustivo` |
 | **Assinante** | **Fabiano** |
-| **Estado** | 🟡 **RASCUNHO v2 — SEM FLIP.** A autorização verbal de 13/09 ("Merge e canetas autorizados") cobriu **J44 e I50**; F41 **não tem caneta** |
+| **Estado** | ✅ **EXECUTADO 13/09** — caneta do Fabiano (verbatim no fecho) |
 | **Fontes (sha256 conferido contra o MANIFEST)** | **RENAME 2024** (`rename/rename-2024.pdf`, 254 p.) · **AMB/CFM 2008** (`diretrizes/amb-ansiedade-2008.pdf`, 15 p., `2eb7d0df…`) · **ABP/TAG 2024** (`diretrizes/abp-tag-2024.pdf`, 5 p., `20e9d955…`) |
 
 > **Errata da v1:** a v1 (PR #262) afirmou "não há diretriz de ansiedade
@@ -183,3 +183,39 @@ Com o *"concordo com o elenco"* do Fabiano (verbatim, citado no corpo da PR):
 2024 (254 p.), da AMB 2008 (15 p.) e da ABP 2024 (5 p.); sha256 das três
 conferido contra os MANIFESTs antes da leitura. Nenhuma linha de dado curado
 foi tocada.*
+
+---
+
+## ✅ EXECUTADO — caneta do Fabiano, 13/09/2026
+
+Verbatim:
+
+> **"Concordo com o elenco: clonazepam e clomipramina 🟢. Fluoxetina e
+> diazepam saem como 🟡 com causa (TOC fora de escopo; sem citação nominal).
+> Vira flip — semaforo_f41_exaustiva_v1_2026-09."**
+
+Os **três pontos de decisão do §2 foram resolvidos pelo assinante**, e nos
+dois que contrariavam premissas do despacho ele decidiu com a fonte:
+clomipramina **entra** (pânico, F41.0) e fluoxetina **sai** (TOC, F42, fora do
+escopo). Diazepam sai por falta de citação nominal.
+
+F41 passou de **5 rows não-exaustivas** para **2 rows exaustivas**. As quatro
+que saíram — fluoxetina, diazepam, sertralina, escitalopram — acendem 🟡 com
+causa `ausente_lista_exaustiva`, que é **causa de máquina**: com
+`exaustivo=true`, quem não está na lista recebe o amarelo do próprio motor.
+"Sair como 🟡" é literalmente sair do CSV, mesmo mecanismo do I10 v2.
+
+As duas excomunhões previstas (sertralina, escitalopram) foram **dobradas no
+mesmo ato**, como o martelo determinou.
+
+Guarda: `backend/tests/unit/test_semaforo_flip_f41.py` (10 testes).
+`test_semaforo_flip_i10_v2::test_nenhuma_outra_condicao_touch` foi de sete
+para **oito** CIDs exaustivos — com F32 e F41 juntos, a dupla de saúde mental
+da APS fica exaustiva.
+
+**Posologia NÃO entra nesta caneta.** O assinante nomeou a versão do
+*semáforo*, e só. As doses estão levantadas e prontas na AMB 2008 (algoritmo
+p. 9: clonazepam 2-4 mg/dia, clomipramina 100-150 mg/dia no pânico) para uma
+caneta de posologia quando ele quiser — e o lugar natural dela é a fila
+seguinte, `DESENHO-POSOLOGIA-POR-CONDICAO.md`, onde o índice passa a chavear
+por (ativo, CID).

@@ -109,9 +109,13 @@ def test_nenhuma_outra_condicao_touch():
     13/09 (canetas J44 + I50, autorização verbal do Fabiano "Merge e canetas
     autorizados"): de cinco para SETE. O núcleo cardiorrespiratório crônico
     da APS ficou completo — I10 · E11 · J45 · J44 · I50 · F32 · N39.0.
+
+    13/09 (caneta F41, "Concordo com o elenco: clonazepam e clomipramina 🟢
+    … Vira flip"): de sete para OITO. Com F32 e F41 juntos, a dupla de saúde
+    mental da APS — depressão e ansiedade — fica exaustiva.
     """
     _, cids, _ = carregar_regras(str(_CSV))
-    assert cids == {"I10", "E11", "J45", "J44", "I50", "F32", "N39.0"}
+    assert cids == {"I10", "E11", "J45", "J44", "I50", "F32", "F41", "N39.0"}
     assert _av("E11", "metformina").sinal == SINAL_VERDE
     assert _av("J45", "beclometasona").sinal == SINAL_VERDE
     assert _av("F32", "fluoxetina").sinal == SINAL_VERDE
