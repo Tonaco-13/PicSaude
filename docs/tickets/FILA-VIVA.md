@@ -624,10 +624,9 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   **↳ SUPERADO PELA v2 (#264) no mesmo dia** — a premissa (b) caiu: o
   arquiteto caçou e estagiou as duas diretrizes horas depois. A premissa (a)
   (não existe PCDT de ansiedade) **continua valendo**.
-- 🟡 **RASCUNHO F41 v2 — LEVANTURA DUAL FEITA, SEM FLIP** — ✔️ **#264**
-  (`4ee5d65`, squash, só documentação). **Aguarda a caneta do Fabiano**: a
-  autorização verbal de 13/09 cobriu J44 e I50; **F41 não tem caneta**, e
-  nenhuma linha de CSV mudou (as 5 seeds seguem `exaustivo=false`).
+- ✅ **RASCUNHO F41 v2 — LEVANTURA DUAL** — ✔️ **#264** (`4ee5d65`, squash, só
+  documentação). Era a levantura **sem flip**, para a caneta. **A caneta veio
+  no mesmo dia e o flip está FECHADO — ver entrada seguinte (#266).**
   Martelo que destravou, verbatim: *"Concordo com os três: segunda fonte na
   ordem SBP/AMB → NICE → mhGAP, citações falsas dobradas no flip, escopo F41
   puro. Caça a diretriz."* Fontes estagiadas pelo arquiteto e **sha256
@@ -671,6 +670,44 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
   com o elenco": versão `semaforo_f41_exaustiva_v1_2026-09`, rows com página
   nas três obras, excomunhões dobradas no mesmo ato, guarda no padrão
   `test_semaforo_flip_*`.
+- ✅ **CANETA F41 — FLIP EXAUSTIVO, ENTREGUE e FECHADO 13/09** — ✔️ **#266**
+  (`63a3539`, squash). Caneta do Fabiano, verbatim: *"Concordo com o elenco:
+  clonazepam e clomipramina 🟢. Fluoxetina e diazepam saem como 🟡 com causa
+  (TOC fora de escopo; sem citação nominal). Vira flip —
+  semaforo_f41_exaustiva_v1_2026-09."* Ratificada pelo arquiteto com
+  verificação própria da branch (2 rows, ausências, conjunto de oito).
+  F41 vai de **5 rows não-exaustivas para 2 exaustivas**, cada uma com página
+  nas DUAS obras: clonazepam (AMB 2008 pânico 3ª linha, p. 6/9 + RENAME
+  p. 94/130) e clomipramina (AMB 2008 pânico 2ª linha, p. 5/9 + RENAME
+  p. 95/130).
+  **O elenco de dois é o ACHADO, não lacuna da varredura:** das 9 substâncias
+  que as diretrizes recomendam para pânico (F41.0) e TAG (F41.1), **SETE não
+  constam da RENAME 2024** — inclusive **todas as de primeira linha**. Sobra
+  no SUS um benzodiazepínico de 3ª linha e um tricíclico de 2ª. **O 🟡 é o
+  serviço, não o defeito:** o prescritor de APS vê que a primeira linha do
+  livro não está na prateleira dele.
+  **Dois registros de mecanismo que o arquiteto pediu para guardar:**
+  1. **"Sair como 🟡" é literalmente sair do CSV.** Com `exaustivo=true`, o
+     portão da exaustividade gera `ausente_lista_exaustiva` sozinho — não há
+     row marcada de amarelo. **Zero dívida de manutenção nos amarelos**: a
+     lista de excluídos não existe para desatualizar.
+  2. **Guarda que sabe se aposentar.** `test_primeira_linha_das_diretrizes_
+     fica_amarela_por_ausencia_no_sus` **falha no dia em que a RENAME incluir
+     sertralina** — um teste que documenta o mundo como é e obriga a
+     revisitar quando o mundo melhorar.
+  Os dois pontos de decisão que contrariavam premissas do despacho foram
+  resolvidos pelo assinante **com a fonte**: clomipramina entra pelo pânico
+  (dose 100-150 mg/dia, distinta da do TOC) e fluoxetina sai pelo TOC.
+  **Conjunto exaustivo agora com OITO condições** — I10 · E11 · J45 · F32 ·
+  N39.0 · J44 · I50 · F41. Com F32 + F41, a **dupla de saúde mental da APS**
+  fica completa.
+  **Posologia ficou FORA do flip por desenho:** o assinante nomeou a versão do
+  semáforo, e só. As doses já estão levantadas (AMB algoritmo p. 9: clonazepam
+  2-4 mg, clomipramina 100-150 mg) e entram na fila seguinte, junto com as
+  **9 exiladas do I50/J44**, na mesma PR do índice por `(ativo, CID)`.
+  Guarda: `test_semaforo_flip_f41.py` (10 testes).
+  `test_semaforo_flip_i10_v2::test_nenhuma_outra_condicao_touch` foi de sete
+  para OITO. 723 verdes no conjunto que o gate roda.
 - ✅ **Higiene da `main` local — FEITA 13/09 pelo arquiteto.** Estava 7
   commits atrás com zero exclusivos (fast-forward limpo, não divergência de
   histórias). O engenheiro não conseguia executar — `git` recusa atualizar
@@ -680,8 +717,16 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
 
 ### Fila corrente (martelo 13/09)
 
-**F41** (aguardando caneta, acima) → **posologia-por-condição**
+~~**F41**~~ ✅ **fechado 13/09 (#266)** → **posologia-por-condição**
 (`DESENHO-POSOLOGIA-POR-CONDICAO.md` — as **9 rows exiladas voltam**; é a
 dívida que a caneta J44/I50 declarou: `carregar_posologias` indexa por ativo
-e não por (ativo, CID)) → **Receita Viva** (`DESENHO-RECEITA-VIVA.md`, ticket
-ratificado; o PROMPT do Kimi chega com o visto do arquiteto).
+e não por (ativo, CID). Entram junto as doses de F41 já levantadas) →
+**Receita Viva** (`DESENHO-RECEITA-VIVA.md`, ticket ratificado; o PROMPT do
+Kimi chega com o visto do arquiteto).
+
+> **Fecho da semana (13/09).** Começou com *"o carimbo não está acontecendo
+> plenamente?"* e fecha com: **~500 substâncias classificadas na emissão**
+> (G1, #260 — o carimbo inverte o princípio da cautela), **oito condições de
+> elenco estrito** com página na fonte, e um semáforo que diz a verdade
+> inclusive quando a verdade incomoda — *a primeira linha do livro não está
+> na prateleira do SUS*.
