@@ -91,3 +91,33 @@ ausente da RENAME 2024 fica 🟡 com causa, não 🟢 com ausência declarada.
 ativo, não por (ativo, CID). As rows de posologia de fármacos compartilhados
 com outro protocolo foram RETIRADAS para não sobrescrever em silêncio a dose
 do protocolo vizinho. Detalhe e guarda no teste acima.
+
+---
+
+## ✅ EXILADAS DE VOLTA — ENG-019, 21/09/2026
+
+O limite registrado acima está fechado. `carregar_posologias` passou a chavear
+por **`(ativo, CID)`** (`DESPACHO-ENG-019-POSOLOGIA-POR-CONDICAO.md`), e as rows
+de posologia retiradas nesta caneta por colidirem com outro protocolo voltaram
+ao `data/posologia_sugerida.csv` sob a chave certa — transcritas do mesmo PDF
+estagiado, com página.
+
+A guarda `test_posologia_nao_tem_dois_cids_para_o_mesmo_ativo`, que proibia
+colisão, **foi invertida** em
+`test_posologia_com_dois_cids_para_o_mesmo_ativo_agora_convive`: colidir passou
+a ser legítimo, e o que se exige agora é que a colisão RESOLVA — cada par vivo,
+cada um com a sua dose.
+
+Três das quatro de J44 voltaram (salbutamol, budesonida, prednisona), do
+**Quadro 6, p. 19-22** do PCDT DPOC 2025.
+
+**A quarta NÃO voltou, e o motivo é de fonte:** `fumarato de formoterol +
+budesonida` está na lista de medicamentos (p. 19), mas o Quadro 6 **não traz
+esquema de administração para LABA+ICS** — o Protocolo afirma que a combinação
+não é opção preferencial na DPOC (p. 9, p. 17). Sem dose na fonte, não se
+escreve row: *"não se inventa row"* é a regra desta casa, e ela valeria pouco se
+cedesse justamente para fechar uma contagem de nove. O que importa clinicamente
+já está garantido — com a chave composta, a dose de ASMA não vaza para a DPOC
+(guarda:
+`test_formoterol_budesonida_nao_empresta_a_dose_da_asma_para_a_dpoc`). Escrever
+a row exige uma caneta com dose de fonte, não este ticket.
