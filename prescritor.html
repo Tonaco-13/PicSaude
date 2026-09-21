@@ -110,13 +110,90 @@
         /* Mensagem de status no topo do formulário */
         #form-status-msg { margin-bottom: 16px; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-weight: 500; }
 
+        /* ENG-018 — o #print-area saiu da `tela-sucesso` e virou ALVO da função
+           geradora (receituario.js), sempre montado e sempre em dia. Fica fora
+           da tela porque o que o prescritor vê é a FOLHA VIVA: duas cópias do
+           mesmo documento na mesma tela seriam a duplicação que o §3 do desenho
+           proíbe, agora em pixels. A tipografia de impressão vem do
+           `.rec-modo-carimbo` — não há mais Courier chumbado aqui, senão o
+           documento impresso deixaria de ser o documento visto. */
+        #print-area { display: none; }
+
         @media print {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; font-family: 'Courier New', Courier, monospace; color: #000; }
+            #print-area { display: block; position: absolute; left: 0; top: 0; width: 100%; color: #000; }
             .no-print { display: none !important; }
             body { background: white; }
         }
+
+        /* ═══ RECEITA VIVA (ENG-018) — o PALCO: a pena e o papel ═══════════
+           O formulário à esquerda, o receituário se escrevendo à direita.
+           A `.container` continua com 850px para todo o resto da tela (as
+           outras três circulações não foram tocadas nesta onda); só o palco
+           da receita se alarga, e só a partir de 980px. */
+        .receita-palco { display: block; }
+        .receita-papel-titulo {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .6px; color: #64748b; margin: 0 0 10px;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .receita-papel-titulo::before {
+            content: ''; width: 7px; height: 7px; border-radius: 50%;
+            background: #16a34a; flex-shrink: 0;
+        }
+
+        @media (min-width: 980px) {
+            .receita-palco {
+                display: grid;
+                grid-template-columns: minmax(360px, 5fr) minmax(400px, 6fr);
+                gap: 28px;
+                align-items: start;
+                /* Alargamento controlado: o palco sai da caixa de 850px e se
+                   centra sozinho, sem `transform` (que criaria bloco contentor
+                   e brigaria com o `sticky` da folha). */
+                position: relative;
+                left: 50%;
+                width: min(1320px, calc(100vw - 48px));
+                margin-left: calc(-0.5 * min(1320px, 100vw - 48px));
+            }
+            .receita-papel { position: sticky; top: 16px; }
+        }
+
+        /* Mobile (< 980px): a folha não divide espaço com a pena — ela é
+           chamada por um botão flutuante (martelada ③ do arquiteto). */
+        .receita-papel { margin-top: 28px; }
+
+        @media (max-width: 979px) {
+            .receita-papel {
+                position: fixed; inset: 0; z-index: 60; margin: 0;
+                background: #f1f5f9; padding: 16px;
+                overflow-y: auto;
+                display: none;
+            }
+            .receita-papel.receita-papel-aberta { display: block; }
+            .receita-fechar-folha {
+                position: sticky; top: 0; z-index: 1; width: 100%;
+                background: #0f172a; color: #fff; border: none; border-radius: 6px;
+                padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer;
+                margin-bottom: 12px;
+            }
+            .receita-fab {
+                position: fixed; right: 16px; bottom: 16px; z-index: 55;
+                background: #1e3a8a; color: #fff; border: none; border-radius: 999px;
+                padding: 13px 20px; font-size: 14px; font-weight: 600;
+                box-shadow: 0 6px 20px rgba(15,23,42,.28); cursor: pointer;
+            }
+        }
+        /* Em desktop o botão flutuante não existe — a folha já está à vista. */
+        @media (min-width: 980px) {
+            .receita-fab, .receita-fechar-folha { display: none; }
+        }
+        /* AC8 — o botão flutuante NUNCA cobre o botão de emitir. Quando o
+           gesto de emitir entra em cena, a chamada da folha sai de cena; a
+           classe (e não `[hidden]`) é deliberada: `display:block` de media
+           query venceria o atributo, e já pagamos essa lição duas vezes. */
+        .receita-fab-recolhido { display: none !important; }
 
         /* IA Farmacêutica v1 — blocos de sugestão por card de medicamento */
         .ia-container { margin-top: 10px; }
@@ -347,6 +424,13 @@
   <!-- M-D (DESENHO-VITRINE-HIGIENE-VISITANTE.md §8, revoga M-B/M-C) —
        trava nome+CPF do paciente no cidadão canônico nos quatro campos. -->
   <script src="cidadao-demo-fixo.js"></script>
+  <!-- ENG-018 (Receita Viva) — UMA função geradora do receituário, DOIS
+       alvos: a folha viva (#folha-viva, modo rascunho) e o documento
+       (#print-area, modo carimbo). O #print-area NÃO tem mais marcação
+       própria: duplicar o template faria os dois derivarem, e o "zero
+       surpresa" viraria mentira gradual (DESENHO-RECEITA-VIVA.md §3). -->
+  <link rel="stylesheet" href="receituario.css">
+  <script src="receituario.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -604,10 +688,49 @@
             <div id="submod-receita" class="no-print">
                 <h2 class="section-title" id="titulo-formulario" style="margin-bottom: 8px;">Prescrição Médica — Emissão Documentada</h2>
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Para validade legal conforme Res. CFM 2.299/2021, utilize a emissão digital com assinatura ICP-Brasil.</p>
-                <div id="form-status-msg" class="hidden"></div>
+
+                <!-- ═══ O PALCO (ENG-018) — a pena à esquerda, o papel à direita ═══ -->
+                <div class="receita-palco">
+                  <div class="receita-pena">
+                    <div id="form-status-msg" class="hidden"></div>
+                    <!-- ENG-018 AC4 — a confirmação NÃO é mais uma tela.
+                         Emitir deixou de navegar: o protocolo e o hash carimbam a
+                         MESMA folha que estava à vista, e o comprovante aparece aqui,
+                         ao lado dela. Navegar para um render novo quebraria o "zero
+                         surpresa" logo na primeira emissão. -->
+                    <div id="painel-emissao" class="card hidden no-print" style="text-align: center; margin-bottom: 24px; border-top: 4px solid #16a34a;">
+                        <div id="sucesso-icone" style="width: 64px; height: 64px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px;">✓</div>
+                        <h2 id="sucesso-titulo" style="color: #0f172a; margin-bottom: 8px;">Prescrição Transmitida</h2>
+                        <div id="sucesso-nivel-container" style="display: flex; justify-content: center; margin-bottom: 12px;">
+                            <span id="sucesso-nivel-badge" class="nivel-badge nivel-badge-cfm" style="display: none;"></span>
+                        </div>
+                        <p id="sucesso-msg" style="color: #475569; font-size: 15px;">A custódia foi enviada com sucesso para o CPF: <strong id="sucesso-chave">...</strong></p>
+                        <p id="sucesso-modo-assinatura" style="display: none; color: #64748b; font-size: 13px; margin-top: 6px;"></p>
+                        <div id="sucesso-cnes-validacao" class="no-print" style="max-width:480px;margin:0 auto;text-align:left"></div>
+                        <div id="sucesso-carteira-info" class="no-print" style="display:none; max-width:480px; margin:8px auto 0; text-align:left;"></div>
+                        <div id="sucesso-assinar-icp" class="no-print" style="display:none; max-width:480px; margin:12px auto 0;">
+                            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px 16px; text-align:left;">
+                                <div style="font-size:13px; font-weight:600; color:#166534; margin-bottom:8px;">🔏 Assinatura ICP-Brasil (PAdES)</div>
+                                <p style="font-size:12px; color:#15803d; margin-bottom:10px; line-height:1.5;">Gere o PDF assinado com o seu certificado A1. A senha é usada uma vez e não é guardada.</p>
+                                <button onclick="assinarBaixarPdf()" class="btn btn-action" style="width:auto; padding:10px 18px; font-size:13px;">📄 Assinar com ICP-Brasil e baixar PDF</button>
+                                <div id="assinar-icp-msg" class="msg-inline" style="margin-top:8px; display:none;"></div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 16px; justify-content: center; margin-top: 32px; flex-wrap: wrap;">
+                            <button onclick="window.print()" class="btn btn-outline" style="width: auto;">🖨️ Imprimir 2ª Via / Físico</button>
+                            <button onclick="novaReceita()" class="btn btn-primary" style="width: auto;">Nova Prescrição</button>
+                            <button onclick="irParaDashboard()" class="btn btn-outline" style="width: auto;">Minhas Prescrições</button>
+                        </div>
+                    </div>
+
                 <form id="main-prescription-form" onsubmit="emitirReceitaDigital(event)">
                     <div style="background: #ffffff; padding: 24px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
-                        <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Dados Clínicos do Paciente</h4>
+                        <!-- Martelada ① do arquiteto (ENG-018): o CPF/CNI sobe para cá.
+                             É o mesmo campo (`pac-chave`, chave de custódia do Ticket 63)
+                             — a custódia mora no FLUXO de emissão, não na seção onde o
+                             input senta. Na folha ele já era identificação do paciente;
+                             a caneta e o papel passam a morar juntos. -->
+                        <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Identificação do Paciente</h4>
                         <div class="grid-3" style="margin-bottom: 16px;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-nome" class="form-input" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input numerico-input" data-tipo="numerico" maxlength="3" placeholder="Ex: 45" required aria-required="true"></div>
@@ -626,6 +749,23 @@
                                 </select>
                             </div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">CEP <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-cep" class="form-input cep-input" data-tipo="cep" required aria-required="true"></div>
+                        </div>
+
+                        <!-- CPF / CNI do paciente + verificação de carteira digital (Ticket 63).
+                             Veio do bloco "Modo de Emissão" (martelada ① do ENG-018). As duas
+                             guardas permanentes viajam com o campo: a máscara numérica da A2
+                             (`data-tipo="cpf"`) e o lock M-D em DEMO (readonly no cidadão
+                             canônico, aplicado por `CidadaoDemoFixo.travar`). -->
+                        <div style="margin-top: 16px; display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+                            <div class="form-group" style="margin: 0; flex: 1; min-width: 260px;">
+                                <label class="form-label">CPF / CNI do Paciente <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0;">(obrigatório no digital — mesmo número da Carteira de Identidade Nacional)</span></label>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="text" id="pac-chave" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00" style="flex: 1;">
+                                    <button type="button" onclick="verificarCarteiraPaciente()" class="btn-outline btn-small" style="white-space: nowrap; font-size: 11px; padding: 6px 10px;">Verificar Carteira</button>
+                                </div>
+                                <div id="msg-cpf-erro" class="msg-inline msg-inline-error hidden"></div>
+                                <div id="carteira-status-rec" style="display:none; margin-top: 6px; font-size: 12px; padding: 6px 10px; border-radius: 4px;"></div>
+                            </div>
                         </div>
 
                         <!-- Indicação Clínica (opcional) com sugestão de CID (IA CID) —
@@ -653,19 +793,6 @@
                     <div style="background: #e0f2fe; padding: 24px; border-radius: 6px; border: 1px solid #bae6fd; margin-bottom: 32px;">
                         <h4 style="color: #1e3a8a; font-size: 15px; text-transform: uppercase; margin-bottom: 4px;">Modo de Emissão</h4>
                         <p style="font-size: 12px; color: #0369a1; margin-bottom: 20px;">A emissão digital com assinatura ICP-Brasil garante validade legal plena conforme Res. CFM 2.299/2021.</p>
-
-                        <!-- CPF do Paciente + verificação de carteira digital (Ticket 63) -->
-                        <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
-                            <div class="form-group" style="margin: 0; flex: 1; min-width: 260px;">
-                                <label class="form-label" style="color: #0c4a6e;">CPF / CNI do Paciente <span style="font-weight: 400; font-size: 11px; text-transform: none; letter-spacing: 0;">(obrigatório — mesmo número da Carteira de Identidade Nacional)</span></label>
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    <input type="text" id="pac-chave" class="form-input cpf-input" data-tipo="cpf" placeholder="000.000.000-00" style="flex: 1;">
-                                    <button type="button" onclick="verificarCarteiraPaciente()" class="btn-outline btn-small" style="white-space: nowrap; font-size: 11px; padding: 6px 10px;">Verificar Carteira</button>
-                                </div>
-                                <div id="msg-cpf-erro" class="msg-inline msg-inline-error hidden"></div>
-                                <div id="carteira-status-rec" style="display:none; margin-top: 6px; font-size: 12px; padding: 6px 10px; border-radius: 4px;"></div>
-                            </div>
-                        </div>
 
                         <!-- Bloco primário: ICP-Brasil -->
                         <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 18px; margin-bottom: 12px;">
@@ -708,6 +835,24 @@
                         <button type="button" id="btn-cancelar-edicao" class="btn btn-text hidden" onclick="novaReceita()" style="margin-top: 16px; width: 100%; text-align:center;">Cancelar Edição</button>
                     </div>
                 </form>
+                  </div>
+                  <!-- fim da PENA -->
+
+                  <!-- ═══ O PAPEL — a receita se escrevendo, no layout do documento ═══
+                       `#folha-viva` é ALVO da mesma função que monta o `#print-area`
+                       (receituario.js). Não há template aqui: o que se lê desta folha
+                       é, por construção, o que o cidadão recebeu. -->
+                  <aside class="receita-papel" id="receita-papel">
+                    <button type="button" class="receita-fechar-folha" onclick="fecharFolhaViva()">✕ Voltar ao formulário</button>
+                    <p class="receita-papel-titulo">O papel — a receita se formando</p>
+                    <div id="folha-viva"></div>
+                  </aside>
+                </div>
+                <!-- fim do PALCO -->
+
+                <!-- Mobile (martelada ③): a folha é chamada, não empilhada. O botão
+                     se recolhe sozinho quando o botão de emitir entra em cena (AC8). -->
+                <button type="button" class="receita-fab" id="receita-fab" onclick="abrirFolhaViva()">📄 Ver a receita</button>
             </div>
 
             <!-- ============================================================
@@ -1119,84 +1264,15 @@
 
         </div> 
 
-        <div id="tela-sucesso" class="card hidden">
-            <div class="no-print" style="text-align: center; margin-bottom: 32px; padding-bottom: 32px; border-bottom: 1px solid #e2e8f0;">
-                <div id="sucesso-icone" style="width: 64px; height: 64px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 16px;">✓</div>
-                <h2 id="sucesso-titulo" style="color: #0f172a; margin-bottom: 8px;">Prescrição Transmitida</h2>
-                <div id="sucesso-nivel-container" style="display: flex; justify-content: center; margin-bottom: 12px;">
-                    <span id="sucesso-nivel-badge" class="nivel-badge nivel-badge-cfm" style="display: none;"></span>
-                </div>
-                <p id="sucesso-msg" style="color: #475569; font-size: 15px;">A custódia foi enviada com sucesso para o CPF: <strong id="sucesso-chave">...</strong></p>
-                <p id="sucesso-modo-assinatura" style="display: none; color: #64748b; font-size: 13px; margin-top: 6px;"></p>
-                <div id="sucesso-cnes-validacao" class="no-print" style="max-width:480px;margin:0 auto;text-align:left"></div>
-                <div id="sucesso-carteira-info" class="no-print" style="display:none; max-width:480px; margin:8px auto 0; text-align:left;"></div>
-                <div id="sucesso-assinar-icp" class="no-print" style="display:none; max-width:480px; margin:12px auto 0;">
-                    <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:14px 16px; text-align:left;">
-                        <div style="font-size:13px; font-weight:600; color:#166534; margin-bottom:8px;">🔏 Assinatura ICP-Brasil (PAdES)</div>
-                        <p style="font-size:12px; color:#15803d; margin-bottom:10px; line-height:1.5;">Gere o PDF assinado com o seu certificado A1. A senha é usada uma vez e não é guardada.</p>
-                        <button onclick="assinarBaixarPdf()" class="btn btn-action" style="width:auto; padding:10px 18px; font-size:13px;">📄 Assinar com ICP-Brasil e baixar PDF</button>
-                        <div id="assinar-icp-msg" class="msg-inline" style="margin-top:8px; display:none;"></div>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 16px; justify-content: center; margin-top: 32px; flex-wrap: wrap;">
-                    <button onclick="window.print()" class="btn btn-outline" style="width: auto;">🖨️ Imprimir 2ª Via / Físico</button>
-                    <button onclick="novaReceita()" class="btn btn-primary" style="width: auto;">Nova Prescrição</button>
-                    <button onclick="irParaDashboard()" class="btn btn-outline" style="width: auto;">Minhas Prescrições</button>
-                </div>
-            </div>
 
-            <div id="print-area">
-                <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;">
-                    <h2 style="font-size: 22px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Receituário Médico</h2>
-                    <p style="font-size: 12px; color: #333;">PIX SAÚDE - TRANSFERÊNCIA ELETRÔNICA DE DADOS</p>
-                    <p style="font-size: 12px; margin-top: 5px;">Protocolo: <span id="print-protocolo" style="font-weight: bold;">...</span></p>
-                    <p id="print-protocolo-hint" style="font-size: 10px; margin-top: 4px;"></p>
-                </div>
-                <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #000;">
-                    <p style="font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Identificação do Emitente</p>
-                    <p style="font-size: 14px; font-weight: bold;" id="print-medico-nome">...</p>
-                    <p style="font-size: 12px;" id="print-medico-registros">...</p>
-                    <p style="font-size: 12px; margin-top: 4px;">Endereço: <span id="print-medico-endereco">...</span> | CEP: <span id="print-medico-cep">...</span> | Tel: <span id="print-medico-tel">...</span></p>
-                </div>
-                <div style="margin-bottom: 30px; padding: 10px; border: 1px solid #000;">
-                    <p style="font-size: 11px; text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Identificação do Paciente</p>
-                    <div style="display: flex; justify-content: space-between;">
-                        <p style="font-size: 16px; font-weight: bold;" id="print-paciente">...</p>
-                        <p style="font-size: 14px;">Idade: <span id="print-idade" style="font-weight: bold;">...</span></p>
-                    </div>
-                    <p style="font-size: 12px; margin-top: 4px;">Tel: <span id="print-telefone">...</span></p>
-                    <p style="font-size: 12px; margin-top: 4px;">Endereço: <span id="print-paciente-endereco">...</span> | CEP: <span id="print-paciente-cep">...</span></p>
-                </div>
-                <div style="min-height: 250px;">
-                    <p style="font-size: 12px; text-transform: uppercase; font-weight: bold; margin-bottom: 10px;">Prescrição Terapêutica</p>
-                    <div id="print-medicamentos" style="font-size: 14px; line-height: 1.6;"></div>
-                </div>
-                <div style="margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
-                    <div>
-                        <p style="font-size: 12px;">Local e Data da Emissão:</p>
-                        <p style="font-size: 14px; font-weight: bold;" id="print-local-data">...</p>
-                    </div>
-                    <div style="width: 350px; text-align: center;">
-                        <div style="border-top: 1px solid #000; padding-top: 8px;">
-                            <p style="font-size: 14px; font-weight: bold;" id="print-ass-nome">...</p>
-                            <p style="font-size: 12px; margin-bottom: 8px;" id="print-ass-registro">...</p>
-                            <div id="print-ass-digital-tag" style="background: #f0fdf4; padding: 6px; border: 1px dashed #86efac; border-radius: 4px;">
-                                <p style="font-size: 10px; color: #166534; font-weight: bold; text-transform: uppercase;">Documento Emitido com Assinatura Digital</p>
-                                <p id="print-ass-nivel" style="font-size: 10px; color: #15803d; font-weight: 600; margin-top: 2px;"></p>
-                                <p style="font-size: 10px; color: #475569; font-family: monospace; margin-top: 2px;">Protocolo: <span id="print-ass-id">...</span></p>
-                                <p id="print-ass-modo" style="font-size: 10px; color: #475569; margin-top: 2px;"></p>
-                            </div>
-                            <div id="print-ass-fisica-tag" class="hidden" style="margin-top: 8px; background: #fffbeb; padding: 6px; border: 1px dashed #fcd34d; border-radius: 4px;">
-                                <p style="font-size: 10px; color: #92400e; font-weight: bold; text-transform: uppercase;">⚠️ Emissão Física — Sem Custódia Digital</p>
-                                <p style="font-size: 10px; color: #78350f; margin-top: 2px;">Requer assinatura à caneta e carimbo físico para ter validade. Sem protocolo rastreável no PicSaúde.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
     </div>
+
+    <!-- ENG-018 §3 — o DOCUMENTO. Sem marcação própria: é alvo de
+         `renderReceituario(estado, 'carimbo')`, a MESMA função que monta a folha
+         viva. Sai da `tela-sucesso` e passa a viver no topo do documento porque
+         já não pertence a uma tela — pertence à receita, e está sempre em dia. -->
+    <div id="print-area" aria-hidden="true"></div>
 
     <footer class="no-print" style="text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 850px; margin-left: auto; margin-right: auto;">
         <p style="margin-bottom: 4px; font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
@@ -2011,7 +2087,12 @@
         }
 
         function esconderTudo() {
-            const blocos = ['tela-acesso', 'tela-busca', 'tela-vincular', 'tela-validacao', 'tela-dashboard', 'tela-perfil', 'tela-sucesso', 'tela-taloes'];
+            // ENG-018: 'tela-sucesso' deu lugar a 'painel-emissao'. A
+            // confirmação deixou de ser TELA (emitir não navega mais) e virou
+            // painel dentro do submódulo da receita, ao lado da folha
+            // carimbada. Continua nesta lista porque trocar de tela também
+            // tem de fechá-la.
+            const blocos = ['tela-acesso', 'tela-busca', 'tela-vincular', 'tela-validacao', 'tela-dashboard', 'tela-perfil', 'painel-emissao', 'tela-taloes'];
             blocos.forEach(id => {
                 const elemento = document.getElementById(id);
                 if (elemento) elemento.classList.add('hidden');
@@ -2405,6 +2486,10 @@
             (r.medicamentos || []).forEach(m => {
                 adicionarMedicamento(m.nome, m.concentracao, m.forma, m.quantidade, m.posologia, m.validade, m.unidade || '');
             });
+            // ENG-018 — correção/renovação preenchem por CÓDIGO: sem evento de
+            // input, e com `medicamentos` vazio nem a estrutura muda. A folha
+            // precisa ser avisada aqui, explicitamente.
+            _repintarReceituario();
         }
 
         async function atualizarPainel() {
@@ -2674,11 +2759,240 @@
             const _hPrescr = document.getElementById('prescricao-cid-escolhido');
             if (_hPrescr) _hPrescr.value = '';
 
+            // ENG-018 — por ÚLTIMO, e não antes: `_liberarFolhaViva` repinta a
+            // partir do formulário, e repintar ANTES da limpeza devolveria à
+            // folha exatamente os dados que acabaram de ser apagados. Nem
+            // `.reset()` nem `hidden.value = ''` disparam evento — quem repinta
+            // depois deles é esta chamada, não a sorte.
+            _liberarFolhaViva();
+
             // Inicializa a lista de exames com um card vazio (se ainda estiver vazia)
             if (document.getElementById('lista-exames').children.length === 0) {
                 exameCount = 0; adicionarExame();
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // RECEITA VIVA (ENG-018) — a folha ao lado da pena
+        //
+        // A régua: no papel, a receita existe DURANTE o ato. Nesta tela ela só
+        // nascia depois do ponto de não-retorno. O conserto é um estado lido do
+        // formulário a cada tecla e entregue à função geradora — que pinta os
+        // DOIS alvos (folha viva + #print-area) a partir do MESMO objeto.
+        //
+        // Nada aqui monta HTML de receituário: o template mora em
+        // `receituario.js`, um só, por construção (DESENHO-RECEITA-VIVA.md §3).
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Estado da folha DEPOIS da emissão. Enquanto ele existe, a folha para
+        // de escutar o formulário — CLAUDE.md §1: objeto sanitário emitido não
+        // se edita. Editar o formulário com a receita já emitida passaria a
+        // impressão de que o documento carimbado mudou junto; ele não muda.
+        // `novaReceita()` / `irParaDashboard()` o liberam.
+        let _receituarioEmitido = null;
+
+        /** Os CIDs da prescrição, pela fonte CANÔNICA (AC6).
+         *
+         *  O hidden `prescricao-cid-escolhido` é quem manda — é o valor que
+         *  viaja no payload (`codigo_cid`). A descrição vem da etiqueta só
+         *  como enfeite; se a etiqueta sumir, o selo continua certo. Ler o
+         *  texto digitado na indicação seria a folha adivinhar o CID, e o
+         *  documento não adivinha.
+         */
+        function _cidsEscolhidosPrescricao() {
+            const hidden = document.getElementById('prescricao-cid-escolhido');
+            const chips  = document.getElementById('ia-cid-prescricao-chips');
+            const codigos = hidden ? hidden.value.split('|').filter(Boolean) : [];
+            return codigos.map(codigo => {
+                const chip = chips ? chips.querySelector('[data-cid="' + codigo + '"]') : null;
+                const desc = chip ? chip.querySelector('.ia-cid-chip-desc') : null;
+                return { codigo: codigo, descricao: desc ? desc.textContent.trim() : '' };
+            });
+        }
+
+        function _itensDoFormulario() {
+            const itens = [];
+            document.querySelectorAll('#lista-medicamentos .med-card').forEach(card => {
+                const q = sel => { const el = card.querySelector(sel); return el ? String(el.value || '').trim() : ''; };
+                itens.push({
+                    nome: q('.med-nome'), concentracao: q('.med-conc'),
+                    quantidade: q('.med-qtd'), unidade: q('.med-unidade'),
+                    forma: q('.med-forma'), apresentacao: q('.med-apresentacao'),
+                    posologia: q('.med-posologia'), validade: q('.med-validade'),
+                });
+            });
+            return itens;
+        }
+
+        /** Registros do conselho, ou vazio — vazio vira LACUNA na folha.
+         *  `formatarConselhosDisplay` devolve "Registro não informado", que na
+         *  folha soaria como campo preenchido. A mesma regra vale no rascunho e
+         *  no carimbo: o que falta aparece pontilhado nos dois. */
+        function _registrosOuVazio(conselhos) {
+            return (conselhos && conselhos.length) ? formatarConselhosDisplay(conselhos) : '';
+        }
+
+        function _comComplemento(endereco, complemento) {
+            const e = String(endereco || '').trim();
+            const c = String(complemento || '').trim();
+            if (!e) return '';
+            return c ? `${e} | Comp: ${c}` : e;
+        }
+
+        /** O estado do documento lido do FORMULÁRIO — a receita se escrevendo. */
+        function _estadoDoFormulario() {
+            const v = id => { const el = document.getElementById(id); return el ? String(el.value || '') : ''; };
+            const med = medicoLogado || {};
+            const cidade = v('pac-cidade').trim();
+
+            return {
+                emitido: false,
+                protocolo: '', protocolo_aviso: '', hash: '',
+                emitente: {
+                    nome:      med.nome || '',
+                    registros: _registrosOuVazio(med.conselhos),
+                    endereco:  _comComplemento(med.endereco, med.complemento),
+                    cep:       med.cep || '',
+                    telefone:  med.telefone_comercial || '',
+                },
+                paciente: {
+                    nome:      v('pac-nome').trim().toUpperCase(),
+                    idade:     v('pac-idade').trim(),
+                    chave:     v('pac-chave').trim(),
+                    telefone:  v('pac-telefone').trim(),
+                    endereco:  _comComplemento(v('pac-endereco'), v('pac-complemento')),
+                    cep:       v('pac-cep').trim(),
+                    cidade_uf: cidade ? `${cidade} - ${v('pac-uf')}` : '',
+                },
+                indicacao: v('prescricao-indicacao').trim(),
+                cids:      _cidsEscolhidosPrescricao(),
+                itens:     _itensDoFormulario(),
+                local_data: med.cidade
+                    ? `${med.cidade} - ${med.uf_cidade || ''}, ${getDataFormatada()}`
+                    : getDataFormatada(),
+                assinatura: {
+                    nome:     med.nome || '',
+                    registro: _registrosOuVazio(med.conselhos),
+                    tipo: null, nivel: '', modo: '',
+                },
+            };
+        }
+
+        /** O estado do documento EMITIDO — lido do objeto que foi emitido, não
+         *  do formulário. É o que congela a folha no que de fato saiu. */
+        function _estadoDaReceitaEmitida(rec, isDigital, nivelFormal) {
+            return {
+                emitido: true,
+                // Protocolo do backend quando existe; senão o ID local da
+                // emissão física fire-and-forget — que NÃO é consultável, e a
+                // folha diz isso em vez de deixar parecer rastreável.
+                protocolo: rec.protocolo_backend || rec.id,
+                protocolo_aviso: rec.protocolo_backend ? '' :
+                    'ID local — receita registrada apenas neste dispositivo. ' +
+                    'Para verificação pública, emita nova receita digital.',
+                hash: rec.documento_hash || '',
+                emitente: {
+                    nome:      rec.medico_nome || '',
+                    registros: _registrosOuVazio(rec.medico_conselhos),
+                    endereco:  rec.medico_endereco || '',
+                    cep:       rec.medico_cep || '',
+                    telefone:  rec.medico_telefone || '',
+                },
+                paciente: {
+                    nome:      rec.paciente_nome || '',
+                    idade:     rec.paciente_idade || '',
+                    chave:     rec.paciente_chave ? formatarCPF(rec.paciente_chave) : '',
+                    telefone:  rec.paciente_telefone || '',
+                    endereco:  rec.paciente_endereco || '',
+                    cep:       rec.paciente_cep || '',
+                    cidade_uf: rec.paciente_cidade_uf || '',
+                },
+                indicacao: rec.indicacao_clinica || '',
+                cids:      rec.cids || [],
+                itens: (rec.medicamentos || []).map(m => ({
+                    nome: m.nome, concentracao: m.concentracao,
+                    quantidade: m.quantidade, unidade: m.unidade,
+                    forma: m.forma, apresentacao: m.apresentacao_comercial,
+                    posologia: m.posologia, validade: m.validade,
+                })),
+                local_data: rec.medico_cidade
+                    ? `${rec.medico_cidade} - ${rec.medico_uf || ''}, ${getDataFormatada()}`
+                    : getDataFormatada(),
+                assinatura: {
+                    nome:     rec.medico_nome || '',
+                    registro: _registrosOuVazio(rec.medico_conselhos),
+                    tipo:     isDigital ? 'digital' : 'fisica',
+                    nivel:    isDigital ? labelNivelFormal(nivelFormal).texto : '',
+                    modo:     isDigital ? labelAssinaturaModo(rec.assinatura_modo) : '',
+                },
+            };
+        }
+
+        /** UM estado, DOIS alvos. É aqui que o W ≡ Y do AC3 acontece: os dois
+         *  renders saem do MESMO objeto e da MESMA função — não há caminho pelo
+         *  qual um ande e o outro fique. */
+        function _repintarReceituario() {
+            if (typeof Receituario === 'undefined') return;
+            const estado = _receituarioEmitido || _estadoDoFormulario();
+            Receituario.montar('folha-viva', estado, Receituario.MODOS.RASCUNHO);
+            Receituario.montar('print-area', estado, Receituario.MODOS.CARIMBO);
+        }
+
+        /** Solta a folha do documento emitido e devolve a pena ao papel em branco. */
+        function _liberarFolhaViva() {
+            _receituarioEmitido = null;
+            const painel = document.getElementById('painel-emissao');
+            if (painel) painel.classList.add('hidden');
+            _repintarReceituario();
+        }
+
+        function abrirFolhaViva() {
+            const papel = document.getElementById('receita-papel');
+            if (papel) papel.classList.add('receita-papel-aberta');
+        }
+
+        function fecharFolhaViva() {
+            const papel = document.getElementById('receita-papel');
+            if (papel) papel.classList.remove('receita-papel-aberta');
+        }
+
+        (function _initFolhaViva() {
+            const raiz = document.getElementById('submod-receita');
+            if (!raiz) return;
+
+            // AC1 — tecla a tecla, por DELEGAÇÃO na raiz do submódulo (o padrão
+            // do `_initBuscaMedDelegada`): pega todo campo do paciente, a
+            // indicação e todo campo de todo card de fármaco, inclusive os que
+            // ainda não existem.
+            raiz.addEventListener('input',  _repintarReceituario);
+            raiz.addEventListener('change', _repintarReceituario);
+
+            // ...e o que NÃO passa por evento de input: card criado, removido ou
+            // limpo, etiqueta de CID que entra ou sai, campo preenchido por
+            // código (IA, correção, renovação, lock M-D). Observar a estrutura
+            // é o que torna a folha robusta sem obrigar cada função do
+            // formulário a lembrar de avisá-la.
+            const observador = new MutationObserver(_repintarReceituario);
+            ['lista-medicamentos', 'ia-cid-prescricao-chips'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) observador.observe(el, { childList: true, subtree: true, characterData: true });
+            });
+
+            _repintarReceituario();
+        })();
+
+        // AC8 — a chamada da folha NUNCA cobre o gesto de emitir.
+        // Resolvido por construção, não por medida de pixel: quando o botão de
+        // emitir entra na viewport, o flutuante se recolhe. Em telas apertadas
+        // os dois nunca dividem o mesmo canto.
+        (function _initFabNaoCobreOEmitir() {
+            const fab    = document.getElementById('receita-fab');
+            const emitir = document.getElementById('btn-emitir');
+            if (!fab || !emitir || typeof IntersectionObserver === 'undefined') return;
+            new IntersectionObserver(entradas => {
+                entradas.forEach(e => fab.classList.toggle('receita-fab-recolhido', e.isIntersecting));
+            }, { threshold: 0 }).observe(emitir);
+        })();
 
         function gerarObjetoReceita() {
             const medicamentos = [];
@@ -2717,6 +3031,13 @@
                 medico_telefone: medicoLogado.telefone_comercial,
                 data_emissao: new Date().toISOString(),
                 medicamentos: medicamentos,
+                // ENG-018 — contexto clínico no OBJETO, para que a folha
+                // carimbada mostre o mesmo que o formulário mostrava. Antes
+                // viviam só dentro de `emitirReceitaDigital`, e o documento
+                // impresso não sabia deles.
+                indicacao_clinica: (document.getElementById('prescricao-indicacao') || {}).value
+                                   ? document.getElementById('prescricao-indicacao').value.trim() : '',
+                cids: _cidsEscolhidosPrescricao(),
                 motivo_devolucao: null
             };
         }
@@ -2866,6 +3187,10 @@
                 // Substituir ID local pelo protocolo oficial do backend
                 novaReceitaObj.id = data.protocolo;
                 novaReceitaObj.protocolo_backend = data.protocolo;
+                // ENG-018 AC4 — o hash de integridade vinha na resposta e era
+                // descartado. É metade do carimbo: sem ele a folha emitida
+                // mostraria protocolo sem a prova de que o conteúdo é aquele.
+                novaReceitaObj.documento_hash   = data.documento_hash   || '';
                 novaReceitaObj.cnes_validacao   = data.cnes_validacao   || null;
                 novaReceitaObj.score_confianca  = data.score_confianca  || null;
                 // Ticket 63 — resultado da entrega à carteira digital
@@ -2885,7 +3210,7 @@
             // -----------------------------------------------------------------
 
             const nivelFormal = calcularNivelFormalFrontend(novaReceitaObj.assinatura_modo, 'nova');
-            exibirSucessoEImpressao(novaReceitaObj, true, nivelFormal);
+            _carimbarEmissao(novaReceitaObj, true, nivelFormal);
         }
 
         async function imprimirDireto() {
@@ -2941,14 +3266,27 @@
             .catch(err => console.warn("Backend indisponível, emissão física registrada apenas localmente:", err));
             // ----------------------------------------------------------------
 
-            exibirSucessoEImpressao(novaReceitaObj, false, 'fisica');
+            _carimbarEmissao(novaReceitaObj, false, 'fisica');
             setTimeout(() => { window.print(); }, 500);
         }
 
-        function exibirSucessoEImpressao(rec, isDigital, nivelFormal) {
-            esconderTudo();
-            document.getElementById('tela-sucesso').classList.remove('hidden');
-
+        /**
+         * O FECHO DO ARCO (ENG-018 AC4) — carimbar, não navegar.
+         *
+         * Antes esta função se chamava `exibirSucessoEImpressao`, e o nome
+         * dizia o que ela fazia: ESCONDIA o dashboard, ABRIA uma tela nova e
+         * PREENCHIA um segundo receituário, campo a campo, por id. Três coisas
+         * erradas de uma vez — a receita que o prescritor tinha diante dos
+         * olhos sumia no instante em que virava documento, e o documento que
+         * aparecia no lugar vinha de OUTRA marcação, livre para derivar da
+         * primeira.
+         *
+         * Agora: o objeto emitido vira estado, o estado congela (§1 — objeto
+         * sanitário emitido não se edita), e a MESMA função geradora recarimba
+         * os MESMOS dois alvos. A folha que estava à vista ganha protocolo e
+         * hash sem sair do lugar; o comprovante abre ao lado dela.
+         */
+        function _carimbarEmissao(rec, isDigital, nivelFormal) {
             // — Ícone de confirmação (verde = digital, âmbar = física)
             const icone = document.getElementById('sucesso-icone');
             if (nivelFormal === 'fisica') {
@@ -3018,72 +3356,22 @@
                 _renderizarValidacaoCNES(rec.cnes_validacao || null) +
                 _renderizarScoreConfianca(rec.score_confianca || null);
 
-            // Comprovante: discrimina protocolo verificável vs ID local fire-and-forget
-            const printProtocolo = document.getElementById('print-protocolo');
-            const printProtocoloHint = document.getElementById('print-protocolo-hint');
-            if (rec.protocolo_backend) {
-                // Receita digital OU receita física com backend online —
-                // protocolo está no banco, consulta pública funciona
-                printProtocolo.textContent = rec.protocolo_backend;
-                if (printProtocoloHint) printProtocoloHint.textContent = '';
-            } else {
-                // Receita física fire-and-forget sem confirmação do backend —
-                // ID local não é consultável publicamente
-                printProtocolo.textContent = rec.id; // REC-AAAA-XXXXXX
-                if (printProtocoloHint) {
-                    printProtocoloHint.textContent =
-                        'ID local — receita registrada apenas neste dispositivo. ' +
-                        'Para verificação pública, emita nova receita digital.';
-                    printProtocoloHint.style.color = '#92400e'; // amber-800
-                    printProtocoloHint.style.fontSize = '0.85em';
-                }
+            // ── O CARIMBO ────────────────────────────────────────────────────
+            // Uma linha para o documento inteiro: o estado congela e os dois
+            // alvos se recarimbam juntos. Nenhum `getElementById('print-…')`
+            // sobreviveu a esta função — era por ali que o segundo template
+            // entrava, e não há mais segundo template.
+            _receituarioEmitido = _estadoDaReceitaEmitida(rec, isDigital, nivelFormal);
+            _repintarReceituario();
+
+            const painel = document.getElementById('painel-emissao');
+            if (painel) {
+                painel.classList.remove('hidden');
+                painel.scrollIntoView({ block: 'start' });
             }
-            document.getElementById('print-medico-nome').textContent = rec.medico_nome;
-            document.getElementById('print-medico-registros').textContent = formatarConselhosDisplay(rec.medico_conselhos);
-            document.getElementById('print-medico-endereco').textContent = rec.medico_endereco;
-            document.getElementById('print-medico-cep').textContent = rec.medico_cep;
-            document.getElementById('print-medico-tel').textContent = rec.medico_telefone || 'N/I';
-            document.getElementById('print-paciente').textContent = rec.paciente_nome;
-            document.getElementById('print-idade').textContent = rec.paciente_idade ? `${rec.paciente_idade} anos` : '';
-            document.getElementById('print-telefone').textContent = rec.paciente_telefone || 'Não informado';
-            document.getElementById('print-paciente-endereco').textContent = rec.paciente_endereco;
-            document.getElementById('print-paciente-cep').textContent = rec.paciente_cep;
-            document.getElementById('print-local-data').textContent = `${rec.medico_cidade} - ${rec.medico_uf}, ${getDataFormatada()}`;
-            
-            document.getElementById('print-ass-nome').textContent = rec.medico_nome;
-            document.getElementById('print-ass-registro').textContent = formatarConselhosDisplay(rec.medico_conselhos);
-            
-            if (isDigital) {
-                document.getElementById('print-ass-digital-tag').classList.remove('hidden');
-                document.getElementById('print-ass-fisica-tag').classList.add('hidden');
-                document.getElementById('print-ass-id').textContent = rec.id;
-                const nivelCfg = labelNivelFormal(nivelFormal);
-                document.getElementById('print-ass-nivel').textContent = nivelCfg.texto;
-                document.getElementById('print-ass-modo').textContent = `Assinatura: ${labelAssinaturaModo(rec.assinatura_modo)}`;
-            } else {
-                document.getElementById('print-ass-digital-tag').classList.add('hidden');
-                document.getElementById('print-ass-fisica-tag').classList.remove('hidden');
-                document.getElementById('print-ass-nivel').textContent = '';
-                document.getElementById('print-ass-modo').textContent = '';
-            }
-            
-            let htmlMeds = "";
-            rec.medicamentos.forEach((m, index) => {
-                htmlMeds += `
-                <div style="margin-bottom: 20px;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <p style="font-weight: bold; margin-bottom: 4px;">${index + 1}. ${m.nome} ${m.concentracao} .................... ${m.quantidade}${m.unidade ? ' ' + m.unidade : ''}</p>
-                        <p style="font-size: 11px; font-weight:bold; color:#1e3a8a;">Validade: ${m.validade}</p>
-                    </div>
-                    <p style="font-size: 12px; margin-bottom: 4px;">Forma: ${m.forma}${m.apresentacao_comercial ? ' &middot; ' + m.apresentacao_comercial : ''}</p>
-                    <p style="font-size: 13px;">Uso: ${m.posologia}</p>
-                </div>`;
-            });
-            document.getElementById('print-medicamentos').innerHTML = htmlMeds;
-            
+
             atualizarPainel();
         }
-
         function renderizarHistoricoMedico() {
             const container = document.getElementById('lista-historico-medico');
             let cards = [];
@@ -3160,6 +3448,7 @@
             document.getElementById('btn-cancelar-edicao').classList.add('hidden');
             document.getElementById('titulo-formulario').textContent = "Prescrição Médica — Emissão Documentada";
             medCount = 0;
+            _liberarFolhaViva();   // ENG-018 — depois da limpeza (ver novaReceita)
             document.getElementById('tela-dashboard').classList.remove('hidden');
             atualizarPainel();   // re-busca o backend: caixa limpa + derivada aparece
         }
@@ -3568,6 +3857,8 @@
                     }
                 }
             }
+
+            _repintarReceituario();   // ENG-018 — a IA escreve por código, sem evento
 
             // Re-consulta para atualizar o bloco (botão "Aplicar" some quando campos já estão preenchidos)
             clearTimeout(_iaTimers[n]);
