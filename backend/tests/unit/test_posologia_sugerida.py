@@ -27,11 +27,14 @@ def test_so_serve_validado(tmp_path):
         "losartana,Tomar 1 cp 50 mg 1x/dia,HAS,I10,fonte,validado,Dr,v1,obs\n"
         "captopril,Tomar 1 cp 25 mg 2x/dia,HAS,I10,fonte,rascunho,,v0,obs\n",
     )
+    # ENG-019: a chave do índice é COMPOSTA — `(ativo, CID)`. A linha vermelha
+    # (só `validado` entra) não mudou; mudou o endereço de cada dose.
     idx = carregar_posologias(caminho)
-    assert "losartana" in idx               # validado entra
-    assert "captopril" not in idx           # rascunho fica de fora (linha vermelha)
-    assert idx["losartana"].posologia.startswith("Tomar")
-    assert idx["losartana"].validado_por == "Dr"
+    assert ("losartana", "I10") in idx        # validado entra
+    assert ("captopril", "I10") not in idx    # rascunho fica de fora (linha vermelha)
+    assert idx[("losartana", "I10")].posologia.startswith("Tomar")
+    assert idx[("losartana", "I10")].validado_por == "Dr"
+    assert idx[("losartana", "I10")].codigo_cid == "I10"
 
 
 def test_canonicaliza_o_ativo(tmp_path):
@@ -82,6 +85,10 @@ def test_producao_so_serve_o_que_foi_validado():
 
     idx = carregar_posologias(caminho)
 
+    # Com a chave composta (ENG-019) esta igualdade passou a provar UMA COISA A
+    # MAIS: se duas linhas validadas dividissem o mesmo par (ativo, CID), uma
+    # sobrescreveria a outra e o índice ficaria menor que o CSV. Ou seja, ela
+    # agora também é a guarda contra dose duplicada para a mesma condição.
     assert len(idx) == len(linhas_validadas)   # nenhum rascunho vaza; nenhum validado some
     for posologia in idx.values():
         assert posologia.validado_por, (
