@@ -1,0 +1,223 @@
+"""
+test_frontend_receita_viva.py — guardas ESTÁTICAS do template único (ENG-018).
+
+POR QUE ESTE ARQUIVO EXISTE, SE O W ≡ Y JÁ TEM TESTE DE NAVEGADOR
+-----------------------------------------------------------------
+Porque os dois respondem perguntas diferentes, e só um deles roda em TODO PR.
+
+`tests/browser/test_eng018_receita_viva.py` responde *"os dois alvos renderizam
+igual?"* — e roda no gate de navegador (PR que toca `**.html` + nightly).
+
+Este arquivo responde *"ainda existe UM template?"* — e roda no gate de sempre.
+A diferença importa: alguém pode reintroduzir marcação própria no `#print-area`
+e mantê-la, por um tempo, idêntica à da função geradora. O W ≡ Y passaria
+verde, e a duplicação só apareceria no dia em que derivasse — que é exatamente
+o "mentira gradual" que o §3 do desenho nomeia como a pior espécie. A guarda
+estrutural pega no ato, não no dia da divergência.
+
+Mesma disciplina de `test_frontend_atestado.py`: leitura estática, barata, da
+CLASSE do defeito.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+_RAIZ = Path(__file__).resolve().parents[3]
+_HTML = _RAIZ / "prescritor.html"
+_JS = _RAIZ / "receituario.js"
+_CSS = _RAIZ / "receituario.css"
+
+
+@pytest.fixture(scope="module")
+def html() -> str:
+    return _HTML.read_text(encoding="utf-8")
+
+
+@pytest.fixture(scope="module")
+def js() -> str:
+    return _JS.read_text(encoding="utf-8")
+
+
+class TestOComponenteExiste:
+
+    def test_a_funcao_geradora_mora_em_arquivo_proprio(self, js):
+        assert "function renderReceituario(estado, modo)" in js
+        assert "window.renderReceituario = renderReceituario;" in js
+
+    def test_a_folha_carrega_o_componente_e_o_seu_desenho(self, html):
+        assert '<script src="receituario.js"></script>' in html
+        assert '<link rel="stylesheet" href="receituario.css">' in html
+        assert _CSS.exists()
+
+    def test_os_dois_modos_sao_declarados(self, js):
+        assert 'RASCUNHO: "rascunho"' in js
+        assert 'CARIMBO: "carimbo"' in js
+
+
+class TestTemplateUnico:
+    """A peça central: UMA função geradora, DOIS alvos."""
+
+    def test_print_area_nao_tem_marcacao_propria(self, html):
+        area = re.search(r'<div id="print-area"[^>]*>(.*?)</div>', html, re.S)
+        assert area, "#print-area sumiu do prescritor.html"
+        assert area.group(1).strip() == "", (
+            "#print-area voltou a ter marcação própria. Ele é ALVO da função "
+            "geradora (receituario.js) — dois templates do mesmo documento vão "
+            "derivar, e o 'zero surpresa' vira mentira gradual "
+            "(DESENHO-RECEITA-VIVA.md §3)."
+        )
+
+    def test_nenhum_campo_do_documento_e_preenchido_por_id(self, html):
+        """Os `getElementById('print-…')` eram a porta por onde o segundo
+        template entrava, campo a campo. Ela está fechada."""
+        vazados = re.findall(r"getElementById\(\s*['\"]print-[a-z-]+['\"]", html)
+        assert not vazados, (
+            f"o documento voltou a ser preenchido campo a campo por id: {vazados}"
+        )
+
+    def test_a_pagina_nao_monta_receituario_por_conta_propria(self, html):
+        """Nenhum 'Receituário Médico' escrito à mão na tela: o cabeçalho do
+        documento tem UM dono."""
+        assert html.count("Receituário Médico") == 0, (
+            "o cabeçalho do receituário reapareceu no prescritor.html — ele "
+            "pertence à função geradora, não à página"
+        )
+
+    def test_os_dois_alvos_saem_da_mesma_chamada(self, html):
+        corpo = _corpo_da_funcao(html, "function _repintarReceituario()")
+        assert "const estado" in corpo, "os alvos precisam partir do MESMO objeto"
+        assert corpo.count("Receituario.montar(") == 2, (
+            "esperado exatamente dois alvos (folha viva + print-area) a partir "
+            "de um único estado"
+        )
+        assert "'folha-viva'" in corpo and "'print-area'" in corpo
+
+
+class TestOCarimboNaoNavega:
+    """AC4 — emitir carimba a folha à vista; não troca de tela."""
+
+    def test_a_confirmacao_nao_e_mais_uma_tela(self, html):
+        assert 'id="tela-sucesso"' not in html, (
+            "a `tela-sucesso` voltou: emitir passaria a NAVEGAR, e a folha que "
+            "o prescritor tinha diante dos olhos sumiria no ato da emissão"
+        )
+        assert 'id="painel-emissao"' in html
+
+    def test_o_carimbo_congela_o_estado_emitido(self, html):
+        corpo = _corpo_da_funcao(html, "function _carimbarEmissao(rec, isDigital, nivelFormal)")
+        assert "_receituarioEmitido = _estadoDaReceitaEmitida(" in corpo
+        assert "_repintarReceituario();" in corpo
+        assert "esconderTudo()" not in corpo, (
+            "o carimbo voltou a esconder a tela — AC4: a folha não sai de vista"
+        )
+
+    def test_o_hash_de_integridade_nao_e_mais_descartado(self, html):
+        assert "novaReceitaObj.documento_hash" in html, (
+            "o `documento_hash` da resposta de emissão voltou a ser jogado fora "
+            "— é metade do carimbo (AC4)"
+        )
+
+
+class TestPapelEmBrancoDeVerdade:
+    """Limpar o formulário tem de limpar a folha — e a ORDEM é o invariante.
+
+    POR QUE ESTA GUARDA É ESTÁTICA, E NÃO DE NAVEGADOR
+    --------------------------------------------------
+    Inverter a ordem (`_liberarFolhaViva()` antes do `.reset()`) deixa na folha
+    os dados do paciente ANTERIOR: o repintar lê o formulário, e nesse instante
+    o formulário ainda está cheio. `.reset()` não dispara evento nenhum, então
+    nada repinta depois.
+
+    O smoke de navegador NÃO vê esse defeito: em DEMO, o lock M-D reaplica o
+    cidadão canônico logo em seguida e dispara um `input` de verdade — que
+    repinta por acidente e limpa a folha. Fora da vitrine esse evento não
+    existe, e o defeito apareceria no consultório. É a mesma lição do gate que
+    não enxerga o que só o seed produz: quando o ambiente de teste mascara o
+    defeito, a guarda muda de camada em vez de desistir.
+    """
+
+    def test_liberar_a_folha_vem_depois_da_limpeza(self, html):
+        for assinatura in ("function novaReceita()", "function irParaDashboard()"):
+            corpo = _corpo_da_funcao(html, assinatura)
+            assert "_liberarFolhaViva();" in corpo, (
+                f"{assinatura} não devolve o papel em branco"
+            )
+            assert corpo.index(".reset();") < corpo.index("_liberarFolhaViva();"), (
+                f"em {assinatura}, a folha é liberada ANTES da limpeza do "
+                "formulário — ela repintaria com os dados que acabaram de ser "
+                "apagados, e nada dispara um novo repintar depois do `.reset()`"
+            )
+
+
+class TestSeloDeCidCanonico:
+    """AC6 — o selo reflete o hidden do typeahead, nunca o texto digitado."""
+
+    def test_o_selo_le_o_hidden_e_nao_a_indicacao(self, html):
+        corpo = _corpo_da_funcao(html, "function _cidsEscolhidosPrescricao()")
+        assert "prescricao-cid-escolhido" in corpo
+        assert "prescricao-indicacao" not in corpo, (
+            "o selo de CID passou a olhar o texto da indicação — a folha não "
+            "adivinha diagnóstico (AC6)"
+        )
+
+
+class TestGuardasQueViajamComOCampo:
+    """AC7 — o CPF/CNI subiu de seção (martelada ①) levando as duas guardas."""
+
+    def test_o_cpf_mantem_mascara_e_esta_na_identificacao(self, html):
+        campo = re.search(r'<input[^>]*id="pac-chave"[^>]*>', html, re.S)
+        assert campo, "campo `pac-chave` sumiu"
+        assert 'data-tipo="cpf"' in campo.group(0), "máscara A2 caiu no transporte"
+        assert "cpf-input" in campo.group(0)
+
+        # Ancorado nos TÍTULOS das seções (`<h4>`), não no texto solto: o nome
+        # das seções aparece também em comentário, e uma guarda que se deixa
+        # enganar por comentário não guarda nada.
+        bloco_paciente = html.index(">Identificação do Paciente</h4>")
+        bloco_modo = html.index(">Modo de Emissão</h4>")
+        assert bloco_paciente < html.index('id="pac-chave"') < bloco_modo, (
+            "`pac-chave` não está entre o título da identificação do paciente e "
+            "o bloco de modo de emissão (martelada ①)"
+        )
+
+    def test_o_lock_md_continua_travando_o_par(self, html):
+        assert "CidadaoDemoFixo.travar('pac-nome', 'pac-chave');" in html
+        assert "_retravarCidadaoDemo('pac-nome', 'pac-chave');" in html
+
+
+class TestFolhaRobustaATeclaEAEstrutura:
+    """AC1 — delegação + observação de estrutura."""
+
+    def test_a_folha_escuta_por_delegacao_na_raiz_do_submodulo(self, html):
+        corpo = _corpo_da_funcao(html, "function _initFolhaViva()")
+        assert "getElementById('submod-receita')" in corpo
+        assert "raiz.addEventListener('input',  _repintarReceituario);" in corpo
+        assert "MutationObserver" in corpo, (
+            "sem observar a estrutura, remover/recriar/limpar card de fármaco "
+            "deixaria a folha desatualizada"
+        )
+        assert "'lista-medicamentos'" in corpo and "'ia-cid-prescricao-chips'" in corpo
+
+
+def _corpo_da_funcao(html: str, assinatura: str) -> str:
+    """Recorta o corpo de uma função pelo balanço de chaves.
+
+    Cópia deliberada de `test_frontend_atestado.py`: o helper é de leitura
+    estática de UM arquivo e não tem dono próprio ainda. Se um terceiro
+    arquivo precisar dele, aí sim ele vira módulo — promover agora seria
+    inventar biblioteca para dois chamadores.
+    """
+    ini = html.index(assinatura)
+    abriu = html.index("{", ini)
+    prof = 0
+    for i in range(abriu, len(html)):
+        if html[i] == "{":
+            prof += 1
+        elif html[i] == "}":
+            prof -= 1
+            if prof == 0:
+                return html[abriu : i + 1]
+    raise AssertionError(f"função não fecha: {assinatura!r}")

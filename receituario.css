@@ -1,0 +1,311 @@
+/* ==========================================================================
+ * receituario.css — o DOCUMENTO, nos dois meios.
+ *
+ * ENG-018 / DESENHO-RECEITA-VIVA.md §3.
+ *
+ * Par do `receituario.js`, na mesma disciplina do `submodulos.css`: o
+ * componente carrega o seu próprio desenho, e a página hospedeira cuida do
+ * PALCO (a divisão pena/papel), nunca do papel em si.
+ *
+ * A REGRA DESTA FOLHA
+ * -------------------
+ * As classes de CONTEÚDO (`.rec-box`, `.rec-item`, `.rec-selo`…) valem nos
+ * DOIS modos — é o mesmo documento. Só o invólucro muda:
+ *
+ *   `.rec-modo-rascunho`  → papel de tela: sombra, textura, tinta que acende
+ *   `.rec-modo-carimbo`   → papel de impressão: tinta preta, sem cromo
+ *
+ * Nenhuma regra aqui pode ESCONDER conteúdo por modo. Se um campo aparece
+ * num modo e some no outro, o W ≡ Y virou decoração — e a folha passa a
+ * mentir sobre o que o cidadão recebeu.
+ * ========================================================================== */
+
+.rec-folha {
+  --rec-tinta: #17203a;
+  --rec-tinta-fraca: #64748b;
+  --rec-tinta-apagada: #94a3b8;
+  --rec-borda: #17203a;
+  --rec-clinica: #6d28d9;
+  position: relative;
+  color: var(--rec-tinta);
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+.rec-folha h2 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--rec-tinta);
+}
+
+.rec-cabecalho {
+  text-align: center;
+  border-bottom: 2px solid var(--rec-borda);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.rec-cabecalho .rec-sub {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--rec-tinta-fraca);
+  margin: 3px 0 0;
+}
+
+.rec-proto {
+  font-size: 11px;
+  margin: 7px 0 0;
+  color: var(--rec-tinta-fraca);
+  word-break: break-all;
+}
+
+.rec-proto-hash { margin-top: 3px; }
+
+.rec-proto-aviso {
+  font-size: 10.5px;
+  margin: 5px 0 0;
+  color: #92400e;
+}
+
+.rec-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--rec-tinta);
+  word-break: break-all;
+}
+
+.rec-box {
+  border: 1px solid var(--rec-borda);
+  border-radius: 2px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+
+.rec-rot {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--rec-tinta-apagada);
+  margin-bottom: 3px;
+}
+
+.rec-rot-clinica { color: var(--rec-clinica); }
+
+.rec-linha,
+.rec-linha-forte { margin: 0; }
+.rec-linha { font-size: 12px; }
+.rec-linha-forte { font-size: 14.5px; font-weight: 700; }
+.rec-idade { font-size: 12px; font-weight: 400; color: var(--rec-tinta-fraca); }
+
+.rec-indicacao { margin-bottom: 14px; }
+
+.rec-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.rec-selo-cid {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid #ddd6fe;
+  background: #f5f3ff;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--rec-clinica);
+}
+
+.rec-selo-cid b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+}
+
+.rec-selo-cid span { color: var(--rec-tinta-fraca); }
+
+.rec-itens { min-height: 150px; }
+
+.rec-itens-corpo { margin-top: 6px; }
+
+.rec-item { margin-bottom: 14px; }
+.rec-item:last-child { margin-bottom: 0; }
+
+.rec-item-cabeca {
+  margin: 0 0 2px;
+  font-size: 13.5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.rec-item-n { font-weight: 700; color: var(--rec-tinta-apagada); }
+.rec-item-nome { letter-spacing: 0.3px; }
+
+.rec-item-validade {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1e3a8a;
+  white-space: nowrap;
+}
+
+.rec-item-forma { margin: 0; font-size: 11.5px; color: var(--rec-tinta-fraca); }
+.rec-item-uso { margin: 2px 0 0; font-size: 12.5px; }
+
+.rec-rodape {
+  margin-top: 26px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.rec-local { font-size: 12.5px; }
+
+.rec-assinatura {
+  width: 280px;
+  max-width: 100%;
+  text-align: center;
+}
+
+.rec-risco { border-top: 1px solid var(--rec-borda); margin-bottom: 6px; }
+
+.rec-selo {
+  margin-top: 8px;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 10px;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rec-selo b { text-transform: uppercase; letter-spacing: 0.3px; }
+.rec-selo-digital { background: #f0fdf4; border: 1px dashed #86efac; color: #166534; }
+.rec-selo-fisica { background: #fffbeb; border: 1px dashed #fcd34d; color: #92400e; }
+.rec-selo-pendente { background: transparent; border: 1px dashed #cbd5e1; }
+
+/* ── lacunas: o branco do papel esperando a caneta ────────────────────────
+   Nunca `display:none`. Um campo vazio que SOME da folha é a folha mentindo
+   sobre o documento; um campo vazio que aparece pontilhado é o papel dizendo
+   onde falta tinta — sem validação gritando. */
+.rec-lacuna {
+  display: inline-block;
+  min-width: 70px;
+  border-bottom: 1px dotted var(--rec-tinta-apagada);
+  color: var(--rec-tinta-apagada);
+  font-style: italic;
+  font-size: 0.92em;
+  line-height: 1.25;
+}
+
+.rec-nota { color: var(--rec-tinta-fraca); font-style: italic; font-size: 0.92em; }
+
+/* ── modo RASCUNHO: papel de tela ─────────────────────────────────────── */
+.rec-modo-rascunho {
+  display: block;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 26px 28px 30px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 30px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.rec-modo-rascunho.rec-emitida {
+  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.18), 0 12px 34px rgba(22, 163, 74, 0.22);
+}
+
+/* a TINTA: a região que acabou de mudar acende, e apaga sozinha */
+[data-bloco].rec-tinta {
+  animation: rec-tinta-cai 700ms ease-out;
+  border-radius: 3px;
+}
+
+@keyframes rec-tinta-cai {
+  0% { background: rgba(22, 163, 74, 0.16); }
+  100% { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-bloco].rec-tinta { animation: none; }
+}
+
+/* o CARIMBO — a mesma folha, agora com protocolo e hash */
+.rec-modo-rascunho .rec-carimbo {
+  position: absolute;
+  top: 34%;
+  left: 16%;
+  right: 8%;
+  transform: rotate(-9deg);
+  border: 2px solid #16a34a;
+  border-radius: 6px;
+  color: #16a34a;
+  /* Translúcido de propósito: carimbo de borracha não apaga o que está
+     embaixo. Opaco, ele esconderia o CPF do paciente justo na folha que acaba
+     de virar documento. */
+  background: rgba(240, 253, 244, 0.42);
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.rec-modo-rascunho .rec-carimbo-fisica { border-color: #d97706; color: #b45309; background: rgba(255, 251, 235, 0.42); }
+
+.rec-carimbo-hash {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.8;
+  word-break: break-all;
+}
+
+/* ── modo CARIMBO: papel de impressão ─────────────────────────────────── */
+.rec-modo-carimbo {
+  --rec-tinta: #000;
+  --rec-tinta-fraca: #333;
+  --rec-tinta-apagada: #555;
+  --rec-borda: #000;
+  --rec-clinica: #000;
+  display: block;
+  background: #fff;
+  padding: 0;
+  width: 100%;
+}
+
+/* No papel, o carimbo é FAIXA — não adesivo torto sobre o texto. Mesmo
+   conteúdo, meio diferente: é exatamente o que o `modo` tem licença de fazer. */
+.rec-modo-carimbo .rec-carimbo {
+  margin-top: 18px;
+  border: 1px solid #000;
+  border-radius: 3px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  text-align: center;
+}
+
+.rec-modo-carimbo .rec-selo-cid { background: #fff; border-color: #000; }
+.rec-modo-carimbo .rec-lacuna { border-bottom-color: #666; color: #555; }
