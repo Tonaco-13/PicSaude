@@ -22,12 +22,29 @@
 
 .rec-folha {
   --rec-tinta: #17203a;
-  --rec-tinta-fraca: #64748b;
-  --rec-tinta-apagada: #94a3b8;
+  --rec-tinta-fraca: #4a5568;
+  --rec-tinta-apagada: #5f6b7d;
   --rec-borda: #17203a;
   --rec-clinica: #6d28d9;
+  /* A5 — a lacuna é CONVITE, não sussurro. 4,1:1 sobre o papel branco:
+     legível a um palmo de distância, e ainda assim inconfundível com texto
+     escrito (itálico, menor, pontilhada). O tom quente é o do papel, não o
+     cinza-azulado da UI. */
+  --rec-lacuna-tinta: #8a7b61;
+  /* A3 — borda quente de papel, não a linha fria de um card. */
+  --rec-papel-borda: #d9d2c0;
   position: relative;
   color: var(--rec-tinta);
+  /* A2 — TIPOGRAFIA DUAL: o DOCUMENTO é serifado (editorial, de papel); a UI
+     que o cerca permanece sans. Mora no `.rec-folha` e não no `body` porque a
+     metáfora é do papel — a pele do app não muda (adjudicação de escopo do
+     §2). Vale nos DOIS modos: o documento impresso é o mesmo documento.
+
+     Pilha de sistema, sem webfont: o protótipo declara `'Fraunces', Georgia,
+     serif` e é a Georgia que aparece em quem não tem a Fraunces instalada.
+     Embarcar a Fraunces é decisão de binário e licença — do arquiteto, não
+     efeito colateral deste polimento. */
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
   font-size: 13px;
   line-height: 1.55;
   text-align: left;
@@ -205,8 +222,8 @@
 .rec-lacuna {
   display: inline-block;
   min-width: 70px;
-  border-bottom: 1px dotted var(--rec-tinta-apagada);
-  color: var(--rec-tinta-apagada);
+  border-bottom: 1.5px dotted var(--rec-lacuna-tinta);
+  color: var(--rec-lacuna-tinta);
   font-style: italic;
   font-size: 0.92em;
   line-height: 1.25;
@@ -218,11 +235,26 @@
 .rec-modo-rascunho {
   display: block;
   background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 26px 28px 30px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 12px 30px rgba(15, 23, 42, 0.08);
+  /* A3 — borda quente + sombra de FOLHA (curta e colada, mais uma longa e
+     difusa: é assim que papel pousa sobre a mesa) + canto levemente
+     arredondado. O conjunto é o que faz a vista ler "folha" em vez de "card
+     de dashboard" — a diferença é de material, não de conteúdo. */
+  border: 1px solid var(--rec-papel-borda);
+  border-radius: 6px;
+  padding: 30px 34px 28px;
+  box-shadow: 0 1px 2px rgba(28, 43, 74, 0.10), 0 12px 32px rgba(28, 43, 74, 0.12);
   overflow: hidden;
+}
+
+/* O fio interno da folha — a moldura tênue que todo receituário impresso tem.
+   Puro cromo de tela: não carrega conteúdo e não existe no papel. */
+.rec-modo-rascunho::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1px solid #efeae0;
+  border-radius: 3px;
+  pointer-events: none;
 }
 
 .rec-modo-rascunho.rec-emitida {
@@ -250,7 +282,7 @@
   top: 34%;
   left: 16%;
   right: 8%;
-  transform: rotate(-9deg);
+  transform: rotate(-8deg);
   border: 2px solid #16a34a;
   border-radius: 6px;
   color: #16a34a;
@@ -263,7 +295,6 @@
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 1px;
-  text-transform: uppercase;
   pointer-events: none;
 }
 
@@ -302,10 +333,10 @@
   padding: 6px 10px;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.6px;
   text-align: center;
 }
 
 .rec-modo-carimbo .rec-selo-cid { background: #fff; border-color: #000; }
 .rec-modo-carimbo .rec-lacuna { border-bottom-color: #666; color: #555; }
+/* A2 — no papel a serifa permanece: é o MESMO documento, não uma versão dele. */
