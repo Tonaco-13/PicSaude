@@ -141,79 +141,11 @@
            A `.container` continua com 850px para todo o resto da tela (as
            outras três circulações não foram tocadas nesta onda); só o palco
            da receita se alarga, e só a partir de 980px. */
-        /* A1 (ENG-020) — o palco é a MESA onde o papel assenta: creme quente,
-           não o cinza-azulado da UI. A metáfora mora AQUI e só aqui — a pele
-           do resto do app não muda (adjudicação de escopo do §2 do despacho).
-           Contida e reversível: some com uma regra. */
-        .receita-palco {
-            display: block;
-            background: #f7f5ef;
-            border: 1px solid #ece7db;
-            border-radius: 10px;
-            padding: 24px;
-        }
-        .receita-papel-titulo {
-            font-size: 11px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: .6px; color: #64748b; margin: 0 0 10px;
-            display: flex; align-items: center; gap: 7px;
-        }
-        .receita-papel-titulo::before {
-            content: ''; width: 7px; height: 7px; border-radius: 50%;
-            background: #16a34a; flex-shrink: 0;
-        }
-
-        @media (min-width: 980px) {
-            .receita-palco {
-                display: grid;
-                grid-template-columns: minmax(360px, 5fr) minmax(400px, 6fr);
-                gap: 28px;
-                align-items: start;
-                /* Alargamento controlado: o palco sai da caixa de 850px e se
-                   centra sozinho, sem `transform` (que criaria bloco contentor
-                   e brigaria com o `sticky` da folha). */
-                position: relative;
-                left: 50%;
-                width: min(1320px, calc(100vw - 48px));
-                margin-left: calc(-0.5 * min(1320px, 100vw - 48px));
-                padding: 24px;
-            }
-            .receita-papel { position: sticky; top: 16px; }
-        }
-
-        /* Mobile (< 980px): a folha não divide espaço com a pena — ela é
-           chamada por um botão flutuante (martelada ③ do arquiteto). */
-        .receita-papel { margin-top: 28px; }
-
-        @media (max-width: 979px) {
-            .receita-papel {
-                position: fixed; inset: 0; z-index: 60; margin: 0;
-                background: #f7f5ef; padding: 16px;
-                overflow-y: auto;
-                display: none;
-            }
-            .receita-papel.receita-papel-aberta { display: block; }
-            .receita-fechar-folha {
-                position: sticky; top: 0; z-index: 1; width: 100%;
-                background: #0f172a; color: #fff; border: none; border-radius: 6px;
-                padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer;
-                margin-bottom: 12px;
-            }
-            .receita-fab {
-                position: fixed; right: 16px; bottom: 16px; z-index: 55;
-                background: #1e3a8a; color: #fff; border: none; border-radius: 999px;
-                padding: 13px 20px; font-size: 14px; font-weight: 600;
-                box-shadow: 0 6px 20px rgba(15,23,42,.28); cursor: pointer;
-            }
-        }
-        /* Em desktop o botão flutuante não existe — a folha já está à vista. */
-        @media (min-width: 980px) {
-            .receita-fab, .receita-fechar-folha { display: none; }
-        }
-        /* AC8 — o botão flutuante NUNCA cobre o botão de emitir. Quando o
-           gesto de emitir entra em cena, a chamada da folha sai de cena; a
-           classe (e não `[hidden]`) é deliberada: `display:block` de media
-           query venceria o atributo, e já pagamos essa lição duas vezes. */
-        .receita-fab-recolhido { display: none !important; }
+        /* ENG-022 — as regras do PALCO (mesa creme, grade pena/papel, gaveta
+           e flutuante do celular) mudaram-se para `documento-nucleo.css`: o
+           pedido de exame monta o mesmo palco, e duas cópias das mesmas regras
+           derivariam. Os elementos carregam as duas classes — `doc-palco` traz
+           o estilo, `receita-palco` fica como o gancho nomeado deste módulo. */
 
         /* IA Farmacêutica v1 — blocos de sugestão por card de medicamento */
         .ia-container { margin-top: 10px; }
@@ -449,6 +381,11 @@
        (#print-area, modo carimbo). O #print-area NÃO tem mais marcação
        própria: duplicar o template faria os dois derivarem, e o "zero
        surpresa" viraria mentira gradual (DESENHO-RECEITA-VIVA.md §3). -->
+  <!-- ENG-022 — o NÚCLEO do documento, extraído do receituario.js e consumido
+       por dois geradores. Carrega ANTES deles: quem desenha um papel específico
+       depende do vocabulário comum, nunca o contrário. -->
+  <link rel="stylesheet" href="documento-nucleo.css">
+  <script src="documento-nucleo.js"></script>
   <link rel="stylesheet" href="receituario.css">
   <script src="receituario.js"></script>
 </head>
@@ -711,8 +648,8 @@
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Para validade legal conforme Res. CFM 2.299/2021, utilize a emissão digital com assinatura ICP-Brasil.</p>
 
                 <!-- ═══ O PALCO (ENG-018) — a pena à esquerda, o papel à direita ═══ -->
-                <div class="receita-palco">
-                  <div class="receita-pena">
+                <div class="receita-palco doc-palco">
+                  <div class="receita-pena doc-pena">
                     <div id="form-status-msg" class="hidden"></div>
                     <!-- ENG-018 AC4 — a confirmação NÃO é mais uma tela.
                          Emitir deixou de navegar: o protocolo e o hash carimbam a
@@ -870,9 +807,9 @@
                        `#folha-viva` é ALVO da mesma função que monta o `#print-area`
                        (receituario.js). Não há template aqui: o que se lê desta folha
                        é, por construção, o que o cidadão recebeu. -->
-                  <aside class="receita-papel" id="receita-papel">
-                    <button type="button" class="receita-fechar-folha" onclick="fecharFolhaViva()">✕ Voltar ao formulário</button>
-                    <p class="receita-papel-titulo">O papel — a receita se formando</p>
+                  <aside class="receita-papel doc-papel" id="receita-papel">
+                    <button type="button" class="receita-fechar-folha doc-fechar-folha" onclick="fecharFolhaViva()">✕ Voltar ao formulário</button>
+                    <p class="receita-papel-titulo doc-papel-titulo">O papel — a receita se formando</p>
                     <div id="folha-viva"></div>
                   </aside>
                 </div>
@@ -880,7 +817,7 @@
 
                 <!-- Mobile (martelada ③): a folha é chamada, não empilhada. O botão
                      se recolhe sozinho quando o botão de emitir entra em cena (AC8). -->
-                <button type="button" class="receita-fab" id="receita-fab" onclick="abrirFolhaViva()">📄 Ver a receita</button>
+                <button type="button" class="receita-fab doc-fab" id="receita-fab" onclick="abrirFolhaViva()">📄 Ver a receita</button>
             </div>
 
             <!-- ============================================================
@@ -2982,12 +2919,12 @@
 
         function abrirFolhaViva() {
             const papel = document.getElementById('receita-papel');
-            if (papel) papel.classList.add('receita-papel-aberta');
+            if (papel) papel.classList.add('doc-papel-aberta');
         }
 
         function fecharFolhaViva() {
             const papel = document.getElementById('receita-papel');
-            if (papel) papel.classList.remove('receita-papel-aberta');
+            if (papel) papel.classList.remove('doc-papel-aberta');
         }
 
         (function _initFolhaViva() {
@@ -3015,18 +2952,10 @@
             _repintarReceituario();
         })();
 
-        // AC8 — a chamada da folha NUNCA cobre o gesto de emitir.
-        // Resolvido por construção, não por medida de pixel: quando o botão de
-        // emitir entra na viewport, o flutuante se recolhe. Em telas apertadas
-        // os dois nunca dividem o mesmo canto.
-        (function _initFabNaoCobreOEmitir() {
-            const fab    = document.getElementById('receita-fab');
-            const emitir = document.getElementById('btn-emitir');
-            if (!fab || !emitir || typeof IntersectionObserver === 'undefined') return;
-            new IntersectionObserver(entradas => {
-                entradas.forEach(e => fab.classList.toggle('receita-fab-recolhido', e.isIntersecting));
-            }, { threshold: 0 }).observe(emitir);
-        })();
+        // AC8 — a chamada da folha nunca cobre o gesto de emitir. A mecânica
+        // (IntersectionObserver + classe, nunca `[hidden]`) mudou-se para o
+        // núcleo na ENG-022; aqui fica só quem são os dois elementos.
+        DocumentoNucleo.ligarFabAoEmitir('receita-fab', 'btn-emitir');
 
         function gerarObjetoReceita() {
             const medicamentos = [];

@@ -1,0 +1,283 @@
+/* ==========================================================================
+ * documento-nucleo.css — o desenho que TODO documento sanitário divide.
+ *
+ * ENG-022, commit 1. Par do `documento-nucleo.js`.
+ *
+ * A REGRA DESTA FOLHA
+ * -------------------
+ * Aqui mora o que é do PAPEL, não de um papel específico: a serifa editorial,
+ * o material da folha (borda quente, sombra, canto), a lacuna, a tinta, o
+ * palco creme e o flutuante. A anatomia de cada documento — os blocos que ele
+ * tem e a ordem deles — fica na folha de estilo do objeto
+ * (`receituario.css`, `pedidoexame.css`).
+ *
+ * O PAR DE CLASSES, E POR QUE ELE NÃO É REDUNDÂNCIA
+ * --------------------------------------------------
+ * Todo elemento do vocabulário nasce com duas classes: a `doc-*`, que carrega
+ * o ESTILO (um lugar só), e a `<prefixo>-*`, que é o GANCHO nomeado do objeto.
+ * A segunda não repete estilo: ela existe para a guarda daquele documento
+ * apontar, e para uma exceção daquele papel se pendurar sem respingar nos
+ * outros. Estilo compartilhado por construção; identidade preservada por
+ * construção.
+ *
+ * O que NENHUMA regra daqui pode fazer: esconder conteúdo por modo. Se um
+ * campo aparece num modo e some no outro, o W ≡ Y virou decoração — e o
+ * documento passa a mentir sobre o que o cidadão recebeu.
+ * ========================================================================== */
+
+/* ── a folha: material de papel (A2/A3 do ENG-020, agora compartilhados) ── */
+
+.doc-folha {
+  --doc-tinta: #17203a;
+  --doc-tinta-fraca: #4a5568;
+  --doc-tinta-apagada: #5f6b7d;
+  --doc-borda: #17203a;
+  /* A5 — a lacuna é CONVITE, não sussurro. ~4,1:1 sobre o papel branco:
+     legível a um palmo, e ainda assim inconfundível com texto escrito
+     (itálico, menor, pontilhada). O tom é quente como o papel, não o
+     cinza-azulado da UI. */
+  --doc-lacuna-tinta: #8a7b61;
+  /* A3 — borda quente de papel, não a linha fria de um card. */
+  --doc-papel-borda: #d9d2c0;
+  position: relative;
+  color: var(--doc-tinta);
+  /* A2 — TIPOGRAFIA DUAL: o DOCUMENTO é serifado (editorial, de papel); a UI
+     que o cerca permanece sans. Mora na folha e não no `body` porque a
+     metáfora é do papel — a pele do app não muda. Vale nos DOIS modos: o
+     documento impresso é o mesmo documento.
+
+     Pilha de sistema, sem webfont: o protótipo declara `'Fraunces', Georgia,
+     serif` e é a Georgia que aparece em quem não tem a Fraunces. Embarcar a
+     Fraunces é decisão de binário e licença — do arquiteto. */
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+/* ── lacuna: o branco do papel esperando a caneta ─────────────────────────
+   Nunca `display:none`. Um campo vazio que SOME da folha é a folha mentindo
+   sobre o documento; um campo vazio que aparece pontilhado é o papel dizendo
+   onde falta tinta — sem validação gritando. */
+.doc-lacuna {
+  display: inline-block;
+  min-width: 70px;
+  border-bottom: 1.5px dotted var(--doc-lacuna-tinta, #8a7b61);
+  color: var(--doc-lacuna-tinta, #8a7b61);
+  font-style: italic;
+  font-size: 0.92em;
+  line-height: 1.25;
+}
+
+/* A lacuna que mora DENTRO de uma frase (a lição do degenerado): abre mão da
+   largura mínima para não rasgar a linha. O pontilhado continua — é ele que
+   diz "aqui falta tinta"; o que sai é o respiro de campo. */
+.doc-lacuna-inline {
+  display: inline;
+  min-width: 0;
+  line-height: inherit;
+}
+
+.doc-nota {
+  color: var(--doc-tinta-fraca, #4a5568);
+  font-style: italic;
+  font-size: 0.92em;
+}
+
+/* ── a TINTA: a região NOMEADA que acabou de mudar acende, e apaga sozinha ── */
+[data-bloco].doc-tinta {
+  animation: doc-tinta-cai 700ms ease-out;
+  border-radius: 3px;
+}
+
+@keyframes doc-tinta-cai {
+  0% { background: rgba(22, 163, 74, 0.16); }
+  100% { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-bloco].doc-tinta { animation: none; }
+}
+
+/* ── modo RASCUNHO: papel de tela ─────────────────────────────────────── */
+.doc-modo-rascunho {
+  display: block;
+  background: #fff;
+  /* A3 — borda quente + sombra de FOLHA (curta e colada, mais uma longa e
+     difusa: é assim que papel pousa sobre a mesa) + canto levemente
+     arredondado. O conjunto é o que faz a vista ler "folha" em vez de "card
+     de dashboard" — a diferença é de material, não de conteúdo. */
+  border: 1px solid var(--doc-papel-borda);
+  border-radius: 6px;
+  padding: 30px 34px 28px;
+  box-shadow: 0 1px 2px rgba(28, 43, 74, 0.10), 0 12px 32px rgba(28, 43, 74, 0.12);
+  overflow: hidden;
+}
+
+/* O fio interno da folha — a moldura tênue que todo documento impresso tem.
+   Puro cromo de tela: não carrega conteúdo e não existe no papel. */
+.doc-modo-rascunho::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 1px solid #efeae0;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.doc-modo-rascunho.doc-emitida {
+  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.18), 0 12px 34px rgba(22, 163, 74, 0.22);
+}
+
+/* ── modo CARIMBO: papel de impressão ─────────────────────────────────── */
+.doc-modo-carimbo {
+  --doc-tinta: #000;
+  --doc-tinta-fraca: #333;
+  --doc-tinta-apagada: #555;
+  --doc-borda: #000;
+  --doc-lacuna-tinta: #555;
+  display: block;
+  background: #fff;
+  padding: 0;
+  width: 100%;
+}
+
+/* ── o SELO de custódia (A4): conteúdo do estado emitido ──────────────────
+   A caixa-alta do texto nasce na FUNÇÃO do gerador, nunca aqui: CSS pinta a
+   tela sem tocar o texto, e o W ≡ Y compara texto. */
+.doc-modo-rascunho .doc-selo-custodia {
+  position: absolute;
+  top: 34%;
+  left: 16%;
+  right: 8%;
+  transform: rotate(-8deg);
+  border: 2px solid #16a34a;
+  border-radius: 6px;
+  color: #16a34a;
+  /* Translúcido de propósito: carimbo de borracha não apaga o que está
+     embaixo. Opaco, esconderia o CPF do paciente justo na folha que acaba de
+     virar documento. */
+  background: rgba(240, 253, 244, 0.42);
+  padding: 8px 14px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  pointer-events: none;
+}
+
+.doc-modo-rascunho .doc-selo-fisico {
+  border-color: #d97706;
+  color: #b45309;
+  background: rgba(255, 251, 235, 0.42);
+}
+
+/* No papel, o selo é FAIXA — não adesivo torto sobre o texto. Mesmo conteúdo,
+   meio diferente: é exatamente o que o `modo` tem licença de fazer. */
+.doc-modo-carimbo .doc-selo-custodia {
+  margin-top: 18px;
+  border: 1px solid #000;
+  border-radius: 3px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-align: center;
+}
+
+.doc-selo-hash {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0;
+  opacity: 0.8;
+  word-break: break-all;
+}
+
+/* ══ O PALCO — a mesa onde o papel assenta (A1) ═══════════════════════════
+   A metáfora mora AQUI e só aqui: a pele do resto do app não muda. Contida e
+   reversível. */
+.doc-palco {
+  display: block;
+  background: #f7f5ef;
+  border: 1px solid #ece7db;
+  border-radius: 10px;
+  padding: 24px;
+}
+
+.doc-papel-titulo {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: #64748b;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.doc-papel-titulo::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
+  flex-shrink: 0;
+}
+
+.doc-papel { margin-top: 28px; }
+
+@media (min-width: 980px) {
+  .doc-palco {
+    display: grid;
+    grid-template-columns: minmax(360px, 5fr) minmax(400px, 6fr);
+    gap: 28px;
+    align-items: start;
+    /* Alargamento controlado: o palco sai da caixa de 850px e se centra
+       sozinho, sem `transform` (que criaria bloco contentor e brigaria com o
+       `sticky` da folha). */
+    position: relative;
+    left: 50%;
+    width: min(1320px, calc(100vw - 48px));
+    margin-left: calc(-0.5 * min(1320px, 100vw - 48px));
+    padding: 24px;
+  }
+  .doc-papel { position: sticky; top: 16px; }
+  /* Em desktop o flutuante não existe — a folha já está à vista. */
+  .doc-fab, .doc-fechar-folha { display: none; }
+}
+
+/* Mobile (< 980px): a folha não divide espaço com a pena — é chamada. */
+@media (max-width: 979px) {
+  .doc-papel {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    margin: 0;
+    background: #f7f5ef;
+    padding: 16px;
+    overflow-y: auto;
+    display: none;
+  }
+  .doc-papel.doc-papel-aberta { display: block; }
+  .doc-fechar-folha {
+    position: sticky; top: 0; z-index: 1; width: 100%;
+    background: #0f172a; color: #fff; border: none; border-radius: 6px;
+    padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer;
+    margin-bottom: 12px;
+  }
+  .doc-fab {
+    position: fixed; right: 16px; bottom: 16px; z-index: 55;
+    background: #1e3a8a; color: #fff; border: none; border-radius: 999px;
+    padding: 13px 20px; font-size: 14px; font-weight: 600;
+    box-shadow: 0 6px 20px rgba(15,23,42,.28); cursor: pointer;
+  }
+}
+
+/* O flutuante sai de cena quando o gesto de emitir entra (ver
+   `ligarFabAoEmitir`). Classe, e não `[hidden]`: `display:block` de media
+   query venceria o atributo. */
+.doc-fab-recolhido { display: none !important; }

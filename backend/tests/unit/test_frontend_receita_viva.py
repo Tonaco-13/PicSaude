@@ -28,6 +28,7 @@ import pytest
 _RAIZ = Path(__file__).resolve().parents[3]
 _HTML = _RAIZ / "prescritor.html"
 _JS = _RAIZ / "receituario.js"
+_NUCLEO = _RAIZ / "documento-nucleo.js"
 _CSS = _RAIZ / "receituario.css"
 
 
@@ -41,6 +42,11 @@ def js() -> str:
     return _JS.read_text(encoding="utf-8")
 
 
+@pytest.fixture(scope="module")
+def nucleo() -> str:
+    return _NUCLEO.read_text(encoding="utf-8")
+
+
 class TestOComponenteExiste:
 
     def test_a_funcao_geradora_mora_em_arquivo_proprio(self, js):
@@ -52,9 +58,34 @@ class TestOComponenteExiste:
         assert '<link rel="stylesheet" href="receituario.css">' in html
         assert _CSS.exists()
 
-    def test_os_dois_modos_sao_declarados(self, js):
-        assert 'RASCUNHO: "rascunho"' in js
-        assert 'CARIMBO: "carimbo"' in js
+    def test_o_nucleo_carrega_antes_dos_geradores(self, html):
+        """ENG-022 — quem desenha um papel específico depende do vocabulário
+        comum; carregar na ordem inversa deixaria `DocumentoNucleo` indefinido
+        no instante em que o gerador o consome."""
+        assert '<script src="documento-nucleo.js"></script>' in html
+        assert _NUCLEO.exists()
+        assert html.index("documento-nucleo.js") < html.index('src="receituario.js"')
+
+    def test_os_dois_modos_sao_declarados(self, js, nucleo):
+        """Os modos mudaram de casa na ENG-022 — e esta guarda mudou junto.
+
+        Até o ENG-020 os dois literais eram declarados no `receituario.js`, e
+        era lá que esta asserção olhava. A extração do núcleo os levou para
+        `documento-nucleo.js`, onde passaram a ser o contrato W ≡ Y de TODOS
+        os documentos — receita, pedido de exame e os que vierem.
+
+        Esta é a ÚNICA adaptação que a extração exigiu em toda a suíte da
+        Receita Viva, e ela não afrouxa nada: o que se exigia era "os dois
+        modos são declarados", não "são declarados neste arquivo". Agora a
+        guarda exige as duas metades — que o núcleo os declare, e que a
+        receita os CONSUMA em vez de redeclarar (duplicar o par seria a porta
+        para um documento rodar num modo que o outro não conhece).
+        """
+        assert 'RASCUNHO: "rascunho"' in nucleo
+        assert 'CARIMBO: "carimbo"' in nucleo
+        assert "const MODOS = N.MODOS;" in js, (
+            "a receita voltou a declarar os modos por conta própria"
+        )
 
 
 class TestTemplateUnico:
