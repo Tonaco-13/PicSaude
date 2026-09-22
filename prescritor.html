@@ -3129,10 +3129,12 @@
             // -----------------------------------------------------------------
             // Ticket 36: ler contexto clínico dos campos de IA CID (opcionais)
             const _indicacaoEl = document.getElementById('prescricao-indicacao');
-            const _cidEl       = document.getElementById('prescricao-cid-escolhido');
             const _indicacao   = _indicacaoEl ? (_indicacaoEl.value.trim() || null) : null;
-            // hidden guarda CID(s) '|'-separados; codigo_cid é único → manda o primário (1º)
-            const _cidEscolhido = _cidEl ? (_cidEl.value.split('|').filter(Boolean)[0] || null) : null;
+            // hidden guarda CID(s) '|'-separados; codigo_cid é único → manda o primário (1º).
+            // A leitura mora em `_cidPrimarioDaPrescricao` (ENG-019): o payload da
+            // emissão, o semáforo e a sugestão de posologia têm de falar do MESMO
+            // CID, e três cópias da mesma regra derivam no dia em que ela mudar.
+            const _cidEscolhido = _cidPrimarioDaPrescricao() || null;
 
             // Ticket 63/5A — só solicitar entrega à carteira quando o paciente JÁ
             // tem carteira digital; senão a emissão é rejeitada (5A). Sem carteira,
@@ -3639,8 +3641,7 @@
             if (!el) return;
             el.innerHTML = ''; el.removeAttribute('title');
             if (!jwtAccessToken || jwtAccessToken === 'DEV_TOKEN') return;
-            const cidEl = document.getElementById('prescricao-cid-escolhido');
-            const cid = cidEl ? (cidEl.value || '').split('|').filter(Boolean)[0] : '';
+            const cid = _cidPrimarioDaPrescricao();
             if (!cid || !pa) return;
             fetch(BACKEND + '/ia/decisao/validar', {
                 method: 'POST', headers: authHeaders(),
@@ -3748,6 +3749,18 @@
             if (pop) pop.classList.remove('aberto');
         }
 
+        /** O CID PRIMÁRIO da prescrição em curso — fonte única.
+         *
+         *  O hidden guarda os códigos escolhidos separados por '|'; o primeiro
+         *  é o primário, e é ele que viaja no payload (`codigo_cid`). Semáforo
+         *  e posologia perguntam exatamente isto, e perguntam aqui: duas
+         *  cópias da mesma leitura derivam no dia em que a regra mudar, e aí
+         *  o sinal e a dose passariam a falar de CIDs diferentes. */
+        function _cidPrimarioDaPrescricao() {
+            const el = document.getElementById('prescricao-cid-escolhido');
+            return el ? (el.value || '').split('|').filter(Boolean)[0] || '' : '';
+        }
+
         /** Reavalia o semáforo de todos os cards (ex.: ao mudar o CID da prescrição). */
         function _reavaliarTodosSemaforos() {
             document.querySelectorAll('.med-card').forEach(card => {
@@ -3768,7 +3781,9 @@
             if (!posEl || posEl.value.trim()) return;   // respeita o que o médico já escreveu
             fetch(BACKEND + '/ia/posologia/sugerir', {
                 method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ principio_ativo: pa })
+                // ENG-019 — a dose é da CONDIÇÃO. Sem o CID, o motor só responde
+                // quando a substância é unívoca; com ele, casa o protocolo certo.
+                body: JSON.stringify({ principio_ativo: pa, codigo_cid: _cidPrimarioDaPrescricao() || null })
             })
             .then(r => r.ok ? r.json() : { disponivel: false })
             .then(d => {
@@ -3782,11 +3797,36 @@
                     nota.style.cssText = 'font-size:11px;color:#64748b;margin-top:4px;cursor:help;';
                     posEl.insertAdjacentElement('afterend', nota);
                 }
-                nota.textContent = '💡 Posologia usual sugerida — confira e edite se necessário.';
+                // A condição que fundamentou a dose fica À VISTA, não só no title:
+                // a mesma substância tem dose diferente por protocolo, e ler
+                // "sugerida" sem saber de qual condição é o que este ticket veio
+                // consertar.
+                const _proc = [d.condicao, d.codigo_cid].filter(Boolean).join(' · ');
+                nota.textContent = '💡 Posologia usual sugerida' +
+                                   (_proc ? ' para ' + _proc : '') +
+                                   ' — confira e edite se necessário.';
                 nota.title = (d.aviso || '') + (d.validado_por ? '\nValidado por: ' + d.validado_por : '') +
                              (d.fonte ? '\nFonte: ' + d.fonte : '');
             })
             .catch(() => {});
+        }
+
+        /** Re-tenta a sugestão de posologia nos cards que ainda estão SEM ela.
+         *
+         *  Por que existe (ENG-019): a ordem real do consultório é escolher o
+         *  fármaco e só então fechar o CID. Sem isto, quem prescrevesse
+         *  losartana antes de marcar I50 receberia o silêncio correto do motor
+         *  (substância em dois protocolos) e o campo ficaria vazio PARA SEMPRE
+         *  — motor certo, última milha perdida, que é o defeito que a Regra
+         *  Zero nomeia. Agora o CID chega e a folha pergunta de novo.
+         *
+         *  NÃO sobrescreve nada: `_sugerirPosologia` desiste sozinha diante de
+         *  campo preenchido. O que o prescritor escreveu é dele. */
+        function _resugerirPosologias() {
+            document.querySelectorAll('.med-card').forEach(card => {
+                const pa = ((card.querySelector('.med-nome') || {}).value || '').trim();
+                if (pa) _sugerirPosologia(card, pa);
+            });
         }
 
         function _selecionarMedicamento(n, pa, conc, forma, unidade) {
@@ -4035,8 +4075,13 @@
                 ? Array.from(chips.querySelectorAll('[data-cid]')).map(e => e.getAttribute('data-cid'))
                 : [];
             hidden.value = codigos.join('|');
-            // Mudou o CID da prescrição → reavalia o semáforo dos cards.
-            if (hiddenId === 'prescricao-cid-escolhido') _reavaliarTodosSemaforos();
+            // Mudou o CID da prescrição → reavalia o semáforo dos cards e
+            // re-tenta a posologia (ENG-019: a dose depende da condição, e a
+            // condição costuma ser fechada DEPOIS do fármaco).
+            if (hiddenId === 'prescricao-cid-escolhido') {
+                _reavaliarTodosSemaforos();
+                _resugerirPosologias();
+            }
         }
 
         function _usarCid(chipsId, hiddenId, codigo, descricao) {

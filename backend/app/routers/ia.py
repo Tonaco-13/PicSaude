@@ -584,8 +584,14 @@ def validar_decisao_endpoint(
 # ---------------------------------------------------------------------------
 
 class SugerirPosologiaIn(BaseModel):
-    """Fármaco escolhido — para sugerir a posologia usual ao prescritor."""
+    """Fármaco escolhido — para sugerir a posologia usual ao prescritor.
+
+    `codigo_cid` é o CID da PRESCRIÇÃO EM CURSO (ENG-019). Opcional: sem ele o
+    motor só responde quando a substância é unívoca, e a chamada antiga segue
+    valendo sem mudar de forma.
+    """
     principio_ativo: Optional[str] = None
+    codigo_cid: Optional[str] = None
 
 
 @router.post(
@@ -602,12 +608,17 @@ def sugerir_posologia_endpoint(
     Determinístico; só serve conteúdo clínico VALIDADO (rascunhos ficam dormentes).
     Atrás da flag `PICSAUDE_DECISAO_CLINICA` (mesma família do semáforo).
     Desligado / sem posologia validada → `{disponivel: false}` (a UI não oferece nada).
+
+    ENG-019 — a dose é da CONDIÇÃO, não só da substância. Com `codigo_cid`, o
+    motor casa `(ativo, CID)` subindo a cadeia do semáforo; sem ele, só
+    responde se a substância for unívoca. Em nenhum caso empresta a dose de
+    outro protocolo: silêncio é resposta, palpite não é.
     """
     if not PICSAUDE_DECISAO_CLINICA:
         return {"disponivel": False}
 
     from app.domain.posologia_sugerida import sugerir
-    p = sugerir(payload.principio_ativo)
+    p = sugerir(payload.principio_ativo, payload.codigo_cid)
     if not p:
         return {"disponivel": False}
     return {
@@ -615,6 +626,10 @@ def sugerir_posologia_endpoint(
         "principio_ativo": p.principio_ativo,
         "posologia":    p.posologia,        # texto que pré-popula o campo (editável)
         "condicao":     p.condicao or None,
+        # AC6 — proveniência da CONDIÇÃO: qual CID fundamentou esta dose. Sem
+        # ele, "condicao" seria um rótulo sem chave, e o prescritor não teria
+        # como saber que a dose veio do protocolo que ele de fato escolheu.
+        "codigo_cid":   p.codigo_cid or None,
         "fonte":        p.fonte,
         "validado_por": p.validado_por,
         "versao":       p.versao,

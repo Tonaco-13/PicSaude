@@ -84,3 +84,23 @@ ausente da RENAME 2024 fica 🟡 com causa, não 🟢 com ausência declarada.
 ativo, não por (ativo, CID). As rows de posologia de fármacos compartilhados
 com outro protocolo foram RETIRADAS para não sobrescrever em silêncio a dose
 do protocolo vizinho. Detalhe e guarda no teste acima.
+
+---
+
+## ✅ EXILADAS DE VOLTA — ENG-019, 21/09/2026
+
+O limite registrado acima está fechado. `carregar_posologias` passou a chavear
+por **`(ativo, CID)`** (`DESPACHO-ENG-019-POSOLOGIA-POR-CONDICAO.md`), e as rows
+de posologia retiradas nesta caneta por colidirem com outro protocolo voltaram
+ao `data/posologia_sugerida.csv` sob a chave certa — transcritas do mesmo PDF
+estagiado, com página.
+
+A guarda `test_posologia_nao_tem_dois_cids_para_o_mesmo_ativo`, que proibia
+colisão, **foi invertida** em
+`test_posologia_com_dois_cids_para_o_mesmo_ativo_agora_convive`: colidir passou
+a ser legítimo, e o que se exige agora é que a colisão RESOLVA — cada par vivo,
+cada um com a sua dose.
+
+As cinco de I50 (losartana, enalapril, captopril, hidroclorotiazida,
+dapagliflozina) vieram do **Quadro 5, p. 16** do PCDT IC 2024 — o mesmo quadro
+das oito que já estavam no CSV.

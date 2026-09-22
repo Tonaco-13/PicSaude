@@ -193,23 +193,31 @@ def test_nenhuma_row_nova_ficou_rascunho():
 # 6 — o limite da posologia, achado nesta caneta
 # ---------------------------------------------------------------------------
 
-def test_posologia_nao_tem_dois_cids_para_o_mesmo_ativo():
-    """`carregar_posologias` indexa por ATIVO, não por (ativo, CID).
+def test_posologia_com_dois_cids_para_o_mesmo_ativo_agora_convive():
+    """O VERDE-APÓS-O-FIX da guarda fail-loud desta caneta (ENG-019).
 
-    Achado ao executar estas canetas: o índice é `idx[ativo_k] = ...`, então
-    duas rows do mesmo princípio com CIDs diferentes colidem e **a última do
-    CSV vence em silêncio**. Nove rows destas canetas colidiam com HAS, asma
-    e DM2 — carvedilol começa em 3,125 mg 2x/dia na IC, e sobrescrever a dose
-    de hipertensão com a de insuficiência cardíaca é erro clínico calado.
+    Esta função nasceu ao contrário. Em 13/09, ao executar as canetas J44/I50,
+    descobriu-se que `carregar_posologias` indexava por ATIVO — `idx[ativo_k]`
+    — e que duas rows do mesmo princípio com CIDs diferentes colidiam, **com a
+    última do CSV vencendo em silêncio**. Nove rows destas canetas colidiam com
+    HAS, asma e DM2; carvedilol começa em 3,125 mg 2x/dia na IC, e sobrescrever
+    com isso a dose de hipertensão é erro clínico calado. As nove foram
+    retiradas, e esta guarda ficou no ar **proibindo colisão** para que a
+    próxima falhasse alto em vez de morder.
 
-    As nove foram retiradas; a posologia específica de DPOC/IC para fármaco
-    compartilhado só entra quando o índice passar a chavear por (ativo, CID)
-    — mudança `module`, fora do escopo de uma caneta de curadoria.
+    O ENG-019 fez o conserto real: a chave passou a ser `(ativo, CID)`. A
+    proibição, então, VIRA O SEU CONTRÁRIO — colidir é legítimo, e o que a
+    guarda passa a exigir é que a colisão **resolva**: cada par vivo, cada um
+    com a sua dose, nenhuma row engolida.
 
-    Esta guarda existe para que a próxima colisão FALHE em vez de sobrescrever.
+    Inverter em vez de apagar é deliberado: apagada, a guarda não contaria mais
+    que o defeito existiu nem provaria que ele está fechado. É a diferença
+    entre "não há colisão" (o remendo de ontem) e "colisão não sobrescreve
+    ninguém" (o invariante de hoje).
     """
     import csv as _csv
 
+    from app.domain.posologia_sugerida import carregar_posologias, sugerir
     from app.domain.semaforo_decisao import canon_ativo
 
     caminho = Path(__file__).resolve().parents[3] / "data" / "posologia_sugerida.csv"
@@ -227,9 +235,34 @@ def test_posologia_nao_tem_dois_cids_para_o_mesmo_ativo():
         )
 
     colisoes = {a: cids for a, cids in por_ativo.items() if len(cids) > 1}
-    assert not colisoes, (
-        "posologia com o mesmo princípio ativo em mais de um CID: "
-        f"{colisoes}. O índice chaveia só por ativo, então a última row do "
-        "CSV venceria em silêncio e trocaria a dose de um protocolo pela do "
-        "outro. Ou remova a row, ou mude o índice para (ativo, CID) primeiro."
+    assert colisoes, (
+        "nenhuma substância compartilhada entre protocolos no CSV — as nove "
+        "rows exiladas de J44/I50 não voltaram, ou voltaram sob outra chave. "
+        "Sem colisão viva, o conserto do ENG-019 não está sendo exercido por "
+        "dado real nenhum."
     )
+
+    # NENHUMA row engolida: o índice tem uma entrada por par (ativo, CID)...
+    idx = carregar_posologias(str(caminho))
+    assert len(idx) == len(rows), (
+        "o índice tem menos entradas que o CSV tem linhas validadas — alguma "
+        "row foi sobrescrita no carregamento. Se a chave voltou a ser só o "
+        "ativo, é exatamente o erro clínico calado que esta guarda vigia."
+    )
+
+    # ...e cada par devolve a SUA dose, não a do vizinho.
+    for ativo, cids in colisoes.items():
+        vistas = {}
+        for cid in cids:
+            p = sugerir(ativo, cid)
+            assert p is not None, f"({ativo}, {cid}) sumiu do índice"
+            assert p.codigo_cid == cid, (
+                f"({ativo}, {cid}) devolveu a dose de {p.codigo_cid} — "
+                "sobrescrita silenciosa de volta"
+            )
+            vistas[cid] = p.posologia
+        assert len(set(vistas.values())) == len(vistas), (
+            f"'{ativo}' devolve a MESMA posologia para CIDs diferentes "
+            f"({vistas}) — ou o dado está duplicado, ou a chave não está "
+            "discriminando de verdade"
+        )

@@ -219,3 +219,17 @@ p. 9: clonazepam 2-4 mg/dia, clomipramina 100-150 mg/dia no pânico) para uma
 caneta de posologia quando ele quiser — e o lugar natural dela é a fila
 seguinte, `DESENHO-POSOLOGIA-POR-CONDICAO.md`, onde o índice passa a chavear
 por (ativo, CID).
+
+---
+
+## ✅ POSOLOGIA ENTROU — ENG-019, 21/09/2026
+
+As doses que esta caneta deixou levantadas e fora do CSV (AMB/CFM 2008,
+algoritmo p. 9: **clonazepam 2-4 mg/dia**, **clomipramina 100-150 mg/dia** no
+pânico) entraram em `data/posologia_sugerida.csv` sob a chave composta
+`(ativo, CID)` do `DESPACHO-ENG-019-POSOLOGIA-POR-CONDICAO.md`, com
+`versao = posologia_f41_v1_2026-09` e a página citada — conferidas contra o PDF
+estagiado, não contra esta anotação.
+
+Era exatamente o que o §Posologia acima previa: *"o lugar natural dela é a fila
+seguinte, DESENHO-POSOLOGIA-POR-CONDICAO.md"*.
