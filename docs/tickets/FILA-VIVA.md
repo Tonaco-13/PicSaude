@@ -717,12 +717,39 @@ segredos reais em 85 refs / 507 commits / 3.105 blobs).
 
 ### Fila corrente (martelo 13/09)
 
-~~**F41**~~ ✅ **fechado 13/09 (#266)** → **posologia-por-condição**
-(`DESENHO-POSOLOGIA-POR-CONDICAO.md` — as **9 rows exiladas voltam**; é a
-dívida que a caneta J44/I50 declarou: `carregar_posologias` indexa por ativo
-e não por (ativo, CID). Entram junto as doses de F41 já levantadas) →
-**Receita Viva** (`DESENHO-RECEITA-VIVA.md`, ticket ratificado; o PROMPT do
-Kimi chega com o visto do arquiteto).
+~~**F41**~~ ✅ **fechado 13/09 (#266)** →
+~~**posologia-por-condição**~~ ✅ **fechado 22/09 (#269, `d2f3803`)** →
+~~**Receita Viva**~~ ✅ **fechado 22/09 (#268 `45a7dae` + #270 `b18b176`)**.
+
+**A fila corrente de 13/09 está vazia.** Os três itens que ela nomeava
+pousaram; o que cada um entregou, por ordem:
+
+- **posologia-por-condição** (#269, `d2f3803`) — `carregar_posologias` passou a
+  chavear por `(ativo, CID)`. As 9 rows exiladas de J44/I50 voltaram **8**, e as
+  doses de F41 (clonazepam 2-4 mg, clomipramina 100-150 mg) entraram como rows
+  novas. A guarda fail-loud de 13/09 foi **invertida**, não apagada: de "colisão
+  é proibida" para "colisão não sobrescreve ninguém".
+- **Receita Viva** (#268, `45a7dae`) — a folha ao lado da pena: uma função
+  geradora, dois alvos, W ≡ Y com guarda que morde (sabotar um alvo reprova).
+- **Receita Viva 1.1** (#270, `b18b176`) — o polimento visual, com valor medido
+  em cada item (lacuna de 2,56:1 → 4,13:1, folha com 51% do palco).
+
+> **Fica em aberto, e é do Fabiano — a nona row do J44.**
+> `fumarato de formoterol + budesonida` NÃO voltou ao CSV de posologia. Fui às
+> duas fontes: o **PCDT DPOC 2025** lista a associação (p. 19) mas não traz
+> esquema de administração para LABA+ICS no Quadro 6; o **GOLD 2025** (edição
+> que o próprio PCDT cita como referência 2, estagiada em
+> `data/fontes-oficiais/diretrizes/gold-2025-report.pdf`, sha256 `a1a47993…`)
+> tem a linha `Formoterol/budesonide · MDI, DPI · 12 hours` e **nenhuma coluna
+> de dose** — zero ocorrências de mcg/µg nas 215 páginas. O GOLD 2023 repete a
+> estrutura. Sem dose na fonte, não se escreve row.
+> **Três saídas**: (A) nenhuma row, como está — a guarda já impede a dose de
+> ASMA de vazar para a DPOC; (B) row sem miligramas, declarando a costura
+> (frequência do GOLD + apresentações do PCDT); (C) ← *recomendada* — estagiar o
+> **PCDT DPOC 2021** (`Portaria Conjunta SCTIE/SAES/MS nº 19, de 22/11/2021`),
+> versão em que LABA+ICS ainda era opção inicial e que deve trazer o esquema.
+> Registrado aqui porque é exatamente o tipo de pendência que a lição das 5
+> perdas mandou parar de deixar só na conversa.
 
 > **Fecho da semana (13/09).** Começou com *"o carimbo não está acontecendo
 > plenamente?"* e fecha com: **~500 substâncias classificadas na emissão**
