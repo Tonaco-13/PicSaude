@@ -58,41 +58,24 @@
 (function () {
   "use strict";
 
-  const MODOS = { RASCUNHO: "rascunho", CARIMBO: "carimbo" };
+  // ENG-022 — a receita passa a CONSUMIR o núcleo. O que saiu daqui (lacuna,
+  // esc, tinta por `data-bloco`, o contrato W ≡ Y, o FAB) não mudou de
+  // semântica: mudou de casa, para que o pedido de exame use as MESMAS peças
+  // em vez de peças parecidas. O que fica é a ANATOMIA do receituário — e ela
+  // não sobe ao núcleo por decisão do arquiteto: "duas anatomias numa função
+  // só é a dupla posse pela porta dos fundos".
+  const N = window.DocumentoNucleo;
 
-  /** Quanto tempo a tinta fica acesa na região que acabou de mudar. */
-  const _TINTA_MS = 700;
+  const MODOS = N.MODOS;
+  const esc = N.esc;
 
-  function esc(v) {
-    return String(v === null || v === undefined ? "" : v).replace(
-      /[&<>"']/g,
-      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
-    );
-  }
+  // `rec` é o gancho nomeado deste documento: as lacunas saem como
+  // `class="doc-lacuna rec-lacuna"` — estilo no núcleo, identidade aqui.
+  const { lacuna, ou, ouMaiusculo, nota } = N.vocabulario("rec");
 
-  function _vazio(v) {
-    return String(v === null || v === undefined ? "" : v).trim() === "";
-  }
-
-  /** O espaço pontilhado — o branco do papel esperando a caneta. */
-  function lacuna(texto) {
-    return '<span class="rec-lacuna">' + esc(texto) + "</span>";
-  }
-
-  /** Valor escapado, ou a lacuna correspondente quando o campo está vazio. */
-  function ou(valor, textoDaLacuna) {
-    return _vazio(valor) ? lacuna(textoDaLacuna) : esc(String(valor).trim());
-  }
-
-  /** Como `ou`, mas caixa-alta — o nome do fármaco, na régua do receituário.
-   *
-   *  A caixa-alta é feita AQUI e não em CSS de propósito: `text-transform`
-   *  pintaria a tela sem tocar o texto, e o W ≡ Y compara TEXTO. Dado passa
-   *  pela função; só o cromo (rótulos, sombras) fica para a folha de estilo.
-   *  Assim não há como um modo exibir uma coisa e o outro exibir outra. */
-  function ouMaiusculo(valor, textoDaLacuna) {
-    return _vazio(valor) ? lacuna(textoDaLacuna) : esc(String(valor).trim().toUpperCase());
-  }
+  // Os blocos anatômicos abaixo perguntam "este campo está vazio?" o tempo
+  // todo — o apelido mantém a leitura deles, com a resposta vindo do núcleo.
+  const _vazio = N.vazio;
 
   /** Plural da unidade — "30 comprimido" não é português (ENG-020 §1.1).
    *
@@ -121,11 +104,6 @@
     const n = Number(q.replace(",", "."));
     if (!Number.isFinite(n) || n === 1) return u;
     return _PLURAL_COMPOSTO[u.toLowerCase()] || u + "s";
-  }
-
-  /** Nota do documento sobre si mesmo (não é lacuna: é fato declarado). */
-  function nota(texto) {
-    return '<span class="rec-nota">' + esc(texto) + "</span>";
   }
 
   // ── blocos ───────────────────────────────────────────────────────────────
@@ -342,9 +320,11 @@
     // copia e se compara. Carimbo de borracha não cabe 64 caracteres.
     const traco = _vazio(e.hash)
       ? ""
-      : '<span class="rec-carimbo-hash">sha-256 ' + esc(String(e.hash).slice(0, 24)) + "…</span>";
+      : '<span class="doc-selo-hash rec-carimbo-hash">sha-256 ' +
+        esc(String(e.hash).slice(0, 24)) + "…</span>";
     return (
-      '<div class="rec-carimbo' + (fisica ? " rec-carimbo-fisica" : "") + '" data-bloco="carimbo">' +
+      '<div class="doc-selo-custodia rec-carimbo' +
+        (fisica ? " doc-selo-fisico rec-carimbo-fisica" : "") + '" data-bloco="carimbo">' +
       "<span>" + esc(texto) + "</span>" + traco +
       "</div>"
     );
@@ -361,7 +341,8 @@
     const e = estado || {};
     const m = modo === MODOS.CARIMBO ? MODOS.CARIMBO : MODOS.RASCUNHO;
     return (
-      '<article class="rec-folha rec-modo-' + m + (e.emitido ? " rec-emitida" : "") + '">' +
+      '<article class="doc-folha rec-folha doc-modo-' + m + " rec-modo-" + m +
+        (e.emitido ? " doc-emitida rec-emitida" : "") + '">' +
       _cabecalho(e) +
       _emitente(e) +
       _paciente(e) +
@@ -373,48 +354,10 @@
     );
   }
 
-  /**
-   * Pinta um alvo com o documento — e acende a TINTA na região que mudou.
-   *
-   * A tinta é gesto de TELA: só no modo rascunho. No `#print-area` ela seria
-   * ruído num documento que ninguém está vendo se formar.
-   *
-   * O invólucro (`#folha-viva`, `#print-area`) é preservado — trocamos só o
-   * miolo. É o que permite ao AC4 exigir que o carimbo caia na MESMA folha
-   * que estava à vista, e a uma guarda provar que a folha não foi substituída.
-   */
+  /** Pinta um alvo — o núcleo cuida do invólucro e da tinta; a receita só
+   *  diz o que desenhar. Assinatura pública INTOCADA. */
   function montar(alvo, estado, modo) {
-    const el = typeof alvo === "string" ? document.getElementById(alvo) : alvo;
-    if (!el) return;
-
-    const antes = {};
-    el.querySelectorAll("[data-bloco]").forEach((b) => {
-      antes[b.getAttribute("data-bloco")] = b.innerHTML;
-    });
-
-    el.innerHTML = renderReceituario(estado, modo);
-
-    if (modo === MODOS.CARIMBO) return;
-
-    el.querySelectorAll("[data-bloco]").forEach((b) => {
-      const chave = b.getAttribute("data-bloco");
-      if (antes[chave] === undefined || antes[chave] === b.innerHTML) return;
-      b.classList.add("rec-tinta");
-      setTimeout(() => b.classList.remove("rec-tinta"), _TINTA_MS);
-    });
-  }
-
-  /**
-   * O texto do documento, normalizado — a definição ÚNICA de "equivalente".
-   *
-   * Existe aqui, e não copiada dentro de cada guarda, porque W ≡ Y só vale se
-   * os dois lados forem lidos pela mesma régua (a lição do comentário que
-   * promete fonte única: duplicação com assert ainda é duplicação).
-   */
-  function textoDoDocumento(alvo) {
-    const el = typeof alvo === "string" ? document.getElementById(alvo) : alvo;
-    if (!el) return "";
-    return String(el.textContent || "").replace(/\s+/g, " ").trim();
+    N.montar(alvo, renderReceituario(estado, modo), modo);
   }
 
   const Receituario = {
@@ -422,7 +365,7 @@
     render: renderReceituario,
     pluralizarUnidade: pluralizarUnidade,
     montar: montar,
-    textoDoDocumento: textoDoDocumento,
+    textoDoDocumento: N.textoDoDocumento,
   };
 
   window.Receituario = Receituario;

@@ -1,0 +1,237 @@
+/* ==========================================================================
+ * pedidoexame.css — a ANATOMIA do pedido de exames.
+ *
+ * ENG-022, commit 2. Par do `pedidoexame.js`.
+ *
+ * O que é do PAPEL (serifa, material da folha, lacuna, tinta, selo de
+ * custódia, palco, flutuante) vem de `documento-nucleo.css`. Aqui ficam só os
+ * blocos que só o pedido tem: selo de prioridade no cabeçalho, códigos
+ * TUSS/SIGTAP, preparo, identificação do documento e aviso de validade.
+ *
+ * O par de classes: a folha nasce `doc-folha exame-folha doc-modo-X
+ * exame-modo-X` — estilo no núcleo, gancho nomeado aqui.
+ * ========================================================================== */
+
+.exame-folha {
+  /* O roxo da indicação clínica; o âmbar/vermelho das prioridades. */
+  --exame-clinica: #6d28d9;
+  --exame-urgente: #b45309;
+  --exame-urgentissimo: #b91c1c;
+}
+
+.exame-cabecalho {
+  text-align: center;
+  border-bottom: 2px solid var(--doc-borda);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.exame-cabecalho h2 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--doc-tinta);
+}
+
+.exame-sub {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--doc-tinta-fraca);
+  margin: 3px 0 0;
+}
+
+.exame-proto {
+  font-size: 11px;
+  margin: 7px 0 0;
+  color: var(--doc-tinta-fraca);
+  word-break: break-all;
+}
+
+/* O selo de prioridade — o primeiro fato que o prestador lê. A caixa-alta do
+   TEXTO é feita na função (o W ≡ Y compara texto); aqui só a moldura. */
+.exame-selo-prioridade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--doc-tinta-apagada);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.exame-prioridade-urgente { color: var(--exame-urgente); }
+.exame-prioridade-urgentissimo { color: var(--exame-urgentissimo); }
+
+.exame-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--doc-tinta);
+  word-break: break-all;
+}
+
+.exame-box {
+  border: 1px solid var(--doc-borda);
+  border-radius: 2px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+
+.exame-rot {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--doc-tinta-apagada);
+  margin-bottom: 3px;
+}
+
+.exame-rot-clinica { color: var(--exame-clinica); }
+
+.exame-linha,
+.exame-linha-forte { margin: 0; }
+.exame-linha { font-size: 12px; }
+.exame-linha-forte { font-size: 14.5px; font-weight: 700; }
+.exame-registro,
+.exame-chave { font-size: 12px; font-weight: 400; color: var(--doc-tinta-fraca); }
+
+.exame-indicacao { margin-bottom: 14px; }
+
+.exame-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.exame-selo-cid {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid #ddd6fe;
+  background: #f5f3ff;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--exame-clinica);
+}
+
+.exame-selo-cid b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+}
+
+.exame-selo-cid span { color: var(--doc-tinta-fraca); }
+
+/* ── os exames numerados ──────────────────────────────────────────────── */
+
+.exame-itens { min-height: 120px; margin-bottom: 14px; }
+.exame-itens-corpo { margin-top: 6px; }
+
+.exame-item { margin-bottom: 12px; }
+.exame-item:last-child { margin-bottom: 0; }
+
+.exame-item-cabeca {
+  margin: 0 0 2px;
+  font-size: 13.5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.exame-item-n { font-weight: 700; color: var(--doc-tinta-apagada); }
+/* A caixa-alta do nome do exame é feita na FUNÇÃO, nunca aqui. */
+.exame-item-nome { letter-spacing: 0.3px; }
+
+.exame-item-qtd {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e3a8a;
+  white-space: nowrap;
+}
+
+.exame-item-codigos {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--doc-tinta-fraca);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.exame-item-preparo { margin: 2px 0 0; font-size: 12.5px; }
+
+/* ── identificação do documento ───────────────────────────────────────── */
+
+.exame-ident-linha {
+  margin: 0;
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.exame-ident-rot {
+  min-width: 108px;
+  color: var(--doc-tinta-fraca);
+  flex-shrink: 0;
+}
+
+.exame-ident-val { word-break: break-all; }
+
+.exame-aviso {
+  border: 1px solid var(--doc-papel-borda);
+  border-radius: 3px;
+  padding: 8px 11px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  background: #fbfaf6;
+}
+
+/* ── rodapé ───────────────────────────────────────────────────────────── */
+
+.exame-rodape {
+  margin-top: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.exame-local { font-size: 12.5px; }
+
+.exame-assinatura {
+  width: 280px;
+  max-width: 100%;
+  text-align: center;
+}
+
+.exame-risco { border-top: 1px solid var(--doc-borda); margin-bottom: 6px; }
+
+.exame-ass-nota {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--doc-tinta-fraca);
+}
+
+.exame-ass-fisica { color: #92400e; }
+
+/* ── no papel: o roxo e as cores de prioridade viram tinta ────────────── */
+.exame-modo-carimbo {
+  --exame-clinica: #000;
+  --exame-urgente: #000;
+  --exame-urgentissimo: #000;
+}
+.exame-modo-carimbo .exame-selo-cid { background: #fff; border-color: #000; }
+.exame-modo-carimbo .exame-aviso { background: #fff; border-color: #000; }

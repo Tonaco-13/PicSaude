@@ -126,7 +126,7 @@
            proíbe, agora em pixels. A tipografia de impressão vem do
            `.rec-modo-carimbo` — não há mais Courier chumbado aqui, senão o
            documento impresso deixaria de ser o documento visto. */
-        #print-area { display: none; }
+        #print-area, #print-area-exame { display: none; }
 
         @media print {
             body * { visibility: hidden; }
@@ -141,79 +141,11 @@
            A `.container` continua com 850px para todo o resto da tela (as
            outras três circulações não foram tocadas nesta onda); só o palco
            da receita se alarga, e só a partir de 980px. */
-        /* A1 (ENG-020) — o palco é a MESA onde o papel assenta: creme quente,
-           não o cinza-azulado da UI. A metáfora mora AQUI e só aqui — a pele
-           do resto do app não muda (adjudicação de escopo do §2 do despacho).
-           Contida e reversível: some com uma regra. */
-        .receita-palco {
-            display: block;
-            background: #f7f5ef;
-            border: 1px solid #ece7db;
-            border-radius: 10px;
-            padding: 24px;
-        }
-        .receita-papel-titulo {
-            font-size: 11px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: .6px; color: #64748b; margin: 0 0 10px;
-            display: flex; align-items: center; gap: 7px;
-        }
-        .receita-papel-titulo::before {
-            content: ''; width: 7px; height: 7px; border-radius: 50%;
-            background: #16a34a; flex-shrink: 0;
-        }
-
-        @media (min-width: 980px) {
-            .receita-palco {
-                display: grid;
-                grid-template-columns: minmax(360px, 5fr) minmax(400px, 6fr);
-                gap: 28px;
-                align-items: start;
-                /* Alargamento controlado: o palco sai da caixa de 850px e se
-                   centra sozinho, sem `transform` (que criaria bloco contentor
-                   e brigaria com o `sticky` da folha). */
-                position: relative;
-                left: 50%;
-                width: min(1320px, calc(100vw - 48px));
-                margin-left: calc(-0.5 * min(1320px, 100vw - 48px));
-                padding: 24px;
-            }
-            .receita-papel { position: sticky; top: 16px; }
-        }
-
-        /* Mobile (< 980px): a folha não divide espaço com a pena — ela é
-           chamada por um botão flutuante (martelada ③ do arquiteto). */
-        .receita-papel { margin-top: 28px; }
-
-        @media (max-width: 979px) {
-            .receita-papel {
-                position: fixed; inset: 0; z-index: 60; margin: 0;
-                background: #f7f5ef; padding: 16px;
-                overflow-y: auto;
-                display: none;
-            }
-            .receita-papel.receita-papel-aberta { display: block; }
-            .receita-fechar-folha {
-                position: sticky; top: 0; z-index: 1; width: 100%;
-                background: #0f172a; color: #fff; border: none; border-radius: 6px;
-                padding: 11px; font-size: 13px; font-weight: 600; cursor: pointer;
-                margin-bottom: 12px;
-            }
-            .receita-fab {
-                position: fixed; right: 16px; bottom: 16px; z-index: 55;
-                background: #1e3a8a; color: #fff; border: none; border-radius: 999px;
-                padding: 13px 20px; font-size: 14px; font-weight: 600;
-                box-shadow: 0 6px 20px rgba(15,23,42,.28); cursor: pointer;
-            }
-        }
-        /* Em desktop o botão flutuante não existe — a folha já está à vista. */
-        @media (min-width: 980px) {
-            .receita-fab, .receita-fechar-folha { display: none; }
-        }
-        /* AC8 — o botão flutuante NUNCA cobre o botão de emitir. Quando o
-           gesto de emitir entra em cena, a chamada da folha sai de cena; a
-           classe (e não `[hidden]`) é deliberada: `display:block` de media
-           query venceria o atributo, e já pagamos essa lição duas vezes. */
-        .receita-fab-recolhido { display: none !important; }
+        /* ENG-022 — as regras do PALCO (mesa creme, grade pena/papel, gaveta
+           e flutuante do celular) mudaram-se para `documento-nucleo.css`: o
+           pedido de exame monta o mesmo palco, e duas cópias das mesmas regras
+           derivariam. Os elementos carregam as duas classes — `doc-palco` traz
+           o estilo, `receita-palco` fica como o gancho nomeado deste módulo. */
 
         /* IA Farmacêutica v1 — blocos de sugestão por card de medicamento */
         .ia-container { margin-top: 10px; }
@@ -449,8 +381,18 @@
        (#print-area, modo carimbo). O #print-area NÃO tem mais marcação
        própria: duplicar o template faria os dois derivarem, e o "zero
        surpresa" viraria mentira gradual (DESENHO-RECEITA-VIVA.md §3). -->
+  <!-- ENG-022 — o NÚCLEO do documento, extraído do receituario.js e consumido
+       por dois geradores. Carrega ANTES deles: quem desenha um papel específico
+       depende do vocabulário comum, nunca o contrário. -->
+  <link rel="stylesheet" href="documento-nucleo.css">
+  <script src="documento-nucleo.js"></script>
   <link rel="stylesheet" href="receituario.css">
   <script src="receituario.js"></script>
+  <!-- ENG-022 — o gerador do PEDIDO DE EXAME, com a anatomia do PDF oficial.
+       Arquivo próprio, não uma bandeira no receituario.js: "duas anatomias
+       numa função só é a dupla posse pela porta dos fundos". -->
+  <link rel="stylesheet" href="pedidoexame.css">
+  <script src="pedidoexame.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -711,8 +653,8 @@
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 16px;">Para validade legal conforme Res. CFM 2.299/2021, utilize a emissão digital com assinatura ICP-Brasil.</p>
 
                 <!-- ═══ O PALCO (ENG-018) — a pena à esquerda, o papel à direita ═══ -->
-                <div class="receita-palco">
-                  <div class="receita-pena">
+                <div class="receita-palco doc-palco">
+                  <div class="receita-pena doc-pena">
                     <div id="form-status-msg" class="hidden"></div>
                     <!-- ENG-018 AC4 — a confirmação NÃO é mais uma tela.
                          Emitir deixou de navegar: o protocolo e o hash carimbam a
@@ -870,9 +812,9 @@
                        `#folha-viva` é ALVO da mesma função que monta o `#print-area`
                        (receituario.js). Não há template aqui: o que se lê desta folha
                        é, por construção, o que o cidadão recebeu. -->
-                  <aside class="receita-papel" id="receita-papel">
-                    <button type="button" class="receita-fechar-folha" onclick="fecharFolhaViva()">✕ Voltar ao formulário</button>
-                    <p class="receita-papel-titulo">O papel — a receita se formando</p>
+                  <aside class="receita-papel doc-papel" id="receita-papel">
+                    <button type="button" class="receita-fechar-folha doc-fechar-folha" onclick="fecharFolhaViva()">✕ Voltar ao formulário</button>
+                    <p class="receita-papel-titulo doc-papel-titulo">O papel — a receita se formando</p>
                     <div id="folha-viva"></div>
                   </aside>
                 </div>
@@ -880,7 +822,7 @@
 
                 <!-- Mobile (martelada ③): a folha é chamada, não empilhada. O botão
                      se recolhe sozinho quando o botão de emitir entra em cena (AC8). -->
-                <button type="button" class="receita-fab" id="receita-fab" onclick="abrirFolhaViva()">📄 Ver a receita</button>
+                <button type="button" class="receita-fab doc-fab" id="receita-fab" onclick="abrirFolhaViva()">📄 Ver a receita</button>
             </div>
 
             <!-- ============================================================
@@ -890,6 +832,10 @@
             <div id="submod-exames" class="no-print" style="display:none; margin-top: 0; border-top: none; padding-top: 0;">
                 <h2 class="section-title" style="margin-bottom: 8px;">Pedido de Exame</h2>
                 <p style="font-size: 12px; color: #64748b; margin-bottom: 20px;">Solicitação diagnóstica com normalização assistida por IA. Cada exame é consultado individualmente — sem bloquear a emissão.</p>
+
+                <!-- ═══ O PALCO DO EXAME (ENG-022) — a pena e o papel ═══ -->
+                <div class="exame-palco doc-palco">
+                  <div class="exame-pena doc-pena">
                 <div id="pedido-exame-status-msg" class="hidden" style="margin-bottom: 16px; border-radius: 6px; padding: 10px 14px; font-size: 13px; font-weight: 500;"></div>
 
                 <form id="form-pedido-exame-main" onsubmit="emitirPedidoExame(event)">
@@ -932,7 +878,7 @@
                         <div id="msg-exam-cpf-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 12px;"></div>
                         <div id="carteira-status-exam" style="display:none; margin-bottom: 12px; font-size: 12px; padding: 6px 10px; border-radius: 4px;"></div>
                         <p style="font-size: 12px; color: #475569; margin-bottom: 12px;">🔑 A chave de entrega é o <b>CPF do paciente</b> (campo em <b>Dados do Paciente</b>, no topo do formulário) — é o "PIX" que faz o pedido chegar à carteira digital dele.</p>
-                        <button type="submit" class="btn btn-primary" style="font-size: 15px; padding: 15px;">📋 Emitir Pedido de Exame Digital</button>
+                        <button type="submit" id="btn-emitir-exame" class="btn btn-primary" style="font-size: 15px; padding: 15px;">📋 Emitir Pedido de Exame Digital</button>
                         <div style="border-top: 1px dashed #93c5fd; margin: 20px 0 0; padding-top: 18px;">
                             <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;">
                                 <span style="font-size: 18px; line-height: 1.3; flex-shrink: 0;">⚠️</span>
@@ -947,6 +893,23 @@
                     </div>
 
                 </form>
+                  </div>
+                  <!-- fim da PENA do exame -->
+
+                  <!-- ═══ O PAPEL — o pedido se escrevendo, no layout do PDF oficial ═══
+                       `#folha-viva-exame` e `#print-area-exame` são alvos da MESMA
+                       função (pedidoexame.js). Print-area POR OBJETO (adjudicação 1
+                       do parecer): alvo multi-objeto chaveado pela aba ativa seria
+                       uma variável a mais no caminho de um momento de verdade. -->
+                  <aside class="exame-papel doc-papel" id="exame-papel">
+                    <button type="button" class="exame-fechar-folha doc-fechar-folha" onclick="fecharFolhaExame()">✕ Voltar ao formulário</button>
+                    <p class="exame-papel-titulo doc-papel-titulo">O papel — o pedido se formando</p>
+                    <div id="folha-viva-exame"></div>
+                  </aside>
+                </div>
+                <!-- fim do PALCO do exame -->
+
+                <button type="button" class="exame-fab doc-fab" id="exame-fab" onclick="abrirFolhaExame()">📄 Ver o pedido</button>
             </div>
             <!-- fim PEDIDO DE EXAME -->
 
@@ -1301,6 +1264,13 @@
          viva. Sai da `tela-sucesso` e passa a viver no topo do documento porque
          já não pertence a uma tela — pertence à receita, e está sempre em dia. -->
     <div id="print-area" aria-hidden="true"></div>
+
+    <!-- ENG-022 — o alvo de CARIMBO do pedido de exame. Um alvo por objeto.
+         NÃO entra no `@media print`: o papel oficial do exame continua nascendo
+         no servidor (`imprimirPedidoFisico` → PDF do backend), e esta onda não
+         mexe no fluxo físico. Aqui ele é o Y do W ≡ Y e a superfície de
+         conferência visual contra o `documento-referencia.pdf`. -->
+    <div id="print-area-exame" aria-hidden="true"></div>
 
     <footer class="no-print" style="text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 850px; margin-left: auto; margin-right: auto;">
         <p style="margin-bottom: 4px; font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
@@ -2982,12 +2952,12 @@
 
         function abrirFolhaViva() {
             const papel = document.getElementById('receita-papel');
-            if (papel) papel.classList.add('receita-papel-aberta');
+            if (papel) papel.classList.add('doc-papel-aberta');
         }
 
         function fecharFolhaViva() {
             const papel = document.getElementById('receita-papel');
-            if (papel) papel.classList.remove('receita-papel-aberta');
+            if (papel) papel.classList.remove('doc-papel-aberta');
         }
 
         (function _initFolhaViva() {
@@ -3015,18 +2985,10 @@
             _repintarReceituario();
         })();
 
-        // AC8 — a chamada da folha NUNCA cobre o gesto de emitir.
-        // Resolvido por construção, não por medida de pixel: quando o botão de
-        // emitir entra na viewport, o flutuante se recolhe. Em telas apertadas
-        // os dois nunca dividem o mesmo canto.
-        (function _initFabNaoCobreOEmitir() {
-            const fab    = document.getElementById('receita-fab');
-            const emitir = document.getElementById('btn-emitir');
-            if (!fab || !emitir || typeof IntersectionObserver === 'undefined') return;
-            new IntersectionObserver(entradas => {
-                entradas.forEach(e => fab.classList.toggle('receita-fab-recolhido', e.isIntersecting));
-            }, { threshold: 0 }).observe(emitir);
-        })();
+        // AC8 — a chamada da folha nunca cobre o gesto de emitir. A mecânica
+        // (IntersectionObserver + classe, nunca `[hidden]`) mudou-se para o
+        // núcleo na ENG-022; aqui fica só quem são os dois elementos.
+        DocumentoNucleo.ligarFabAoEmitir('receita-fab', 'btn-emitir');
 
         function gerarObjetoReceita() {
             const medicamentos = [];
@@ -4263,6 +4225,157 @@
          * Adiciona um card de exame à lista.
          * Cada card mantém seu próprio debounce e estado de IA — independente dos demais.
          */
+        // ═══════════════════════════════════════════════════════════════════
+        // PEDIDO DE EXAME VIVO (ENG-022) — a folha ao lado da pena
+        //
+        // O pedido de exame não tinha documento em tela em momento nenhum —
+        // nem depois de emitir. A anatomia aqui é a do PDF OFICIAL do pedido,
+        // não a do receituário; quem a desenha é `pedidoexame.js`.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Estado da folha DEPOIS da emissão (§1 do CLAUDE.md: objeto sanitário
+        // emitido não se edita). Importa mais aqui do que na receita: o fluxo
+        // do exame LIMPA o formulário logo após emitir — sem congelar, a folha
+        // carimbada se esvaziaria diante de quem acabou de emitir.
+        let _pedidoExameEmitido = null;
+
+        /** Os CIDs do pedido, pela fonte CANÔNICA (AC6): o hidden do typeahead. */
+        function _cidsEscolhidosExame() {
+            const hidden = document.getElementById('exam-cid-escolhido');
+            const chips  = document.getElementById('ia-cid-exame-chips');
+            const codigos = hidden ? hidden.value.split('|').filter(Boolean) : [];
+            return codigos.map(codigo => {
+                const chip = chips ? chips.querySelector('[data-cid="' + codigo + '"]') : null;
+                const desc = chip ? chip.querySelector('.ia-cid-chip-desc') : null;
+                return { codigo: codigo, descricao: desc ? desc.textContent.trim() : '' };
+            });
+        }
+
+        function _examesDoFormulario() {
+            const itens = [];
+            document.querySelectorAll('#lista-exames .exame-card').forEach(card => {
+                const q = sel => { const el = card.querySelector(sel); return el ? String(el.value || '').trim() : ''; };
+                itens.push({
+                    nome: q('.exame-nome'), quantidade: q('.exame-qtd'),
+                    tuss: q('.exame-codigo-tuss'), sigtap: q('.exame-codigo-sigtap'),
+                    categoria: q('.exame-categoria'), preparo: q('.exame-preparo'),
+                });
+            });
+            return itens;
+        }
+
+        /** O estado do documento lido do FORMULÁRIO — o pedido se escrevendo. */
+        function _estadoDoFormularioExame() {
+            const v = id => { const el = document.getElementById(id); return el ? String(el.value || '') : ''; };
+            const med = medicoLogado || {};
+            const registros = _registrosOuVazio(med.conselhos);
+
+            return {
+                emitido: false,
+                protocolo: '', hash: '', data_emissao: '', data_validade: '',
+                prioridade: v('exam-prioridade'),
+                prescritor: {
+                    nome: med.nome || '',
+                    registros: registros,
+                    unidade: _comComplemento(med.endereco, med.complemento),
+                },
+                paciente: {
+                    nome:  v('exam-pac-nome').trim().toUpperCase(),
+                    chave: v('exam-pac-cpf').trim(),
+                },
+                indicacao: v('exam-indicacao').trim(),
+                cids:      _cidsEscolhidosExame(),
+                exames:    _examesDoFormulario(),
+                local_data: med.cidade
+                    ? `${med.cidade} - ${med.uf_cidade || ''}, ${getDataFormatada()}`
+                    : getDataFormatada(),
+                assinatura: { nome: med.nome || '', registro: registros, tipo: null },
+            };
+        }
+
+        /** O estado do pedido EMITIDO — lido da resposta do backend, não do
+         *  formulário (que o fluxo do exame limpa em seguida). */
+        function _estadoDoPedidoEmitido(dados, isDigital) {
+            const base = _estadoDoFormularioExame();
+            return Object.assign(base, {
+                emitido: true,
+                protocolo: dados.protocolo || '',
+                hash: dados.documento_hash || '',
+                data_emissao:  _dataBrasileira(dados.data_emissao),
+                data_validade: _dataBrasileira(dados.data_validade),
+                prioridade: dados.prioridade || base.prioridade,
+                assinatura: Object.assign({}, base.assinatura, {
+                    tipo: isDigital ? 'digital' : 'fisica',
+                }),
+            });
+        }
+
+        /** ISO → DD/MM/AAAA, como o documento oficial escreve. Entrada vazia
+         *  ou ilegível devolve vazio (e a folha mostra lacuna) — a data não se
+         *  inventa a partir de um carimbo que não veio. */
+        function _dataBrasileira(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            const p = n => String(n).padStart(2, '0');
+            return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+        }
+
+        /** UM estado, DOIS alvos — o W ≡ Y do pedido, por construção. */
+        function _repintarPedidoExame() {
+            if (typeof PedidoExame === 'undefined') return;
+            const estado = _pedidoExameEmitido || _estadoDoFormularioExame();
+            PedidoExame.montar('folha-viva-exame', estado, PedidoExame.MODOS.RASCUNHO);
+            PedidoExame.montar('print-area-exame', estado, PedidoExame.MODOS.CARIMBO);
+        }
+
+        /** Solta a folha do pedido emitido e devolve o papel em branco. */
+        function _liberarFolhaExame() {
+            _pedidoExameEmitido = null;
+            _repintarPedidoExame();
+        }
+
+        /** O fecho do arco (AC4): o carimbo cai na MESMA folha à vista. */
+        function _carimbarPedidoExame(dados, isDigital) {
+            _pedidoExameEmitido = _estadoDoPedidoEmitido(dados || {}, isDigital);
+            _repintarPedidoExame();
+        }
+
+        function abrirFolhaExame() {
+            const papel = document.getElementById('exame-papel');
+            if (papel) papel.classList.add('doc-papel-aberta');
+        }
+
+        function fecharFolhaExame() {
+            const papel = document.getElementById('exame-papel');
+            if (papel) papel.classList.remove('doc-papel-aberta');
+        }
+
+        (function _initFolhaExame() {
+            const raiz = document.getElementById('submod-exames');
+            if (!raiz) return;
+
+            // AC1 — tecla a tecla, por DELEGAÇÃO na raiz do submódulo: pega
+            // todo campo do paciente, a prioridade, a indicação e todo campo
+            // de todo card de exame, inclusive os que ainda não existem.
+            raiz.addEventListener('input',  _repintarPedidoExame);
+            raiz.addEventListener('change', _repintarPedidoExame);
+
+            // ...e o que NÃO passa por evento de input: card criado/removido,
+            // etiqueta de CID que entra ou sai, campo preenchido por código
+            // (normalização da IA, lock M-D).
+            const observador = new MutationObserver(_repintarPedidoExame);
+            ['lista-exames', 'ia-cid-exame-chips'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) observador.observe(el, { childList: true, subtree: true, characterData: true });
+            });
+
+            // AC8 — o flutuante do exame sai de cena quando o emitir entra.
+            DocumentoNucleo.ligarFabAoEmitir('exame-fab', 'btn-emitir-exame');
+
+            _repintarPedidoExame();
+        })();
+
         function adicionarExame(nome = '', qtd = 1, codigoTuss = '', codigoSigtap = '') {
             exameCount++;
             const container = document.getElementById('lista-exames');
@@ -4279,6 +4392,12 @@
                 </div>
                 <input type="hidden" class="exame-codigo-tuss" value="${codigoTuss}">
                 <input type="hidden" class="exame-codigo-sigtap" value="${codigoSigtap}">
+                <!-- ENG-022 — categoria e preparo vinham da normalização assistida
+                     e viviam SÓ no HTML renderizado do bloco azul. A folha precisa
+                     deles como DADO: ler de volta o HTML da IA seria a folha
+                     dependendo da aparência de outro componente. -->
+                <input type="hidden" class="exame-categoria" value="">
+                <input type="hidden" class="exame-preparo" value="">
                 <div class="ia-exame-container"></div>
             `;
             container.appendChild(div);
@@ -4414,6 +4533,18 @@
                 const nomePadEsc = nomePadronizado.replace(/'/g, "\\'");
                 const tussEsc    = codigoTuss.replace(/'/g, "\\'");
                 const sigtapEsc  = codigoSigtap.replace(/'/g, "\\'");
+
+                // ENG-022 — o que a normalização achou vira DADO no card, não só
+                // pixel no bloco azul: é daqui que a folha lê a categoria e o
+                // preparo. Gravar antes de desenhar mantém a folha independente
+                // da aparência deste componente.
+                const _cardIa = document.getElementById('exame-item-' + n);
+                if (_cardIa) {
+                    const _cat = _cardIa.querySelector('.exame-categoria');
+                    if (_cat) _cat.value = categoria || '';
+                    const _prep = _cardIa.querySelector('.exame-preparo');
+                    if (_prep) _prep.value = preparo || '';
+                }
 
                 html += `<div class="ia-exame-bloco ia-exame-bloco-norm">`;
                 html += `<div class="ia-exame-header">Normalização diagnóstica assistida</div>`;
@@ -4556,6 +4687,12 @@
 
                 const data = await resp.json();
                 _exameEmitido = data.protocolo;
+
+                // AC4 — o carimbo cai na MESMA folha à vista, ANTES da limpeza
+                // do formulário logo abaixo. A ordem importa: o estado emitido
+                // congela a folha, e é por isso que limpar o formulário em
+                // seguida não esvazia o documento que acabou de nascer.
+                _carimbarPedidoExame(data, true);
                 const _share = data.entregue_carteira
                     ? ' — entregue à carteira digital.'
                     : ' — compartilhe: cidadao.html?protocolo=' + _escDoc(data.protocolo);
@@ -4669,6 +4806,10 @@
          * (bug relatado por Fabiano em 2026-08-10). Backend offline → falha
          * LEGÍVEL, nunca PDF em branco. Ver LEARNINGS 2026-07-22.
          */
+        // AC9 — o fluxo físico NÃO muda: o papel oficial continua nascendo no
+        // servidor (PDF do backend), síncrono, com falha legível offline. O que
+        // esta onda acrescenta é o carimbo na folha viva — o prescritor passa a
+        // ver o documento que acabou de imprimir, em vez de nada.
         async function imprimirPedidoFisico() {
             const msgEl = document.getElementById('msg-exam-fisica');
             const _mostrar = (html, tipo) => {
@@ -4728,6 +4869,11 @@
                     return;
                 }
                 protocolo = d.protocolo;
+                // A folha recebe o carimbo FÍSICO — honesto: sem hash (não há
+                // documento canônico) e com o selo "IMPRESSO · SEM CUSTÓDIA
+                // DIGITAL". O PDF oficial continua vindo do servidor logo abaixo:
+                // o fluxo físico não muda (AC9), só deixa de ser invisível.
+                _carimbarPedidoExame(d, false);
             } catch (e) {
                 _mostrar('Sem conexão com o servidor — não é possível emitir o pedido físico agora. O documento é gerado pelo servidor; tente de novo quando ele estiver acessível.', 'error');
                 return;
