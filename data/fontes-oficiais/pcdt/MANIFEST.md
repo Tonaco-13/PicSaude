@@ -52,3 +52,38 @@ aberto ATRASA; portaria/PDF é o canônico. Ver DESENHO-ONDA-PCDT.md §0–§1.
   `legislacao/`, `pdf/` e `consultas/` da mesma página NÃO foram colhidas
   (legislação avulsa e relatórios de consulta — decisão registrada, não lacuna).
 - Reconciliação catálogo×corpus: `docs/tickets/RELATORIO-RECONCILIACAO-PCDT.md`
+
+## Adendos pós-batch — adendos-pos-batch/
+
+Fontes estagiadas DEPOIS do batch de 30/08, uma a uma, cada qual com despacho
+próprio. Ficam em pasta separada **de propósito**: o `SHA256SUMS.txt` do
+`corpus-conitec-2026-08-30/` é a **âncora daquele batch** e não é reescrito —
+acrescentar um 241º arquivo lá dentro faria a pasta discordar do próprio
+carimbo. Aqui a âncora é a entrada individual abaixo.
+
+### adendos-pos-batch/pcdt_anemia_deficienciaferro_2014.pdf
+- sha256: `94ead687bc36a6ece58f2369dd0c51c24d4f1ba1f8496a6e4e3847c165b824e1`
+- Tamanho: 609.200 bytes (20 páginas) · Estagiado em 22/09/2026 (P-10, DESPACHO-ENG-021)
+- URL: https://www.gov.br/conitec/pt-br/midias/consultas/relatorios/2014/pcdt_anemia_deficienciaferro_2014.pdf/@@display-file/file
+- Página-fonte: a MESMA do batch (`.../protocolos-clinicos-e-diretrizes-terapeuticas/pcdt`)
+- Edição: **Portaria SAS/MS nº 1.247, de 10 de novembro de 2014** — "Anemia por
+  Deficiência de Ferro". CIDs declarados no texto: **D50.0** e **D50.8**.
+- Validação: magic bytes `%PDF` conferidos (a lição do incidente da primeira
+  passada — o sufixo `@@display-file/file` é obrigatório, senão o Plone devolve
+  a página de visualização em HTML).
+- Extração pypdf: **BOA** (70.722 caracteres). Sonda de conteúdo:
+  `{ferro: 226, CID: 41, ferritina: 24, sulfato ferroso: 15, sacarato: 14, D50: 4}`.
+
+**POR QUE FALTAVA — e não era acidente.** O catálogo aberto 08/2025 lista
+"Anemia por deficiência de ferro" como *Aprovado\**, mas o PDF não está no
+corpus porque ele mora na família **`consultas/relatorios/`**, e o batch de
+30/08 declarou escopo `protocolos/` apenas (ver a seção acima: *"as famílias
+`legislacao/`, `pdf/` e `consultas/` NÃO foram colhidas — decisão registrada,
+não lacuna"*). A ausência tinha causa documentada; este adendo cruza aquela
+linha de escopo **deliberadamente**, para uma condição só.
+
+**IDADE DECLARADA (para a curadoria, antes da caneta):** é de **2014** — o PCDT
+mais antigo da despensa, e a página oficial não oferece edição mais nova. Pela
+régua da casa (a mesma da ITU 2003 e da AMB 2008), a idade entra declarada no
+rascunho e no campo `fonte` de qualquer row que dele saia. O cruzamento com a
+RENAME 2024 é o que dirá se o elenco ainda se sustenta.
