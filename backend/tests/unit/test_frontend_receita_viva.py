@@ -221,3 +221,52 @@ def _corpo_da_funcao(html: str, assinatura: str) -> str:
             if prof == 0:
                 return html[abriu : i + 1]
     raise AssertionError(f"função não fecha: {assinatura!r}")
+
+
+class TestVitrineSemPromessaVazia:
+    """ENG-020 §1.3 — a vitrine para de oferecer o que não existe.
+
+    Martelo do Fabiano, 21/09: o cartão "Emissão Digital — Assinatura gov.br
+    (Nuvem)", com botão ☁️ e a promessa "disponível em breve", saiu — não há
+    despacho que sustente a data, e vitrine que promete o que não faz gasta a
+    credibilidade do que ela de fato faz.
+
+    ESTÁTICA, e não só de navegador, porque o gate de tela roda em PR de HTML
+    e no nightly: a promessa pode voltar por um PR de backend que reponha o
+    bloco de carona. Aqui ela é pega em todo PR.
+
+    O QUE A GUARDA NÃO PROÍBE — e a distinção é o ponto: `labelAssinaturaModo`
+    e `labelNivelFormal` continuam sabendo renderizar `gov_br_nuvem`, porque um
+    documento JÁ EMITIDO naquele modo precisa seguir sendo lido corretamente.
+    O que saiu foi a OFERTA, não o suporte (o domínio, os endpoints e o ledger
+    estão intocados). Por isso a guarda mira em elementos de oferta, não na
+    string solta.
+    """
+
+    _OFERTAS_PROIBIDAS = (
+        "Entrar com gov.br",          # botão MORTO da tela de acesso (sem onclick)
+        "Assinar em Nuvem",
+        "Em Implantação",
+        "disponível em breve",
+        "assinaturaModo = 'gov_br_nuvem'",   # nenhum elemento seleciona o modo
+    )
+
+    def test_nenhuma_oferta_govbr_no_html_servido(self, html):
+        sem_comentarios = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+        for oferta in self._OFERTAS_PROIBIDAS:
+            assert oferta not in sem_comentarios, (
+                f"a promessa {oferta!r} voltou ao prescritor.html. O bloco gov.br "
+                "só retorna no dia do Ticket 21 (assinatura digital real)."
+            )
+
+    def test_o_que_funciona_permanece(self, html):
+        """A retirada é cirúrgica: o ICP-Brasil, que tem modal e fluxo, fica."""
+        assert "abrirModalCertificado(event)" in html
+        assert "Meu certificado ICP-Brasil" in html
+        assert 'id="btn-emitir"' in html
+
+    def test_o_suporte_ao_modo_emitido_nao_foi_removido(self, html):
+        """Um documento emitido em gov_br_nuvem continua legível — tirar a
+        oferta não pode apagar a capacidade de LER o que já foi emitido."""
+        assert "if (modo === 'gov_br_nuvem')" in html
+        assert "'cfm_gov_br_pendente'" in html

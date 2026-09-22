@@ -94,6 +94,35 @@
     return _vazio(valor) ? lacuna(textoDaLacuna) : esc(String(valor).trim().toUpperCase());
   }
 
+  /** Plural da unidade — "30 comprimido" não é português (ENG-020 §1.1).
+   *
+   *  Achado em uso real. A correção mora AQUI, e é a martelada ② pagando o
+   *  próprio custo: uma função consertada cura as três superfícies de uma vez
+   *  — folha viva, documento impresso e 2ª via —, porque as três são a mesma
+   *  função. Com dois templates, seriam dois consertos e uma data futura em
+   *  que um deles voltaria a dizer "30 comprimido".
+   *
+   *  Regra do português: acrescenta-se -s (todas as unidades do formulário
+   *  terminam em vogal ou -e). A exceção é o composto, em que quem flexiona é
+   *  o primeiro núcleo: frasco-ampola → frascos-ampola.
+   *
+   *  Quantidade ausente ou não-numérica mantém o singular: a folha não
+   *  adivinha o número para depois concordar com ele. */
+  const _PLURAL_COMPOSTO = { "frasco-ampola": "frascos-ampola" };
+
+  function pluralizarUnidade(unidade, quantidade) {
+    const u = String(unidade === null || unidade === undefined ? "" : unidade).trim();
+    if (!u) return "";
+    const q = String(quantidade === null || quantidade === undefined ? "" : quantidade).trim();
+    // `Number("")` é 0, e 0 pluralizaria — mas campo VAZIO não é quantidade
+    // zero: é quantidade ainda não escrita. A folha não concorda com um
+    // número que o prescritor não digitou.
+    if (!q) return u;
+    const n = Number(q.replace(",", "."));
+    if (!Number.isFinite(n) || n === 1) return u;
+    return _PLURAL_COMPOSTO[u.toLowerCase()] || u + "s";
+  }
+
   /** Nota do documento sobre si mesmo (não é lacuna: é fato declarado). */
   function nota(texto) {
     return '<span class="rec-nota">' + esc(texto) + "</span>";
@@ -224,7 +253,7 @@
       '<b class="rec-item-nome">' + ouMaiusculo(m.nome, "princípio ativo") + "</b>" +
       " — " + ou(m.concentracao, "concentração") +
       " &middot; " + ou(m.quantidade, "quantidade") +
-      " " + ou(m.unidade, "unidade") +
+      " " + ou(pluralizarUnidade(m.unidade, m.quantidade), "unidade") +
       '<span class="rec-item-validade">Validade: ' + ou(m.validade, "prazo") + "</span>" +
       "</p>" +
       '<p class="rec-item-forma">Forma: ' + ou(m.forma, "forma farmacêutica") + apres + "</p>" +
@@ -301,9 +330,13 @@
   function _carimbo(e) {
     if (!e.emitido) return "";
     const fisica = (e.assinatura || {}).tipo === "fisica";
+    // Caixa-alta escrita AQUI, nunca em `text-transform` (a lei do ENG-018,
+    // reafirmada no §2 do ENG-020): CSS pinta a tela sem tocar o texto, e o
+    // W ≡ Y compara TEXTO. O selo é conteúdo do estado emitido — precisa
+    // nascer igual nos dois alvos, não parecer igual em um deles.
     const texto = fisica
-      ? "🖨️ Impressa · sem custódia digital"
-      : "✓ Transmitida · custódia ao paciente";
+      ? "🖨️ IMPRESSA · SEM CUSTÓDIA DIGITAL"
+      : "✓ TRANSMITIDA · CUSTÓDIA AO PACIENTE";
     // No carimbo o hash vai ABREVIADO: ele é a marca de que existe integridade,
     // não o lugar de conferi-la — o valor inteiro está no cabeçalho, onde se
     // copia e se compara. Carimbo de borracha não cabe 64 caracteres.
@@ -387,6 +420,7 @@
   const Receituario = {
     MODOS: MODOS,
     render: renderReceituario,
+    pluralizarUnidade: pluralizarUnidade,
     montar: montar,
     textoDoDocumento: textoDoDocumento,
   };

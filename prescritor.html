@@ -46,6 +46,15 @@
         .grid-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
         /* Med-card: nome | concentração | qtd (estreito) | unidade */
         .grid-4 { display: grid; grid-template-columns: 2.5fr 1.4fr 90px 1.5fr; gap: 10px; align-items: start; }
+        /* ENG-020 §1.2 — REGRESSÃO DA ONDA 1, achada ao medir: o card de fármaco
+           foi desenhado para uma coluna de ~818px e passou a viver em ~564px
+           quando o palco dividiu a tela. Em quatro colunas, três placeholders
+           cortavam — inclusive o do PRINCÍPIO ATIVO, o campo mais importante do
+           formulário. Somados, os quatro campos precisam de ~592px: não é
+           questão de proporção, não cabe.
+           A linha quebra em duas, e aí cada placeholder cabe inteiro. Escopo
+           contido: só dentro do palco da receita; o `.grid-4` de fora não muda. */
+        .receita-pena .grid-4 { grid-template-columns: 2fr 1fr; }
         .grid-address-1 { display: grid; grid-template-columns: 3fr 1.5fr; gap: 16px; } 
         .grid-address-2 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; } 
         
@@ -132,7 +141,17 @@
            A `.container` continua com 850px para todo o resto da tela (as
            outras três circulações não foram tocadas nesta onda); só o palco
            da receita se alarga, e só a partir de 980px. */
-        .receita-palco { display: block; }
+        /* A1 (ENG-020) — o palco é a MESA onde o papel assenta: creme quente,
+           não o cinza-azulado da UI. A metáfora mora AQUI e só aqui — a pele
+           do resto do app não muda (adjudicação de escopo do §2 do despacho).
+           Contida e reversível: some com uma regra. */
+        .receita-palco {
+            display: block;
+            background: #f7f5ef;
+            border: 1px solid #ece7db;
+            border-radius: 10px;
+            padding: 24px;
+        }
         .receita-papel-titulo {
             font-size: 11px; font-weight: 700; text-transform: uppercase;
             letter-spacing: .6px; color: #64748b; margin: 0 0 10px;
@@ -156,6 +175,7 @@
                 left: 50%;
                 width: min(1320px, calc(100vw - 48px));
                 margin-left: calc(-0.5 * min(1320px, 100vw - 48px));
+                padding: 24px;
             }
             .receita-papel { position: sticky; top: 16px; }
         }
@@ -167,7 +187,7 @@
         @media (max-width: 979px) {
             .receita-papel {
                 position: fixed; inset: 0; z-index: 60; margin: 0;
-                background: #f1f5f9; padding: 16px;
+                background: #f7f5ef; padding: 16px;
                 overflow-y: auto;
                 display: none;
             }
@@ -503,12 +523,13 @@
         <div id="tela-acesso" class="card no-print" style="max-width: 500px; margin: 0 auto;">
             <h2 class="section-title" style="text-align: center; border: none; margin-bottom: 8px;">Acesso Restrito</h2>
             <p style="text-align: center; color: #64748b; font-size: 14px; margin-bottom: 32px;">Informe suas credenciais para acessar o painel.</p>
-            <button type="button" style="width: 100%; padding: 14px; background: #1351b4; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 24px;">Entrar com gov.br</button>
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
-                <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-                <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">OU</span>
-                <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-            </div>
+            <!-- ENG-020 §1.3 (achado na execução, fora do texto do despacho): aqui
+                 havia um botão "Entrar com gov.br" SEM `onclick` — um botão morto,
+                 na primeira tela que o visitante vê. É a mesma promessa que o
+                 martelo mandou tirar do bloco de emissão, em versão pior: o cartão
+                 ao menos avisava "em implantação"; este parecia funcionar e não
+                 fazia nada. Saiu com o separador "OU", que sem ele não separa nada.
+                 Volta junto com o login gov.br de verdade. -->
             <form onsubmit="fazerLoginDireto(event)">
                 <div class="form-group">
                     <label class="form-label">CNS ou E-mail</label>
@@ -731,7 +752,11 @@
                              input senta. Na folha ele já era identificação do paciente;
                              a caneta e o papel passam a morar juntos. -->
                         <h4 style="margin-bottom: 16px; color: #1e3a8a; font-size: 15px; text-transform: uppercase;">Identificação do Paciente</h4>
-                        <div class="grid-3" style="margin-bottom: 16px;">
+                        <!-- ENG-020 §1.2 — "DDD + Númer…": o placeholder do telefone cortava.
+                             O campo ALARGA em vez de o texto encurtar: "Ex: 45" precisa de 43px
+                             e tinha 86; o telefone precisa de 103 e tinha os mesmos 86. A idade
+                             cede o que lhe sobra. Medido, não estimado. -->
+                        <div class="grid-3" style="margin-bottom: 16px; grid-template-columns: 2fr .8fr 1.2fr;">
                             <div class="form-group" style="margin: 0;"><label class="form-label">Nome Completo <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-nome" class="form-input" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Idade <span class="obrigatorio" aria-hidden="true">*</span></label><input type="text" id="pac-idade" class="form-input numerico-input" data-tipo="numerico" maxlength="3" placeholder="Ex: 45" required aria-required="true"></div>
                             <div class="form-group" style="margin: 0;"><label class="form-label">Telefone</label><input type="text" id="pac-telefone" class="form-input" placeholder="DDD + Número"></div>
@@ -808,15 +833,18 @@
                             </div>
                         </div>
 
-                        <!-- Bloco secundário: gov.br -->
-                        <div style="background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 18px; margin-bottom: 8px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                                <span style="background: #1d4ed8; color: white; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">Em Implantação</span>
-                                <span style="font-size: 13px; font-weight: 600; color: #1e40af;">Emissão Digital — Assinatura gov.br (Nuvem)</span>
-                            </div>
-                            <p style="font-size: 12px; color: #1d4ed8; margin-bottom: 14px; line-height: 1.5;">Integração gov.br em desenvolvimento. Funcionalidade disponível em breve.</p>
-                            <button type="submit" class="btn" style="font-size: 15px; padding: 15px; background: #1351b4; color: white;" onclick="assinaturaModo = 'gov_br_nuvem'">☁️ Assinar em Nuvem (gov.br)</button>
-                        </div>
+                        <!-- ENG-020 §1.3 — o cartão "Assinatura gov.br (Nuvem)" SAIU da vitrine
+                             (martelo do Fabiano, 21/09). Ele prometia "disponível em breve" sem
+                             despacho que sustentasse a data: vitrine que promete o que não faz
+                             gasta a credibilidade do que ela de fato faz.
+
+                             A retirada é de APRESENTAÇÃO e só dela. Intocados: o modo
+                             `gov_br_nuvem` no domínio (`domain/assinatura.py`), os endpoints,
+                             o ledger e a validação de `modosValidos` aqui — um documento já
+                             emitido naquele modo continua sendo lido e rotulado corretamente
+                             (`labelAssinaturaModo`). O que sumiu foi a OFERTA, não o suporte.
+
+                             A volta do bloco é o dia do Ticket 21 (assinatura digital real). -->
 
                         <div id="msg-modo-erro" class="msg-inline msg-inline-error hidden" style="margin-bottom: 4px;"></div>
 
@@ -2649,6 +2677,12 @@
             document.getElementById('form-receita').scrollIntoView({ behavior: 'smooth' });
         }
 
+        // O rótulo vazio do seletor de apresentação comercial. Existia em TRÊS
+        // lugares (nascimento do card, limpeza e repovoamento) e dois já tinham
+        // divergido — um deles longo o bastante para cortar na coluna estreita
+        // do palco. Uma constante, três usos (ENG-020 §1.2).
+        const _APRESENTACAO_VAZIA = '<option value="">Apresentação comercial (opcional)</option>';
+
         function adicionarMedicamento(nome='', conc='', forma='', qtd='', posologia='', validade='30 dias', unidade='') {
             medCount++;
             const container = document.getElementById('lista-medicamentos');
@@ -2673,7 +2707,7 @@
                 <div class="grid-4">
                     <input type="text" class="form-input med-nome" placeholder="Princípio ativo (sem dose) *" value="${nome}" required aria-required="true">
                     <input type="text" class="form-input med-conc" placeholder="Concentração *" value="${conc}" required aria-required="true">
-                    <input type="number" class="form-input med-qtd" placeholder="Quantidade *" min="1" value="${qtd}" required aria-required="true" style="max-width:120px;">
+                    <input type="number" class="form-input med-qtd" placeholder="Quantidade *" min="1" value="${qtd}" required aria-required="true" style="max-width:150px;">
                     <select class="form-select med-unidade" required aria-required="true">
                         <option value="">Unidade *</option>
                         <option value="ampola" ${unidade==='ampola'?'selected':''}>Ampola</option>
@@ -2693,7 +2727,7 @@
                 </div>
                 <input type="text" class="form-input med-forma" placeholder="Forma farmacêutica (ex: comprimido revestido)" value="${forma}" style="margin-top:8px;">
                 <select class="form-select med-apresentacao" style="margin-top:8px;" onchange="_aoEscolherApresentacao(this)">
-                    <option value="">Apresentação comercial (opcional — escolha após buscar o medicamento)</option>
+                    ${_APRESENTACAO_VAZIA}
                 </select>
                 <textarea class="form-input med-posologia" placeholder="Instruções de Uso (Posologia) *" style="margin-top: 12px; height: 80px; resize: none;" required aria-required="true">${posologia}</textarea>
                 <div class="ia-container"></div>
@@ -2713,7 +2747,7 @@
                 .forEach(el => { el.value = ''; });
             const uEl = card.querySelector('.med-unidade'); if (uEl) uEl.value = '';
             const apEl = card.querySelector('.med-apresentacao');
-            if (apEl) apEl.innerHTML = '<option value="">Apresentação comercial (opcional — escolha após buscar o medicamento)</option>';
+            if (apEl) apEl.innerHTML = _APRESENTACAO_VAZIA;
             const ia = card.querySelector('.ia-container'); if (ia) ia.innerHTML = '';
         }
 
@@ -3115,7 +3149,11 @@
 
             const modosValidos = ['icp_brasil_local', 'gov_br_nuvem'];
             if (!assinaturaModo || !modosValidos.includes(assinaturaModo)) {
-                if (msgModo) { msgModo.textContent = 'Selecione um modo de assinatura digital (ICP-Brasil ou gov.br).'; msgModo.classList.remove('hidden'); }
+                // Sem o bloco gov.br na tela (ENG-020 §1.3), a mensagem deixa de
+                // oferecer um caminho que não existe mais. `modosValidos` acima
+                // MANTÉM o gov_br_nuvem: um documento já emitido naquele modo
+                // continua válido — o que saiu foi a oferta, não o suporte.
+                if (msgModo) { msgModo.textContent = 'Selecione o modo de assinatura digital (ICP-Brasil).'; msgModo.classList.remove('hidden'); }
                 return;
             }
 
@@ -3851,7 +3889,7 @@
                 .then(r => r.ok ? r.json() : { apresentacoes: [] })
                 .then(d => {
                     const aps = d.apresentacoes || [];
-                    apEl.innerHTML = '<option value="">Apresentação comercial (opcional)</option>' +
+                    apEl.innerHTML = _APRESENTACAO_VAZIA +
                         aps.map(a => {
                             const e = a.replace(/</g, '&lt;').replace(/"/g, '&quot;');
                             return '<option value="' + e + '">' + e + '</option>';
