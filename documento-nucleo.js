@@ -179,13 +179,36 @@
    * A classe (e não `[hidden]`) é deliberada: `display:block` de media query
    * venceria o atributo, e a casa já pagou essa lição duas vezes.
    */
-  function ligarFabAoEmitir(fab, emitir) {
+  function ligarFabAoEmitir(fab, ...alvos) {
     const b = typeof fab === "string" ? document.getElementById(fab) : fab;
-    const e = typeof emitir === "string" ? document.getElementById(emitir) : emitir;
-    if (!b || !e || typeof IntersectionObserver === "undefined") return;
-    new IntersectionObserver((entradas) => {
-      entradas.forEach((x) => b.classList.toggle("doc-fab-recolhido", x.isIntersecting));
-    }, { threshold: 0 }).observe(e);
+    if (!b || typeof IntersectionObserver === "undefined") return;
+
+    const elementos = alvos
+      .flat()
+      .map((a) => (typeof a === "string" ? document.getElementById(a) : a))
+      .filter(Boolean);
+    if (!elementos.length) return;
+
+    // O CONJUNTO dos gestos à vista, não o último evento.
+    //
+    // Cresceu no ENG-023, e o objeto que o pediu explica por quê: o
+    // encaminhamento tem DOIS gestos de emissão em sequência ("Revisar
+    // documento" no formulário, "Confirmar e emitir" na revisão). Com um
+    // observador por alvo e um `toggle` cego, o segundo a reportar
+    // desmancharia a decisão do primeiro — e o flutuante voltaria a cobrir
+    // justamente o botão que está em cena. Guardando quem está visível, o
+    // flutuante some enquanto QUALQUER gesto estiver à vista.
+    //
+    // A receita e o exame passam um alvo só e não notam diferença.
+    const aVista = new Set();
+    const observador = new IntersectionObserver((entradas) => {
+      entradas.forEach((x) => {
+        if (x.isIntersecting) aVista.add(x.target);
+        else aVista.delete(x.target);
+      });
+      b.classList.toggle("doc-fab-recolhido", aVista.size > 0);
+    }, { threshold: 0 });
+    elementos.forEach((el) => observador.observe(el));
   }
 
   window.DocumentoNucleo = {

@@ -126,7 +126,7 @@
            proíbe, agora em pixels. A tipografia de impressão vem do
            `.rec-modo-carimbo` — não há mais Courier chumbado aqui, senão o
            documento impresso deixaria de ser o documento visto. */
-        #print-area, #print-area-exame { display: none; }
+        #print-area, #print-area-exame, #print-area-encaminhamento { display: none; }
 
         @media print {
             body * { visibility: hidden; }
@@ -393,6 +393,10 @@
        numa função só é a dupla posse pela porta dos fundos". -->
   <link rel="stylesheet" href="pedidoexame.css">
   <script src="pedidoexame.js"></script>
+  <!-- ENG-023 — o gerador do ENCAMINHAMENTO, terceiro consumidor do núcleo.
+       Anatomia própria: o destinatário é a assinatura deste papel. -->
+  <link rel="stylesheet" href="encaminhamento.css">
+  <script src="encaminhamento.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -1133,6 +1137,9 @@
 
                 <!-- ── ABA: EMITIR (§5) ─────────────────────────────────── -->
                 <section class="enc-painel" id="enc-aba-emitir" role="tabpanel" aria-labelledby="enc-aba-btn-emitir">
+                  <!-- ═══ O PALCO DO ENCAMINHAMENTO (ENG-023) ═══ -->
+                  <div class="enc-palco doc-palco">
+                    <div class="enc-pena doc-pena">
                     <form id="form-enc-main" onsubmit="revisarEncaminhamento(event)">
                         <div style="background:#fff; padding:24px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:20px;">
                             <h4 style="margin-bottom:16px; color:#1e3a8a; font-size:15px; text-transform:uppercase;">Paciente</h4>
@@ -1180,7 +1187,7 @@
 
                             <div class="form-group">
                                 <label class="form-label">CNS do profissional de destino <span class="obrigatorio" aria-hidden="true">*</span></label>
-                                <input type="text" id="enc-cns-destino" class="form-input" placeholder="15 dígitos" maxlength="20" required aria-required="true">
+                                <input type="text" id="enc-cns-destino" class="form-input cns-input" data-tipo="cns" required aria-required="true">
                             </div>
                         </div>
 
@@ -1212,7 +1219,21 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary" style="width:100%;">Revisar documento →</button>
+                        <!-- ENG-023 — ITENS do encaminhamento. O endpoint já aceitava
+                             `procedimento` e `motivo` por item (`encaminhamentos.py`);
+                             a tela é que mandava um item sintético só com a
+                             especialidade. Nenhum campo novo no contrato: o que muda
+                             é a tela parar de desperdiçar o que o backend já guarda. -->
+                        <div class="enc-secao">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                                <h3 class="enc-secao-titulo" style="margin:0;">Itens do encaminhamento</h3>
+                                <button type="button" onclick="encAdicionarItem()" class="btn-outline btn-small">+ Adicionar item</button>
+                            </div>
+                            <p class="enc-ajuda" style="margin-top:4px;">Cada item leva procedimento e motivo; a especialidade é a do destinatário.</p>
+                            <div id="enc-lista-itens" style="margin-top:12px;"></div>
+                        </div>
+
+                        <button type="submit" id="btn-enc-revisar" class="btn btn-primary" style="width:100%;">Revisar documento →</button>
                     </form>
 
                     <!-- §5 — A CONFIRMAÇÃO MOSTRA O DOCUMENTO MONTADO, não o
@@ -1229,6 +1250,26 @@
                             <button type="button" class="btn btn-outline" onclick="voltarAoFormularioEnc()">← Voltar e editar</button>
                         </div>
                     </div>
+                    </div>
+                    <!-- fim da PENA do encaminhamento -->
+
+                    <!-- ═══ O PAPEL — o encaminhamento se formando ═══
+                         O documento existia só na REVISÃO, um passo antes do ponto
+                         de não-retorno, e sumia com o `form.reset()` logo depois de
+                         emitir. Agora ele se escreve a cada tecla, e o destinatário
+                         — a razão de ser deste papel — aparece desde o início. -->
+                    <aside class="enc-papel doc-papel" id="enc-papel">
+                      <button type="button" class="enc-fechar-folha doc-fechar-folha" onclick="fecharFolhaEnc()">✕ Voltar ao formulário</button>
+                      <p class="enc-papel-titulo doc-papel-titulo">O papel — o encaminhamento se formando</p>
+                      <div id="folha-viva-encaminhamento"></div>
+                      <button type="button" id="btn-enc-novo" class="btn btn-outline hidden"
+                              style="width:100%; margin-top:12px;"
+                              onclick="novoEncaminhamento()">✎ Novo encaminhamento</button>
+                    </aside>
+                  </div>
+                  <!-- fim do PALCO do encaminhamento -->
+
+                  <button type="button" class="enc-fab doc-fab" id="enc-fab" onclick="abrirFolhaEnc()">📄 Ver o encaminhamento</button>
                 </section>
 
                 <!-- ── ABA: ENCAMINHADOS (sou origem) ───────────────────── -->
@@ -1271,6 +1312,13 @@
          mexe no fluxo físico. Aqui ele é o Y do W ≡ Y e a superfície de
          conferência visual contra o `documento-referencia.pdf`. -->
     <div id="print-area-exame" aria-hidden="true"></div>
+
+    <!-- ENG-023 — o alvo de CARIMBO do encaminhamento: o objeto NUNCA teve
+         alvo de impressão (`enc_tem_print_proprio: false`). Esta onda o cria,
+         alimentado pelo gerador único. Fora do `@media print`: PDF e QR
+         públicos seguem fora de escopo (DESENHO-ENCAMINHAMENTO-UX §10); aqui
+         ele é o Y do W ≡ Y e a superfície de conferência visual. -->
+    <div id="print-area-encaminhamento" aria-hidden="true"></div>
 
     <footer class="no-print" style="text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 850px; margin-left: auto; margin-right: auto;">
         <p style="margin-bottom: 4px; font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
@@ -1787,6 +1835,167 @@
         }
 
         // ── §5: a confirmação mostra o DOCUMENTO, não o formulário ────────
+        // ═══════════════════════════════════════════════════════════════════
+        // ENCAMINHAMENTO VIVO (ENG-023) — a terceira circulação ganha papel
+        //
+        // Este é o único dos quatro objetos cujo documento inteiro APONTA PARA
+        // ALGUÉM — e esse alguém não aparecia em lugar nenhum da tela.
+        // ═══════════════════════════════════════════════════════════════════
+
+        // Estado da folha DEPOIS da emissão (§1: objeto emitido não se edita).
+        // Importa como no exame: o fluxo aqui faz `form.reset()` logo após
+        // emitir, e sem congelar a folha carimbada se esvaziaria.
+        let _encEmitidoEstado = null;
+        let _encItemCount = 0;
+
+        function encAdicionarItem(procedimento = '', motivo = '') {
+            _encItemCount++;
+            const lista = document.getElementById('enc-lista-itens');
+            if (!lista) return;
+            const n = _encItemCount;
+            const div = document.createElement('div');
+            div.className = 'enc-item-card';
+            div.id = 'enc-item-' + n;
+            div.innerHTML = `
+                <div class="enc-item-card-head">
+                    <span class="enc-item-card-titulo">Item ${n}</span>
+                    ${n > 1 ? `<button type="button" class="btn-text" style="color:#dc2626;" onclick="encRemoverItem(${n})">✕ Remover</button>` : ''}
+                </div>
+                <input type="text" class="form-input enc-proc" placeholder="Procedimento (ex.: consulta de avaliação cardiológica)" value="${_encEsc(procedimento)}">
+                <textarea class="form-input enc-motivo" style="margin-top:8px; height:64px; resize:vertical;" placeholder="Motivo deste item">${_encEsc(motivo)}</textarea>
+            `;
+            lista.appendChild(div);
+        }
+
+        function encRemoverItem(n) {
+            const el = document.getElementById('enc-item-' + n);
+            if (el) el.remove();
+        }
+
+        function _encItensDoFormulario() {
+            const itens = [];
+            document.querySelectorAll('#enc-lista-itens .enc-item-card').forEach(card => {
+                const q = sel => { const el = card.querySelector(sel); return el ? String(el.value || '').trim() : ''; };
+                itens.push({ procedimento: q('.enc-proc'), motivo: q('.enc-motivo') });
+            });
+            return itens;
+        }
+
+        /** A descrição do CID escolhido — enfeite; o código vem do hidden. */
+        function _encDescricaoCid() {
+            const painel = document.getElementById('enc-cid-painel');
+            const escolhido = painel ? painel.querySelector('.tah-item-escolhido, [aria-selected="true"]') : null;
+            return escolhido ? (escolhido.textContent || '').trim() : '';
+        }
+
+        /** O estado do documento lido do FORMULÁRIO — o papel se escrevendo. */
+        function _estadoDoFormularioEnc() {
+            const d = _lerFormularioEnc();
+            const med = medicoLogado || {};
+            const finTexto = d.finalidade === 'outra'
+                ? d.finalidade_texto
+                : (d.finalidade ? _rotuloFinalidade(d.finalidade) : '');
+
+            return {
+                emitido: false,
+                protocolo: '', hash: '',
+                emitente: {
+                    nome: med.nome || '',
+                    cns:  agruparCNS(med.cns),
+                    unidade: _comComplemento(med.endereco, med.complemento),
+                },
+                paciente: {
+                    nome: d.nome,
+                    cpf:  document.getElementById('enc-pac-cpf').value.trim(),
+                },
+                destinatario: {
+                    especialidade: d.especialidade,
+                    finalidade:    finTexto || '',
+                    cns:           document.getElementById('enc-cns-destino').value.trim(),
+                },
+                cid: d.cid || '',
+                cid_descricao: _encDescricaoCid(),
+                justificativa: d.justificativa,
+                itens: _encItensDoFormulario(),
+                local_data: med.cidade
+                    ? `${med.cidade} - ${med.uf_cidade || ''}, ${getDataFormatada()}`
+                    : getDataFormatada(),
+                assinatura: { nome: med.nome || '', cns: agruparCNS(med.cns), tipo: null },
+            };
+        }
+
+        /** UM estado, DOIS alvos — o W ≡ Y do encaminhamento, por construção. */
+        function _repintarEncaminhamento() {
+            if (typeof Encaminhamento === 'undefined') return;
+            const estado = _encEmitidoEstado || _estadoDoFormularioEnc();
+            Encaminhamento.montar('folha-viva-encaminhamento', estado, Encaminhamento.MODOS.RASCUNHO);
+            Encaminhamento.montar('print-area-encaminhamento', estado, Encaminhamento.MODOS.CARIMBO);
+        }
+
+        function _liberarFolhaEnc() {
+            _encEmitidoEstado = null;
+            _encMostrarBotaoNovo(false);
+            _repintarEncaminhamento();
+        }
+
+        function _encMostrarBotaoNovo(mostrar) {
+            const b = document.getElementById('btn-enc-novo');
+            if (b) b.classList.toggle('hidden', !mostrar);
+        }
+
+        /** O fecho do arco (AC4): o carimbo cai na MESMA folha à vista. */
+        function _carimbarEncaminhamento(dados) {
+            const base = _encEmitidoEstado || _estadoDoFormularioEnc();
+            _encEmitidoEstado = Object.assign({}, base, {
+                emitido: true,
+                protocolo: (dados && dados.protocolo) || '',
+                hash: (dados && (dados.documento_hash || dados.hash)) || '',
+                assinatura: Object.assign({}, base.assinatura, { tipo: 'digital' }),
+            });
+            _encMostrarBotaoNovo(true);
+            _repintarEncaminhamento();
+        }
+
+        function abrirFolhaEnc() {
+            const papel = document.getElementById('enc-papel');
+            if (papel) papel.classList.add('doc-papel-aberta');
+        }
+
+        function fecharFolhaEnc() {
+            const papel = document.getElementById('enc-papel');
+            if (papel) papel.classList.remove('doc-papel-aberta');
+        }
+
+        (function _initFolhaEnc() {
+            const raiz = document.getElementById('enc-aba-emitir');
+            if (!raiz) return;
+
+            // AC1 — tecla a tecla, por DELEGAÇÃO na raiz da aba de emissão:
+            // pega finalidade, especialidade, CNS, CID, justificativa e todo
+            // campo de todo item, inclusive os que ainda não existem.
+            raiz.addEventListener('input',  _repintarEncaminhamento);
+            raiz.addEventListener('change', _repintarEncaminhamento);
+
+            // ...e o que NÃO passa por evento de input: item criado/removido e
+            // os hidden que os typeaheads escrevem por código.
+            const observador = new MutationObserver(_repintarEncaminhamento);
+            ['enc-lista-itens', 'enc-cid-painel', 'enc-especialidade-painel'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) observador.observe(el, { childList: true, subtree: true, characterData: true });
+            });
+
+            // AC8 — o flutuante vigia os DOIS gestos de emissão deste objeto
+            // (revisar e confirmar). É o único dos quatro em que emitir
+            // acontece em dois tempos — e foi por ele que o núcleo cresceu.
+            DocumentoNucleo.ligarFabAoEmitir('enc-fab', 'btn-enc-revisar', 'btn-enc-confirmar');
+
+            if (document.getElementById('enc-lista-itens') &&
+                !document.querySelector('#enc-lista-itens .enc-item-card')) {
+                encAdicionarItem();
+            }
+            _repintarEncaminhamento();
+        })();
+
         function _lerFormularioEnc() {
             const fin = document.getElementById('enc-finalidade').value;
             const espSel = document.getElementById('enc-especialidade').value;
@@ -1855,6 +2064,51 @@
             _encRascunho = null;
         }
 
+        /** Recomeça: solta a folha congelada e devolve o papel em branco.
+         *
+         *  POR QUE ISTO EXISTE (ENG-023). O fluxo de emissão deste objeto
+         *  termina trocando para a aba "Encaminhados" — e o AC9 manda não
+         *  mexer nele (as suítes do ENG-016 dependem dessa troca). Então a
+         *  folha carimbada FICA na aba Emitir, que é justamente o ganho da
+         *  onda: antes, o `form.reset()` fazia o documento sumir sem deixar
+         *  rastro.
+         *
+         *  Mas folha congelada sem gesto de saída é beco: o AC4 proíbe que
+         *  digitar a descongele ("documento emitido não se edita"), e sem um
+         *  botão o prescritor não escreveria um segundo encaminhamento sem
+         *  recarregar a página. Este é o "Nova Prescrição" deste objeto. */
+        function novoEncaminhamento() {
+            const form = document.getElementById('form-enc-main');
+            if (form) form.reset();
+            _retravarCidadaoDemo('enc-pac-nome', 'enc-pac-cpf');
+            const lista = document.getElementById('enc-lista-itens');
+            if (lista) { lista.innerHTML = ''; _encItemCount = 0; encAdicionarItem(); }
+            _preencherCatalogosEnc();
+
+            // Os hidden dos typeaheads são limpos DEPOIS da remontagem, e à
+            // mão: `form.reset()` sozinho não basta porque
+            // `_montarTypeaheadsEncaminhamento()` roda em seguida e reescreve
+            // o valor escolhido. Sem isto, a especialidade e o CID do
+            // encaminhamento ANTERIOR sobrevivem ao "novo" — dois campos
+            // canônicos com dono errado, que é pior que campo sujo.
+            ['enc-especialidade', 'enc-cid'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.value = '';
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            ['enc-especialidade-busca', 'enc-cid-busca',
+             'enc-especialidade-texto', 'enc-cid-texto',
+             'enc-finalidade-texto'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+
+            // Por ÚLTIMO, como na receita: liberar antes da limpeza repintaria
+            // com o que acabou de ser apagado.
+            _liberarFolhaEnc();
+        }
+
         async function emitirEncaminhamento() {
             if (!_encRascunho) return;
             const d = _encRascunho;
@@ -1877,7 +2131,20 @@
                         // §5 — a influência do sistema, auditável.
                         sugestoes_apresentadas: _encSugestoesApresentadas.length
                             ? _encSugestoesApresentadas : null,
-                        itens: [{ especialidade: d.especialidade }],
+                        // ENG-023 — os itens agora vêm do formulário. O contrato NÃO
+                        // muda: `procedimento` e `motivo` já eram aceitos e gravados
+                        // em `encaminhamento_itens`; a tela é que mandava um item
+                        // sintético e jogava fora o que o backend sabia guardar.
+                        // A especialidade segue sendo a do destinatário — é assim
+                        // que o documento canônico a grava.
+                        itens: (_encItensDoFormulario().length
+                                ? _encItensDoFormulario()
+                                : [{ procedimento: '', motivo: '' }]
+                               ).map(it => ({
+                                    especialidade: d.especialidade,
+                                    procedimento: it.procedimento || null,
+                                    motivo: it.motivo || null,
+                               })),
                     }),
                 });
                 if (resp.status === 401) { await handleUnauthorized?.(); return; }
@@ -1887,6 +2154,14 @@
                     return;
                 }
                 const dados = await resp.json();
+
+                // AC4 — o carimbo cai na MESMA folha à vista, ANTES do
+                // `form.reset()` logo abaixo. A ordem importa: o estado emitido
+                // congela a folha, e é por isso que limpar o formulário em
+                // seguida não apaga o documento que acabou de nascer. Era
+                // exatamente esse reset que fazia o documento sumir.
+                _carimbarEncaminhamento(dados);
+
                 _encMsg(`Encaminhamento emitido e entregue à carteira de ${d.nome}. Protocolo ${dados.protocolo}.`, 'ok');
                 document.getElementById('form-enc-main').reset();
                 _retravarCidadaoDemo('enc-pac-nome', 'enc-pac-cpf');

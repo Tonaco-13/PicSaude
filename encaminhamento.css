@@ -1,0 +1,214 @@
+/* ==========================================================================
+ * encaminhamento.css — a ANATOMIA do encaminhamento.
+ *
+ * ENG-023. Par do `encaminhamento.js`.
+ *
+ * O que é do PAPEL (serifa, material da folha, lacuna, tinta, selo de
+ * custódia, palco, flutuante) vem de `documento-nucleo.css`. Aqui ficam só os
+ * blocos que só este documento tem — e o principal deles é a CAIXA DO
+ * DESTINATÁRIO: a receita tem posologia, o exame tem prioridade, e este papel
+ * tem para quem ele aponta.
+ *
+ * O par de classes: a folha nasce `doc-folha enc-folha doc-modo-X enc-modo-X`
+ * — estilo no núcleo, gancho nomeado aqui.
+ * ========================================================================== */
+
+.enc-folha {
+  --enc-clinica: #6d28d9;
+  --enc-destino: #1e3a8a;
+}
+
+.enc-cabecalho {
+  text-align: center;
+  border-bottom: 2px solid var(--doc-borda);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.enc-cabecalho h2 {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--doc-tinta);
+}
+
+.enc-sub {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--doc-tinta-fraca);
+  margin: 3px 0 0;
+}
+
+.enc-proto {
+  font-size: 11px;
+  margin: 7px 0 0;
+  color: var(--doc-tinta-fraca);
+  word-break: break-all;
+}
+
+.enc-proto-hash { margin-top: 3px; }
+
+.enc-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--doc-tinta);
+  word-break: break-all;
+}
+
+.enc-box {
+  border: 1px solid var(--doc-borda);
+  border-radius: 2px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+
+.enc-rot {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--doc-tinta-apagada);
+  margin-bottom: 3px;
+}
+
+.enc-rot-clinica { color: var(--enc-clinica); }
+.enc-rot-destino { color: var(--enc-destino); }
+.enc-rot-justificativa { margin-top: 10px; }
+
+.enc-linha,
+.enc-linha-forte { margin: 0; }
+.enc-linha { font-size: 12px; }
+.enc-linha-forte { font-size: 14.5px; font-weight: 700; }
+.enc-cns,
+.enc-cpf { font-size: 12px; font-weight: 400; color: var(--doc-tinta-fraca); }
+
+/* ── a caixa do DESTINATÁRIO: a assinatura deste papel ────────────────────
+   Dois fios e fundo frio: é o único bloco que o olho acha antes de ler, e é
+   de propósito — quem recebe o documento precisa saber, no primeiro relance,
+   para quem ele foi escrito. */
+.enc-destinatario {
+  border: 2px solid var(--enc-destino);
+  border-radius: 3px;
+  background: #f5f8ff;
+  padding: 10px 13px;
+  margin-bottom: 14px;
+}
+
+.enc-especialidade {
+  margin: 1px 0 2px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--doc-tinta);
+}
+
+/* ── a frase que define o documento ───────────────────────────────────── */
+
+.enc-frase { margin-bottom: 14px; }
+
+.enc-linha-frase {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ── conteúdo clínico ─────────────────────────────────────────────────── */
+
+.enc-clinico { margin-bottom: 14px; }
+
+.enc-selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.enc-selo-cid {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid #ddd6fe;
+  background: #f5f3ff;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--enc-clinica);
+}
+
+.enc-selo-cid b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+}
+
+.enc-selo-cid span { color: var(--doc-tinta-fraca); }
+
+/* ── itens ────────────────────────────────────────────────────────────── */
+
+.enc-itens { min-height: 90px; margin-bottom: 14px; }
+.enc-itens-corpo { margin-top: 6px; }
+
+.enc-item { margin-bottom: 12px; }
+.enc-item:last-child { margin-bottom: 0; }
+
+.enc-item-cabeca {
+  margin: 0 0 2px;
+  font-size: 13.5px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.enc-item-n { font-weight: 700; color: var(--doc-tinta-apagada); }
+/* A caixa-alta do procedimento é feita na FUNÇÃO, nunca aqui. */
+.enc-item-nome { letter-spacing: 0.3px; }
+.enc-item-esp { font-size: 12px; color: var(--doc-tinta-fraca); }
+.enc-item-motivo { margin: 2px 0 0; font-size: 12.5px; }
+
+/* ── rodapé ───────────────────────────────────────────────────────────── */
+
+.enc-rodape {
+  margin-top: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.enc-local { font-size: 12.5px; max-width: 58%; }
+
+.enc-nota-posse {
+  margin: 3px 0 0;
+  font-size: 10.5px;
+  color: var(--doc-tinta-fraca);
+  line-height: 1.45;
+}
+
+.enc-assinatura {
+  width: 280px;
+  max-width: 100%;
+  text-align: center;
+}
+
+.enc-risco { border-top: 1px solid var(--doc-borda); margin-bottom: 6px; }
+
+.enc-ass-nota {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--doc-tinta-fraca);
+}
+
+/* ── no papel: o roxo e o azul viram tinta ────────────────────────────── */
+.enc-modo-carimbo {
+  --enc-clinica: #000;
+  --enc-destino: #000;
+}
+.enc-modo-carimbo .enc-destinatario { background: #fff; }
+.enc-modo-carimbo .enc-selo-cid { background: #fff; border-color: #000; }

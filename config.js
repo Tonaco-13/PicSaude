@@ -128,6 +128,46 @@ function aplicarMascarasCEPGlobais() {
     document.querySelectorAll('.cep-input, input[data-tipo="cep"]').forEach(aplicarMascaraCEP);
 }
 
+/** Agrupa o CNS em `000 0000 0000 0000` — a grafia do cartão do SUS.
+ *
+ * Fonte ÚNICA do agrupamento: a máscara de digitação e o DOCUMENTO usam esta
+ * função. Sem ela, o encaminhamento saía com dois CNS em grafias diferentes na
+ * mesma folha (o do emitente com pontos, vindo da `formatarCNS`; o do destino
+ * com espaços, vindo da máscara) — e o papel canônico usa espaços nos dois.
+ *
+ * A `formatarCNS` acima, com pontos, permanece: é a grafia do painel de chaves
+ * da demo, e mudá-la seria mexer noutra tela por causa desta.
+ */
+function agruparCNS(valor) {
+    const d = String(valor || '').replace(/\D/g, '').slice(0, 15);
+    return [d.slice(0, 3), d.slice(3, 7), d.slice(7, 11), d.slice(11, 15)]
+        .filter(Boolean).join(' ');
+}
+
+/** Máscara de CNS — `000 0000 0000 0000` (ENG-023, AC7).
+ *
+ * Mora AQUI, com as irmãs, e não no núcleo do documento: máscara é disciplina
+ * de ENTRADA (a família da A2), não gesto de papel. A `formatarCNS` acima
+ * formata para EXIBIR (com pontos, como o painel de chaves demo mostra); esta
+ * formata enquanto se DIGITA, e o separador é o espaço — é assim que o cartão
+ * do SUS imprime, e é assim que o destinatário confere o número.
+ */
+function aplicarMascaraCNS(input) {
+    if (!input || input.dataset.cnsMaskApplied) return;
+    input.dataset.cnsMaskApplied = '1';
+    input.setAttribute('inputmode', 'numeric');
+    input.setAttribute('maxlength', '18');  // 15 dígitos + 3 separadores
+    input.setAttribute('placeholder', '000 0000 0000 0000');
+    input.addEventListener('input', function(e) {
+        e.target.value = agruparCNS(e.target.value);
+    });
+}
+
+/** Aplica a máscara em todos os <input data-tipo="cns"> da página. */
+function aplicarMascarasCNSGlobais() {
+    document.querySelectorAll('.cns-input, input[data-tipo="cns"]').forEach(aplicarMascaraCNS);
+}
+
 /** TICKET FILA-VIVA A2 (Júlia, 26/08) — bloqueia não-dígitos em campos
  * numéricos sem máscara de separador (ex.: Idade). */
 function aplicarRestricaoNumerica(input) {
@@ -147,6 +187,7 @@ function aplicarRestricoesNumericasGlobais() {
 function _inicializarMascarasEntradaGlobais() {
     aplicarMascarasCPFGlobais();
     aplicarMascarasCEPGlobais();
+    aplicarMascarasCNSGlobais();
     aplicarRestricoesNumericasGlobais();
 }
 
