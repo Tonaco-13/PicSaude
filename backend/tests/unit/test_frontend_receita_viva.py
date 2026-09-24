@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pytest
 
+from ._leitura_estatica import corpo_da_funcao as _corpo_da_funcao
+
 _RAIZ = Path(__file__).resolve().parents[3]
 _HTML = _RAIZ / "prescritor.html"
 _JS = _RAIZ / "receituario.js"
@@ -231,27 +233,6 @@ class TestFolhaRobustaATeclaEAEstrutura:
             "deixaria a folha desatualizada"
         )
         assert "'lista-medicamentos'" in corpo and "'ia-cid-prescricao-chips'" in corpo
-
-
-def _corpo_da_funcao(html: str, assinatura: str) -> str:
-    """Recorta o corpo de uma função pelo balanço de chaves.
-
-    Cópia deliberada de `test_frontend_atestado.py`: o helper é de leitura
-    estática de UM arquivo e não tem dono próprio ainda. Se um terceiro
-    arquivo precisar dele, aí sim ele vira módulo — promover agora seria
-    inventar biblioteca para dois chamadores.
-    """
-    ini = html.index(assinatura)
-    abriu = html.index("{", ini)
-    prof = 0
-    for i in range(abriu, len(html)):
-        if html[i] == "{":
-            prof += 1
-        elif html[i] == "}":
-            prof -= 1
-            if prof == 0:
-                return html[abriu : i + 1]
-    raise AssertionError(f"função não fecha: {assinatura!r}")
 
 
 class TestVitrineSemPromessaVazia:

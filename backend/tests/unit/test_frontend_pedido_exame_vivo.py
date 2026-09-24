@@ -22,6 +22,8 @@ from pathlib import Path
 
 import pytest
 
+from ._leitura_estatica import corpo_da_funcao as _corpo_da_funcao
+
 _RAIZ = Path(__file__).resolve().parents[3]
 _HTML = _RAIZ / "prescritor.html"
 _NUCLEO = _RAIZ / "documento-nucleo.js"
@@ -219,23 +221,3 @@ class TestOPedidoEmitidoCongela:
     def test_o_estado_emitido_congela_a_repintura(self, html):
         corpo = _corpo_da_funcao(html, "function _repintarPedidoExame()")
         assert "_pedidoExameEmitido ||" in corpo
-
-
-def _corpo_da_funcao(html: str, assinatura: str) -> str:
-    """Recorta o corpo de uma função pelo balanço de chaves.
-
-    Mesma cópia deliberada de `test_frontend_receita_viva.py`: helper de
-    leitura estática, sem dono próprio. Promovê-lo a módulo com dois
-    chamadores seria inventar biblioteca.
-    """
-    ini = html.index(assinatura)
-    abriu = html.index("{", ini)
-    prof = 0
-    for i in range(abriu, len(html)):
-        if html[i] == "{":
-            prof += 1
-        elif html[i] == "}":
-            prof -= 1
-            if prof == 0:
-                return html[abriu : i + 1]
-    raise AssertionError(f"função não fecha: {assinatura!r}")

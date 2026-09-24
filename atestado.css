@@ -1,0 +1,128 @@
+/* ==========================================================================
+ * atestado.css — a ANATOMIA do atestado.
+ *
+ * ENG-024. Par do `atestado.js`.
+ *
+ * O que é do PAPEL vem de `documento-nucleo.css`. Aqui fica o que só este
+ * documento tem — e ele tem POUCO, porque é o degenerado: marca, título por
+ * conselho, dois blocos de identificação, UMA FRASE e o rodapé. Sem itens,
+ * sem lista. A frase é o documento.
+ *
+ * Por isso a regra visual mais importante desta folha é o RESPIRO da frase:
+ * num documento de uma frase só, entrelinha e medida de linha não são
+ * enfeite — são o que o torna legível como documento e não como parágrafo
+ * perdido numa caixa.
+ * ========================================================================== */
+
+.at-folha { --at-verde: #16a34a; }
+
+.at-cabecalho {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.at-marca {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--doc-tinta);
+}
+
+.at-sub {
+  margin: 2px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--doc-tinta-fraca);
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--at-verde);
+}
+
+.at-cabecalho h2 {
+  margin: 16px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--doc-tinta);
+}
+
+.at-bloco { margin-bottom: 12px; }
+
+.at-rot {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--doc-tinta-apagada);
+  margin-bottom: 2px;
+}
+
+.at-linha-forte { margin: 0; font-size: 14px; font-weight: 700; }
+.at-registro,
+.at-cpf { font-weight: 400; color: var(--doc-tinta-fraca); }
+
+/* ── o corpo: a frase que o CFM manda fechar ──────────────────────────── */
+
+.at-corpo { margin: 20px 0 24px; }
+
+.at-frase {
+  margin: 0;
+  font-size: 14px;
+  /* Entrelinha larga e texto justificado: é assim que um atestado impresso
+     se lê. Num documento de UMA frase, o respiro é o que o faz parecer
+     documento. */
+  line-height: 1.85;
+  text-align: justify;
+}
+
+.at-observacao { margin-top: 14px; }
+
+/* ── rodapé ───────────────────────────────────────────────────────────── */
+
+.at-rodape { margin-top: 26px; text-align: center; }
+
+.at-local { margin: 0; font-size: 13px; }
+
+.at-ass-nota {
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  color: var(--doc-tinta-fraca);
+}
+
+.at-ass-fisica { color: #92400e; }
+
+/* ── identificação do documento ───────────────────────────────────────── */
+
+.at-ident {
+  margin-top: 22px;
+  padding-top: 10px;
+  border-top: 1px solid var(--doc-papel-borda);
+  text-align: center;
+}
+
+.at-ident-linha {
+  margin: 0 0 2px;
+  font-size: 10.5px;
+  color: var(--doc-tinta-fraca);
+  word-break: break-all;
+}
+
+.at-status { color: var(--doc-tinta-apagada); }
+
+.at-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--doc-tinta);
+  word-break: break-all;
+}
+
+.at-ident-rodape {
+  margin: 6px 0 0;
+  font-size: 9.5px;
+  color: var(--doc-tinta-apagada);
+}
+
+/* ── no papel ─────────────────────────────────────────────────────────── */
+.at-modo-carimbo .at-sub { border-bottom-color: #000; }

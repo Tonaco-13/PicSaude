@@ -126,7 +126,8 @@
            proíbe, agora em pixels. A tipografia de impressão vem do
            `.rec-modo-carimbo` — não há mais Courier chumbado aqui, senão o
            documento impresso deixaria de ser o documento visto. */
-        #print-area, #print-area-exame, #print-area-encaminhamento { display: none; }
+        #print-area, #print-area-exame,
+        #print-area-encaminhamento, #print-area-atestado { display: none; }
 
         @media print {
             body * { visibility: hidden; }
@@ -397,6 +398,10 @@
        Anatomia própria: o destinatário é a assinatura deste papel. -->
   <link rel="stylesheet" href="encaminhamento.css">
   <script src="encaminhamento.js"></script>
+  <!-- ENG-024 — o gerador do ATESTADO, quarto consumidor do núcleo. O
+       degenerado: sem itens, uma frase só. -->
+  <link rel="stylesheet" href="atestado.css">
+  <script src="atestado.js"></script>
 </head>
 <body>
     <!-- TICKET-6 DEMO_MODE — painel superior "Chaves de acesso (demo)"
@@ -930,6 +935,9 @@
                     A responsabilidade clínica e legal permanece com o profissional.
                 </p>
 
+                <!-- ═══ O PALCO DO ATESTADO (ENG-024) ═══ -->
+                <div class="at-palco doc-palco">
+                  <div class="at-pena doc-pena">
                 <button type="button" class="ia-doc-btn-contexto" onclick="usarContextoClinicoAtestado()">
                     ↗ Preencher com dados da prescrição atual
                 </button>
@@ -1103,7 +1111,22 @@
 
                 <!-- Resultado da IA Documental -->
                 <div id="ia-atestado-container" class="hidden"></div>
+                  </div>
+                  <!-- fim da PENA do atestado -->
 
+                  <!-- ═══ O PAPEL — o atestado se escrevendo DENTRO DA FRASE ═══
+                       Este objeto não tem itens onde esconder a costura: ou a
+                       frase fecha, ou ela não fecha. As lacunas moram dentro da
+                       sentença — o gesto característico do degenerado. -->
+                  <aside class="at-papel doc-papel" id="at-papel">
+                    <button type="button" class="at-fechar-folha doc-fechar-folha" onclick="fecharFolhaAtestado()">✕ Voltar ao formulário</button>
+                    <p class="at-papel-titulo doc-papel-titulo">O papel — o atestado se formando</p>
+                    <div id="folha-viva-atestado"></div>
+                  </aside>
+                </div>
+                <!-- fim do PALCO do atestado -->
+
+                <button type="button" class="at-fab doc-fab" id="at-fab" onclick="abrirFolhaAtestado()">📄 Ver o atestado</button>
             </div>
             <!-- fim ATESTADO ASSISTIDO -->
 
@@ -1319,6 +1342,11 @@
          públicos seguem fora de escopo (DESENHO-ENCAMINHAMENTO-UX §10); aqui
          ele é o Y do W ≡ Y e a superfície de conferência visual. -->
     <div id="print-area-encaminhamento" aria-hidden="true"></div>
+
+    <!-- ENG-024 — o alvo de CARIMBO do atestado. Espelho de conferência: o
+         papel oficial continua nascendo no servidor (`pdf_atestado.py`
+         intocado). Fora do `@media print` pelo mesmo motivo dos irmãos. -->
+    <div id="print-area-atestado" aria-hidden="true"></div>
 
     <footer class="no-print" style="text-align: center; padding: 24px; font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; max-width: 850px; margin-left: auto; margin-right: auto;">
         <p style="margin-bottom: 4px; font-weight: 600; color: #475569;">PicSaúde © 2026 — Sistema de prescrição digital com assinatura ICP-Brasil.</p>
@@ -5383,6 +5411,118 @@
          * Lê a finalidade do atestado: o valor do select, ou o texto livre
          * quando "Outro (especificar)" estiver selecionado.
          */
+        // ═══════════════════════════════════════════════════════════════════
+        // ATESTADO VIVO (ENG-024) — o degenerado
+        //
+        // Sem itens, sem lista: uma frase que o CFM manda fechar. O documento
+        // não existia em tela em momento nenhum — o único texto pré-emissão
+        // era a caixa da IA, carimbada "RASCUNHO — SEM VALIDADE LEGAL".
+        // ═══════════════════════════════════════════════════════════════════
+
+        let _atestadoEmitidoEstado = null;
+
+        /** Máscara do CPF como o documento oficial o imprime: `123.***.***.09`.
+         *  A folha não expõe o número inteiro — o PDF também não. */
+        function _cpfMascaradoAtestado(valor) {
+            const d = String(valor || '').replace(/\D/g, '');
+            if (d.length !== 11) return '';
+            return `${d.slice(0, 3)}.***.***.${d.slice(9)}`;
+        }
+
+        /** O estado do documento lido do FORMULÁRIO. Os nomes dos campos são
+         *  os MESMOS que `validarAtestado()` manda ao servidor — é o que
+         *  permite à guarda comparar folha e domínio para o mesmo estado. */
+        function _estadoDoFormularioAtestado() {
+            const v = id => { const el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; };
+            const med = medicoLogado || {};
+            const diasRaw = v('atestado-dias');
+
+            return {
+                emitido: false,
+                protocolo: '', hash: '', status: '',
+                conselho: v('atestado-conselho') || 'CFM',
+                nome_paciente: v('atestado-paciente'),
+                cpf_mascarado: _cpfMascaradoAtestado(v('atestado-cpf')),
+                finalidade: _lerFinalidadeAtestado(),
+                dias_afastamento: diasRaw,
+                data_documento: v('atestado-data'),
+                indicacao_clinica: v('atestado-indicacao'),
+                // O hidden guarda CID(s) '|'-separados; o domínio recebe a
+                // mesma junção por vírgula que `validarAtestado` envia.
+                codigo_cid: v('atestado-cid').split('|').filter(Boolean).join(', '),
+                hora_inicio: v('atestado-hora-inicio'),
+                hora_fim: v('atestado-hora-fim'),
+                observacao_complementar: v('atestado-observacao'),
+                municipio: v('atestado-municipio'),
+                profissional: {
+                    nome: v('atestado-profissional') || med.nome || '',
+                    uf: v('atestado-uf-registro'),
+                    numero: v('atestado-registro'),
+                },
+                assinatura: { tipo: null },
+            };
+        }
+
+        /** UM estado, DOIS alvos — o W ≡ Y do atestado, por construção. */
+        function _repintarAtestado() {
+            if (typeof Atestado === 'undefined') return;
+            const estado = _atestadoEmitidoEstado || _estadoDoFormularioAtestado();
+            Atestado.montar('folha-viva-atestado', estado, Atestado.MODOS.RASCUNHO);
+            Atestado.montar('print-area-atestado', estado, Atestado.MODOS.CARIMBO);
+        }
+
+        function _liberarFolhaAtestado() {
+            _atestadoEmitidoEstado = null;
+            _repintarAtestado();
+        }
+
+        /** O fecho do arco: o carimbo cai na MESMA folha à vista. */
+        function _carimbarAtestado(dados, isDigital) {
+            const base = _atestadoEmitidoEstado || _estadoDoFormularioAtestado();
+            _atestadoEmitidoEstado = Object.assign({}, base, {
+                emitido: true,
+                protocolo: (dados && dados.protocolo) || '',
+                hash: (dados && (dados.documento_hash || dados.hash)) || '',
+                status: (dados && dados.status) || (isDigital ? 'emitido' : 'encerrada_localmente'),
+                assinatura: { tipo: isDigital ? 'digital' : 'fisica' },
+            });
+            _repintarAtestado();
+        }
+
+        function abrirFolhaAtestado() {
+            const p = document.getElementById('at-papel');
+            if (p) p.classList.add('doc-papel-aberta');
+        }
+
+        function fecharFolhaAtestado() {
+            const p = document.getElementById('at-papel');
+            if (p) p.classList.remove('doc-papel-aberta');
+        }
+
+        (function _initFolhaAtestado() {
+            const raiz = document.getElementById('submod-atestado');
+            if (!raiz) return;
+
+            // AC1 — tecla a tecla, por DELEGAÇÃO: os 14 campos do formulário,
+            // inclusive os que a troca de tipo habilita e desabilita.
+            raiz.addEventListener('input',  _repintarAtestado);
+            raiz.addEventListener('change', _repintarAtestado);
+
+            // As etiquetas de CID entram e saem por código, sem evento.
+            const observador = new MutationObserver(_repintarAtestado);
+            const chips = document.getElementById('ia-cid-atestado-chips');
+            if (chips) observador.observe(chips, { childList: true, subtree: true, characterData: true });
+
+            // AC8 — o flutuante sai de cena diante dos gestos de emissão. A
+            // versão variádica do núcleo (que o encaminhamento pediu) serve
+            // aqui sem mudança: o atestado tem emitir digital e imprimir
+            // físico, e nenhum dos dois pode ficar coberto.
+            DocumentoNucleo.ligarFabAoEmitir(
+                'at-fab', 'btn-emitir-atestado', 'btn-imprimir-atestado-fisico');
+
+            _repintarAtestado();
+        })();
+
         function _lerFinalidadeAtestado() {
             const sel = document.getElementById('atestado-finalidade');
             if (!sel) return '';
@@ -5794,6 +5934,14 @@
             });
             const container = document.getElementById('ia-atestado-container');
             if (container) { container.innerHTML = ''; container.classList.add('hidden'); }
+
+            // ENG-024 — o "Novo atestado" deste objeto. Liberar a folha é a
+            // ÚLTIMA coisa: enquanto `_atestadoEmitidoEstado` existe, o
+            // repinte é congelado (§1 — emitido não se edita), e libertá-lo
+            // antes de os campos estarem limpos repintaria a folha com o que
+            // acabou de ser apagado. É a lição da receita, em ordem inversa:
+            // lá o `.reset()` vinha depois e o papel saía sujo.
+            _liberarFolhaAtestado();
         }
 
         /** Escape HTML simples para saída segura no DOM (usado só no módulo documental). */
@@ -6041,6 +6189,12 @@
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok) { container.innerHTML = erro(_extrairMsgErro(d, String(r.status))); return; }
                 _atestadoEmitido = d.protocolo;
+
+                // O carimbo cai na MESMA folha à vista — protocolo, hash e
+                // status entram, e o estado emitido CONGELA: atestado emitido
+                // é objeto sanitário emitido, e não se edita (§1).
+                _carimbarAtestado(d, true);
+
                 container.innerHTML =
                     '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px 16px;">' +
                     '<div style="font-weight:700;color:#166534;">✓ Atestado emitido</div>' +
@@ -6106,6 +6260,11 @@
                 const d = await r.json().catch(() => ({}));
                 if (!r.ok) { container.innerHTML = erro('Não foi possível emitir o atestado físico (HTTP ' + r.status + '): ' + _extrairMsgErro(d, 'tente novamente.')); return; }
                 protocolo = d.protocolo;
+                // Carimbo FÍSICO, honesto: sem hash (não há documento
+                // canônico) e com o selo que diz "sem custódia digital". O PDF
+                // oficial continua vindo do servidor logo abaixo — o fluxo
+                // físico não muda, só deixa de ser invisível.
+                _carimbarAtestado(d, false);
             } catch (e) {
                 container.innerHTML = erro('Sem conexão com o servidor — não é possível emitir o atestado físico agora. O documento é gerado pelo servidor; tente de novo quando ele estiver acessível.');
                 return;

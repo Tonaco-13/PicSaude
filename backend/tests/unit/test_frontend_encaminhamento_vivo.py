@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from ._leitura_estatica import corpo_da_funcao as _corpo_da_funcao
+
 _RAIZ = Path(__file__).resolve().parents[3]
 _HTML = _RAIZ / "prescritor.html"
 _NUCLEO = _RAIZ / "documento-nucleo.js"
@@ -212,25 +214,3 @@ class TestAFolhaDoEncaminhamentoEscutaTudo:
             "o flutuante voltou a vigiar um gesto só — o outro botão de "
             "emissão ficaria descoberto"
         )
-
-
-def _corpo_da_funcao(texto: str, assinatura: str) -> str:
-    """Recorta o corpo de uma função pelo balanço de chaves.
-
-    Terceira cópia deliberada (receita, exame, encaminhamento). Ao contrário
-    do que a regra de duplicação diria, promover a helper de leitura estática
-    a módulo compartilhado acoplaria três arquivos de guarda que hoje são
-    independentes — e o valor deles é justamente poder ser lidos sozinhos.
-    Se um quarto aparecer, a conta muda.
-    """
-    ini = texto.index(assinatura)
-    abriu = texto.index("{", ini)
-    prof = 0
-    for i in range(abriu, len(texto)):
-        if texto[i] == "{":
-            prof += 1
-        elif texto[i] == "}":
-            prof -= 1
-            if prof == 0:
-                return texto[abriu : i + 1]
-    raise AssertionError(f"função não fecha: {assinatura!r}")
