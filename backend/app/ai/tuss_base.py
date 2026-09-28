@@ -509,7 +509,117 @@ def _construir_base() -> list[dict]:
             registro["subgrupo"] = alvo_sigtap["subgrupo"]
             registro["fonte"] = f"{registro['fonte']} + {alvo_sigtap['fonte']}"
         por_nome[chave] = registro  # funde (se havia par) ou adiciona a curadoria
+
+    # ENG-027 — o mapeamento OFICIAL preenche o `codigo_tuss` das linhas que
+    # só tinham SIGTAP. Antes disto, 1.105 procedimentos de exame nasciam com
+    # `codigo_tuss: None` e o faturamento pelo código da saúde suplementar não
+    # tinha de onde sair. Só entra par UNÍVOCO: onde a ANS mapeia o mesmo
+    # SIGTAP para vários TUSS, escolher um seria inventar precisão que a fonte
+    # não tem — fica None, e o relatório conta quantos são.
+    mapa = _carregar_mapa_tuss_sigtap(_resolver_tuss_mapa_csv())
+    if mapa:
+        for registro in por_nome.values():
+            if registro.get("codigo_tuss") or not registro.get("codigo_sigtap"):
+                continue
+            pares = mapa.get(registro["codigo_sigtap"], [])
+            codigos = {p["codigo_tuss"] for p in pares}
+            if len(codigos) != 1:
+                continue
+            registro["codigo_tuss"] = pares[0]["codigo_tuss"]
+            registro["fonte"] = (
+                f"{registro['fonte']} + TUSS/ANS (mapeamento oficial 2017-04, "
+                f"grau {pares[0]['grau_equivalencia'] or 'não atribuído'})"
+            )
     return list(por_nome.values())
+
+
+# ---------------------------------------------------------------------------
+# TUSS oficial — a base que faltava (ENG-027 §2)
+# ---------------------------------------------------------------------------
+#
+# Até 28/09/2026 os códigos TUSS desta casa eram os ~38 de `_BASE_RAW`,
+# digitados à mão, SEM FONTE. O despacho ENG-027 chamou isso de "a única perna
+# sem fonte oficial", e tinha razão: a conferência contra a Tabela 22 da ANS
+# mostrou que **36 dos 38 não existem** na terminologia oficial, e que os
+# códigos certos são outros (hemograma completo é 40304361, não 40301079).
+# Ver `docs/tickets/RELATORIO-TUSS-RECONCILIACAO.md`.
+#
+# O que este bloco faz — e o que ele DELIBERADAMENTE não faz:
+#   • carrega a Tabela 22 oficial (`data/tuss_procedimentos.csv`) e o
+#     mapeamento TUSS x SIGTAP oficial (`data/tuss_sigtap_mapeamento.csv`);
+#   • usa o mapeamento para dar `codigo_tuss` OFICIAL às linhas que hoje só
+#     têm SIGTAP — e só quando o mapeamento é UNÍVOCO (um TUSS para aquele
+#     SIGTAP). Ambíguo fica sem par, e entra no relatório;
+#   • **não corrige** os códigos de `_BASE_RAW`. Trocar código que vai para
+#     faturamento é decisão de curadoria, não de engenharia — a divergência
+#     está medida, nomeada e travada por guarda, e a caneta é do Fabiano.
+
+
+def _resolver_tuss_csv() -> str:
+    """Caminho da Tabela 22 oficial. Mesmo padrão do SIGTAP/CID."""
+    override = os.getenv("PICSAUDE_TUSS_CSV")
+    if override:
+        return override
+    return os.path.normpath(os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "data", "tuss_procedimentos.csv"))
+
+
+def _resolver_tuss_mapa_csv() -> str:
+    """Caminho do mapeamento oficial TUSS x SIGTAP."""
+    override = os.getenv("PICSAUDE_TUSS_MAPA_CSV")
+    if override:
+        return override
+    return os.path.normpath(os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "data",
+        "tuss_sigtap_mapeamento.csv"))
+
+
+def _carregar_csv_tuss(caminho: str) -> dict[str, dict]:
+    """Tabela 22 oficial → {codigo_tuss: {termo, fonte, versao}}.
+
+    Degrada para vazio se o arquivo não existir — a base continua de pé com
+    o que já tinha (mesma régua do SIGTAP: catálogo suave, nunca quebra)."""
+    registros: dict[str, dict] = {}
+    try:
+        with open(caminho, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                codigo = (row.get("codigo_tuss") or "").strip()
+                termo = (row.get("termo") or "").strip()
+                if not codigo or not termo:
+                    continue
+                registros[codigo] = {
+                    "termo": termo,
+                    "nome_busca": normalizar_nome_exame(termo),
+                    "versao_snapshot": (row.get("versao_snapshot") or "").strip(),
+                    "fonte": (row.get("fonte") or "").strip(),
+                }
+    except FileNotFoundError:
+        pass
+    return registros
+
+
+def _carregar_mapa_tuss_sigtap(caminho: str) -> dict[str, list[dict]]:
+    """Mapeamento oficial → {codigo_sigtap: [pares]}.
+
+    A ANS mapeia de um ou vários TUSS para um ou vários SIGTAP (metodologia,
+    item 3), então a chave aponta para LISTA — quem consome decide o que
+    fazer com a ambiguidade, e aqui a decisão é não escolher."""
+    por_sigtap: dict[str, list[dict]] = {}
+    try:
+        with open(caminho, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                sigtap = (row.get("codigo_sigtap") or "").strip()
+                tuss = (row.get("codigo_tuss") or "").strip()
+                if not sigtap or not tuss:
+                    continue
+                por_sigtap.setdefault(sigtap, []).append({
+                    "codigo_tuss": tuss,
+                    "grau_equivalencia": (row.get("grau_equivalencia") or "").strip(),
+                    "grau_descricao": (row.get("grau_descricao") or "").strip(),
+                })
+    except FileNotFoundError:
+        pass
+    return por_sigtap
 
 
 def _competencia_sigtap() -> Optional[str]:

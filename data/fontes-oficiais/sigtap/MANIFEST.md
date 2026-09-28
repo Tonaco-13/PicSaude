@@ -34,3 +34,39 @@ competência (mês de vigência).
   TUSS↔SIGTAP do escopo ("não está publicado de forma simples; quando
   houver caso real, onda própria") — registrado aqui como achado, não
   perseguido.
+
+---
+
+## Teto de competência — conferido em 28/09/2026 (ENG-027 §1)
+
+**202606 é a competência mais nova PUBLICADA no canal oficial.** Conferido na
+página de download do DATASUS
+(`http://tabela-unificada.datasus.gov.br/tabela-unificada/app/download.jsp`)
+pelo arquiteto em 28/09/2026 por volta das 12:00 BRT: o portal lista
+`TabelaUnificada_202606_v2606091427.zip` como a mais recente, e **202607,
+202608 e 202609 não existem** ali.
+
+**O veredito anterior estava errado, e a correção entra como ato.** Em rodada
+anterior o SIGTAP foi chamado de *"3 competências atrás"* — o cálculo assumia
+que 202609 deveria existir porque estamos em setembro. Não deveria: quem
+atrasa é o **canal publicador**, não a casa. É a mesma lição do DM2 (o canal
+aberto atrasa; a portaria/PDF é o canônico) e o mesmo músculo de conferir
+merge antes de anunciar: **conferir a fonte antes de chamá-la de defasada**.
+
+Portanto **não houve refresh nesta rodada**: `data/sigtap_exames.csv` fica na
+202606, e é o correto. Fabricar competência que não existe seria o erro que
+este registro existe para não cometer.
+
+**Gatilho de reabertura, declarado:** quando **202607 ou posterior** pousar no
+portal, roda-se `backend/scripts/importar_snapshot_sigtap.py` com o ZIP novo,
+o sha256 entra aqui como entrada própria, e o `RELATORIO-DIFF-SIGTAP.md`
+ganha a rodada. Antes disso, não há o que atualizar.
+
+### Pendência escrita — a nota técnica da competência
+
+A página de download declara a nota técnica oficial em
+`ftp2.datasus.gov.br/pub/sistemas/tup/downloads/notastecnicas/nota_tecnica_cgsi_sigtap_2026_06.pdf`.
+O FTP **recusou a vantage do arquiteto** em 28/09 e **também a do engenheiro**
+(`curl: (28) Connection timed out after 60003 ms`, uma tentativa, conforme o
+despacho). Fica registrado com a URL, sem drama e sem espelho: nota técnica é
+documento de apoio, não a fonte dos dados — o ZIP com sha256 acima é que é.
