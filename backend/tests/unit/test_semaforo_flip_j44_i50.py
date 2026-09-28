@@ -193,6 +193,35 @@ def test_nenhuma_row_nova_ficou_rascunho():
 # 6 — o limite da posologia, achado nesta caneta
 # ---------------------------------------------------------------------------
 
+# Substâncias cuja posologia SE REPETE entre CIDs porque o protocolo a repete —
+# não porque a chave falhou. Cada entrada precisa da citação que a sustenta.
+#
+# ENG-025 §C (24/09): a caneta em lote trouxe o primeiro caso real. Até aqui,
+# toda substância compartilhada tinha dose diferente em cada condição, e a
+# guarda abaixo exigia distinção como PROVA de que a chave discriminava. Com o
+# PCDT das IST a premissa caiu: o Quadro 31 (clamídia, p. 60) e o Quadro 39
+# (cancroide, p. 72) prescrevem o MESMO esquema de azitromicina — 500 mg,
+# 2 comprimidos, VO, dose única. Texto igual ali é fidelidade à fonte, não
+# duplicação.
+#
+# A exigência de distinção era um PROXY para "nenhuma row foi engolida"; o que
+# de fato prova isso são as duas asserções acima (o índice tem uma entrada por
+# linha validada, e cada par devolve o SEU cid). O proxy virou lista declarada:
+# repetição nova segue reprovando até alguém escrevê-la aqui, com a página.
+_REPETE_POR_PROTOCOLO = {
+    "azitromicina": (
+        "PCDT IST 2021: mesmo esquema (500 mg, 2 comprimidos, VO, dose única) "
+        "na clamidiose (Quadro 31, p. 60) e no cancroide (Quadro 39, p. 72)."
+    ),
+    "naproxeno": (
+        "PCDT Dor Crônica 2024, Quadro 2 (p. 17-19) com o escopo da p. 14: o "
+        "naproxeno é da osteoartrite de QUADRIL E JOELHO (Portaria SCTIE "
+        "53/2017). É um esquema só para as duas articulações, e por isso duas "
+        "rows (M16 e M17) com o mesmo texto — a fonte não as separa."
+    ),
+}
+
+
 def test_posologia_com_dois_cids_para_o_mesmo_ativo_agora_convive():
     """O VERDE-APÓS-O-FIX da guarda fail-loud desta caneta (ENG-019).
 
@@ -261,11 +290,14 @@ def test_posologia_com_dois_cids_para_o_mesmo_ativo_agora_convive():
                 "sobrescrita silenciosa de volta"
             )
             vistas[cid] = p.posologia
-        assert len(set(vistas.values())) == len(vistas), (
-            f"'{ativo}' devolve a MESMA posologia para CIDs diferentes "
-            f"({vistas}) — ou o dado está duplicado, ou a chave não está "
-            "discriminando de verdade"
-        )
+        repetidas = len(vistas) - len(set(vistas.values()))
+        if repetidas:
+            assert ativo in _REPETE_POR_PROTOCOLO, (
+                f"'{ativo}' devolve a MESMA posologia para CIDs diferentes "
+                f"({vistas}) — ou o dado está duplicado, ou a chave não está "
+                "discriminando de verdade. Se a repetição for do PROTOCOLO, "
+                "declare-a em _REPETE_POR_PROTOCOLO com a citação."
+            )
 
 
 # ---------------------------------------------------------------------------

@@ -113,9 +113,31 @@ def test_nenhuma_outra_condicao_touch():
     13/09 (caneta F41, "Concordo com o elenco: clonazepam e clomipramina 🟢
     … Vira flip"): de sete para OITO. Com F32 e F41 juntos, a dupla de saúde
     mental da APS — depressão e ansiedade — fica exaustiva.
+
+    24/09 (CANETA EM LOTE, ENG-025 §C, autorização do Fabiano "Vamos lá
+    prosseguir com 1, 2 e 3"): de oito para TRINTA E TRÊS. Os 14 rascunhos
+    maduros no disco viraram 25 CIDs novos de uma vez — 13 condições mais a
+    família IST, que sozinha se reparte em doze códigos. É a maior atualização
+    desta linha desde que ela existe, e continua sendo o MESMO ato declarado:
+    quem acrescenta CID exaustivo escreve o nome dele aqui.
+
+    Os dois CIDs que o lote acrescentou SEM exaustividade (M16 e M17, onde só
+    o naproxeno entrou, por escopo da Portaria SCTIE 53/2017) NÃO aparecem
+    neste conjunto — e é de propósito: ter row não é ser exaustivo, e o
+    portão da exaustividade é o que mantém o silêncio honesto na osteoartrite.
+    Guarda em `test_semaforo_flip_lote_2026_09.py`.
     """
     _, cids, _ = carregar_regras(str(_CSV))
-    assert cids == {"I10", "E11", "J45", "J44", "I50", "F32", "F41", "N39.0"}
+    assert cids == {
+        # as oito de antes
+        "I10", "E11", "J45", "J44", "I50", "F32", "F41", "N39.0",
+        # a caneta em lote de 24/09 (ENG-025 §C) — 13 condições…
+        "A30", "D50", "D57", "E28.2", "E78", "F17", "G20", "G30", "G40",
+        "L20", "L40", "M81", "R52.2",
+        # …e a família IST, um PCDT só repartido em doze CIDs
+        "A51", "A52", "A54", "A55", "A56", "A57", "A58", "A59", "A60",
+        "B37.3", "N73", "N76.0",
+    }
     assert _av("E11", "metformina").sinal == SINAL_VERDE
     assert _av("J45", "beclometasona").sinal == SINAL_VERDE
     assert _av("F32", "fluoxetina").sinal == SINAL_VERDE
