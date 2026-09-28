@@ -87,3 +87,56 @@ mais antigo da despensa, e a página oficial não oferece edição mais nova. Pe
 régua da casa (a mesma da ITU 2003 e da AMB 2008), a idade entra declarada no
 rascunho e no campo `fonte` de qualquer row que dele saia. O cruzamento com a
 RENAME 2024 é o que dirá se o elenco ainda se sustenta.
+
+### adendos-pos-batch/pcdt-da-doenca-pulmonar-obstrutiva-cronica-2021.pdf
+- sha256: `86448b826799ad98ee5f05634fa3bbb25c9e94f5af8dd01627c8cd70ec60cc2c`
+- Tamanho: 2.782.813 bytes (72 páginas) · Estagiado em 24/09/2026 (ENG-025 §B)
+- URL de origem (a **oficial**, tal como servida à época):
+  `https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-pulmonar-obstrutiva-cronica/@@download/file`
+- **Recuperado pelo Internet Archive**, captura de **05/05/2025**:
+  `https://web.archive.org/web/20250505102131id_/https://www.gov.br/saude/pt-br/assuntos/pcdt/d/doenca-pulmonar-obstrutiva-cronica/@@download/file`
+- Edição: **Portaria Conjunta SAES/SCTIE nº 19, de 16 de novembro de 2021** —
+  "Doença Pulmonar Obstrutiva Crônica". CID declarado: **J44**.
+- Validação: magic bytes `%PDF` conferidos · extração pypdf **BOA**
+  (154.034 caracteres). Sonda: `{formoterol: 21 pág, budesonida: 14 pág,
+  LABA: 23 pág, ICS: 13 pág, "Esquemas de administração": p.16}`.
+
+**POR QUE PELO ARQUIVO, e não do servidor vivo — declarado, não contornado.**
+A edição de 2021 foi **revogada** pela Portaria Conjunta SAES/SCTIE nº 29, de
+27/11/2025 (art. 4º do PDF de 2025, já no corpus). O canal oficial serve
+**somente a edição vigente**: em 24/09/2026 tanto
+`conitec/.../protocolos/pcdt-da-doenca-pulmonar-obstrutiva-cronica` quanto
+`saude/.../pcdt/d/doenca-pulmonar-obstrutiva-cronica/@@download/file` devolvem
+o PDF de 2025 — este último **byte-idêntico** ao `0cb3c41b…` do corpus de
+30/08 (cross-check do corpus feito de carona). O repositório oficial de
+legislação (`bvsms.saude.gov.br/.../poc0019_22_11_2021.html`) respondeu
+**HTTP 503** em três tentativas (WAF F5). A captura do arquivo **é da própria
+URL oficial**, feita antes da revogação — é o mais próximo do primário que
+existe hoje para uma edição revogada.
+
+**CORROBORAÇÃO INDEPENDENTE (porque procedência de arquivo exige prova).**
+Uma segunda cópia, de origem não relacionada
+(`static.poder360.com.br/2023/11/PCDT-DPOC-SUS-2021.pdf`, sha256
+`7c875cf1…`), tem **bytes diferentes** (2.819.756 — outro empacotamento) e
+**texto extraído byte-a-byte IDÊNTICO** nas 72 páginas
+(`sha256(texto)=a2e4173c0b4ac23e…`, 148.758 caracteres nas duas). O conteúdo é
+autêntico; só o invólucro difere. O sha256 registrado acima é o da cópia
+estagiada — a que veio da URL oficial.
+
+**A DIVERGÊNCIA DE DATA, resolvida PELO DOCUMENTO.** A casa vinha falando em
+"nº 19, de 22/11/2021"; o PDF de 2025 revoga "nº 19, de **16** de novembro de
+2021". As duas datas são verdadeiras sobre coisas diferentes, e o art. 4º do
+2025 diz as duas na mesma frase, verbatim: *"Fica revogada a Portaria Conjunta
+nº 19, de 16 de novembro de 2021, publicada no Diário Oficial da União (DOU)
+nº 218, em 22 de novembro de 2021, seção 1, página 210."* A capa do PDF de
+2021 agora estagiado confirma: **"PORTARIA CONJUNTA Nº 19, DE 16 DE NOVEMBRO
+DE 2021"**. Portanto: **assinada em 16/11, publicada em 22/11** — cita-se
+16/11/2021 para a portaria, 22/11/2021 para a publicação. Ninguém errou; a
+casa citava a data de publicação.
+
+**O QUE ESTE ADENDO RESPONDEU (ENG-025 §B) — e a resposta foi "não".** Foi
+estagiado para buscar a posologia da associação **fumarato de formoterol +
+budesonida em J44**, que o #269 deixou de fora honestamente. **Não existe, nem
+em 2021 nem em 2025** — ver o registro completo em
+`docs/tickets/REGISTRO-J44-NONA-ROW-SEM-DOSE.md`. O PDF fica estagiado de
+qualquer forma: é a evidência de que a pergunta foi feita à fonte primária.
