@@ -77,9 +77,12 @@ _LOTE = {
                "clonazepam", "etossuximida", "fenitoína", "fenobarbital",
                "gabapentina", "lamotrigina", "levetiracetam", "primidona",
                "topiramato", "vigabatrina"]),
-    "L20":   ("semaforo_l20_exaustiva_v1_2026-09",
+    # L20 foi RE-ASSINADO em 28/09 (ENG-026 A6): o elenco volta às 8 do
+    # rascunho e a condição inteira ganha v2, no padrão do I10 v2.
+    "L20":   ("semaforo_l20_exaustiva_v2_2026-09",
               ["acetato de hidrocortisona", "dexametasona", "tacrolimo",
-               "ciclosporina", "metotrexato", "upadacitinibe"]),
+               "ciclosporina", "metotrexato", "upadacitinibe",
+               "furoato de mometasona", "dupilumabe"]),
     "L40":   ("semaforo_l40_v1_2026-09",
               ["ácido salicílico", "alcatrão mineral", "calcipotriol", "clobetasol",
                "dexametasona", "acitretina", "metotrexato", "ciclosporina",
@@ -135,8 +138,11 @@ _FORA = {
               "selegilina": "DESCONTINUADA no Brasil (p. 10)"},
     "G30":   {"rivaroxabana": "sem relação com o elenco do PCDT de Alzheimer"},
     "G40":   {"lacosamida": "excluída com citação (Relatório nº 353, p. 45)"},
-    "L20":   {"furoato de mometasona": "no PCDT 2025, AUSENTE da RENAME 2024 — ver TestOCruzamentoRenameMudouRows",
-              "dupilumabe": "no PCDT 2025, AUSENTE da RENAME 2024 — idem"},
+    # ENG-026 A6: mometasona e dupilumabe SAÍRAM desta lista — viraram 🟢 pelo
+    # critério refinado (incorporação vigente atesta a disponibilidade). Quem
+    # sobra em 🟡 no L20 é o que o próprio PCDT não elenca.
+    "L20":   {"pimecrolimo": "ausente do elenco do item 6.4 (rascunho §1a.4)",
+              "betametasona": "ausente do elenco do item 6.4"},
     "L40":   {"infliximabe": "NÃO incorporado, com relatoria (p. 47)",
               "betametasona": "fora do elenco; a associação com calcipotriol não entrou (p. 47)"},
     "M81":   {"teriparatida": "excluída com citação (item 7.2.5, p. 11)",
@@ -208,21 +214,66 @@ class TestOCruzamentoRenameMudouRows:
     tipo de achado que, sem teste, volta a ser suposição no próximo lote.
     """
 
-    def test_mometasona_e_dupilumabe_ficaram_fora_do_verde_do_l20(self):
-        """Critério estrito da casa: 🟢 = reconhecido E disponível no SUS.
+    def test_mometasona_e_dupilumabe_sao_verdes_pela_incorporacao_declarada(self):
+        """INVERTIDA em 28/09 pela caneta A6 — e inverter não é apagar.
 
-        Os dois constam do item 6.4 do PCDT de 2025 e têm ZERO ocorrências nas
-        254 páginas da RENAME 2024. É o mesmo caso da fluticasona no J44
-        ("recomendada no PCDT, ausente da RENAME 2024"), e recebe o mesmo
-        tratamento. DIVERGE do §2 do rascunho, que os propunha como rows — e
-        está declarado como pendência ao Fabiano, porque quem fecha é ele.
+        A versão anterior exigia AMARELO para os dois, pelo critério estrito do
+        J44: 🟢 = reconhecido E disponível, com a disponibilidade atestada pela
+        RENAME. Os dois constam do item 6.4 do PCDT de 2025 e têm zero
+        ocorrências nas 254 páginas da RENAME 2024, e por isso tinham ficado
+        fora — com a divergência declarada como pendência A6.
+
+        O Fabiano martelou em 28/09, e o critério foi REFINADO (ENG-026 §1):
+
+            🟢 = reconhecido no protocolo E disponível no SUS, sendo a
+            disponibilidade atestada por RENAME ∨ INCORPORAÇÃO VIGENTE que
+            nomeie o fármaco.
+
+        A incorporação vale quando é mais nova que o snapshot da RENAME — e é
+        o caso: o PCDT é de nov/2025, a RENAME é de 2024. O que NÃO mudou é o
+        caso da fluticasona no J44: protocolo antigo recomendando fármaco que
+        ninguém incorporou por nome continua amarelo (asserção abaixo).
+
+        O par desta guarda é `test_a_fonte_do_verde_do_l20_nao_finge_rename`:
+        o verde desta caneta vive da incorporação DECLARADA, e citar a RENAME
+        como se o fármaco lá estivesse continua sendo erro.
         """
-        assert _av("L20", "furoato de mometasona").sinal == SINAL_AMARELO
-        assert _av("L20", "dupilumabe").sinal == SINAL_AMARELO
+        assert _av("L20", "furoato de mometasona").sinal == SINAL_VERDE
+        assert _av("L20", "dupilumabe").sinal == SINAL_VERDE
         assert _av("L20", "upadacitinibe").sinal == SINAL_VERDE, (
-            "upadacitinibe ESTÁ na RENAME 2024 (p. 90, 220) — a exclusão dos "
-            "outros dois não pode arrastá-lo junto"
+            "upadacitinibe ESTÁ na RENAME 2024 (p. 90, 220) — o refinamento do "
+            "critério não podia mexer em quem já passava pelo caminho antigo"
         )
+        assert _av("J44", "fluticasona").sinal == SINAL_AMARELO, (
+            "o refinamento do critério vazou para o J44: a fluticasona não tem "
+            "incorporação que a nomeie, e continua sendo 🟡 honesto"
+        )
+
+    def test_a_fonte_do_verde_do_l20_nao_finge_rename(self):
+        """O outro lado da inversão — o que impede o refinamento de virar atalho.
+
+        Dizer "+ RENAME 2024" numa row cujo fármaco não está na RENAME seria
+        fabricar procedência, e é o erro que o §1 do ENG-026 nomeia. O padrão é
+        o da row-alias do valproato: a fonte REGISTRA a ausência em vez de
+        fingir presença.
+        """
+        aprovados, _e, _p = _carregar()
+        for ativo in ("furoato de mometasona", "dupilumabe"):
+            fonte = aprovados[("L20", canon_ativo(ativo))].fonte
+            assert "incorporação vigente que nomeia o fármaco" in fonte, (
+                f"a fonte de {ativo} não declara o que atesta a disponibilidade"
+            )
+            assert "não alcança o protocolo" in fonte, (
+                f"a fonte de {ativo} não registra que a RENAME 2024 é anterior "
+                "ao protocolo — sem isso, o leitor supõe presença"
+            )
+            assert "+ RENAME 2024" not in fonte, (
+                f"a fonte de {ativo} cita a RENAME como procedência, e ele NÃO "
+                "está nela. É exatamente o que o §1 do ENG-026 proíbe."
+            )
+        # e as 6 que passaram pelo caminho antigo seguem citando a RENAME,
+        # porque nelas a citação é verdadeira.
+        assert "+ RENAME 2024" in aprovados[("L20", "tacrolimo")].fonte
 
     def test_o_alias_do_valproato_existe_e_declara_a_ausencia(self):
         """'valproato de sódio' resolve para a chave 'valproato', distinta de

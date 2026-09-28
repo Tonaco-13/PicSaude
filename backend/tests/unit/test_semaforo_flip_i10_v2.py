@@ -126,6 +126,18 @@ def test_nenhuma_outra_condicao_touch():
     neste conjunto — e é de propósito: ter row não é ser exaustivo, e o
     portão da exaustividade é o que mantém o silêncio honesto na osteoartrite.
     Guarda em `test_semaforo_flip_lote_2026_09.py`.
+
+    28/09 (CANETA DAS PENDÊNCIAS, ENG-026, martelo do Fabiano: "A2 espelha
+    F00 … A4 espelha A52 em A53"): de trinta e três para TRINTA E CINCO. Os
+    dois entrantes são ESPELHOS, não condições novas — o mesmo elenco de G30
+    e de A52 escrito sob o código irmão, porque a cadeia do semáforo sobe de
+    subcategoria para categoria mas não atravessa categorias, e quem codifica
+    F00 ou A53 ficaria mudo. A prova de que os espelhos não derivam está em
+    `test_semaforo_espelhos_2026_09.py`.
+
+    As três decisões da mesma caneta que NÃO mexem em dado (A1 B92 fora, A3
+    valproato mantém, A5 romosozumabe mantém) não aparecem aqui por não terem
+    o que aparecer — estão resolvidas no PENDENCIAS.
     """
     _, cids, _ = carregar_regras(str(_CSV))
     assert cids == {
@@ -137,6 +149,8 @@ def test_nenhuma_outra_condicao_touch():
         # …e a família IST, um PCDT só repartido em doze CIDs
         "A51", "A52", "A54", "A55", "A56", "A57", "A58", "A59", "A60",
         "B37.3", "N73", "N76.0",
+        # os dois espelhos da caneta de 28/09 (ENG-026 A2 e A4)
+        "F00", "A53",
     }
     assert _av("E11", "metformina").sinal == SINAL_VERDE
     assert _av("J45", "beclometasona").sinal == SINAL_VERDE

@@ -219,6 +219,31 @@ _REPETE_POR_PROTOCOLO = {
         "53/2017). É um esquema só para as duas articulações, e por isso duas "
         "rows (M16 e M17) com o mesmo texto — a fonte não as separa."
     ),
+    # ── ENG-026 (28/09): as repetições de ESPELHO ────────────────────────────
+    # Caso novo e de outra natureza. Os dois acima repetem porque a FONTE
+    # repete; estes quatro + dois repetem porque a CANETA mandou espelhar um
+    # CID noutro. A diferença importa: a fonte é a mesma linha do mesmo quadro,
+    # e o espelho existe para que o prescritor que codifica o outro código
+    # receba o mesmo sinal — não para curar duas vezes a mesma coisa.
+    #
+    # Se o espelho um dia DERIVAR (texto diferente entre o par), a guarda
+    # dedicada de cada um (TestOEspelhoF00 / TestOEspelhoA53) reprova antes
+    # desta — é lá que mora a afirmação forte.
+    **{ativo: (
+        "ESPELHO F00<-G30 (caneta do Fabiano, 28/09/2026): mesmo protocolo, "
+        "mesmo Quadro 5 (PCDT Alzheimer 2025, p. 13). O prescritor pode "
+        "codificar F00 (demência NA doença de Alzheimer) em vez de G30, e a "
+        "cadeia do semáforo NÃO sobe de F00 para G30 — são categorias "
+        "distintas. Sem o espelho, o mesmo elenco ficaria mudo num dos dois."
+    ) for ativo in ("donepezila", "galantamina", "rivastigmina", "memantina")},
+    **{ativo: (
+        "ESPELHO A53<-A52 (caneta do Fabiano, 28/09/2026): PCDT IST 2021, "
+        "Quadro 15 (p. 23-24), que trata como TARDIA a sífilis \"latente tardia "
+        "(com mais de um ano de evolução) OU LATENTE COM DURAÇÃO IGNORADA e "
+        "sífilis terciária\". A CID-10 chama A53.0 de \"sífilis latente, não "
+        "especificada se recente ou tardia\" — é a mesma situação clínica, e "
+        "por isso o esquema tardio vale nos dois códigos."
+    ) for ativo in ("benzilpenicilina benzatina", "doxiciclina")},
 }
 
 

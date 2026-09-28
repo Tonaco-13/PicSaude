@@ -6,6 +6,28 @@
 | **Autorização** | Fabiano, 24/09/2026: *"Vamos lá prosseguir com 1, 2 e 3."* |
 | **Regra seguida** | §C.2 — *"seguir a recomendação registrada no próprio rascunho (precedente #261 §4); rascunho sem recomendação num ponto → **pendência escrita de volta ao Fabiano, nunca adjudicada pela engenharia**"* |
 | **Destinatário** | Fabiano (as 6 decisões) · Arquiteto (as 5 conferências) |
+| **Estado** | ✔️ **TODAS RESOLVIDAS** — caneta do Fabiano em **28/09/2026**, executada no ENG-026 |
+
+> ## ✔️ Caneta do Fabiano, 28/09/2026 — verbatim
+>
+> **"A1 fora · A2 espelha F00 · A3 mantém · A4 espelha A52 em A53 · A5 mantém ·
+> A6 volta às 8 rows · K21 por diretriz · E03 semente."**
+>
+> As seis decisões da Parte A estão resolvidas abaixo, cada uma com o gesto que
+> a executou. Três mexeram em dado (A2, A4, A6) e três não (A1, A3, A5) — e
+> "não mexe em dado" é resolução igualmente, não pendência que sobrou.
+>
+> **O que a A6 mudou além de duas rows:** o critério do verde foi **refinado**
+> e passa a valer para toda a casa —
+> 🟢 = reconhecido no protocolo **E** disponível no SUS, com a disponibilidade
+> atestada por **RENAME ∨ incorporação vigente que nomeie o fármaco**. A coluna
+> `fonte` declara qual dos dois atesta. Citar a RENAME como se o fármaco lá
+> estivesse continua sendo erro — e agora tem guarda própria
+> (`test_a_fonte_do_verde_do_l20_nao_finge_rename`).
+>
+> O refinamento abriu a **P-11** (§ no fim deste documento): re-conferir sob o
+> critério novo os excluídos-por-RENAME do J44 e do I50. Critério refinado que
+> só vale onde foi aplicado é exceção sem regra.
 
 ---
 
@@ -16,7 +38,13 @@ escolheu**, ou onde escolheu antes de um cruzamento que só agora foi feito.
 Nenhuma foi adjudicada. Onde havia um caminho seguro e reversível, ele foi
 tomado e está dito — mas a palavra final é do Fabiano.
 
-### A1 · A30 — B92 (sequelas de hanseníase)
+### ✔️ A1 · A30 — B92 (sequelas de hanseníase) · **FORA**
+
+> **Resolvido em 28/09:** *"A1 fora"*. B92 permanece **sem row e sem
+> exaustividade** — neutro é o silêncio honesto para "sequelas sem escopo
+> farmacológico". Exaustivo-com-zero-rows seria mecanismo novo para um canto, e
+> não se gasta mecanismo em canto. **Nenhum gesto de dado.**
+
 
 > Rascunho §4.1, verbatim: *"**B92 (sequelas)** — sem fármaco no escopo; fora
 > do semáforo ou row neutra — **decidir**."*
@@ -28,7 +56,14 @@ tomado e está dito — mas a palavra final é do Fabiano.
 fármaco no escopo" — hoje ele é indistinguível de qualquer CID que a casa
 simplesmente ainda não curou.
 
-### A2 · G30 — alias F00 (demência na doença de Alzheimer)
+### ✔️ A2 · G30 — alias F00 (demência na doença de Alzheimer) · **ESPELHA**
+
+> **Resolvido em 28/09:** *"A2 espelha F00"*. Entraram **4 rows de semáforo e 4
+> de posologia** sob F00, espelho exato das de G30 (`semaforo_f00_alias_v1_2026-09`
+> / `posologia_f00_alias_v1_2026-09`), e F00 entrou no conjunto exaustivo.
+> Guarda: `test_semaforo_espelhos_2026_09.py::TestOEspelhoF00` — **espelho que
+> deriva reprova**, no elenco e na posologia, caractere a caractere.
+
 
 > Rascunho §4.1: *"Proposta: rows sob **G30** + **avaliar** alias F00."*
 
@@ -40,7 +75,17 @@ na DA) em vez de G30 — e a cadeia do semáforo **não** sobe de F00 para G30
 F00 recebe **neutro**. Espelhar o elenco em F00 dobra 4 rows; não espelhar
 deixa um caminho de codificação legítimo sem sinal.
 
-### A3 · G40 — valproato em mulheres em idade fértil
+### ✔️ A3 · G40 — valproato em mulheres em idade fértil · **MANTÉM**
+
+> **Resolvido em 28/09:** *"A3 mantém"*. Row única com observação forte
+> permanece. **Nenhum gesto de dado.**
+>
+> **Encaminhamento registrado:** a camada de **metadados de população**
+> (valproato em idade fértil, romosozumabe e o que vier) fica como candidata à
+> trilha de explicabilidade — é **decisão de produto, não de curadoria**. O
+> semáforo hoje não distingue população, e enquanto não distinguir a informação
+> chega como texto na observação, que é onde ela pode chegar sem mentir.
+
 
 > Rascunho §4.2: *"manter row única com observação forte, **ou** row separada —
 > **decisão de produto**."*
@@ -53,7 +98,24 @@ valproico carrega *"Mulher em idade fértil e gestante: caso especial do PCDT
 semáforo não tem metadado de população — hoje a informação chega como texto,
 não como sinal.
 
-### A4 · IST — A53 (sífilis não especificada)
+### ✔️ A4 · IST — A53 (sífilis não especificada) · **ESPELHA A52**
+
+> **Resolvido em 28/09:** *"A4 espelha A52 em A53"*. Entraram **2 rows de
+> semáforo e 2 de posologia** sob A53, com o **esquema TARDIO**
+> (`semaforo_a53_alias_v1_2026-09` / `posologia_a53_alias_v1_2026-09`), e A53
+> entrou no conjunto exaustivo.
+>
+> **Por que o tardio e não o recente** — e esta é a afirmação clínica do
+> espelho: o Quadro 15 (p. 23-24) define sífilis tardia como *"sífilis latente
+> tardia (com mais de um ano de evolução) **ou latente com duração ignorada** e
+> sífilis terciária"*, e a CID-10 chama A53.0 de *"sífilis latente, não
+> especificada se recente ou tardia"*. Espelhar o A51 daria dose única a quem
+> precisa de três semanas. Guarda:
+> `TestOEspelhoA53::test_a_posologia_e_a_TARDIA_e_nao_a_recente`.
+>
+> Neurossífilis segue fora do escopo ambulatorial (Quadro 15 a trata com
+> benzilpenicilina cristalina EV, 14 dias — internação).
+
 
 > Rascunho §4.2: *"Se o seletor do prescritor oferecer 'A53 sífilis não
 > especificada' (família P-6), **decidir** se A53 entra como row-espelho."*
@@ -65,7 +127,14 @@ neutro.
 (`data/cid10.csv`) confirma **A53 = "Outras formas e as não especificadas da
 sífilis"** — existe e é codificável.
 
-### A5 · M81 — romosozumabe
+### ✔️ A5 · M81 — romosozumabe (e os 3 suplementos) · **MANTÉM**
+
+> **Resolvido em 28/09:** *"A5 mantém"*. As rows ficam. O romosozumabe é
+> **reconhecido** (elenco do PCDT) e **disponível** (passou no cruzamento da
+> RENAME); a via especializada e a contraindicação cardíaca moram na
+> observação, que é onde devem morar. Revisita no dia em que houver fluxo de
+> dispensação distinto. **Nenhum gesto de dado.**
+
 
 > Rascunho §2 propõe a row. Rascunho §4.3: *"Manter como row (leitura literal)
 > com observação, **ou** deixar 🟡-neutro até haver fluxo de dispensação —
@@ -81,7 +150,25 @@ Mesma pergunta se aplica, com menos força, aos 3 suplementos de cálcio/vitamin
 D (§4.2 do mesmo rascunho: *"decidir se a caneta os quer no elenco exaustivo ou
 apenas na posologia"*) — entraram no elenco, pela mesma leitura do §2.
 
-### A6 · L20 — mometasona e dupilumabe ⚠️ (a mais consequente)
+### ✔️ A6 · L20 — mometasona e dupilumabe · **VOLTA ÀS 8 ROWS**
+
+> **Resolvido em 28/09:** *"A6 volta às 8 rows"*. As duas entraram como 🟢, e
+> **o L20 inteiro foi re-assinado em v2** (`semaforo_l20_exaustiva_v2_2026-09`
+> / `posologia_l20_v2_2026-09`), no padrão do I10 v2: quando o elenco de uma
+> condição muda, a condição inteira ganha versão nova.
+>
+> **O que sustenta o verde não é a RENAME — é a incorporação**, e a `fonte`
+> das duas rows diz isso com todas as letras: *"incorporação vigente que nomeia
+> o fármaco; RENAME 2024 (254 págs.) não alcança o protocolo (nov/2025)"*. Elas
+> são as únicas rows do CSV que **não** citam a RENAME, e é de propósito.
+>
+> A guarda foi **invertida, não apagada** — e ganhou par:
+> `test_mometasona_e_dupilumabe_sao_verdes_pela_incorporacao_declarada` exige o
+> verde, e `test_a_fonte_do_verde_do_l20_nao_finge_rename` exige que a fonte
+> **registre a ausência** em vez de fingir presença. A mesma guarda reafirma
+> que a **fluticasona do J44 continua 🟡**: protocolo antigo recomendando
+> fármaco que ninguém incorporou por nome não ganhou nada com o refinamento.
+
 
 **Esta é a única em que a entrega DIVERGE do §2 do rascunho, e a divergência
 tem causa verificável.**
@@ -226,6 +313,40 @@ exaustividade mantém o silêncio honesto. Guarda:
 
 ---
 
-*Lavrado em 24/09/2026, junto com a PR do lote. As 6 decisões da Parte A não
-bloqueiam o merge — o que elas mudam é uma linha de CSV e uma de teste cada,
-e a A6 é a única que muda contagem (L20: 6 rows hoje, 8 se o Fabiano disser).*
+## Parte D — P-11, a pendência que o refinamento do critério abriu
+
+**Nomeada aqui, não adjudicada.** O §1 do ENG-026 refinou o critério do verde
+(RENAME **∨** incorporação vigente que nomeie o fármaco). O refinamento nasceu
+no L20 — mas um critério que vale só onde nasceu não é critério, é exceção.
+
+**P-11 — re-conferência das exclusões gêmeas.** Quatro fármacos foram excluídos
+do verde **por ausência na RENAME**, sob o critério anterior:
+
+| CID | Fármaco | Razão registrada na época |
+|---|---|---|
+| J44 | fluticasona | *"recomendada no PCDT, ausente da RENAME 2024"* |
+| J44 | glicopirrônio | *"LAMA citado no PCDT, ausente da RENAME 2024"* |
+| I50 | bisoprolol | *"citado no PCDT, ausente da RENAME 2024"* |
+| I50 | ivabradina | *"citada no PCDT, ausente da RENAME 2024"* |
+
+Para cada um: procurar **portaria de incorporação que o nomeie para a
+indicação**. Achando, a row volta pelo mesmo rito do L20 — `fonte` decorada
+declarando o que atesta a disponibilidade, e guarda invertida. Não achando, a
+razão da exclusão ganha o carimbo *"re-conferido 28/09 sob critério refinado"*,
+e a exclusão passa a ser posição verificada em vez de herança.
+
+Verificação de ~1h, na próxima sessão de curadoria. **Não é gesto desta PR** —
+está aqui para que o refinamento não derive em silêncio por CID.
+
+> Nota de método: a fluticasona do J44 já está travada como 🟡 pela guarda
+> `test_mometasona_e_dupilumabe_sao_verdes_pela_incorporacao_declarada`, que
+> assere as duas coisas ao mesmo tempo — o verde novo do L20 e o amarelo velho
+> do J44. Se a P-11 concluir que a fluticasona tem incorporação, é essa
+> asserção que muda, e o PR que a mudar terá de dizer por quê.
+
+---
+
+*Lavrado em 24/09/2026 junto com a PR do lote; **resolvido em 28/09/2026** pela
+caneta do Fabiano, executada no ENG-026. Das 6 decisões, 3 mexeram em dado
+(A2 · A4 · A6) e 3 fecharam sem mexer (A1 · A3 · A5). A Parte D é o que a
+caneta abriu de novo.*
