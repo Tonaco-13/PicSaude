@@ -71,15 +71,32 @@ auto-resgate cobrindo a primeira. As lições dela estão incorporadas aqui.
 
 ## §4 Seleção — a ordem canônica
 
-1. **Seeds validadas não-exaustivas**: E78 → K21 → E03. Estado (20/09): E78
-   rascunhada (na pilha); **K21 e E03 bloqueadas** em P-1/P-2 — não há PCDT no
-   corpus para elas (ver §6).
+1. **Seeds validadas não-exaustivas**: E78 → K21 → E03. Estado (**28/09**,
+   caneta do Fabiano *"K21 por diretriz · E03 semente"*):
+   - **E78 ✔️ exaustiva** — flipada na caneta em lote (#277), 10 rows.
+   - **K21 → ENTRA na ordem** (P-1 resolvida pela opção (b)): levantura por
+     **diretriz brasileira de DRGE estagiada**, padrão F32/F41 — staging com
+     sha256 + MANIFEST pelo rito de adendo, rascunho no molde E11/J45, e a
+     **idade da fonte declarada no campo `fonte`** de toda row que dela sair.
+     Entra na seleção da próxima semana.
+   - **E03 → SAI da ordem** (P-2 resolvida pela opção (a)): permanece **semente
+     fonte-RENAME**, não-exaustiva. Cura-se por fonte canônica no dia em que o
+     PCDT adulto pousar no corpus — hoje só existe o congênito, e curar
+     hipotireoidismo adulto por protocolo de recém-nascido seria fonte que
+     mente sobre o que cobre.
 2. **Regra (b)**: prevalência APS com PCDT no corpus estagiado, sem rascunho
    existente, não-exaustiva.
-3. **PULAR sempre**: as 8 exaustivas (I10 · E11 · J45 · F32 · N39.0 · J44 · I50 ·
-   F41); CIDs com `RASCUNHO-*` existente em `docs/tickets/`; **Chagas (P-8)** —
-   stream corrompido quebra o pypdf, aguarda re-extração com ferramenta alternativa
-   em sessão de curadoria.
+3. **PULAR sempre**: as **35 exaustivas** (as 8 de setembro — I10 · E11 · J45 ·
+   F32 · N39.0 · J44 · I50 · F41 —, as 25 da caneta em lote do #277 e os 2
+   espelhos do ENG-026: F00 e A53); CIDs com `RASCUNHO-*` existente em
+   `docs/tickets/`; **E03** (P-2, acima); **Chagas (P-8)** — stream corrompido
+   quebra o pypdf, aguarda re-extração com ferramenta alternativa em sessão de
+   curadoria.
+
+   > A lista exaustiva não se mantém à mão: a fonte viva é
+   > `carregar_regras(...)[1]`, e o conjunto literal que o gate cobra está em
+   > `test_semaforo_flip_i10_v2.py::test_nenhuma_outra_condicao_touch` — quem
+   > acrescenta CID exaustivo atualiza aquele literal no mesmo PR.
 
 A régua NÃO é varrer os ~240 PDFs — é **prevalência APS**; o corpus é a despensa,
 não a meta.
@@ -106,11 +123,12 @@ rodada automática → rascunho self-checkado → pilha no manual semanal
 
 | # | Pendência | Origem | Opções |
 |---|---|---|---|
-| P-1 | K21 DRGE sem PCDT no corpus | R1, 14/09 | (a) permanece não-exaustiva fonte-RENAME; (b) levantura por diretriz estagiada (padrão F32/F41) |
-| P-2 | E03 adulto só tem PCDT congênito | R1, 14/09 | (a) permanece fonte-RENAME; (b) rascunho E03.1 congênito com escopo declarado |
+| ✔️ P-1 | K21 DRGE sem PCDT no corpus | R1, 14/09 | **RESOLVIDA 28/09 → (b)** levantura por diretriz estagiada (padrão F32/F41). Entra na seleção da próxima semana; ver §4.1 |
+| ✔️ P-2 | E03 adulto só tem PCDT congênito | R1, 14/09 | **RESOLVIDA 28/09 → (a)** permanece semente fonte-RENAME e **sai da ordem de seleção**; ver §4.1 |
 | P-3/P-5/P-7 | E66, incontinência (N39.3/N39.4), DRC — elenco vazio/negativo | R1/R2/R4 | mini-rascunho "🟡 não incorporado" sob demanda |
-| P-6 | CIDs que o seletor do prescritor oferece (chaves R52.1×R52.2, M80×M81, G30×F00, L20.0×L20.8) | R2 | decidir antes dos flips correspondentes |
+| P-6 | CIDs que o seletor do prescritor oferece (chaves R52.1×R52.2, M80×M81, G30×F00, L20.0×L20.8) | R2 | **parcialmente resolvida 28/09**: `G30×F00` fechou pelo ESPELHO (ENG-026 A2), e `A52×A53` seguiu o mesmo molde. As demais (R52.1, M80, L20.0/L20.8) seguem abertas — o espelho é agora o padrão disponível, não a obrigação |
 | P-8 | PDF de Chagas com stream corrompido | R4 | re-extração com ferramenta alternativa |
+| **P-11** | Exclusões-por-RENAME do J44 e do I50 sob o critério refinado (fluticasona · glicopirrônio · bisoprolol · ivabradina) | ENG-026 §3, 28/09 | procurar incorporação que nomeie cada um: achando, row volta pelo rito do L20; não achando, a razão ganha *"re-conferido 28/09 sob critério refinado"*. ~1h, próxima sessão. Ver `PENDENCIAS-CANETA-EM-LOTE-2026-09.md` Parte D |
 
 ## §7 Números do terreno (20/09/2026)
 
