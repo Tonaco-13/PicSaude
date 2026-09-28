@@ -233,3 +233,92 @@ colidentes podem canetar antes.
 candidatas restantes — espondiloartrite axial (M45, "Aprovado*"), artrite
 reumatoide (M06, P-9-carregada), glaucoma (oftalmo — pesar), doença falciforme
 (relevância regional PE), brucelose — sondar frescor e elenco na hora.
+
+---
+
+## Retomada pós-volume — 24/09 (tarde, arquiteto)
+
+**Sanidade:** volume remontado — Read + Bash `echo ok` OK (assinatura da
+queda ausente). `/health` → `{"ok":true}` ✅. `origin/main` = `8decd69` (#274) —
+nada novo mergeado desde a queda; **ZERO PRs abertas** no GitHub (conferido
+`--state all`; merges independentemente confirmados via `gh pr list --merged`).
+
+**ENG-024 Atestado Vivo — rito executado contra o BRANCH (a PR nunca foi
+aberta; é o que a janela morta comeu):** branch `eng024-atestado-vivo` poussado
+e sincronizado (`570c8e9` local ≡ origin). Confronto item a item com o
+`DESPACHO-ENG-024-ATESTADO-VIVO.md`, com prova própria:
+
+- **Y = print-area espelho + papel oficial server-side ✓** —
+  `prescritor.html:5470-71` monta os dois alvos (RASCUNHO na folha viva,
+  CARIMBO na print-area); `texto_atestado.py`/`pdf_atestado.py` fora do
+  diffstat (intocados, como o §4 manda).
+- **Guarda FORTE lida no código ✓** — `TestFolhaEquivaleAoDominio`
+  (`backend/tests/browser/test_eng024_atestado_vivo.py:148`): MATRIZ de 11
+  estados (2 ramos × 4 cláusulas clínicas × conselho × horário × observação),
+  comparação caractere a caractere do corpo da folha contra o `corpo_documento`
+  que o servidor devolve, + `test_a_guarda_morde` (divergência injetada no
+  construtor do cliente tem de reprovar). Cadeia: PDF ≡ rascunho
+  (`test_atestado_espelho.py`) ≡ folha — três renderizações, duas guardas,
+  uma fonte.
+- **Selo "✓ EMITIDO · CUSTÓDIA AO PACIENTE" é FATO ✓** — conferido nos olhos:
+  `atestados.py:440` (docstring da entrega), `:540` (INSERT em
+  `atestado_custodia` prescritor→paciente), `:548` (evento
+  `custodia_transferida`).
+- **Título oficial na folha SIM ✓** (`atestado.js::_cabecalho` — ATESTADO
+  MÉDICO/ODONTOLÓGICO por conselho; proibição mantida no artefato da IA
+  Documental). **Quarto consumidor do núcleo ✓** (`window.DocumentoNucleo`,
+  `vocabulario("at")` com região nomeada + lacuna inline). **Núcleo
+  byte-idêntico ao #274 ✓** — diff vazio contra `8decd69`.
+- **Guardas estáticas re-rodadas** (o checkout principal É o branch, verificado
+  por `git branch --show-current` + HEAD `570c8e9`; worktree dispensada por
+  identidade — registrado aqui como adaptação do rito): **19/19 (receita) +
+  18/18 (exame) + 18/18 (encaminhamento) + 21/21 (atestado, família nova)
+  verdes**, rito `python -m pytest --noconftest -o addopts=`.
+- **Zero backend ✓** — diffstat: só frontend (`atestado.js`/`atestado.css`/
+  `prescritor.html`), testes de frontend e docs. Nenhum arquivo de `app/`.
+
+**VEREDITO: AGUARDANDO** — a revisão de conteúdo está aprovada com prova
+própria; o que falta é estrutural: **a PR não existe e o CI nunca correu**.
+Merge só com: PR aberta → CI gates+smokes verde → RATIFICADO formal → martelo
+do Fabiano. Pós-merge: ff da main local + conferência visual AO VIVO (régua
+`conceitos-atestado/documento-referencia.pdf`, evidência em
+`conceitos-atestado/capturas-producao/`). Com ele, as QUATRO formas de emissão
+ficam Vivo — o padrão vira o padrão da casa; o fecho do arco será registrado
+quando ocorrer.
+
+**Nona row J44 — NÃO VEIO.** O GO verbal do Fabiano está lavrado desde 23/09
+("manda a caneta da nona row com o PCDT 2021"), mas **nenhum PDF de DPOC está
+estagiado** (varredura `data/fontes-oficiais` por `*dpoc*` = vazia) e não há
+PR nem caneta. A execução morreu na janela morta antes de pousar — pendência de
+re-execução pelo engenheiro (o martelo já existe). Rito quando vier:
+procedência dupla (elenco PCDT DPOC 2025 p. 19 + dose PCDT DPOC 2021 COM
+PÁGINA e citação verbatim; edição 2021 estagiada como adendo com sha256 +
+MANIFEST; discrepância de data da revogação — o PDF é o juiz).
+
+**Intensivo — estado real R3/R4/R5:**
+
+- **R3 (23/09) executou a substância — D50 + D57 no disco (untracked) — mas a
+  seção "## Rodada 3" NÃO existe neste manual**: o arquivo termina na Rodada 2.
+  Perda da mesma família do ritual #2 (6ª ocorrência: escrita não-commitada
+  varrida pela limpeza de árvore) ou nunca chegou a ser lavrada antes da queda.
+  Os rascunhos são a substância; este parágrafo registra o vácuo.
+- **R4 (qui 24, 09:01 BRT) disparou e morreu na janela morta** — CronList:
+  `runCount` 4/5, `lastRunAt` = 24/09 12:01:06Z (= 09:01 BRT), nada lavrado.
+  **K21 e E03** — próximas da ordem das seeds (`decisao_semaforo.csv`,
+  validadas não-exaustivas; E78 já tem rascunho e é pulada pela regra) —
+  seguem sem lavratura.
+- **R5 (sex 25, 09:01 BRT) é o último disparo (5/5) e carrega auto-resgate no
+  prompt** — NÃO colidir com ela. Após a R5: conferir que executou R4 (K21+E03)
+  + fecho. Se ela não disparar (volume/ambiente de novo), a pendência vai para
+  o Fabiano — NÃO criar automação nova (anti-cadeia) e NÃO draftear as
+  condições por conta própria sem martelo.
+
+**Árvore (achados registrados, não tocados):** 6 arquivos do "Relatório Kimi
+Descritivo Módulos Demo" deletados **sem commit** na working tree (risco: um
+commit descuidado os levaria; restauração é gesto a decidir); RASCUNHO-D50/D57
++ DESPACHO/RESPOSTA-KIMI3-009 untracked (a futura PR docs/caneta os recolhe).
+
+**Pendências para o Fabiano (a mesa dele):** merge do Atestado (após PR+CI) ·
+re-execução da nona row J44 (GO já dado) · caneta em lote dos 16 rascunhos ·
+Fraunces (rec. do arquiteto: ficar na pilha de sistema) · conselho da Dra.
+Demo (rec.: sim) · ticket backend CID-do-exame (rec.: pós-ondas).

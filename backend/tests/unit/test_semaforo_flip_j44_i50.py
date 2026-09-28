@@ -266,3 +266,96 @@ def test_posologia_com_dois_cids_para_o_mesmo_ativo_agora_convive():
             f"({vistas}) — ou o dado está duplicado, ou a chave não está "
             "discriminando de verdade"
         )
+
+
+# ---------------------------------------------------------------------------
+# 5 — a nona row NÃO existe, e isso agora é um fato cobrado pelo gate
+# ---------------------------------------------------------------------------
+
+class TestNonaRowNaoExiste:
+    """ENG-025 §B — a caneta foi mandada e a fonte respondeu que não.
+
+    `fumarato de formoterol + budesonida` em J44 é a nona das rows exiladas de
+    J44/I50 e a única que o #269 não conseguiu religar. O GO do Fabiano de
+    23/09 mandou buscá-la no **PCDT DPOC 2021** (a recomendação (C) do registro
+    de 13/09: *"versão em que LABA+ICS ainda era opção inicial e que deve
+    trazer o esquema"*). O 2021 foi estagiado e lido: **a hipótese era falsa**.
+    O Quadro F (p. 16-18) não tem linha LABA+ICS, exatamente como o Quadro 6 do
+    2025 (p. 19-22). As duas edições só trazem a APRESENTAÇÃO da dupla
+    (6 mcg + 200 mcg e 12 mcg + 400 mcg) — o que vem na caixa, não quanto se
+    toma.
+
+    Registro completo, com os verbatins e as quatro fontes:
+    `docs/tickets/REGISTRO-J44-NONA-ROW-SEM-DOSE.md`.
+
+    Esta classe é o que impede o registro de virar papel. Ela morde nos DOIS
+    sentidos: se alguém escrever a row sem passar pelo arquiteto, o teste 1
+    reprova; se a dose de ASMA voltar a vazar para a DPOC, o teste 2 reprova.
+    """
+
+    _PAR = "fumarato de formoterol + budesonida"
+
+    def test_nao_existe_row_de_posologia_do_par_em_j44(self):
+        """A ausência é POSIÇÃO, não lacuna — e por isso é verificada.
+
+        Escrever esta row exige uma fonte que nenhuma das quatro consultadas é
+        (PCDT 2021, PCDT 2025, GOLD 2023, GOLD 2025). Se ela aparecer, foi
+        decisão de curadoria nova, e o registro precisa ser reaberto junto.
+        """
+        from app.domain.posologia_sugerida import carregar_posologias
+        from app.domain.semaforo_decisao import canon_ativo
+
+        caminho = Path(__file__).resolve().parents[3] / "data" / "posologia_sugerida.csv"
+        idx = carregar_posologias(str(caminho))
+        chave = (canon_ativo(self._PAR), "J44")
+        assert chave not in idx, (
+            f"apareceu uma row {chave} no posologia_sugerida.csv. Nenhuma das "
+            "quatro fontes consultadas em 23-24/09 traz posologia para a dupla "
+            "LABA+ICS na DPOC — ver REGISTRO-J44-NONA-ROW-SEM-DOSE.md. Se a "
+            "row é legítima, ela veio de uma fonte NOVA: atualize o registro e "
+            "esta guarda no mesmo PR."
+        )
+
+    def test_a_dose_de_asma_nao_vaza_para_a_dpoc(self):
+        """§B.4 do despacho, a asserção que ele nomeou.
+
+        Com o CID declarado, `sugerir` percorre a cadeia e, sem casar, devolve
+        `None` — em vez de emprestar a dose de outra condição porque a
+        substância é a mesma. É o silêncio honesto: a estratégia AIR/MART da
+        asma não é esquema de DPOC.
+        """
+        from app.domain.posologia_sugerida import sugerir
+
+        assert sugerir(self._PAR, "J44") is None, (
+            "a dupla devolveu posologia em J44. Ou nasceu uma row nova (ver o "
+            "teste acima), ou a chave voltou a resolver por ativo e a dose de "
+            "ASMA vazou para a DPOC."
+        )
+
+    def test_a_row_de_asma_continua_intacta(self):
+        """A parada não podia custar dado curado.
+
+        O par TEM posologia — em J45, do PCDT Asma 2026. O que não existe é a
+        de J44. Se a busca pela nona row tivesse mexido na row que existe, o
+        preço da resposta teria sido alto demais.
+        """
+        from app.domain.posologia_sugerida import sugerir
+
+        p = sugerir(self._PAR, "J45")
+        assert p is not None, "a row de asma da dupla sumiu do CSV"
+        assert p.codigo_cid == "J45"
+        assert "MART" in p.posologia or "AIR" in p.posologia, (
+            f"a row de asma mudou de conteúdo: {p.posologia!r}"
+        )
+
+    def test_sem_dose_o_semaforo_continua_verde_em_j44(self):
+        """Elenco e posologia respondem perguntas DIFERENTES.
+
+        O semáforo pergunta *"esta substância é reconhecida e está disponível
+        no SUS para esta condição?"* — e a dupla está no elenco do PCDT
+        (2021 §7.4 p. 15 · 2025 §7.2.1 p. 19) e na RENAME. A posologia pergunta
+        *"quanto se toma?"* — e ninguém responde. Rebaixar o sinal por causa do
+        silêncio da segunda pergunta seria deixar a lacuna de uma tabela
+        apagar o fato da outra.
+        """
+        assert _av("J44", "formoterol + budesonida").sinal == SINAL_VERDE

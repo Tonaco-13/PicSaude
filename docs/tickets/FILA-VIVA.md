@@ -757,3 +757,24 @@ pousaram; o que cada um entregou, por ordem:
 > elenco estrito** com página na fonte, e um semáforo que diz a verdade
 > inclusive quando a verdade incomoda — *a primeira linha do livro não está
 > na prateleira do SUS*.
+
+> **Retomada pós-volume (24/09, arquiteto).** A queda da manhã comeu a PR do
+> Atestado Vivo: o branch `eng024-atestado-vivo` (`570c8e9`) está poussado e
+> sincronizado na origin, revisado e aprovado em conteúdo (guardas re-rodadas
+> 19+18+18+21 verdes; selo = fato conferido em `atestados.py:440/540/548`;
+> núcleo byte-idêntico; zero backend), mas **a PR nunca foi aberta e o CI nunca
+> correu** — veredito **AGUARDANDO**. A nona row J44 (GO verbal de 23/09
+> já lavrado) não pousou: nenhum PCDT DPOC estagiado, sem caneta. Intensivo:
+> R3 lavrou D50+D57 mas perdeu a seção do manual; R4 morreu na janela morta
+> (K21+E03 sem rascunho); R5 (sex 25, 09:01 BRT) auto-resgata e fecha.
+> Detalhe completo no manual do intensivo, seção "Retomada pós-volume — 24/09".
+
+> **Martelos 1-2-3 dados na sequência (24/09, Fabiano): "Vamos lá prosseguir
+> com 1, 2 e 3."** Lavrado o `DESPACHO-ENG-025-RETOMADA.md` à engenharia:
+> §A abrir a PR do branch `eng024-atestado-vivo` (zero código — só o gesto que
+> a janela morta comeu) → §B nona row J44 com PCDT DPOC 2021 estagiado como
+> adendo (o PDF é o juiz da data) + dose com página → §C caneta em lote da
+> pilha de **14 rascunhos** no disco (A30 · D50 · D57 · E28 · E78 · F17 · G20
+> · G30 · G40 · IST · L20 · L40 · M81 · R52 — os "16" do registro projetavam
+> K21+E03, ainda sem rascunho, fora deste lote). Ordem serial A→B→C; merge
+> continua sendo clique do Fabiano após RATIFICADO por PR.
