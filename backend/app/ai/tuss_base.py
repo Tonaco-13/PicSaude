@@ -565,7 +565,7 @@ def _construir_base() -> list[dict]:
         for registro in por_nome.values():
             if registro.get("codigo_tuss") or not registro.get("codigo_sigtap"):
                 continue
-            pares = mapa.get(registro["codigo_sigtap"], [])
+            pares = mapa.get(_chave_sigtap(registro["codigo_sigtap"]), [])
             codigos = {p["codigo_tuss"] for p in pares}
             if len(codigos) != 1:
                 continue
@@ -574,6 +574,71 @@ def _construir_base() -> list[dict]:
                 f"{registro['fonte']} + TUSS/ANS (mapeamento oficial 2017-04, "
                 f"grau {pares[0]['grau_equivalencia'] or 'não atribuído'})"
             )
+
+    # ── ENG-029 §3, degrau 2: o SENTIDO INVERSO, com colapso ────────────────
+    #
+    # O bloco acima anda de SIGTAP para TUSS: pega a linha que tem código do
+    # SUS e pergunta à ANS qual é o da saúde suplementar. O mapa responde às
+    # duas perguntas — a casa só fazia uma.
+    #
+    # Aqui a pergunta inverte: para o registro CURADO que não achou par por
+    # nome, qual SIGTAP a ANS aponta a partir do TUSS dele? Se a resposta for
+    # UM só, e esse um estiver no catálogo de exames, os dois registros são o
+    # mesmo procedimento e viram um — a linha bare do SIGTAP MORRE (colapso),
+    # e o registro curado absorve código, subgrupo e o nome como alias.
+    #
+    # Não há escolha em passo nenhum: ou o par é unívoco na fonte, ou não
+    # entra. O que a ambiguidade produz é ausência, nunca palpite.
+    #
+    # PRÉ-REQUISITO LITERAL: este degrau só funciona porque a caneta dos 38
+    # (#281) tornou os `codigo_tuss` curados oficiais. Rodado antes dela, o
+    # levantamento acha UM casável — e era o `40308030`, o fator reumatóide
+    # que se passava por PCR. Teria fundido o exame errado com convicção.
+    mapa_inverso = _carregar_mapa_sigtap_por_tuss(_resolver_tuss_mapa_csv())
+    if mapa_inverso:
+        por_chave_sigtap = {
+            _chave_sigtap(r["codigo_sigtap"]): r
+            for r in por_nome.values() if r.get("codigo_sigtap")
+        }
+        for registro in list(por_nome.values()):
+            if registro.get("codigo_sigtap") or not registro.get("codigo_tuss"):
+                continue                      # já fundido, ou não é curado
+            destinos = mapa_inverso.get(registro["codigo_tuss"], set())
+            presentes = [d for d in destinos if d in por_chave_sigtap]
+            if len(presentes) != 1:
+                continue                      # ambíguo ou fora do catálogo
+            bare = por_chave_sigtap[presentes[0]]
+            if bare is registro:
+                continue
+            # A linha bare quase sempre JÁ tem `codigo_tuss` — o degrau 1
+            # acabou de preenchê-lo, e preencheu com o MESMO código do
+            # curado (é o mesmo par oficial, lido nos dois sentidos). Esse é
+            # precisamente o caso que deve colapsar: sem o colapso ficariam
+            # DOIS registros com o mesmo codigo_tuss, um com preparo e
+            # alertas e outro sem.
+            #
+            # O que não se toca é a CONTRADIÇÃO: se a linha bare carrega um
+            # TUSS DIFERENTE, os dois sentidos do mapa discordam sobre o mesmo
+            # procedimento, e fundir seria escolher um lado. Fica como está, e
+            # a divergência aparece no relatório.
+            if bare.get("codigo_tuss") and bare["codigo_tuss"] != registro["codigo_tuss"]:
+                continue
+
+            registro["codigo_sigtap"] = bare["codigo_sigtap"]
+            registro["subgrupo"] = bare["subgrupo"]
+            # O nome oficial do SIGTAP vira ALIAS: quem buscava "dosagem de
+            # creatinina" e caía na linha bare tem de continuar achando —
+            # agora no registro curado, que traz preparo e alertas junto.
+            if bare["nome_busca"] not in registro["aliases"]:
+                registro["aliases"] = list(registro["aliases"]) + [bare["nome_busca"]]
+            registro["fonte"] = (
+                f"{registro['fonte']} + {bare['fonte']} "
+                f"(fusão por código, mapeamento oficial ANS 2017-04)"
+            )
+            # COLAPSO: a linha bare deixa de existir. Sem isto seriam 26
+            # fusões E 26 órfãs — o mesmo procedimento duas vezes no catálogo.
+            por_nome.pop(bare["nome_busca"], None)
+
     return list(por_nome.values())
 
 
@@ -642,17 +707,39 @@ def _carregar_csv_tuss(caminho: str) -> dict[str, dict]:
     return registros
 
 
+def _chave_sigtap(codigo: Optional[str]) -> str:
+    """Chave canônica de um código SIGTAP — ENG-029 §2, degrau 1.
+
+    O mapa oficial da ANS mistura os dois formatos: **2.829 linhas trazem o
+    código com 9 dígitos** (o zero inicial caiu em alguma planilha pelo
+    caminho) e 1.441 com os 10 do SIGTAP. O CSV de exames da casa usa sempre
+    10.
+
+    Indexar com a string crua fazia `get("0202010317")` não achar a chave
+    `"202010317"` — e o resultado não era erro, era **silêncio**: dos 659
+    exames com par unívoco na fonte, só 96 mordiam. Quinhentos e sessenta e
+    três pares oficiais ignorados por formatação, sem uma linha de log.
+
+    A correção é ter UMA função de chave, usada pelo índice E pelo lookup.
+    Duas normalizações "equivalentes" em pontos diferentes é como o defeito
+    nasceu.
+    """
+    return (codigo or "").strip().lstrip("0")
+
+
 def _carregar_mapa_tuss_sigtap(caminho: str) -> dict[str, list[dict]]:
-    """Mapeamento oficial → {codigo_sigtap: [pares]}.
+    """Mapeamento oficial → {chave canônica do SIGTAP: [pares]}.
 
     A ANS mapeia de um ou vários TUSS para um ou vários SIGTAP (metodologia,
     item 3), então a chave aponta para LISTA — quem consome decide o que
-    fazer com a ambiguidade, e aqui a decisão é não escolher."""
+    fazer com a ambiguidade, e aqui a decisão é não escolher.
+
+    A chave é `_chave_sigtap`, não o código cru — ver a docstring dela."""
     por_sigtap: dict[str, list[dict]] = {}
     try:
         with open(caminho, encoding="utf-8", newline="") as f:
             for row in csv.DictReader(f):
-                sigtap = (row.get("codigo_sigtap") or "").strip()
+                sigtap = _chave_sigtap(row.get("codigo_sigtap"))
                 tuss = (row.get("codigo_tuss") or "").strip()
                 if not sigtap or not tuss:
                     continue
@@ -664,6 +751,27 @@ def _carregar_mapa_tuss_sigtap(caminho: str) -> dict[str, list[dict]]:
     except FileNotFoundError:
         pass
     return por_sigtap
+
+
+def _carregar_mapa_sigtap_por_tuss(caminho: str) -> dict[str, set[str]]:
+    """O mesmo mapa, no SENTIDO INVERSO — ENG-029 §3, degrau 2.
+
+    `{codigo_tuss: {chaves canônicas de SIGTAP}}`. A fonte é a mesma e serve
+    aos dois sentidos; a casa só usava um. Devolve CONJUNTO porque a decisão
+    de fundir depende de haver exatamente um destino — e essa contagem é de
+    quem consome, não daqui."""
+    por_tuss: dict[str, set[str]] = {}
+    try:
+        with open(caminho, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                tuss = (row.get("codigo_tuss") or "").strip()
+                sigtap = _chave_sigtap(row.get("codigo_sigtap"))
+                if not tuss or not sigtap:
+                    continue
+                por_tuss.setdefault(tuss, set()).add(sigtap)
+    except FileNotFoundError:
+        pass
+    return por_tuss
 
 
 def _competencia_sigtap() -> Optional[str]:
