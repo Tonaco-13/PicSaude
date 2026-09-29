@@ -325,11 +325,23 @@ _BASE_RAW: list[dict] = [
         "codigo_tuss": "40901262",
         "termo_oficial": "US - Obstétrica morfológica",
         "nome_padrao": "Ultrassonografia Obstétrica (Morfológica)",
-        "nome_busca":  "ultrassonografia obstetrica",
+        # ENG-030 §3 — a CHAVE HONESTA. Era "ultrassonografia obstetrica",
+        # genérico, e a palavra "morfológica" vivia só nos aliases. Com essa
+        # chave, o join por nome casava a morfológica (rastreio detalhado de
+        # anomalias) com a US obstétrica SIMPLES do SIGTAP — exames e preços
+        # diferentes. É correção de IDENTIDADE, não renomeação cosmética: a
+        # única exceção ao martelo do #281 sobre nomes, e o despacho a nomeia.
+        "nome_busca":  "ultrassonografia obstetrica morfologica",
         "aliases":     ["us obstetrico", "usg obstetrica", "morfologico", "eco obstetrico", "ultrassonografia morfologica"],
         "categoria":   "imagem",
         "preparo":     "Bexiga cheia no 1º trimestre. Sem preparo especial no 2º e 3º trimestres.",
-        "alertas_base": [],
+        "alertas_base": [
+            "O SIGTAP 202606 NÃO publica linha própria para a US obstétrica "
+            "morfológica, e o mapeamento oficial da ANS não lhe dá par — este "
+            "exame fica sem codigo_sigtap por fidelidade à fonte. A US "
+            "obstétrica SIMPLES é outro procedimento (SIGTAP 0205020143, "
+            "TUSS 40901238) e tem registro próprio no catálogo.",
+        ],
     },
     # ── Cardiologia ──────────────────────────────────────────────────────────
     {
@@ -527,6 +539,26 @@ def _carregar_csv_sigtap(caminho: str) -> list[dict]:
     return registros
 
 
+def _par_cruzado(curado: dict, alvo: dict, mapa_direto: dict) -> bool:
+    """O nome bate, mas a fonte desmente? — ENG-030 §3.
+
+    Devolve True quando o SIGTAP que o join por nome escolheu declara, no
+    mapeamento oficial, **um** TUSS — e esse TUSS **não é** o do registro
+    curado. Nesse caso os dois lados da fonte contradizem o par, e casar
+    seria deixar a coincidência de nome valer mais que a terminologia.
+
+    Só morde quando a fonte é UNÍVOCA sobre o alvo: se o mapa aponta vários
+    TUSS, ou nenhum, ele não desmente nada, e o join por nome segue valendo
+    (é ele que traz os 29 pares endossados da casa).
+    """
+    meu_tuss = curado.get("codigo_tuss")
+    if not meu_tuss or not alvo.get("codigo_sigtap"):
+        return False
+    pares = mapa_direto.get(_chave_sigtap(alvo["codigo_sigtap"]), [])
+    do_mapa = {p["codigo_tuss"] for p in pares}
+    return len(do_mapa) == 1 and meu_tuss not in do_mapa
+
+
 def _construir_base() -> list[dict]:
     """Curadoria TUSS (`_BASE_RAW`) sobreposta ao SIGTAP oficial (CSV).
 
@@ -544,15 +576,38 @@ def _construir_base() -> list[dict]:
                 for r in _BASE_RAW]
 
     por_nome: dict[str, dict] = {r["nome_busca"]: r for r in sigtap_regs}
+    mapa_direto = _carregar_mapa_tuss_sigtap(_resolver_tuss_mapa_csv())
     for cur in _BASE_RAW:
         registro = {**cur, "codigo_sigtap": None, "subgrupo": None, "fonte": "TUSS/BASE_LOCAL"}
         chave = registro["nome_busca"]
         alvo_sigtap = por_nome.get(chave)
+        if alvo_sigtap is not None and _par_cruzado(registro, alvo_sigtap, mapa_direto):
+            # PAR CRUZADO — ENG-030 §3. O nome bate, e o MAPA DESMENTE: o
+            # SIGTAP alvo declara, na fonte oficial, um TUSS unívoco que não é
+            # o deste registro. Bater de nome não prova identidade; foi assim
+            # que a US obstétrica MORFOLÓGICA casou com a US obstétrica
+            # SIMPLES — exames e preços diferentes, par que mentia nas duas
+            # pontas.
+            #
+            # Regra GERAL, não remendo: qualquer futuro par que o mapa
+            # desminta também não casa. O arquiteto provou (29/09) que os
+            # outros 29 fundidos por nome são endossados nas duas pontas — a
+            # US era o único cruzado da casa, e esta guarda é o que impede o
+            # próximo de entrar sem ninguém ver.
+            alvo_sigtap = None
         if alvo_sigtap is not None:
             registro["codigo_sigtap"] = alvo_sigtap["codigo_sigtap"]
             registro["subgrupo"] = alvo_sigtap["subgrupo"]
             registro["fonte"] = f"{registro['fonte']} + {alvo_sigtap['fonte']}"
-        por_nome[chave] = registro  # funde (se havia par) ou adiciona a curadoria
+            por_nome[chave] = registro   # funde
+        else:
+            # Sem par (ou par recusado): o curado entra por si. A chave não
+            # pode atropelar uma linha SIGTAP homônima que ficou de fora —
+            # por isso só substitui quando realmente fundiu.
+            if chave in por_nome and por_nome[chave] is not registro:
+                por_nome[f"{chave}\x00curado"] = registro
+            else:
+                por_nome[chave] = registro
 
     # ENG-027 — o mapeamento OFICIAL preenche o `codigo_tuss` das linhas que
     # só tinham SIGTAP. Antes disto, 1.105 procedimentos de exame nasciam com
@@ -639,6 +694,57 @@ def _construir_base() -> list[dict]:
             # fusões E 26 órfãs — o mesmo procedimento duas vezes no catálogo.
             por_nome.pop(bare["nome_busca"], None)
 
+    # ── ENG-030 §2: a CANETA DOS 8 ──────────────────────────────────────────
+    #
+    # Onde o mapa oferece mais de um SIGTAP para o mesmo TUSS, o automático
+    # não escolhe — e não deve. Estes sete pares são escolha do assinante, com
+    # o fundamento de cada um citado em `_CANETA_SIGTAP`.
+    #
+    # O gesto é o mesmo do degrau 2 (fundir + colapsar + absorver o nome como
+    # alias), e a diferença está só na PROCEDÊNCIA: lá a fonte apontava um
+    # caminho só; aqui apontava vários, e alguém assinou qual. A `fonte` do
+    # registro diz isso, para que a distinção não se perca.
+    #
+    # AVISO DE LEITURA (§4 do despacho): isto quase não move a contagem de
+    # fundidos. Em 4 dos 6 casos o par JÁ existia numa linha bare sem
+    # curadoria — o que a caneta faz é transferir o dono: o SIGTAP passa a
+    # morar no registro que tem aliases, preparo e alertas. O ganho é o par
+    # viajar junto da curadoria, não o número.
+    por_chave = {
+        _chave_sigtap(r["codigo_sigtap"]): r
+        for r in por_nome.values() if r.get("codigo_sigtap")
+    }
+    for registro in list(por_nome.values()):
+        # SÓ registros CURADOS. A linha bare do SIGTAP também carrega o TUSS
+        # canetado (o degrau 1 o preencheu pelo mapa), e sem este filtro a
+        # caneta disparava nela também — anotava a confirmação na fonte da
+        # bare, que o colapso logo em seguida absorvia, e o registro final
+        # saía com "(confirmação)" e o fundamento colados um no outro.
+        # `termo_oficial` só existe em `_BASE_RAW` (ENG-028), e é o marcador.
+        if not registro.get("termo_oficial"):
+            continue
+        escolha = _CANETA_SIGTAP.get(registro.get("codigo_tuss") or "")
+        if not escolha:
+            continue
+        sigtap_canetado, fundamento = escolha
+        if registro.get("codigo_sigtap"):
+            # Já fundido por nome — a caneta CONFIRMA (o caso do TC crânio).
+            # Confirmação não reescreve nada; só registra que foi conferida.
+            if _chave_sigtap(registro["codigo_sigtap"]) == _chave_sigtap(sigtap_canetado):
+                registro["fonte"] = f"{registro['fonte']} + caneta ENG-030 (confirmação)"
+            continue
+        bare = por_chave.get(_chave_sigtap(sigtap_canetado))
+        if bare is None or bare is registro:
+            continue
+        registro["codigo_sigtap"] = bare["codigo_sigtap"]
+        registro["subgrupo"] = bare["subgrupo"]
+        if bare["nome_busca"] not in registro["aliases"]:
+            registro["aliases"] = list(registro["aliases"]) + [bare["nome_busca"]]
+        registro["fonte"] = (
+            f"{registro['fonte']} + {bare['fonte']} (caneta ENG-030: {fundamento})"
+        )
+        por_nome.pop(bare["nome_busca"], None)
+
     return list(por_nome.values())
 
 
@@ -705,6 +811,61 @@ def _carregar_csv_tuss(caminho: str) -> dict[str, dict]:
     except FileNotFoundError:
         pass
     return registros
+
+
+# ---------------------------------------------------------------------------
+# A CANETA DOS 8 — ENG-030, assinante em 29/09/2026
+# ---------------------------------------------------------------------------
+#
+# Verbatim: "Hemograma casa com o COMPLETO · Glicose do jejum · T4 por dosagem
+# · TC crânio confirma · RM lombossacra · Urina pelo EAS · Parasitológico ovos
+# e cistos · US morfológica solta, chave honesta".
+#
+# POR QUE ESTES SETE PRECISARAM DE CANETA — e os outros 26 não
+# -------------------------------------------------------------
+# O mapa oficial da ANS oferece MAIS DE UM SIGTAP para o TUSS destes. Não é
+# ruído: o TUSS fundiu na terminologia da saúde suplementar coisas que o SUS
+# publica separadas (glicose no soro e no líquido sinovial são um código TUSS
+# só e dois SIGTAP). Escolher entre eles é dizer QUAL EXAME o registro é —
+# curadoria, não engenharia. O ENG-029 os deixou fora de propósito, e esta
+# tabela é a decisão, com o fundamento de cada uma citado da fonte.
+#
+# A forma é por VALOR, como a tupla congelada das migrações (§9 do CLAUDE.md):
+# uma lista viva resolveria diferente conforme quando rodasse, e o que se
+# registra aqui é uma decisão datada, não uma regra.
+_CANETA_SIGTAP: dict[str, tuple[str, str]] = {
+    "40304361": ("0202020380",
+                 "HEMOGRAMA COMPLETO — o termo TUSS já declara as plaquetas "
+                 "dentro ('com contagem de plaquetas ou frações'); parear "
+                 "também com CONTAGEM DE PLAQUETAS (0202020029) faturaria o "
+                 "mesmo componente duas vezes. A contagem isolada segue como "
+                 "linha própria do catálogo, para quem a pedir sozinha."),
+    "40302040": ("0202010473",
+                 "DOSAGEM DE GLICOSE — o outro candidato (0202090124) é "
+                 "glicose no LÍQUIDO SINOVIAL E DERRAMES: sítio diferente, "
+                 "exame diferente."),
+    "40316491": ("0202060381",
+                 "DOSAGEM DE TIROXINA LIVRE — o outro (0202060012) é o ÍNDICE "
+                 "de tiroxina livre (FTI/T7), que é cálculo derivado, não "
+                 "dosagem."),
+    "41001010": ("0206010079",
+                 "TOMOGRAFIA COMPUTADORIZADA DO CRÂNIO — a fusão por nome já "
+                 "existia e o mapa a endossa; a caneta é CONFIRMAÇÃO. Sela "
+                 "túrcica (0206010060) é região outra."),
+    "41101227": ("0207010048",
+                 "RM DE COLUNA LOMBO-SACRA — o nome curado diz lombossacra; "
+                 "cervical/pescoço (0207010030) é outro segmento."),
+    "40311210": ("0202050017",
+                 "ANÁLISE DE CARACTERES FÍSICOS, ELEMENTOS E SEDIMENTO DA "
+                 "URINA — o termo TUSS 40311210 é a descrição LITERAL do EAS "
+                 "('Rotina de urina: caracteres físicos, elementos anormais e "
+                 "sedimentoscopia')."),
+    "40303110": ("0202040127",
+                 "PESQUISA DE OVOS E CISTOS DE PARASITAS — o EPF de rotina. "
+                 "A pesquisa de LARVAS (0202040089) fica linha bare, para "
+                 "quem a pedir: virar item curado exige demanda clínica real, "
+                 "não completude de catálogo (§6 do ENG-030)."),
+}
 
 
 def _chave_sigtap(codigo: Optional[str]) -> str:

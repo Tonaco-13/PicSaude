@@ -215,8 +215,8 @@ class TestACuradoriaSobreviveu:
         # 10. Indexado com a string crua, o lookup só achava os que por acaso
         # vieram completos. Consertada a chave, o número saltou — e o salto é
         # de pares OFICIAIS que já existiam, não de curadoria nova.
-        assert len(oficiais) == 666, (
-            f"{len(oficiais)} registros receberam TUSS oficial, esperado 666. "
+        assert len(oficiais) == 667, (
+            f"{len(oficiais)} registros receberam TUSS oficial, esperado 667. "
             "Se caiu para perto de 95, é regressão da normalização do índice "
             "(_chave_sigtap); se mudou para outro valor, a fonte mudou e o "
             "número se atualiza como ato declarado."

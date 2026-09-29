@@ -147,7 +147,10 @@ class TestOColapsoNaoDeixaOrfa:
         """26 fusões, não 26 fusões + 26 órfãs. Se o colapso não acontecesse,
         o mesmo procedimento existiria duas vezes no catálogo — uma com
         preparo e alertas, outra sem."""
-        assert len(_base()) == 1114, len(_base())
+        # ENG-030: 1.114 -> 1.109. Os 26 colapsos do ENG-029 continuam lá; os
+        # 5 novos são da caneta dos 8 (6 pares fundem, e o TC crânio já
+        # estava fundido por nome — a caneta dele foi confirmação).
+        assert len(_base()) == 1109, len(_base())
 
     def test_nenhum_codigo_sigtap_aparece_em_dois_registros(self):
         vistos: dict[str, str] = {}
@@ -205,9 +208,14 @@ class TestOColapsoNaoDeixaOrfa:
         fundidos = [r for r in b if r.get("codigo_sigtap") and r.get("codigo_tuss")]
         so_tuss = [r for r in b if r.get("codigo_tuss") and not r.get("codigo_sigtap")]
         so_sigtap = [r for r in b if r.get("codigo_sigtap") and not r.get("codigo_tuss")]
-        assert (len(fundidos), len(so_tuss), len(so_sigtap)) == (669, 9, 436), (
+        # ENG-030: 669/9/436 -> 671/4/434. O salto é pequeno DE PROPÓSITO —
+        # em 4 dos 6 pares o SIGTAP já morava numa linha bare, e o que a
+        # caneta faz é transferir o dono: ele passa para o registro que tem
+        # aliases, preparo e alertas. O ganho é o par viajar junto da
+        # curadoria, não o número (§4 do ENG-030).
+        assert (len(fundidos), len(so_tuss), len(so_sigtap)) == (671, 4, 434), (
             f"fundidos={len(fundidos)} só-TUSS={len(so_tuss)} "
-            f"só-SIGTAP={len(so_sigtap)}; o despacho declara 669/9/436"
+            f"só-SIGTAP={len(so_sigtap)}; o ENG-030 declara 671/4/434"
         )
 
 
@@ -239,11 +247,20 @@ class TestOAmbiguoNaoEntra:
     RM lombossacra (lombar ou cervical). Nenhum entra até a caneta.
     """
 
-    SEM_SIGTAP = ("hemograma completo com contagem de plaquetas",
-                  "glicose (glicemia de jejum)",
-                  "t4 livre (tiroxina livre)",
-                  "urina tipo i (eas — elementos anormais e sedimento)",
-                  "exame parasitológico de fezes")
+    # ENG-030 (29/09) — A MESA FECHOU, e esta lista é a digital da caneta.
+    #
+    # Ela existia para manter os 7 ambíguos SEM `codigo_sigtap` até alguém
+    # assinar qual deles era. O assinante assinou ("Hemograma casa com o
+    # COMPLETO · Glicose do jejum · T4 por dosagem..."), e os sete saíram
+    # daqui — cada um com o fundamento citado em `_CANETA_SIGTAP`.
+    #
+    # A lista NÃO ficou vazia, e é por isso que ela continua existindo: os
+    # quatro que sobram não têm destino no mapa de 2017-04. Não é escolha
+    # pendente — é ausência na fonte, e não se inventa par.
+    SEM_SIGTAP = ("coagulograma (tap + ttpa + fibrinogênio)",
+                  "tomografia computadorizada do abdome",
+                  "coprocultura com antibiograma",
+                  "ultrassonografia obstétrica (morfológica)")
 
     def test_os_ambiguos_seguem_sem_codigo_sigtap(self):
         por_nome = {r["nome_padrao"].lower(): r for r in _base()}
@@ -251,8 +268,9 @@ class TestOAmbiguoNaoEntra:
             reg = por_nome.get(nome)
             assert reg is not None, f"sumiu o registro {nome!r}"
             assert not reg.get("codigo_sigtap"), (
-                f"{nome} ganhou SIGTAP sem caneta — a escolha entre os "
-                "candidatos é clínica (§6 do ENG-029)"
+                f"{nome} ganhou SIGTAP sem caneta. Os quatro que restam não "
+                "têm par no mapa de 2017-04 — a porta é fonte mais nova, não "
+                "escolha (§6 do ENG-030)."
             )
 
     def test_o_codigo_recusa_o_ambiguo_por_construcao(self):
