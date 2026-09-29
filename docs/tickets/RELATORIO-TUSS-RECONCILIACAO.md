@@ -7,6 +7,37 @@
 | **Fonte de conferência** | ANS/TISS — Tabela 22, competência **201606** (pacote de mapeamento 2017-04), `sha256 b365e36d…`, ver `data/fontes-oficiais/tuss/MANIFEST.md` |
 | **Veredito** | ⚠️ **36 dos 38 códigos TUSS curados não correspondem ao exame que nomeiam** |
 | **Corrigido nesta PR?** | **NÃO.** Medido, nomeado e travado por guarda. A caneta é do Fabiano |
+| **Estado** | ✔️ **RESOLVIDO** — caneta dada em 28/09/2026, executada no **ENG-028** |
+
+> ## ✔️ A caneta veio — 28/09/2026
+>
+> Verbatim do assinante: *"As 27 diretas entram · Glicose pura · TGP geral ·
+> US total · US superior · ECG convencional · Holter digital · PCR
+> quantitativa · Coprocultura padrão · Coagulograma oficial com nota · TC
+> abdome total · seed alinha aos mesmos"*.
+>
+> **Os 38 foram trocados** (`DESPACHO-ENG-028-CANETA-DOS-38-TUSS.md`), mais as
+> 3 ocorrências do `seed_demo.py`. A divergência deste relatório é **zero** a
+> partir daí, e a guarda inverteu junto: `TestACanetaDos38` agora exige que
+> **todo** código curado seja oficial.
+>
+> **Duas correções que este relatório precisa assumir sobre si mesmo:**
+>
+> 1. **Os "10 grupamentos sem candidato" eram artefato da minha busca, não
+>    ausência na terminologia.** O arquiteto reabriu contra a fonte e achou
+>    item oficial para todos — o coagulograma tem `40304922`, a urocultura
+>    tem `40310213`. Nenhuma linha ficou em `codigo_tuss=None`.
+> 2. **Seis dos meus candidatos eram armadilha.** A candidatura por
+>    sobreposição de string sugeriu *Holter CEREBRAL* para o Holter 24h (75%
+>    de sobreposição), *US de mamas* para o abdome total, *TC* no lugar de US,
+>    *ECG de alta resolução*, *TGP hemoterápico* e *glicemia pós-sobrecarga*.
+>    O §4 avisava que era sugestão e não veredito; o arquiteto rejeitou as
+>    seis contra a fonte. **É a prova, no próprio corpo deste documento, de
+>    que string não é identidade** — a mesma razão pela qual o mapeamento
+>    TUSS↔SIGTAP da #279 foi tirado da ANS e não de heurística nossa.
+>
+> Guarda que impede as seis de voltarem por um "conserto" distraído:
+> `TestACanetaDos38::test_as_armadilhas_que_o_arquiteto_rejeitou_nao_entraram`.
 
 ---
 
@@ -148,5 +179,7 @@ nunca adjudica. A régua da casa: *dúvida vira pendência escrita de volta*.
 
 ---
 
-*Lavrado em 28/09/2026 pelo engenheiro, na execução do ENG-027. Guarda:
-`backend/tests/unit/test_tuss_base_oficial.py::TestAReconciliacaoEstaMedida`.*
+*Lavrado em 28/09/2026 pelo engenheiro, na execução do ENG-027; **resolvido no
+mesmo dia pela caneta do assinante**, executada no ENG-028. A guarda que travava
+a divergência virou a guarda que a proíbe:
+`backend/tests/unit/test_tuss_base_oficial.py::TestACanetaDos38`.*

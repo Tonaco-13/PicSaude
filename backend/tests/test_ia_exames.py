@@ -14,6 +14,21 @@ COBERTURA
 Sem banco de dados. Sem dependências externas além da stdlib e rapidfuzz.
 """
 
+# ── ENG-028 (caneta dos 38 TUSS, 28/09/2026) ────────────────────────────────
+# Os literais de `codigo_tuss` deste arquivo eram os códigos CURADOS À MÃO, e
+# a conferência contra a Tabela 22 oficial da ANS mostrou que estavam errados:
+# "40301079" existe, mas é "Ácido beta hidroxi butírico" — não hemograma; e
+# "40311012" não existe. A caneta do assinante trocou os 38, e estes literais
+# vão junto, como ato declarado:
+#
+#     hemograma  40301079 -> 40304361   (Hemograma com contagem de plaquetas)
+#     ECG        40311012 -> 40101010   (ECG convencional de até 12 derivações)
+#
+# Continuam LITERAIS de propósito: é o valor que sai no payload do pedido e no
+# faturamento. Ler o código da própria base faria o teste concordar com
+# qualquer coisa que a base dissesse, inclusive com o erro que esta caneta
+# consertou.
+
 from __future__ import annotations
 
 import sys
@@ -114,12 +129,12 @@ class TestBaseTUSS:
     def test_buscar_exato_hemograma(self):
         reg = BASE_TUSS.buscar_exato("hemograma completo com contagem de plaquetas")
         assert reg is not None
-        assert reg["codigo_tuss"] == "40301079"
+        assert reg["codigo_tuss"] == "40304361"
 
     def test_buscar_alias_hemograma(self):
         reg = BASE_TUSS.buscar_exato("hemograma")
         assert reg is not None
-        assert reg["codigo_tuss"] == "40301079"
+        assert reg["codigo_tuss"] == "40304361"
 
     def test_buscar_alias_glicemia(self):
         reg = BASE_TUSS.buscar_exato("glicemia jejum")
@@ -150,7 +165,7 @@ class TestNormalizarExame:
     def test_match_exato_hemograma(self):
         resp = normalizar_exame("hemograma")
         assert resp["match_tipo"] == "alias"
-        assert resp["codigo_tuss"] == "40301079"
+        assert resp["codigo_tuss"] == "40304361"
         assert resp["score"] == 1.0
         assert resp["versao_base"] is not None
 
@@ -223,7 +238,7 @@ class TestNormalizarExame:
 
     def test_contexto_laudo_aceito(self):
         resp = normalizar_exame("hemograma", contexto="laudo")
-        assert resp["codigo_tuss"] == "40301079"
+        assert resp["codigo_tuss"] == "40304361"
 
     def test_resposta_tem_todos_campos(self):
         resp = normalizar_exame("hemograma")
@@ -258,7 +273,7 @@ class TestNormalizarExameSigtap:
         """ECG: nome_busca da curadoria bate com o nome oficial SIGTAP —
         os dois códigos convivem no mesmo registro."""
         resp = normalizar_exame("ECG")
-        assert resp["codigo_tuss"] == "40311012"
+        assert resp["codigo_tuss"] == "40101010"
         assert resp["codigo_sigtap"] is not None
         assert resp["codigo_sigtap"].startswith("02")  # grupo diagnóstico
         assert "TUSS/BASE_LOCAL" in resp["fonte"]
@@ -301,7 +316,7 @@ class TestEndpointNormalizarExame:
         resp = client.post("/ia/exames/normalizar", json={"nome_exame": "hemograma"})
         assert resp.status_code == 200
         data = resp.json()
-        assert data["codigo_tuss"] == "40301079"
+        assert data["codigo_tuss"] == "40304361"
         assert data["match_tipo"] in ("exato", "alias")
 
     def test_abreviacao_ecg_200(self, client):

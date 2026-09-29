@@ -556,7 +556,7 @@ def _garantir_pedido_exame_ativo(conn) -> None:
         "INSERT INTO pedido_exame_itens (pedido_id, nome_exame, codigo_tuss, "
         "codigo_sigtap, status_item, quantidade, criado_em) "
         "VALUES (?, ?, ?, ?, 'pendente', 1, ?)",
-        (pid, "Hemograma completo", "40301107", _SIGTAP_HEMOGRAMA, now),
+        (pid, "Hemograma completo", "40304361", _SIGTAP_HEMOGRAMA, now),
     )
 
     # Ledger da emissão. O `custodia_transferida` NÃO entra aqui: quem o emite
@@ -651,7 +651,7 @@ def _garantir_laudo_demo(conn) -> None:
         "INSERT INTO pedido_exame_itens (pedido_id, nome_exame, codigo_tuss, "
         "codigo_sigtap, status_item, quantidade, resultado_resumo, resultado_em, criado_em) "
         "VALUES (?, ?, ?, ?, 'resultado_disponivel', 1, ?, ?, ?)",
-        (pid, "Glicemia de jejum", "40302055", _SIGTAP_GLICEMIA,
+        (pid, "Glicemia de jejum", "40302040", _SIGTAP_GLICEMIA,
          "98 mg/dL (referência: 70-99 mg/dL)", now, now),
     )
     # ENG-014 (v2, §2.1) — o id deste item é o ELO que o laudo abaixo carrega.
@@ -738,7 +738,7 @@ def _garantir_laudo_demo(conn) -> None:
         "INSERT INTO laudo_itens (laudo_id, pedido_item_id, nome_exame, codigo_tuss, "
         "resultado_resumo, conclusao, valor_referencia, status_item, criado_em) "
         "VALUES (?, ?, ?, ?, ?, 'alterado', ?, 'concluido', ?)",
-        (lid, item_pedido_id, "Glicemia de jejum", "40302055",
+        (lid, item_pedido_id, "Glicemia de jejum", "40302040",
          "98 mg/dL", "70-99 mg/dL", now),
     )
 

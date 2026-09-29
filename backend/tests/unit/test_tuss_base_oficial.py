@@ -227,19 +227,22 @@ class TestACuradoriaSobreviveu:
 # AC4/§5 — a reconciliação está MEDIDA, e o número é fato até alguém canetar
 # ---------------------------------------------------------------------------
 
-class TestAReconciliacaoEstaMedida:
-    """O achado do ENG-027, travado para não virar papel.
+class TestACanetaDos38:
+    """A guarda VIROU com a caneta — ENG-028, 28/09/2026.
 
-    36 dos 38 códigos TUSS de `_BASE_RAW` não correspondem ao exame que
-    nomeiam — e um dos 2 que "existem" é o pior caso: `40301079` é válido na
-    Tabela 22, mas significa "Ácido beta hidroxi butírico", não hemograma.
-    Código inexistente é rejeitado e aparece; código válido apontando para
-    outro exame fatura errado em silêncio.
+    A versão anterior (#279) travava a DIVERGÊNCIA: "36 dos 38 códigos curados
+    não existem na Tabela 22, e não mexa nisso sem declarar". Era o certo
+    enquanto a decisão era do Fabiano: a engenharia media e devolvia.
 
-    **Nada foi corrigido nesta PR** — trocar código de faturamento é caneta
-    do Fabiano. O que a guarda faz é impedir que o número mude sem alguém
-    declarar, nos dois sentidos: se a curadoria for corrigida, esta guarda
-    reprova e o PR que a corrigir terá de dizer o que fez.
+    A caneta veio, verbatim: *"As 27 diretas entram · Glicose pura · TGP geral
+    · US total · US superior · ECG convencional · Holter digital · PCR
+    quantitativa · Coprocultura padrão · Coagulograma oficial com nota · TC
+    abdome total · seed alinha aos mesmos"*. Os 38 foram trocados.
+
+    Então a guarda inverte de sentido, e a inversão é a digital da caneta no
+    teste: de *"a divergência tem 36 e não mude sem dizer"* para **"não existe
+    mais divergência — todo código curado é oficial"**. Quem reintroduzir um
+    código inventado reprova aqui.
     """
 
     def _curados(self) -> list[tuple[str, str]]:
@@ -247,34 +250,200 @@ class TestAReconciliacaoEstaMedida:
         return re.findall(r'"codigo_tuss":\s*"(\d+)".*?"nome_padrao":\s*"([^"]+)"',
                           src, re.S)
 
-    def test_a_contagem_da_divergencia_e_a_do_relatorio(self):
+    def test_todos_os_38_curados_sao_oficiais(self):
+        """O inverso exato da guarda anterior: a divergência é ZERO."""
         oficiais = {r["codigo_tuss"] for r in _rows(_TUSS)}
         curados = self._curados()
         assert len(curados) == 38, f"{len(curados)} códigos curados"
-        ausentes = [c for c, _n in curados if c not in oficiais]
-        assert len(ausentes) == 36, (
-            f"{len(ausentes)} códigos curados fora da Tabela 22, esperado 36. "
-            "Mudou para menos? alguém corrigiu — atualize o "
-            "RELATORIO-TUSS-RECONCILIACAO.md no mesmo PR."
+        ausentes = [(c, n) for c, n in curados if c not in oficiais]
+        assert not ausentes, (
+            f"{len(ausentes)} código(s) curado(s) fora da Tabela 22: {ausentes}. "
+            "Depois do ENG-028 nenhum código de _BASE_RAW pode ser inventado — "
+            "se a fonte mudou, rode o import; se é código novo, ele precisa de "
+            "caneta como os 38 tiveram."
         )
 
-    def test_o_caso_do_hemograma_esta_nomeado(self):
-        """O pior caso, com nome e número, para não se perder no agregado."""
-        por_cod = {r["codigo_tuss"]: r["termo"] for r in _rows(_TUSS)}
-        assert "40301079" in por_cod, "o código do caso mudou de situação"
-        assert "hidroxi butírico" in por_cod["40301079"].lower(), por_cod["40301079"]
+    def test_os_dois_validos_errados_foram_corrigidos(self):
+        """Os dois casos que faturavam outro exame EM SILÊNCIO.
+
+        Eram os piores justamente por serem válidos: código inexistente é
+        rejeitado e o erro aparece; estes passavam. São os que a boundary de
+        28/09 mandou não deixar passar a semana.
+        """
         curados = dict((c, n) for c, n in self._curados())
-        assert "Hemograma" in curados.get("40301079", ""), (
-            "a curadoria não usa mais 40301079 para hemograma — se foi "
-            "corrigido, este teste é o lugar de registrar"
+        por_cod = {r["codigo_tuss"]: r["termo"] for r in _rows(_TUSS)}
+
+        assert "40301079" not in curados, (
+            "o hemograma voltou a 40301079, que é 'Ácido beta hidroxi butírico'"
+        )
+        assert "Hemograma" in curados.get("40304361", ""), curados.get("40304361")
+        assert "hemograma" in por_cod["40304361"].lower()
+
+        assert "40308030" not in curados, (
+            "o PCR voltou a 40308030, que é 'Fator reumatóide, teste do látex'"
+        )
+        assert "Proteína C Reativa" in curados.get("40308391", ""), curados.get("40308391")
+        assert "proteína c reativa" in por_cod["40308391"].lower()
+
+    def test_as_micro_decisoes_da_caneta_estao_no_codigo(self):
+        """As cinco do §3 do despacho, uma a uma — é onde a caneta escolheu
+        entre dois códigos oficiais, e onde um "conserto" distraído erraria."""
+        curados = dict((c, n) for c, n in self._curados())
+        por_cod = {r["codigo_tuss"]: r["termo"] for r in _rows(_TUSS)}
+
+        # 1. PCR quantitativa, não qualitativa
+        assert "40308391" in curados and "quantitativa" in por_cod["40308391"]
+        # 2. Holter digital 3 canais, não analógico
+        assert "40311071" not in curados and "20102020" in curados
+        assert "digital" in por_cod["20102020"]
+        # 3. TC abdome TOTAL, não superior
+        assert "41001095" in curados and "Abdome total" in por_cod["41001095"]
+        assert "41001109" not in curados, "entrou o TC de abdome SUPERIOR"
+        # 4. Coprocultura padrão, não ampliada
+        assert "40310183" in curados and "40310175" not in curados
+        # 5. Coagulograma oficial (não None)
+        assert "40304922" in curados and "Coagulograma" in por_cod["40304922"]
+
+    def test_as_armadilhas_que_o_arquiteto_rejeitou_nao_entraram(self):
+        """As seis sugestões do relatório que eram armadilha.
+
+        O relatório candidatou por SOBREPOSIÇÃO DE STRING, e string não é
+        identidade: "Holter 24h" bate 75% com "HOLTER CEREBRAL". O arquiteto
+        reabriu contra a fonte e rejeitou as seis. Esta guarda é o que impede
+        que elas voltem por um "conserto" que confie no relatório em vez do
+        despacho.
+        """
+        curados = {c for c, _n in self._curados()}
+        armadilhas = {
+            "20102135": "Holter CEREBRAL no lugar do cardíaco",
+            "40901114": "US de MAMAS no lugar do abdome total",
+            "41001109": "TC no lugar da US de abdome superior",
+            "40101029": "ECG de ALTA RESOLUÇÃO no lugar do convencional",
+            "40403840": "TGP HEMOTERÁPICO no lugar do geral",
+            "40302032": "glicemia PÓS-SOBRECARGA no lugar da glicose de jejum",
+        }
+        entraram = {c: p for c, p in armadilhas.items() if c in curados}
+        assert not entraram, f"armadilha(s) do relatório entraram: {entraram}"
+
+    def test_a_divergencia_de_escopo_virou_alerta_onde_muda_o_faturamento(self):
+        """Nem toda divergência entre nome curado e termo oficial é alerta.
+
+        A maioria é nomenclatura (TGO vira "transaminase oxalacética") e vive
+        em `termo_oficial`. Viram ALERTA só as três em que o escopo oficial
+        entrega MENOS do que o nome curado promete — e nessas o que falta
+        fatura à parte, que é dinheiro e é surpresa no balcão.
+        """
+        from app.ai import tuss_base
+
+        por_cod = {r["codigo_tuss"]: r for r in tuss_base._BASE_RAW}
+        coag = " ".join(por_cod["40304922"]["alertas_base"])
+        assert "fibrinogênio" in coag.lower() and "40304264" in coag, coag
+        for cultura in ("40310183", "40310213"):
+            txt = " ".join(por_cod[cultura]["alertas_base"])
+            assert "antibiograma" in txt.lower() and "40310418" in txt, txt
+
+    def test_todo_curado_declara_o_termo_oficial(self):
+        """A procedência por linha: quem ler a base sabe o que o código é na
+        terminologia, sem abrir o CSV."""
+        from app.ai import tuss_base
+
+        por_cod = {r["codigo_tuss"]: r for r in _rows(_TUSS)}
+        for reg in tuss_base._BASE_RAW:
+            termo = reg.get("termo_oficial")
+            assert termo, f"{reg['nome_padrao']} sem termo_oficial"
+            oficial = por_cod[reg["codigo_tuss"]]["termo"].replace('"', "'")
+            assert termo == oficial, (
+                f"{reg['nome_padrao']}: termo_oficial diverge do CSV\n"
+                f"  base: {termo!r}\n   CSV: {oficial!r}"
+            )
+
+
+class TestNenhumCodigoInventadoEmLugarNenhum:
+    """A guarda NOVA do §4.3 — vale para `_BASE_RAW` E para o seed.
+
+    O ENG-027 descobriu que havia TRÊS fontes de código TUSS nesta casa, e as
+    três tinham código inventado. A caneta corrigiu as três; esta guarda é o
+    que impede uma quarta de nascer: todo `codigo_tuss` escrito em qualquer
+    lugar do código precisa existir na Tabela 22 estagiada, com vigência
+    ABERTA.
+    """
+
+    _SEED = _RAIZ / "backend" / "seed_demo.py"
+
+    def _oficiais_vigentes(self) -> dict:
+        return {r["codigo_tuss"]: r for r in _rows(_TUSS)
+                if not (r["vigencia_fim"] or "").strip()}
+
+    def test_todo_codigo_do_base_raw_e_oficial_e_vigente(self):
+        from app.ai import tuss_base
+
+        vigentes = self._oficiais_vigentes()
+        for reg in tuss_base._BASE_RAW:
+            c = reg["codigo_tuss"]
+            assert c in vigentes, (
+                f"{reg['nome_padrao']}: {c} não está na Tabela 22 com vigência "
+                "aberta"
+            )
+
+    def test_todo_codigo_do_seed_e_oficial_e_vigente(self):
+        """A terceira fonte, que o ENG-027 achou e a caneta alinhou."""
+        src = self._SEED.read_text(encoding="utf-8")
+        # os códigos TUSS do seed aparecem como literal na tupla do INSERT,
+        # sempre 8 dígitos entre aspas e vizinhos de um nome de exame
+        codigos = set(re.findall(r'"(\d{8})"', src))
+        assert codigos, "nenhum código TUSS literal encontrado no seed"
+        vigentes = self._oficiais_vigentes()
+        fora = sorted(c for c in codigos if c not in vigentes)
+        assert not fora, (
+            f"o seed escreve código que não é oficial vigente: {fora}. Foi "
+            "exatamente assim que 40301107 e 40302055 viveram na vitrine."
         )
 
-    def test_o_relatorio_existe_e_aponta_a_guarda(self):
-        rel = _RAIZ / "docs" / "tickets" / "RELATORIO-TUSS-RECONCILIACAO.md"
-        assert rel.exists()
-        txt = rel.read_text(encoding="utf-8")
-        assert "40301079" in txt and "40304361" in txt
-        assert "test_tuss_base_oficial.py" in txt
+    def test_o_hemograma_tem_UM_codigo_na_casa_inteira(self):
+        """O retrato do defeito que a caneta fechou.
+
+        Antes: três códigos para o mesmo exame — 40301107 (seed), 40301079
+        (base, que era ácido beta hidroxi butírico) e o oficial 40304361.
+        Depois: um só, nos dois lugares.
+        """
+        from app.ai import tuss_base
+
+        na_base = {r["codigo_tuss"] for r in tuss_base._BASE_RAW
+                   if "hemograma" in r["nome_busca"]}
+        assert na_base == {"40304361"}, na_base
+        src = self._SEED.read_text(encoding="utf-8")
+        assert "40301107" not in src and "40301079" not in src
+        assert "40304361" in src
+
+    def test_o_retroativo_nao_foi_tocado(self):
+        """§4.4 do despacho: histórico é IMUTÁVEL.
+
+        Itens já emitidos mantêm o código com que faturaram — a medição do
+        #280 é o registro da exposição, e é assim que o ledger desta casa
+        trata o passado (§1/§2 do CLAUDE.md: não se edita o emitido). Nenhum
+        UPDATE em `pedido_exame_itens` pode ter entrado nesta caneta.
+        """
+        import subprocess
+
+        # `git diff origin/main` (sem ...HEAD) compara a ÁRVORE DE TRABALHO
+        # com a base: pega o que já foi commitado E o que ainda não foi. Com
+        # `...HEAD` a guarda passaria trivialmente antes do primeiro commit —
+        # verde sem ter olhado nada, que é o pior tipo de verde.
+        # Os caminhos que PODERIAM escrever no banco: app, seed e migrações.
+        # `tests/` fica de fora de propósito — este arquivo contém a própria
+        # string proibida na asserção abaixo, e incluí-lo faria a guarda
+        # reprovar a si mesma (foi o que aconteceu na primeira escrita).
+        diff = subprocess.run(
+            ["git", "diff", "origin/main", "--",
+             "backend/app/", "backend/seed_demo.py", "backend/alembic/", "data/"],
+            cwd=str(_RAIZ), capture_output=True, text=True).stdout
+        assert diff.strip(), (
+            "o diff contra origin/main veio vazio — a guarda não olhou nada"
+        )
+        for proibido in ("UPDATE pedido_exame_itens", "UPDATE laudo_itens"):
+            assert proibido not in diff, (
+                f"a caneta introduziu {proibido!r} — o retroativo é imutável"
+            )
 
 
 # ---------------------------------------------------------------------------

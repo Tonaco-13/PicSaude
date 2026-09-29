@@ -5,7 +5,28 @@
 | **Pedido** | Arquiteto (Z), 28/09/2026: *"você PODE adiantar a outra medição que informa a decisão: quantos `pedido_exame_itens` já carregam um dos 38 (query de leitura — o tamanho do retroativo). Medir é seu; trocar código com consequência financeira é caneta."* |
 | **Classe** | `docs` — medição de leitura. **Zero escrita, zero código de app** |
 | **Irmão** | `RELATORIO-TUSS-RECONCILIACAO.md` (na #279) — este documento continua aquele |
-| **Estado** | Medição entregue. **Nenhuma correção feita** — a caneta é do Fabiano |
+| **Estado** | ✔️ Medição entregue e **caneta executada** (ENG-028, 28/09) — ver nota abaixo |
+
+> ## ✔️ O que a caneta fez com esta medição — 28/09/2026
+>
+> Os **cinco** itens do §6 foram resolvidos, inclusive os dois que esta
+> medição acrescentou:
+>
+> | # | item | destino |
+> |---|---|---|
+> | 1 | os 2 válidos-errados (hemograma **e PCR**) | corrigidos: `40304361` e `40308391` |
+> | 2 | os 26 com candidato | 27 diretas, conferidas contra a fonte |
+> | 3 | os 10 grupamentos | **todos tinham item oficial** — zero ficou sem código |
+> | 4 | **o `seed_demo.py`** | as 3 ocorrências alinhadas aos mesmos códigos |
+> | 5 | **fechar a torneira** | fechada **na fonte**: `_BASE_RAW` corrigido faz o caminho clínico escrever o código certo daqui em diante |
+>
+> **O retroativo continua intocado, e é decisão, não omissão.** O §4.4 do
+> ENG-028 é explícito: *"histórico é imutável — itens já emitidos mantêm o
+> código que faturaram"*. É a mesma régua do ledger desta casa (§1/§2 do
+> CLAUDE.md): não se edita o que já foi emitido; registra-se. **Este
+> documento é esse registro.** Guarda:
+> `TestNenhumCodigoInventadoEmLugarNenhum::test_o_retroativo_nao_foi_tocado`,
+> que reprova se um `UPDATE pedido_exame_itens` entrar por algum PR da caneta.
 
 ---
 
