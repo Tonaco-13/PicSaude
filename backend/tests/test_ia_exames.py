@@ -251,8 +251,22 @@ class TestNormalizarExame:
             assert campo in resp, f"Campo ausente: {campo}"
 
     def test_fonte_preenchida_em_match(self):
+        """A fonte nunca vem vazia num match — e hoje ela vem COMPOSTA.
+
+        ENG-030: a igualdade estrita com "TUSS/BASE_LOCAL" era verdadeira
+        quando o hemograma só tinha curadoria. Hoje ele acumula procedência:
+        curadoria + SIGTAP + mapeamento oficial + a caneta que escolheu entre
+        os candidatos. A fonte é um HISTÓRICO, e comparar por igualdade
+        transformava cada acréscimo legítimo de procedência em falha.
+
+        O que se afirma continua sendo o que importa: a fonte existe, começa
+        pela curadoria (é dela que o registro nasce) e não perde nenhuma das
+        camadas pelo caminho.
+        """
         resp = normalizar_exame("hemograma")
-        assert resp["fonte"] == "TUSS/BASE_LOCAL"
+        assert resp["fonte"].startswith("TUSS/BASE_LOCAL"), resp["fonte"]
+        for camada in ("SIGTAP/DATASUS", "mapeamento oficial", "caneta ENG-030"):
+            assert camada in resp["fonte"], f"{camada} sumiu de {resp['fonte']!r}"
 
     def test_fonte_nula_sem_match(self):
         resp = normalizar_exame("qwxzjv ptrfgh klmnop 7742")
@@ -310,12 +324,31 @@ class TestNormalizarExameSigtap:
             )
 
     def test_match_so_curado_sem_par_sigtap_fica_sozinho(self):
-        """glicemia (curada) não tem par SIGTAP com o mesmo nome_busca
-        exato — continua resolvendo (AC3), sem código SIGTAP inventado."""
-        resp = normalizar_exame("glicemia")
+        """Um curado sem par: resolve na mesma, sem código SIGTAP INVENTADO.
+
+        ENG-030 (29/09) — o exemplo mudou, e a afirmação não. A glicemia era
+        o caso canônico de "curado sem par", porque o `nome_busca` dela não
+        batia com nenhuma linha SIGTAP. A caneta do assinante lhe deu par
+        ("Glicose do jejum": SIGTAP 0202010473) — por ESCOLHA declarada, com
+        o fundamento citado (o outro candidato era glicose no líquido
+        sinovial, outro sítio).
+
+        O coagulograma tomou o lugar dela como exemplo, e por um motivo mais
+        forte: ele não tem par porque **o mapa de 2017-04 não tem destino
+        para o TUSS dele**. É ausência na fonte, não escolha pendente — o
+        tipo de caso que nunca deve ganhar código inventado.
+        """
+        resp = normalizar_exame("coagulograma")
         assert resp["codigo_tuss"] is not None
         assert resp["codigo_sigtap"] is None
         assert resp["fonte"] == "TUSS/BASE_LOCAL"
+
+    def test_a_glicemia_ganhou_par_POR_CANETA(self):
+        """O par da guarda acima: o que saiu de lá entrou aqui, declarado."""
+        resp = normalizar_exame("glicemia")
+        assert resp["codigo_tuss"] == "40302040"
+        assert resp["codigo_sigtap"] == "0202010473"
+        assert "caneta ENG-030" in resp["fonte"]
 
     def test_base_cresceu_muito_alem_da_curadoria(self):
         """AC2 do ticket: contagem final >= dezenas x a curadoria (38)."""

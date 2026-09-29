@@ -294,3 +294,100 @@ parasitológico (ovos/cistos ou larvas). Mais a US obstétrica do §7.4.
 
 Guarda: `test_fusao_por_codigo.py::TestOAmbiguoNaoEntra` — é ela que mantém a
 mesa aberta até a caneta.
+
+---
+
+# §8 A caneta dos 8 — quando escolher é curadoria, e quando é desfazer uma mentira
+
+*Acrescentado em 29/09/2026, na execução do ENG-030. Caneta do assinante,
+verbatim: **"Hemograma casa com o COMPLETO · Glicose do jejum · T4 por dosagem
+· TC crânio confirma · RM lombossacra · Urina pelo EAS · Parasitológico ovos e
+cistos · US morfológica solta, chave honesta"**.*
+
+## §8.1 Por que estes sete precisaram de caneta
+
+O mapa oficial da ANS oferece **mais de um SIGTAP** para o TUSS destes sete, e
+a ambiguidade é semântica de verdade: o TUSS fundiu, na terminologia da saúde
+suplementar, coisas que o SUS publica separadas. Escolher entre elas é dizer
+**qual exame o registro é** — curadoria, não engenharia. O ENG-029 os deixou
+fora de propósito; esta é a decisão, com o fundamento citado da fonte.
+
+| # | curado | SIGTAP canetado | o fundamento |
+|---|---|---|---|
+| 1 | hemograma completo | `0202020380` HEMOGRAMA COMPLETO | o termo TUSS **já declara as plaquetas dentro**; parear também com CONTAGEM DE PLAQUETAS faturaria o mesmo componente duas vezes |
+| 2 | glicose de jejum | `0202010473` DOSAGEM DE GLICOSE | o outro candidato é glicose no **líquido sinovial** — sítio diferente, exame diferente |
+| 3 | T4 livre | `0202060381` DOSAGEM DE TIROXINA LIVRE | o outro é o **índice** de tiroxina livre (FTI/T7): cálculo derivado, não dosagem |
+| 4 | TC crânio | `0206010079` *(confirma)* | a fusão por nome já existia e o mapa a endossa — a caneta é **confirmação** |
+| 5 | RM lombossacra | `0207010048` RM DE COLUNA LOMBO-SACRA | o nome curado diz lombossacra; cervical é outro segmento |
+| 6 | urina tipo I | `0202050017` ANÁLISE DE CARACTERES FÍSICOS… | o termo TUSS é a **descrição literal do EAS** |
+| 7 | parasitológico | `0202040127` PESQUISA DE OVOS E CISTOS | o EPF de rotina; **larvas** fica linha bare, para quem a pedir |
+
+**Nenhum candidato preterido saiu do catálogo.** Contagem de plaquetas isolada,
+glicose sinovial, índice de T4, pesquisa de larvas, TC de sela túrcica e RM
+cervical seguem como linha própria — quem os pedir continua achando. Há guarda
+nomeada para isso.
+
+## §8.2 A US morfológica — o oitavo caso não é escolha
+
+Os sete acima são "qual dos dois?". O oitavo é **desfazer um par que mente**.
+
+O registro curado carregava o TUSS da US **morfológica** fundido ao SIGTAP da
+US obstétrica **simples** — e a fonte desmentia nas **duas** pontas: a
+morfológica não tem par nenhum no mapa, e a simples aponta para outro TUSS
+(`40901238`). O SIGTAP 202606 **não publica linha morfológica própria**.
+
+A raiz era o `nome_busca` genérico — `"ultrassonografia obstetrica"` —, resíduo
+histórico em que a palavra *morfológica* vivia só nos aliases. A caneta trocou
+a chave por `"ultrassonografia obstetrica morfologica"`: **correção de
+identidade**, e a única exceção ao martelo do #281 sobre nomes.
+
+O resultado são **três registros honestos** onde havia um híbrido:
+
+| registro | TUSS | SIGTAP |
+|---|---|---|
+| US obstétrica (simples) | `40901238` | `0205020143` *(fundiu sozinha pelo mapa)* |
+| US obstétrica c/ doppler colorido | `40901246` | `0205020151` |
+| **US obstétrica morfológica** | `40901262` | **None**, com alerta dizendo por quê |
+
+### A defesa geral, para não voltar por outro nome
+
+Entrou uma **guarda par-cruzado** no construtor, como **regra**, não remendo:
+o join por nome **não casa** quando o mapa desmente — isto é, quando o SIGTAP
+alvo declara na fonte um TUSS unívoco que não é o do curado.
+
+Ela só morde com fonte **unívoca** sobre o alvo: mapa silencioso ou ambíguo não
+desmente nada, e o join por nome segue trazendo os 29 pares endossados da casa.
+O teste-par prova as duas metades — sem ele, uma guarda ampla demais engoliria
+os legítimos e ninguém veria.
+
+## §8.3 O resultado — e o aviso de leitura
+
+| métrica | ENG-029 | ENG-030 |
+|---|---|---|
+| registros na base | 1.114 | **1.109** |
+| fundidos | 669 (60,5%) | **671 (60,7%)** |
+| curados só-TUSS | 9 | **4** |
+| SIGTAP sem TUSS | 436 | **434** |
+
+> **A caneta quase não move a contagem, e isso é esperado.** Em **4 dos 6**
+> pares o SIGTAP já morava numa linha bare sem curadoria. O que a caneta faz é
+> **transferir o dono**: o código passa para o registro que tem aliases,
+> preparo e alertas. O ganho é o par **viajar junto da curadoria** — e o
+> typeahead achar o exame certo —, não o número.
+
+## §8.4 Os quatro que sobram, e por que não são pendência
+
+`coagulograma` · `TC de abdome` · `coprocultura` · `US morfológica`.
+
+Nenhum é escolha adiada: **o mapa de 2017-04 não tem destino para o TUSS de
+nenhum dos quatro**. É ausência na fonte, e a única porta é uma edição mais
+nova do mapeamento oficial — pesquisa de fonte, despacho próprio. **Não se
+inventa par.** A guarda verifica não só que ficaram sem código, mas que a
+*razão* se sustenta: se algum ganhar destino no mapa e mesmo assim ficar sem
+SIGTAP, ela reprova.
+
+## §8.5 O teto final
+
+Dos 1.105 exames do catálogo: **671 fundidos**, **173 ambíguos bare** (que
+seguem sem TUSS por desenho — não se escolhe por eles) e **264 fora do mapa de
+2017-04**.
