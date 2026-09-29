@@ -183,3 +183,114 @@ nunca adjudica. A régua da casa: *dúvida vira pendência escrita de volta*.
 mesmo dia pela caneta do assinante**, executada no ENG-028. A guarda que travava
 a divergência virou a guarda que a proíbe:
 `backend/tests/unit/test_tuss_base_oficial.py::TestACanetaDos38`.*
+
+---
+
+# §7 A fusão por código — e os 564 pares que um zero à esquerda escondia
+
+*Acrescentado em 29/09/2026, na execução do ENG-029 (degraus 1 e 2). Anuência
+do assinante, verbatim: **"Mergeado 281, vamos ao despachos degraus 1 e 2."***
+
+## §7.1 O bug: o silêncio de um índice
+
+O mapa oficial da ANS **mistura dois formatos** de código SIGTAP: **2.829
+linhas trazem 9 dígitos** (o zero inicial caiu em alguma planilha do caminho)
+e **1.441 trazem os 10** do SIGTAP. O catálogo desta casa usa sempre 10.
+
+`_carregar_mapa_tuss_sigtap` indexava com a string crua e o lookup comparava
+crua também. `get("0202010317")` nunca achava a chave `"202010317"`.
+
+**E o resultado não era erro — era silêncio.** Nada falhava, nada logava. Dos
+**659** exames com par unívoco na fonte, só **96** mordiam: os que por acaso
+vieram completos. **563 pares oficiais ignorados por formatação.**
+
+| | antes | depois |
+|---|---|---|
+| exames com par unívoco **alcançado** | 96 | **659** |
+| registros com TUSS do mapa oficial | 95 | **666** |
+
+A correção é ter **uma** função de chave (`_chave_sigtap`), usada pelo índice
+**e** pelo lookup. Duas normalizações "equivalentes" em pontos diferentes é
+exatamente como o defeito nasceu.
+
+> ### Por que o §4.6 do ENG-028 não viu a subida
+>
+> Ao medir a cobertura pós-caneta, relatei que ela não se movera, e expliquei:
+> *"o join por nome não mudou"*. A explicação estava **correta e incompleta**.
+> A subida existia — estava presa no índice, e era invisível sem normalizar o
+> código. Ninguém errou; a medição certa só não tinha sido feita ainda.
+
+## §7.2 O sentido inverso: o mapa responde duas perguntas, a casa fazia uma
+
+O mesmo arquivo serve `SIGTAP → TUSS` e `TUSS → SIGTAP`. Para **26** registros
+curados sem par por nome, o TUSS aponta para **exatamente um** SIGTAP presente
+no catálogo. Fundiram — e a linha bare correspondente **morreu** (colapso), em
+vez de conviver como duplicata do mesmo procedimento.
+
+> **A caneta dos 38 (#281) é pré-requisito LITERAL deste degrau.** Rodado
+> contra a `main` anterior a ela, o mesmo levantamento acha **um** casável — e
+> era o `40308030`, o fator reumatóide que se passava por PCR. Teria fundido o
+> exame errado, com o código oficial, com convicção e sem alarme.
+
+### Os 9 monodirecionais
+
+Em 9 dos 26, o SIGTAP de destino também recebe outro TUSS: **ambíguo em
+`s→t`, unívoco em `t→s`**. Fundem mesmo assim, e a assimetria fica registrada
+na `fonte` do registro. Não é a ambiguidade que o ENG-027 recusa — aquela é
+escolher entre dois TUSS ao preencher um; aqui não se preenche TUSS nenhum, e
+a afirmação `t→s` é da fonte e não tem alternativa.
+
+O exemplo canônico é a **urocultura**: o TUSS "cultura de urina com contagem
+de colônias" aponta para o SIGTAP genérico "CULTURA DE BACTÉRIAS P/
+IDENTIFICAÇÃO", que também recebe outros TUSS.
+
+## §7.3 O resultado
+
+| métrica | antes | depois |
+|---|---|---|
+| registros na base | 1.140 | **1.114** (26 colapsos) |
+| fundidos (TUSS **e** SIGTAP) | 98 (8,9%) | **669 (60,5%)** |
+| curados só-TUSS | 35 | **9** |
+| SIGTAP sem TUSS | 1.007 | **436** |
+
+Os 5 números foram conferidos contra os declarados no despacho, um a um.
+
+## §7.4 Três achados que a execução trouxe
+
+**1. A US obstétrica morfológica está pareada com o exame errado — e não foi
+este despacho que a pareou.** O registro curado "Ultrassonografia Obstétrica
+(Morfológica)" fundiu **por nome** com o SIGTAP `0205020143` = "ULTRASSONOGRAFIA
+OBSTETRICA" — a simples. O mapa oficial diz que esse SIGTAP é o TUSS
+`40901238` ("US - Obstétrica"), enquanto a caneta deu ao registro o
+`40901262` ("US - Obstétrica **morfológica**").
+
+Os dois códigos estão certos sobre coisas diferentes; quem errou foi o **join
+por nome**, que casou a morfológica (rastreio detalhado de anomalias) com a
+obstétrica de rotina. São procedimentos e preços distintos. A regra protegeu o
+dado (o mapa nunca sobrescreve curadoria), mas o par segue inconsistente.
+**Não corrigido** — desfazer a fusão ou trocar o código é escolha clínica, e
+vai para a mesa do §6 do despacho.
+
+**2. 47 códigos TUSS aparecem em dois registros cada — e é fidelidade.** A
+metodologia da ANS (item 3) mapeia "de um ou vários para um ou vários", nos
+dois sentidos: o TUSS de "dosagem de fosfatase alcalina" cobre o SIGTAP
+simples **e** o "no esperma". Nos **47 casos, sem exceção**, é o mapa que põe
+o código nos dois lugares. A guarda, portanto, não proíbe a repetição — exige
+que **toda repetição tenha origem na fonte**.
+
+**3. O teto recalculado.** Dos 1.105 exames, **436** seguem sem TUSS: **182
+ambíguos** (menos 9 absorvidos pelo sentido inverso) e **264 fora do mapa de
+2017-04**. Os ambíguos não se resolvem por engenharia; os 264 só se resolvem
+com uma edição mais nova do mapeamento oficial, se existir — e procurá-la é
+despacho próprio. **Não se inventa par.**
+
+## §7.5 O que continua na mesa (§6 do ENG-029)
+
+Sete casos são escolha **clínica**, e nenhum entrou: hemograma (se o completo
+já traz plaquetas, contar plaquetas à parte é duplo faturamento), glicose
+(jejum ou líquido sinovial), T4 livre (dosagem ou índice), TC crânio, RM
+lombossacra (lombar ou cervical), urina tipo I (EAS ou contagem global),
+parasitológico (ovos/cistos ou larvas). Mais a US obstétrica do §7.4.
+
+Guarda: `test_fusao_por_codigo.py::TestOAmbiguoNaoEntra` — é ela que mantém a
+mesa aberta até a caneta.

@@ -280,15 +280,34 @@ class TestNormalizarExameSigtap:
         assert "SIGTAP/DATASUS" in resp["fonte"]
 
     def test_match_so_sigtap_nao_afirma_tuss_base_local(self):
-        """Um procedimento SIGTAP sem par na curadoria: fonte tem que dizer
-        SIGTAP, não pode herdar o rótulo genérico da curadoria."""
+        """Um procedimento SIGTAP sem par na curadoria: a fonte tem que dizer
+        de onde cada código veio, e NUNCA pode herdar o rótulo da curadoria.
+
+        ENG-029 (degrau 1, 29/09/2026) — a asserção mudou de sentido, e a
+        INTENÇÃO é a mesma. Antes este exame não tinha `codigo_tuss` nenhum, e
+        o teste afirmava `is None`. Com o conserto do índice (o zero à
+        esquerda), o mapa OFICIAL da ANS passou a alcançá-lo: ele tem TUSS
+        agora, e tem por procedência, não por herança.
+
+        O que o teste guarda continua sendo o mesmo: um procedimento que a
+        curadoria nunca tocou não pode sair com o carimbo dela. Por isso a
+        asserção deixou de ser "não tem TUSS" e passou a ser "o TUSS que tem
+        é do mapeamento oficial, e a fonte diz isso" — que é a afirmação
+        forte, não a fraca.
+        """
         resp = normalizar_exame("DOSAGEM DE GLICOSE-6-FOSFATO DESIDROGENASE")
         assert resp["match_tipo"] == "exato"
-        assert resp["codigo_tuss"] is None
         assert resp["codigo_sigtap"] is not None
         assert resp["fonte"] is not None
         assert "SIGTAP/DATASUS" in resp["fonte"]
         assert resp["fonte"] != "TUSS/BASE_LOCAL"
+        assert "TUSS/BASE_LOCAL" not in resp["fonte"], (
+            "exame sem curadoria saiu com o rótulo da curadoria"
+        )
+        if resp["codigo_tuss"] is not None:
+            assert "mapeamento oficial" in resp["fonte"], (
+                "ganhou codigo_tuss sem declarar que veio do mapa da ANS"
+            )
 
     def test_match_so_curado_sem_par_sigtap_fica_sozinho(self):
         """glicemia (curada) não tem par SIGTAP com o mesmo nome_busca

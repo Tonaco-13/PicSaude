@@ -207,9 +207,19 @@ class TestACuradoriaSobreviveu:
         base = tuss_base._construir_base()
         oficiais = [r for r in base
                     if "mapeamento oficial" in (r.get("fonte") or "")]
-        assert len(oficiais) == 95, (
-            f"{len(oficiais)} registros receberam TUSS oficial, esperado 95. "
-            "Se a fonte mudou, atualize este número como ato declarado."
+        # ENG-029, ATO DECLARADO: de 95 para 666.
+        #
+        # O 95 não era o teto do que a fonte oferecia — era o teto do que o
+        # ÍNDICE alcançava. O mapa da ANS traz 2.829 códigos SIGTAP com 9
+        # dígitos (zero inicial caído) e 1.441 com 10; o catálogo da casa usa
+        # 10. Indexado com a string crua, o lookup só achava os que por acaso
+        # vieram completos. Consertada a chave, o número saltou — e o salto é
+        # de pares OFICIAIS que já existiam, não de curadoria nova.
+        assert len(oficiais) == 666, (
+            f"{len(oficiais)} registros receberam TUSS oficial, esperado 666. "
+            "Se caiu para perto de 95, é regressão da normalização do índice "
+            "(_chave_sigtap); se mudou para outro valor, a fonte mudou e o "
+            "número se atualiza como ato declarado."
         )
         for r in oficiais:
             assert r["codigo_tuss"] and r["codigo_sigtap"]
