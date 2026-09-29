@@ -415,35 +415,75 @@ class TestNenhumCodigoInventadoEmLugarNenhum:
         assert "40301107" not in src and "40301079" not in src
         assert "40304361" in src
 
-    def test_o_retroativo_nao_foi_tocado(self):
+    def test_nenhum_codigo_de_faturamento_e_reescrito_retroativamente(self):
         """§4.4 do despacho: histórico é IMUTÁVEL.
 
         Itens já emitidos mantêm o código com que faturaram — a medição do
-        #280 é o registro da exposição, e é assim que o ledger desta casa
-        trata o passado (§1/§2 do CLAUDE.md: não se edita o emitido). Nenhum
-        UPDATE em `pedido_exame_itens` pode ter entrado nesta caneta.
-        """
-        import subprocess
+        #280 é o registro da exposição, e é assim que esta casa trata o
+        passado (§1/§2 do CLAUDE.md: não se edita o emitido, registra-se).
 
-        # `git diff origin/main` (sem ...HEAD) compara a ÁRVORE DE TRABALHO
-        # com a base: pega o que já foi commitado E o que ainda não foi. Com
-        # `...HEAD` a guarda passaria trivialmente antes do primeiro commit —
-        # verde sem ter olhado nada, que é o pior tipo de verde.
-        # Os caminhos que PODERIAM escrever no banco: app, seed e migrações.
-        # `tests/` fica de fora de propósito — este arquivo contém a própria
-        # string proibida na asserção abaixo, e incluí-lo faria a guarda
-        # reprovar a si mesma (foi o que aconteceu na primeira escrita).
-        diff = subprocess.run(
-            ["git", "diff", "origin/main", "--",
-             "backend/app/", "backend/seed_demo.py", "backend/alembic/", "data/"],
-            cwd=str(_RAIZ), capture_output=True, text=True).stdout
-        assert diff.strip(), (
-            "o diff contra origin/main veio vazio — a guarda não olhou nada"
+        A GUARDA OLHA O CÓDIGO, NÃO O DIFF — e a primeira versão olhava o
+        diff. Ela rodava `git diff origin/main`, o que a tornava dependente da
+        topologia do git: passou local e REPROVOU no CI, onde o checkout é
+        raso e `origin/main` não existe como ref. Guarda que depende de como o
+        repositório foi clonado não é guarda; é sorte. Esta afirma uma
+        propriedade da ÁRVORE, e vale em qualquer lugar e para sempre — não só
+        para o diff desta PR.
+
+        A distinção fina, e é ela que faz a guarda ser útil em vez de
+        atrapalhar: `UPDATE pedido_exame_itens SET status_item = ...` é
+        LEGÍTIMO e necessário — é a máquina de estados do pedido andando
+        (agendado, coletado, encerrado). O que é proibido é reescrever o
+        código que FATUROU: `codigo_tuss` e `codigo_sigtap`.
+        """
+        alvos = [
+            _RAIZ / "backend" / "app",
+            _RAIZ / "backend" / "alembic",
+            _RAIZ / "backend" / "scripts",
+            _RAIZ / "backend" / "seed_demo.py",
+        ]
+        arquivos = []
+        for a in alvos:
+            arquivos.extend([a] if a.is_file() else sorted(a.rglob("*.py")))
+        assert len(arquivos) > 50, (
+            f"só {len(arquivos)} arquivos varridos — a guarda não olhou nada"
         )
-        for proibido in ("UPDATE pedido_exame_itens", "UPDATE laudo_itens"):
-            assert proibido not in diff, (
-                f"a caneta introduziu {proibido!r} — o retroativo é imutável"
-            )
+
+        # UPDATE ... SET ... codigo_tuss/codigo_sigtap, tolerando quebra de
+        # linha e a string espalhada em concatenação (o estilo desta casa).
+        padrao = re.compile(
+            r"update\s+\w+\s+set[^;]{0,400}?codigo_(tuss|sigtap)\s*=",
+            re.I | re.S,
+        )
+        achados = []
+        for arq in arquivos:
+            txt = arq.read_text(encoding="utf-8", errors="ignore")
+            for m in padrao.finditer(txt):
+                linha = txt[:m.start()].count("\n") + 1
+                achados.append(f"{arq.relative_to(_RAIZ)}:{linha}")
+        assert not achados, (
+            "reescrita retroativa de código de faturamento encontrada em "
+            f"{achados}. Item já emitido mantém o código com que faturou; a "
+            "correção vale para os PRÓXIMOS pedidos (§4.4 do ENG-028)."
+        )
+
+    def test_a_maquina_de_estados_do_item_segue_livre(self):
+        """O par da guarda acima — e a prova de que ela não é um freio cego.
+
+        Se a proibição fosse "nenhum UPDATE em pedido_exame_itens", ela
+        quebraria o pedido de exame inteiro: o item PRECISA transitar de
+        pendente a agendado, coletado e encerrado. A guarda distingue, e este
+        teste prova que distingue — se um dia ela ficar ampla demais, é aqui
+        que aparece.
+        """
+        fontes = "\n".join(
+            p.read_text(encoding="utf-8", errors="ignore")
+            for p in (_RAIZ / "backend" / "app" / "routers").rglob("*.py")
+        )
+        assert "UPDATE pedido_exame_itens SET status_item" in fontes, (
+            "sumiu a transição de estado do item de exame — ou a guarda "
+            "acima ficou ampla demais e alguém a 'contornou' apagando o certo"
+        )
 
 
 # ---------------------------------------------------------------------------
