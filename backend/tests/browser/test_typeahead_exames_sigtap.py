@@ -59,7 +59,13 @@ def test_glicemia_sugere_com_codigo(page: Page, app_demo, erros_de_console):
     # usuário ("Usar nome padronizado"), nunca automaticamente.
     page.locator("#exame-item-1 .ia-exame-btn-usar").click()
     tuss_hidden = page.locator("#exame-item-1 .exame-codigo-tuss")
-    expect(tuss_hidden).to_have_value("40302019", timeout=_TIMEOUT_MS)
+    # ENG-028 (caneta dos 38, 28/09/2026): o código mudou de 40302019 para
+    # 40302040 — "40302019" não existia na Tabela 22; a glicose de jejum é "Glicose -
+    # pesquisa e/ou dosagem". O valor aqui é literal DE PROPÓSITO: é ele que
+    # prova que o campo oculto recebe o código oficial, e é ele que vai
+    # no payload do pedido e no faturamento. Trocar este literal é ato
+    # declarado, e foi a caneta do assinante que o declarou.
+    expect(tuss_hidden).to_have_value("40302040", timeout=_TIMEOUT_MS)
 
     assert not erros_de_console
 
@@ -85,7 +91,13 @@ def test_ecg_sugere_tuss_e_sigtap(page: Page, app_demo, erros_de_console):
     sigtap_hidden = page.locator("#exame-item-1 .exame-codigo-sigtap")
     expect(sigtap_hidden).not_to_have_value("", timeout=_TIMEOUT_MS)
     tuss_hidden = page.locator("#exame-item-1 .exame-codigo-tuss")
-    expect(tuss_hidden).to_have_value("40311012", timeout=_TIMEOUT_MS)
+    # ENG-028 (caneta dos 38, 28/09/2026): o código mudou de 40311012 para
+    # 40101010 — "40311012" não existia; o ECG de rotina é "ECG convencional de até 12
+    # derivações". O valor aqui é literal DE PROPÓSITO: é ele que
+    # prova que o campo oculto recebe o código oficial, e é ele que vai
+    # no payload do pedido e no faturamento. Trocar este literal é ato
+    # declarado, e foi a caneta do assinante que o declarou.
+    expect(tuss_hidden).to_have_value("40101010", timeout=_TIMEOUT_MS)
 
     assert not erros_de_console
 

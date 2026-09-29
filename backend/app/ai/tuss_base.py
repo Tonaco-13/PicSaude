@@ -74,7 +74,8 @@ from app.ai.normalizacao_exame import normalizar_nome_exame
 _BASE_RAW: list[dict] = [
     # ── Hematologia ──────────────────────────────────────────────────────────
     {
-        "codigo_tuss": "40301079",
+        "codigo_tuss": "40304361",
+        "termo_oficial": "Hemograma com contagem de plaquetas ou frações (eritrograma, leucograma, plaquetas)",
         "nome_padrao": "Hemograma completo com contagem de plaquetas",
         "nome_busca":  "hemograma completo com contagem de plaquetas",
         "aliases":     ["hemograma", "hemograma completo", "hemo completo", "eritrograma leucograma plaquetas"],
@@ -83,7 +84,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302264",
+        "codigo_tuss": "40304558",
+        "termo_oficial": "Reticulócitos, contagem",
         "nome_padrao": "Reticulócitos",
         "nome_busca":  "reticulocitos",
         "aliases":     ["reticulocito", "contagem de reticulocitos"],
@@ -92,7 +94,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40306150",
+        "codigo_tuss": "40304370",
+        "termo_oficial": "Hemossedimentação, (VHS) - pesquisa e/ou dosagem",
         "nome_padrao": "Velocidade de Hemossedimentação (VHS)",
         "nome_busca":  "velocidade de hemossedimentacao",
         "aliases":     ["vhs", "velocidade hemossedimentacao", "hemossedimentacao"],
@@ -101,17 +104,21 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40306117",
+        "codigo_tuss": "40304922",
+        "termo_oficial": "Coagulograma (TS, TC, prova do laço, retração do coágulo, contagem de plaquetas, tempo de protombina, tempo de tromboplastina, parcial ativado) - pesquisa e/ou dosagem",
         "nome_padrao": "Coagulograma (TAP + TTPa + Fibrinogênio)",
         "nome_busca":  "coagulograma",
         "aliases":     ["coagulograma completo", "tap ttpa fibrinogenio", "hemostasia"],
         "categoria":   "hematologia",
         "preparo":     "Sem preparo especial.",
-        "alertas_base": [],
+        "alertas_base": [
+            "O coagulograma oficial (TUSS 40304922) cobre TS, TC, prova do laço, retração do coágulo, plaquetas, TAP e TTPa — NÃO inclui fibrinogênio, que é item próprio (TUSS 40304264) e fatura à parte.",
+        ],
     },
     # ── Bioquímica ───────────────────────────────────────────────────────────
     {
-        "codigo_tuss": "40302019",
+        "codigo_tuss": "40302040",
+        "termo_oficial": "Glicose - pesquisa e/ou dosagem",
         "nome_padrao": "Glicose (Glicemia de Jejum)",
         "nome_busca":  "glicose glicemia de jejum",
         "aliases":     ["glicemia", "glicose", "glicemia jejum", "glicemia de jejum", "glicemia em jejum"],
@@ -120,7 +127,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302523",
+        "codigo_tuss": "40302075",
+        "termo_oficial": "Hemoglobina glicada (A1 total) - pesquisa e/ou dosagem",
         "nome_padrao": "Hemoglobina Glicada (HbA1c)",
         "nome_busca":  "hemoglobina glicada",
         "aliases":     ["hba1c", "a1c", "hemoglobina glicada hba1c", "glico hemoglobina"],
@@ -129,7 +137,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302272",
+        "codigo_tuss": "40301630",
+        "termo_oficial": "Creatinina - pesquisa e/ou dosagem",
         "nome_padrao": "Creatinina",
         "nome_busca":  "creatinina",
         "aliases":     ["creatinina serica", "crea"],
@@ -138,7 +147,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302434",
+        "codigo_tuss": "40302580",
+        "termo_oficial": "Uréia - pesquisa e/ou dosagem",
         "nome_padrao": "Ureia",
         "nome_busca":  "ureia",
         "aliases":     ["ureia serica", "nitrogenio ureico", "bun"],
@@ -147,7 +157,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302280",
+        "codigo_tuss": "40301150",
+        "termo_oficial": "Ácido úrico - pesquisa e/ou dosagem",
         "nome_padrao": "Ácido Úrico",
         "nome_busca":  "acido urico",
         "aliases":     ["acido urico serico", "uricemia"],
@@ -156,7 +167,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302132",
+        "codigo_tuss": "40302504",
+        "termo_oficial": "Transaminase oxalacética (amino transferase aspartato) - pesquisa e/ou dosagem",
         "nome_padrao": "Aspartato Aminotransferase (TGO/AST)",
         "nome_busca":  "aspartato aminotransferase",
         "aliases":     ["tgo", "ast", "aspartato aminotransferase tgo", "tgo ast"],
@@ -165,7 +177,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302140",
+        "codigo_tuss": "40302512",
+        "termo_oficial": "Transaminase pirúvica (amino transferase de alanina) - pesquisa e/ou dosagem",
         "nome_padrao": "Alanina Aminotransferase (TGP/ALT)",
         "nome_busca":  "alanina aminotransferase",
         "aliases":     ["tgp", "alt", "alanina aminotransferase tgp", "tgp alt"],
@@ -174,7 +187,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302027",
+        "codigo_tuss": "40301605",
+        "termo_oficial": "Colesterol total - pesquisa e/ou dosagem",
         "nome_padrao": "Colesterol Total",
         "nome_busca":  "colesterol total",
         "aliases":     ["colesterol", "col total", "ct"],
@@ -183,7 +197,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302035",
+        "codigo_tuss": "40301583",
+        "termo_oficial": "Colesterol (HDL) - pesquisa e/ou dosagem",
         "nome_padrao": "HDL Colesterol",
         "nome_busca":  "hdl colesterol",
         "aliases":     ["hdl", "colesterol hdl", "hdl-c"],
@@ -192,7 +207,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302043",
+        "codigo_tuss": "40301591",
+        "termo_oficial": "Colesterol (LDL) - pesquisa e/ou dosagem",
         "nome_padrao": "LDL Colesterol",
         "nome_busca":  "ldl colesterol",
         "aliases":     ["ldl", "colesterol ldl", "ldl-c"],
@@ -201,7 +217,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302485",
+        "codigo_tuss": "40302547",
+        "termo_oficial": "Triglicerídeos - pesquisa e/ou dosagem",
         "nome_padrao": "Triglicerídeos",
         "nome_busca":  "triglicerides",
         "aliases":     ["triglicerideos", "tg", "trig", "triglicerides"],
@@ -210,7 +227,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302450",
+        "codigo_tuss": "40302423",
+        "termo_oficial": "Sódio - pesquisa e/ou dosagem",
         "nome_padrao": "Sódio",
         "nome_busca":  "sodio",
         "aliases":     ["sodio serico", "natremia"],
@@ -219,7 +237,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302388",
+        "codigo_tuss": "40302318",
+        "termo_oficial": "Potássio - pesquisa e/ou dosagem",
         "nome_padrao": "Potássio",
         "nome_busca":  "potassio",
         "aliases":     ["potassio serico", "caliemia", "k+"],
@@ -229,7 +248,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Imunologia / Proteína C Reativa ──────────────────────────────────────
     {
-        "codigo_tuss": "40308030",
+        "codigo_tuss": "40308391",
+        "termo_oficial": "Proteína C reativa, quantitativa - pesquisa e/ou dosagem",
         "nome_padrao": "Proteína C Reativa (PCR)",
         "nome_busca":  "proteina c reativa",
         "aliases":     ["pcr", "pcr quantitativo", "proteina c reativa quantitativa"],
@@ -239,7 +259,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Hormonal / Tireóide ──────────────────────────────────────────────────
     {
-        "codigo_tuss": "40302671",
+        "codigo_tuss": "40316521",
+        "termo_oficial": "Tireoestimulante, hormônio (TSH) - pesquisa e/ou dosagem",
         "nome_padrao": "TSH (Hormônio Tireoestimulante)",
         "nome_busca":  "tireoestimulante",
         "aliases":     ["tsh", "hormonio tireoestimulante", "tsh ultrassensivel"],
@@ -248,7 +269,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302590",
+        "codigo_tuss": "40316491",
+        "termo_oficial": "T4 livre - pesquisa e/ou dosagem",
         "nome_padrao": "T4 Livre (Tiroxina Livre)",
         "nome_busca":  "tiroxina livre",
         "aliases":     ["t4l", "t4 livre", "ft4", "tiroxina livre"],
@@ -257,7 +279,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40302663",
+        "codigo_tuss": "40316556",
+        "termo_oficial": "Triiodotironina (T3) - pesquisa e/ou dosagem",
         "nome_padrao": "T3 (Triiodotironina)",
         "nome_busca":  "triiodotironina",
         "aliases":     ["t3", "t3 total", "triiodotironina"],
@@ -267,7 +290,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Imagem — Radiografia ─────────────────────────────────────────────────
     {
-        "codigo_tuss": "40901060",
+        "codigo_tuss": "40805026",
+        "termo_oficial": "RX - Tórax - 2 incidências",
         "nome_padrao": "Radiografia do Tórax (2 incidências)",
         "nome_busca":  "radiografia do torax",
         "aliases":     ["rx torax", "radiografia torax", "raio x torax", "rx de torax", "radiografia do torax pa e perfil"],
@@ -277,7 +301,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Imagem — Ultrassonografia ─────────────────────────────────────────────
     {
-        "codigo_tuss": "40801019",
+        "codigo_tuss": "40901122",
+        "termo_oficial": "US - Abdome total (abdome superior, rins, bexiga, aorta, veia cava inferior e adrenais)",
         "nome_padrao": "Ultrassonografia do Abdome Total",
         "nome_busca":  "ultrassonografia do abdome total",
         "aliases":     ["us abd", "usg abdome", "ultrassonografia abdome", "eco abdome", "us abdome total",
@@ -287,7 +312,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40801027",
+        "codigo_tuss": "40901130",
+        "termo_oficial": "US - Abdome superior (fígado, vias biliares, vesícula, pâncreas e baço)",
         "nome_padrao": "Ultrassonografia do Abdome Superior",
         "nome_busca":  "ultrassonografia do abdome superior",
         "aliases":     ["us abdome superior", "usg abdome superior", "ultrassonografia hepatica"],
@@ -296,7 +322,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40901337",
+        "codigo_tuss": "40901262",
+        "termo_oficial": "US - Obstétrica morfológica",
         "nome_padrao": "Ultrassonografia Obstétrica (Morfológica)",
         "nome_busca":  "ultrassonografia obstetrica",
         "aliases":     ["us obstetrico", "usg obstetrica", "morfologico", "eco obstetrico", "ultrassonografia morfologica"],
@@ -306,7 +333,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Cardiologia ──────────────────────────────────────────────────────────
     {
-        "codigo_tuss": "40311012",
+        "codigo_tuss": "40101010",
+        "termo_oficial": "ECG convencional de até 12 derivações",
         "nome_padrao": "Eletrocardiograma (ECG)",
         "nome_busca":  "eletrocardiograma",
         "aliases":     ["ecg", "ekg", "eletrocardiograma em repouso", "eletro"],
@@ -315,7 +343,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40801124",
+        "codigo_tuss": "40901106",
+        "termo_oficial": "Ecodopplercardiograma transtorácico",
         "nome_padrao": "Ecocardiograma Transtorácico",
         "nome_busca":  "ecocardiograma transtorácico",
         "aliases":     ["eco cardiaco", "ecocardiograma", "ecott", "eco tt", "ecocardiograma transtorácico"],
@@ -324,7 +353,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40311071",
+        "codigo_tuss": "20102020",
+        "termo_oficial": "Holter de 24 horas - 3 canais - digital",
         "nome_padrao": "Holter 24 Horas",
         "nome_busca":  "holter 24 horas",
         "aliases":     ["holter", "monitoramento holter", "eletrocardiograma holter"],
@@ -334,7 +364,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Tomografia Computadorizada ────────────────────────────────────────────
     {
-        "codigo_tuss": "40403090",
+        "codigo_tuss": "41001010",
+        "termo_oficial": "TC - Crânio ou sela túrcica ou órbitas",
         "nome_padrao": "Tomografia Computadorizada do Crânio",
         "nome_busca":  "tomografia computadorizada do cranio",
         "aliases":     ["tc cranio", "tc de cranio", "tomografia cranio", "tc cabeca", "tac de cranio"],
@@ -343,7 +374,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": ["Verificar indicação de contraste com o médico solicitante."],
     },
     {
-        "codigo_tuss": "40403082",
+        "codigo_tuss": "41001079",
+        "termo_oficial": "TC - Tórax",
         "nome_padrao": "Tomografia Computadorizada do Tórax",
         "nome_busca":  "tomografia computadorizada do torax",
         "aliases":     ["tc torax", "tc de torax", "tomografia torax"],
@@ -352,7 +384,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": ["Verificar indicação de contraste com o médico solicitante."],
     },
     {
-        "codigo_tuss": "40403104",
+        "codigo_tuss": "41001095",
+        "termo_oficial": "TC - Abdome total (abdome superior, pelve e retroperitônio)",
         "nome_padrao": "Tomografia Computadorizada do Abdome",
         "nome_busca":  "tomografia computadorizada do abdome",
         "aliases":     ["tc abdome", "tc de abdome", "tomografia abdome", "tac de abdome"],
@@ -362,7 +395,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Ressonância Magnética ─────────────────────────────────────────────────
     {
-        "codigo_tuss": "40601078",
+        "codigo_tuss": "41101014",
+        "termo_oficial": "RM - Crânio (encéfalo)",
         "nome_padrao": "Ressonância Magnética do Crânio",
         "nome_busca":  "ressonancia magnetica do cranio",
         "aliases":     ["rm cranio", "rm de cranio", "ressonancia cranio", "rmn cranio"],
@@ -371,7 +405,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": ["Verificar contraindicação a campos magnéticos (marca-passo, implantes metálicos)."],
     },
     {
-        "codigo_tuss": "40601086",
+        "codigo_tuss": "41101227",
+        "termo_oficial": "RM - Coluna cervical ou dorsal ou lombar",
         "nome_padrao": "Ressonância Magnética da Coluna Lombossacra",
         "nome_busca":  "ressonancia magnetica da coluna lombossacra",
         "aliases":     ["rm lombar", "rm de lombar", "ressonancia lombar", "rm coluna lombar", "rmn lombar"],
@@ -381,7 +416,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Neurologia ───────────────────────────────────────────────────────────
     {
-        "codigo_tuss": "40311020",
+        "codigo_tuss": "40103170",
+        "termo_oficial": "EEG de rotina",
         "nome_padrao": "Eletroencefalograma (EEG)",
         "nome_busca":  "eletroencefalograma",
         "aliases":     ["eeg", "eletroencefalografia"],
@@ -391,7 +427,8 @@ _BASE_RAW: list[dict] = [
     },
     # ── Urina / Fezes ────────────────────────────────────────────────────────
     {
-        "codigo_tuss": "40201030",
+        "codigo_tuss": "40311210",
+        "termo_oficial": "Rotina de urina (caracteres físicos, elementos anormais e sedimentoscopia)",
         "nome_padrao": "Urina Tipo I (EAS — Elementos Anormais e Sedimento)",
         "nome_busca":  "urina tipo i",
         "aliases":     ["eas", "urina i", "urina tipo 1", "exame de urina", "urina rotina", "sumario de urina"],
@@ -400,7 +437,8 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40205128",
+        "codigo_tuss": "40303110",
+        "termo_oficial": "Parasitológico - nas fezes",
         "nome_padrao": "Exame Parasitológico de Fezes",
         "nome_busca":  "parasitologico de fezes",
         "aliases":     ["parasitologico", "coprológico", "fezes parasitologico", "exame de fezes"],
@@ -409,23 +447,29 @@ _BASE_RAW: list[dict] = [
         "alertas_base": [],
     },
     {
-        "codigo_tuss": "40205020",
+        "codigo_tuss": "40310183",
+        "termo_oficial": "Cultura, fezes: salmonella, shigella e escherichia coli enteropatogênicas (sorologia incluída)",
         "nome_padrao": "Coprocultura com Antibiograma",
         "nome_busca":  "coprocultura",
         "aliases":     ["cultura de fezes", "coprocultura com antibiograma"],
         "categoria":   "microbiologia",
         "preparo":     "Coletar em frasco estéril sem contato com água ou vaso sanitário.",
-        "alertas_base": [],
+        "alertas_base": [
+            "A cultura de fezes oficial (TUSS 40310183) NÃO inclui o antibiograma, que é item próprio (TUSS 40310418) e fatura à parte.",
+        ],
     },
     # ── Microbiologia ─────────────────────────────────────────────────────────
     {
-        "codigo_tuss": "40201048",
+        "codigo_tuss": "40310213",
+        "termo_oficial": "Cultura, urina com contagem de colônias",
         "nome_padrao": "Urocultura com Antibiograma",
         "nome_busca":  "urocultura",
         "aliases":     ["cultura de urina", "urocultura com antibiograma", "urinocultura"],
         "categoria":   "microbiologia",
         "preparo":     "Coletar jato médio da primeira urina da manhã em frasco estéril.",
-        "alertas_base": [],
+        "alertas_base": [
+            "A urocultura oficial (TUSS 40310213) é a cultura com contagem de colônias e NÃO inclui o antibiograma, que é item próprio (TUSS 40310418) e fatura à parte.",
+        ],
     },
 ]
 
